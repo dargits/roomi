@@ -6,49 +6,44 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import roomi.dev.dto.request.LoginRequest;
 import roomi.dev.dto.request.RegisterRequest;
-import roomi.dev.dto.response.AuthResponse;
 import roomi.dev.service.AuthService;
 
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         try {
-            AuthResponse response = authService.register(request);
-            return ResponseEntity.ok(response);
+            String sessionId = authService.register(request);
+            return ResponseEntity.ok(Map.of("sessionId", sessionId));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(AuthResponse.builder()
-                            .message(e.getMessage())
-                            .build());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         try {
-            AuthResponse response = authService.login(request);
-            return ResponseEntity.ok(response);
+            String sessionId = authService.login(request);
+            return ResponseEntity.ok(Map.of("sessionId", sessionId));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(AuthResponse.builder()
-                            .message(e.getMessage())
-                            .build());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@RequestHeader("Authorization") String sessionId) {
+    public ResponseEntity<?> logout(@RequestHeader("Authorization") String sessionId) {
         try {
             authService.logout(sessionId);
-            return ResponseEntity.ok("Đăng xuất thành công");
+            return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Lỗi đăng xuất");
+            return ResponseEntity.badRequest().body(Map.of("error", "Lỗi đăng xuất"));
         }
     }
 }
