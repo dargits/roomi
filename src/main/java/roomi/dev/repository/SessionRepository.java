@@ -12,7 +12,7 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     Optional<Session> findByUserId(Long userId);
     
     @Query("SELECT s FROM Session s WHERE s.token = ?1 AND s.expriationAt > ?2")
-    Optional<Session> findValidToken(String token, LocalDateTime now);
+    Optional<Session> findValidSession(String token, LocalDateTime now);
     
     void deleteByExpriationAtBefore(LocalDateTime now);
 }
