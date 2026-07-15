@@ -11,7 +11,6 @@ public interface AuthService {
     RegisterResponse register(RegisterRequest request);
     LoginResponse login(LoginRequest request);
     void logout(String token);
-
     BaseResponse changePassword(User u,String newPassword) ;
 
 }
