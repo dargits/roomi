@@ -26,7 +26,7 @@ public class AuthUtil {
         }
         
         // Tìm session hợp lệ
-        return sessionRepository.findValidSession(token, LocalDateTime.now())
+        return sessionRepository.findValidToken(token, LocalDateTime.now())
                 .flatMap(session -> userRepository.findById(session.getUserId()))
                 .orElseThrow(() -> new BusinessException("Session không hợp lệ hoặc đã hết hạn", ErrorCode.SESSION_EXPIRED));
     }

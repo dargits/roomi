@@ -8,7 +8,9 @@ import roomi.dev.dto.request.LoginRequest;
 import roomi.dev.dto.request.RegisterRequest;
 import roomi.dev.dto.response.LoginResponse;
 import roomi.dev.dto.response.RegisterResponse;
+import roomi.dev.model.User;
 import roomi.dev.service.AuthService;
+import roomi.dev.util.AuthUtil;
 
 import java.util.Map;
 
@@ -17,6 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
 
+    private final AuthUtil authUtil;
     private final AuthService authService;
 
     @PostMapping("/register")
@@ -36,4 +39,12 @@ public class AuthController {
         authService.logout(sessionId);
         return ResponseEntity.ok(Map.of("mess", "Đăng xuất thành công"));
     }
+    @PostMapping("/changepass")
+    public ResponseEntity<?> changePassword(@RequestHeader("Authorization") String token, @RequestBody LoginRequest l) {
+        System.out.println(token);
+        User u= authUtil.getUserFromToken(token);
+        authService.changePassword(u,l.getPassword());
+        return ResponseEntity.ok(Map.of("mess", "Đổi mật khẩu thành công"));
+    }
+
 }

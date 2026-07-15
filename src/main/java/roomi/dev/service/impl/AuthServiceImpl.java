@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import roomi.dev.dto.request.LoginRequest;
 import roomi.dev.dto.request.RegisterRequest;
+import roomi.dev.dto.response.BaseResponse;
 import roomi.dev.dto.response.LoginResponse;
 import roomi.dev.dto.response.RegisterResponse;
 import roomi.dev.exception.BusinessException;
@@ -73,6 +74,16 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(String sessionId) {
         sessionRepository.findByToken(sessionId).ifPresent(sessionRepository::delete);
+    }
+
+    @Override
+    public BaseResponse changePassword(User u, String newPassword) {
+        String password = PasswordHelper.encode(newPassword);
+        u.setPasswordHash(password);
+        userRepository.save(u);
+        return BaseResponse.builder().mess("Doi mat khau thanh cong").data(null).build();
+
+
     }
 
     private String createSession(User user) {
