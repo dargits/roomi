@@ -5,13 +5,15 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "guests", indexes = {
+    @Index(name = "idx_guests_phone", columnList = "phone")
+})
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-public class User {
+public class Guest {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,28 +21,22 @@ public class User {
     @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
     
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
-    
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role;
-    
     @Column(length = 20)
     private String phone;
     
+    @Column(length = 150)
+    private String email;
+    
+    @Column(name = "id_number", length = 30)
+    private String idNumber;
+    
+    private String note;
+    
     @Builder.Default
-    @Column(nullable = false)
-    private Boolean active = true;
+    @Column(name = "loyalty_points", nullable = false)
+    private Integer loyaltyPoints = 0;
     
     @Builder.Default
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-    
-    public enum Role {
-        OWNER, RECEPTIONIST, HOUSEKEEPER, ACCOUNTANT, ADMIN
-    }
 }
