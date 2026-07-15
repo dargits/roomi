@@ -81,9 +81,7 @@ public class AuthServiceImpl implements AuthService {
         String password = PasswordHelper.encode(newPassword);
         u.setPasswordHash(password);
         userRepository.save(u);
-        return BaseResponse.builder().mess("Doi mat khau thanh cong").data(null).build();
-
-
+        return BaseResponse.builder().mess("Đổi mật khẩu thành công.").data(null).build();
     }
 
     private String createSession(User user) {

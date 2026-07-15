@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import roomi.dev.dto.request.LoginRequest;
+import roomi.dev.dto.request.PassRequest;
 import roomi.dev.dto.request.RegisterRequest;
+import roomi.dev.dto.response.BaseResponse;
 import roomi.dev.dto.response.LoginResponse;
 import roomi.dev.dto.response.RegisterResponse;
 import roomi.dev.model.User;
@@ -40,11 +42,9 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("mess", "Đăng xuất thành công"));
     }
     @PostMapping("/changepass")
-    public ResponseEntity<?> changePassword(@RequestHeader("Authorization") String token, @RequestBody LoginRequest l) {
-        System.out.println(token);
+    public ResponseEntity<?> changePassword(@RequestHeader("Authorization") String token,@Valid  @RequestBody PassRequest p) {
         User u= authUtil.getUserFromToken(token);
-        authService.changePassword(u,l.getPassword());
-        return ResponseEntity.ok(Map.of("mess", "Đổi mật khẩu thành công"));
+        BaseResponse r = authService.changePassword(u,p.getPassword());
+        return ResponseEntity.ok(r);
     }
-
 }
