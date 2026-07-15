@@ -18,7 +18,7 @@ public class UserController {
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(@RequestHeader("Authorization") String token) {
         User user = authUtil.getUserFromToken(token);
-        
+
         return ResponseEntity.ok(Map.of(
                 "id", user.getId(),
                 "fullName", user.getFullName(),
@@ -31,7 +31,7 @@ public class UserController {
     @GetMapping("/info")
     public ResponseEntity<?> getUserInfo(@RequestHeader("Authorization") String token) {
         User user = authUtil.getUserFromToken(token);
-        
+
         return ResponseEntity.ok(Map.of(
                 "mess", "Thành công",
                 "user", Map.of(
