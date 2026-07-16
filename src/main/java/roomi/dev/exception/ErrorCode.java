@@ -24,4 +24,7 @@ public class ErrorCode {
     // Permission errors
     public static final String ACCESS_DENIED = "PERM_001";
     public static final String INSUFFICIENT_PRIVILEGES = "PERM_002";
+
+    // User management errors
+    public static final String USER_NOT_FOUND = "USER_001";
 }
