@@ -47,4 +47,7 @@ public class AuthController {
         BaseResponse r = authService.changePassword(u,p.getPassword());
         return ResponseEntity.ok(r);
     }
+
+ 
+      
 }
