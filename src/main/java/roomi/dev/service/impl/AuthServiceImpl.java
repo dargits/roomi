@@ -62,6 +62,11 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Username hoặc mật khẩu không đúng", ErrorCode.INVALID_CREDENTIALS);
         }
 
+        // Kiểm tra tài khoản có bị khóa không
+        if (!user.getActive()) {
+            throw new BusinessException("Tài khoản đã bị khóa", ErrorCode.ACCESS_DENIED);
+        }
+
         sessionRepository.findByUserId(user.getId()).ifPresent(sessionRepository::delete);
         String sessionId = createSession(user);
         
@@ -97,5 +102,11 @@ public class AuthServiceImpl implements AuthService {
         
         sessionRepository.save(session);
         return sessionId;
+    }
+
+    public void validateAdminAccess(User user) {
+        if (user.getRole() != User.Role.ADMIN) {
+            throw new BusinessException("Bạn không có quyền thực hiện hành động này", ErrorCode.INSUFFICIENT_PRIVILEGES);
+        }
     }
 }

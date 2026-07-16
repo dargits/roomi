@@ -27,4 +27,7 @@ public class ErrorCode {
 
     // User management errors
     public static final String USER_NOT_FOUND = "USER_001";
+    public static final String CANNOT_LOCK_ADMIN = "USER_002";
+    public static final String USER_ALREADY_LOCKED = "USER_003";
+    public static final String USER_ALREADY_ACTIVE = "USER_004";
 }
