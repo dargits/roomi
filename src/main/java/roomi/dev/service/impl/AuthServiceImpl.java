@@ -68,6 +68,7 @@ public class AuthServiceImpl implements AuthService {
         return LoginResponse.builder()
                 .mess("Đăng nhập thành công")
                 .token(sessionId)
+                .role(user.getRole().toString())
                 .build();
     }
 
