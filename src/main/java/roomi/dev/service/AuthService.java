@@ -12,5 +12,5 @@ public interface AuthService {
     LoginResponse login(LoginRequest request);
     void logout(String token);
     BaseResponse changePassword(User u,String newPassword) ;
-
+    public void validateAdminAccess(User user);
 }

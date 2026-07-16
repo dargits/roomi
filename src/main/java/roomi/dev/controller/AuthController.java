@@ -16,6 +16,7 @@ import roomi.dev.util.AuthUtil;
 
 import java.util.Map;
 
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor

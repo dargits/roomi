@@ -10,18 +10,21 @@ import roomi.dev.dto.response.UserResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
 import roomi.dev.model.User;
+import roomi.dev.service.AuthService;
 import roomi.dev.service.UserService;
 import roomi.dev.util.AuthUtil;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/user")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class UserController {
 
     private final AuthUtil authUtil;
     private final UserService userService;
+    private final AuthService authService;
 
     @GetMapping("/profile")
     public ResponseEntity<BaseResponse<UserResponse>> getProfile(@RequestHeader("Authorization") String token) {
@@ -41,10 +44,10 @@ public class UserController {
                 .build());
     }
 
-    @GetMapping("/users")
+    @GetMapping("/")
     public ResponseEntity<BaseResponse<List<UserResponse>>> getAllUsers(@RequestHeader("Authorization") String token) {
         User currentUser = authUtil.getUserFromToken(token);
-        validateAdminAccess(currentUser);
+        authService.validateAdminAccess(currentUser);
 
         return ResponseEntity.ok(BaseResponse.<List<UserResponse>>builder()
                 .mess("Thành công")
@@ -52,14 +55,14 @@ public class UserController {
                 .build());
     }
 
-    @PutMapping("/users/{id}/role")
+    @PutMapping("/role/{id}")
     public ResponseEntity<BaseResponse<UserResponse>> changeUserRole(
             @RequestHeader("Authorization") String token,
             @PathVariable Long id,
             @Valid @RequestBody ChangeRoleRequest request) {
 
         User currentUser = authUtil.getUserFromToken(token);
-        validateAdminAccess(currentUser);
+        authService.validateAdminAccess(currentUser);
 
         User.Role newRole = User.Role.valueOf(request.getRole().trim().toUpperCase());
         UserResponse updatedUser = userService.changeUserRole(id, newRole);
@@ -70,9 +73,26 @@ public class UserController {
                 .build());
     }
 
-    private void validateAdminAccess(User user) {
-        if (user.getRole() != User.Role.ADMIN) {
-            throw new BusinessException("Bạn không có quyền thực hiện hành động này", ErrorCode.INSUFFICIENT_PRIVILEGES);
-        }
+    @PutMapping("/lock/{id}")
+    public ResponseEntity<BaseResponse<UserResponse>> lockUser(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+
+        User currentUser = authUtil.getUserFromToken(token);
+        BaseResponse<UserResponse> response = userService.lockUser(id, currentUser);
+
+        return ResponseEntity.ok(response);
     }
+
+    @PutMapping("/unlock/{id}")
+    public ResponseEntity<BaseResponse<UserResponse>> unlockUser(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+
+        User currentUser = authUtil.getUserFromToken(token);
+        BaseResponse<UserResponse> response = userService.unlockUser(id, currentUser);
+
+        return ResponseEntity.ok(response);
+    }
+
 }
