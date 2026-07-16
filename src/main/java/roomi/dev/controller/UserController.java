@@ -6,13 +6,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import roomi.dev.dto.request.ChangeRoleRequest;
 import roomi.dev.dto.response.BaseResponse;
+import roomi.dev.dto.response.UserResponse;
+import roomi.dev.exception.BusinessException;
+import roomi.dev.exception.ErrorCode;
 import roomi.dev.model.User;
 import roomi.dev.service.UserService;
 import roomi.dev.util.AuthUtil;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/user")
@@ -23,56 +24,36 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<BaseResponse<UserResponse>> getProfile(@RequestHeader("Authorization") String token) {
         User user = authUtil.getUserFromToken(token);
 
-        return ResponseEntity.ok(Map.of(
-                "id", user.getId(),
-                "fullName", user.getFullName(),
-                "username", user.getUsername(),
-                "role", user.getRole().name(),
-                "phone", user.getPhone()
-        ));
-    }
-
-    @GetMapping("/info")
-    public ResponseEntity<?> getUserInfo(@RequestHeader("Authorization") String token) {
-        User user = authUtil.getUserFromToken(token);
-
-        return ResponseEntity.ok(Map.of(
-                "mess", "Thành công",
-                "user", Map.of(
-                        "id", user.getId(),
-                        "name", user.getFullName(),
-                        "role", user.getRole().name()
-                )
-        ));
+        return ResponseEntity.ok(BaseResponse.<UserResponse>builder()
+                .mess("Thành công")
+                .data(UserResponse.builder()
+                        .id(user.getId())
+                        .fullName(user.getFullName())
+                        .username(user.getUsername())
+                        .role(user.getRole().name())
+                        .phone(user.getPhone())
+                        .active(user.getActive())
+                        .createdAt(user.getCreatedAt())
+                        .build())
+                .build());
     }
 
     @GetMapping("/users")
-    public ResponseEntity<BaseResponse<List<Map<String, Object>>>> getAllUsers(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<BaseResponse<List<UserResponse>>> getAllUsers(@RequestHeader("Authorization") String token) {
         User currentUser = authUtil.getUserFromToken(token);
         validateAdminAccess(currentUser);
 
-        List<Map<String, Object>> users = userService.getAllUsers().stream()
-                .map(user -> Map.<String, Object>of(
-                        "id", user.getId(),
-                        "fullName", user.getFullName(),
-                        "username", user.getUsername(),
-                        "role", user.getRole().name(),
-                        "phone", user.getPhone(),
-                        "active", user.getActive()
-                ))
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(BaseResponse.<List<Map<String, Object>>>builder()
+        return ResponseEntity.ok(BaseResponse.<List<UserResponse>>builder()
                 .mess("Thành công")
-                .data(users)
+                .data(userService.getAllUsers())
                 .build());
     }
 
     @PutMapping("/users/{id}/role")
-    public ResponseEntity<BaseResponse<Map<String, Object>>> changeUserRole(
+    public ResponseEntity<BaseResponse<UserResponse>> changeUserRole(
             @RequestHeader("Authorization") String token,
             @PathVariable Long id,
             @Valid @RequestBody ChangeRoleRequest request) {
@@ -81,17 +62,17 @@ public class UserController {
         validateAdminAccess(currentUser);
 
         User.Role newRole = User.Role.valueOf(request.getRole().trim().toUpperCase());
-        User updatedUser = userService.changeUserRole(id, newRole);
+        UserResponse updatedUser = userService.changeUserRole(id, newRole);
 
-        return ResponseEntity.ok(BaseResponse.<Map<String, Object>>builder()
+        return ResponseEntity.ok(BaseResponse.<UserResponse>builder()
                 .mess("Cập nhật quyền thành công")
-                .data(Map.of("id", updatedUser.getId(), "role", updatedUser.getRole().name()))
+                .data(updatedUser)
                 .build());
     }
 
     private void validateAdminAccess(User user) {
-        if (user.getRole() != User.Role.ADMIN && user.getRole() != User.Role.OWNER) {
-            throw new IllegalArgumentException("Bạn không có quyền thực hiện hành động này");
+        if (user.getRole() != User.Role.ADMIN) {
+            throw new BusinessException("Bạn không có quyền thực hiện hành động này", ErrorCode.INSUFFICIENT_PRIVILEGES);
         }
     }
 }
