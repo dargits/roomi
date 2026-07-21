@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Roomi Dev - Đăng xuất tài khoản" />
+    <title>Đăng xuất - Roomi Dev</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      /* Ngăn nháy trắng - phải đặt trước mọi CSS khác */
+      html { background: #f6f5f7; }
+      body { opacity: 0 !important; transition: opacity 0.2s ease-in; }
+      body.loaded { opacity: 1 !important; }
+      
+      @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Montserrat", sans-serif;
+      }
+
+      body {
+        background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+
+      .logout-card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.2),
+          0 8px 20px rgba(0, 0, 0, 0.15);
+        padding: 50px 45px;
+        text-align: center;
+        width: 420px;
+        max-width: 90vw;
+        animation: slideUp 0.4s ease;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .logout-icon {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #38ef7d, #11998e);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 25px;
+      }
+
+      .logout-icon i {
+        font-size: 36px;
+        color: #fff;
+      }
+
+      .logout-card h1 {
+        color: #222;
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+
+      .logout-card p {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 30px;
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+
+      .btn-confirm {
+        background: linear-gradient(to right, #38ef7d, #11998e);
+        color: #fff;
+        border: none;
+        border-radius: 25px;
+        padding: 13px 32px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition:
+          transform 80ms ease,
+          box-shadow 0.2s ease;
+      }
+
+      .btn-confirm:hover {
+        box-shadow: 0 6px 20px rgba(17, 153, 142, 0.45);
+      }
+
+      .btn-confirm:active {
+        transform: scale(0.96);
+      }
+
+      .btn-cancel {
+        background: transparent;
+        color: #555;
+        border: 2px solid #ddd;
+        border-radius: 25px;
+        padding: 13px 32px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition:
+          border-color 0.2s,
+          color 0.2s;
+      }
+
+      .btn-cancel:hover {
+        border-color: #11998e;
+        color: #11998e;
+      }
+
+      /* Loading state */
+      .loading-state {
+        display: none;
+        color: #11998e;
+        font-size: 14px;
+        font-weight: 500;
+        margin-top: 20px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .loading-state.show {
+        display: flex;
+      }
+
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 3px solid #e0e0e0;
+        border-top-color: #11998e;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logout-card">
+      <div class="logout-icon">
+        <i class="fa fa-sign-out-alt"></i>
+      </div>
+
+      <h1>Đăng xuất</h1>
+      <p>Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?<br />Phiên làm việc hiện tại sẽ kết thúc.</p>
+
+      <div class="btn-group">
+        <button class="btn-confirm" id="confirmLogoutBtn">
+          <i class="fa fa-sign-out-alt"></i>&nbsp; Đăng xuất
+        </button>
+        <a href="../dashboard/dashboard.html" class="btn-cancel" id="cancelLogoutBtn">
+          Hủy bỏ
+        </a>
+      </div>
+
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <span>Đang đăng xuất...</span>
+      </div>
+    </div>
+
+    <!-- Shared modules -->
+    <script src="../../js/constants/config.js"></script>
+    <script src="../../js/utils/auth.js"></script>
+    <script src="../../js/api/api.js"></script>
+    <script>
+      // Ngăn nháy trắng
+      document.body.classList.add("loaded");
+      
+      // Nếu chưa đăng nhập → về trang login luôn
+      if (!Auth.isLoggedIn()) {
+        window.location.replace("login.html");
+      }
+
+      document.getElementById("confirmLogoutBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("confirmLogoutBtn");
+        const cancelBtn = document.getElementById("cancelLogoutBtn");
+        const loadingState = document.getElementById("loadingState");
+
+        // Hiển thị trạng thái loading
+        btn.disabled = true;
+        cancelBtn.style.pointerEvents = "none";
+        cancelBtn.style.opacity = "0.5";
+        loadingState.classList.add("show");
+
+        try {
+          await API.logout();
+        } catch (_) {
+          // Bỏ qua lỗi server, vẫn đăng xuất phía client
+        }
+
+        Auth.clearAuth();
+        window.location.replace("login.html");
+      });
+    </script>
+  </body>
+</html>

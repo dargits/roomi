@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Roomi Dev - Hệ thống quản lý phòng trọ thông minh"
+    />
+    <title>Roomi Dev</title>
+    <style>
+      /* Ngăn nháy trắng */
+      html { background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%); }
+      
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Montserrat", sans-serif;
+        background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .redirect-msg {
+        color: white;
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        opacity: 0.9;
+      }
+      .redirect-msg::after {
+        content: "";
+        animation: dots 1.2s steps(3, end) infinite;
+      }
+      @keyframes dots {
+        0%   { content: ""; }
+        33%  { content: "."; }
+        66%  { content: ".."; }
+        100% { content: "..."; }
+      }
+    </style>
+  </head>
+  <body>
+    <p class="redirect-msg">Đang chuyển hướng</p>
+
+    <script>
+      // Kiểm tra trạng thái đăng nhập và chuyển hướng phù hợp
+      const token = localStorage.getItem("session_token");
+      if (token) {
+        window.location.replace("pages/dashboard/dashboard.html");
+      } else {
+        window.location.replace("pages/auth/login.html");
+      }
+    </script>
+  </body>
+</html>

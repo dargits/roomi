@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cấu hình tài khoản - Roomi Dev</title>
+    <style>
+      /* Ngăn nháy trắng - phải đặt trước mọi CSS khác */
+      html {
+        background: #f6f5f7;
+      }
+      body {
+        opacity: 0 !important;
+        transition: opacity 0.2s ease-in;
+      }
+      body.loaded {
+        opacity: 1 !important;
+      }
+    </style>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../../css/page-transition.css" />
+    <link rel="stylesheet" href="profile.css" />
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2><i class="fas fa-building"></i> Roomi Dev</h2>
+      </div>
+      <ul>
+        <li>
+          <a href="../dashboard/dashboard.html">
+            <i class="fa fa-home"></i> Trang chủ
+          </a>
+        </li>
+        <li id="navUsersMenuItem" style="display: none">
+          <a href="../users/users.html">
+            <i class="fa fa-users"></i> Quản lý người dùng
+          </a>
+        </li>
+        <li>
+          <a href="../room-types/room-types.html">
+            <i class="fa fa-tag"></i> Loại phòng
+          </a>
+        </li>
+        <li>
+          <a href="../rooms/rooms.html">
+            <i class="fa fa-door-open"></i> Quản lý phòng
+          </a>
+        </li>
+        <li>
+          <a href="../bookings/bookings.html">
+            <i class="fa fa-calendar-check"></i> Quản lý đặt phòng
+          </a>
+        </li>
+        <li>
+          <a href="../guests/guests.html">
+            <i class="fa fa-user-friends"></i> Quản lý khách hàng
+          </a>
+        </li>
+        <li>
+          <a href="../room-calendar/room-calendar.html">
+            <i class="fa fa-calendar-alt"></i> Lịch phòng
+          </a>
+        </li>
+        <li>
+          <a href="../seasonal-rates/seasonal-rates.html">
+            <i class="fa fa-chart-line"></i> Giá theo mùa
+          </a>
+        </li>
+        <li>
+          <a href="profile.html" class="active">
+            <i class="fa fa-user-cog"></i> Cấu hình tài khoản
+          </a>
+        </li>
+        <li>
+          <a href="../auth/change-password.html">
+            <i class="fa fa-key"></i> Đổi mật khẩu
+          </a>
+        </li>
+        <li>
+          <a href="#" id="logoutBtn">
+            <i class="fa fa-sign-out-alt"></i> Đăng xuất
+          </a>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info-sidebar">
+          <div class="avatar-sidebar" id="sidebarAvatar">
+            <i class="fa fa-user-circle"></i>
+          </div>
+          <div class="sidebar-user-detail">
+            <span id="sidebarUsername">Người dùng</span>
+            <span class="sidebar-role-badge" id="sidebarRoleBadge"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <h1><i class="fa fa-user-cog"></i> Cấu hình tài khoản</h1>
+        <p>
+          Quản lý thông tin cá nhân, phân quyền và cài đặt tài khoản của bạn.
+        </p>
+      </div>
+
+      <!-- Tab Navigation -->
+      <nav class="tab-nav" role="tablist">
+        <button
+          class="tab-btn active"
+          data-tab="info"
+          role="tab"
+          aria-selected="true"
+        >
+          <i class="fa fa-id-card"></i> Thông tin cá nhân
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="manage"
+          id="tabManage"
+          role="tab"
+          aria-selected="false"
+        >
+          <i class="fa fa-users-cog"></i> Quản lý người dùng
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="roles"
+          role="tab"
+          aria-selected="false"
+        >
+          <i class="fa fa-shield-halved"></i> Danh sách quyền
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="security"
+          role="tab"
+          aria-selected="false"
+        >
+          <i class="fa fa-lock"></i> Bảo mật
+        </button>
+      </nav>
+
+      <!-- ═══ TAB: Thông tin cá nhân ═══ -->
+      <div class="tab-panel active" id="tab-info">
+        <div class="panel-grid">
+          <!-- Avatar + quick info -->
+          <div class="profile-card">
+            <div class="profile-avatar" id="profileAvatar">?</div>
+            <h2 class="profile-name" id="profileName">—</h2>
+            <span class="profile-role-badge" id="profileRoleBadge">—</span>
+            <div class="profile-meta">
+              <div class="meta-row">
+                <i class="fa fa-at"></i>
+                <span id="profileUsername">—</span>
+              </div>
+              <div class="meta-row" id="metaPhone" style="display: none">
+                <i class="fa fa-phone"></i>
+                <span id="profilePhone">—</span>
+              </div>
+              <div class="meta-row">
+                <i class="fa fa-calendar-alt"></i>
+                <span id="profileCreatedAt">—</span>
+              </div>
+              <div class="meta-row">
+                <i class="fa fa-circle-dot"></i>
+                <span id="profileStatus" class="status-text">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit form -->
+          <div class="form-card">
+            <div class="form-card-header">
+              <h3><i class="fa fa-pen-to-square"></i> Chỉnh sửa thông tin</h3>
+            </div>
+            <div class="message-box" id="infoMessage"></div>
+            <div class="form-body">
+              <div class="form-group">
+                <label for="editFullName"
+                  >Họ và tên <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="editFullName"
+                  placeholder="Họ và tên"
+                  maxlength="150"
+                />
+              </div>
+              <div class="form-group">
+                <label for="editUsernameDisplay">Tên đăng nhập</label>
+                <input
+                  type="text"
+                  id="editUsernameDisplay"
+                  disabled
+                  class="input-disabled"
+                />
+                <span class="input-hint"
+                  >Tên đăng nhập không thể thay đổi.</span
+                >
+              </div>
+              <div class="form-group">
+                <label for="editPhone">Số điện thoại</label>
+                <input
+                  type="tel"
+                  id="editPhone"
+                  placeholder="0901234567"
+                  maxlength="20"
+                />
+              </div>
+              <div class="form-group">
+                <label>Vai trò hiện tại</label>
+                <input
+                  type="text"
+                  id="editRoleDisplay"
+                  disabled
+                  class="input-disabled"
+                />
+              </div>
+            </div>
+            <div class="form-footer">
+              <button class="btn-primary" id="saveInfoBtn">
+                <i class="fa fa-save"></i> Lưu thay đổi
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Quản lý người dùng ═══ -->
+      <div class="tab-panel" id="tab-manage">
+        <div class="manage-grid">
+          <a href="../users/users.html" class="manage-card">
+            <div class="manage-icon manage-icon-teal">
+              <i class="fa fa-users"></i>
+            </div>
+            <div class="manage-body">
+              <h3>Danh sách người dùng</h3>
+              <p>Xem, tìm kiếm và lọc tất cả tài khoản trong hệ thống.</p>
+            </div>
+            <i class="fa fa-chevron-right manage-arrow"></i>
+          </a>
+
+          <a href="../users/users.html?action=create" class="manage-card">
+            <div class="manage-icon manage-icon-green">
+              <i class="fa fa-user-plus"></i>
+            </div>
+            <div class="manage-body">
+              <h3>Tạo tài khoản mới</h3>
+              <p>Thêm nhân viên mới và gán vai trò phù hợp.</p>
+            </div>
+            <i class="fa fa-chevron-right manage-arrow"></i>
+          </a>
+
+          <div class="manage-card manage-card-stat" id="manageStat">
+            <div class="manage-icon manage-icon-blue">
+              <i class="fa fa-chart-pie"></i>
+            </div>
+            <div class="manage-body">
+              <h3>Tổng quan nhân sự</h3>
+              <div class="stat-mini-grid" id="statMiniGrid">
+                <div class="stat-mini">
+                  <span id="smTotal">—</span><label>Tổng</label>
+                </div>
+                <div class="stat-mini">
+                  <span id="smActive">—</span><label>Hoạt động</label>
+                </div>
+                <div class="stat-mini">
+                  <span id="smLocked">—</span><label>Đã khóa</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <a href="../auth/change-password.html" class="manage-card">
+            <div class="manage-icon manage-icon-orange">
+              <i class="fa fa-key"></i>
+            </div>
+            <div class="manage-body">
+              <h3>Đổi mật khẩu</h3>
+              <p>Cập nhật mật khẩu tài khoản quản trị của bạn.</p>
+            </div>
+            <i class="fa fa-chevron-right manage-arrow"></i>
+          </a>
+        </div>
+
+        <!-- Thông báo khi không phải admin -->
+        <div class="no-access-notice" id="noAccessNotice" style="display: none">
+          <i class="fa fa-shield-halved"></i>
+          <p>
+            Bạn không có quyền quản lý người dùng. Chức năng này chỉ dành cho
+            Quản trị viên.
+          </p>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Danh sách quyền ═══ -->
+      <div class="tab-panel" id="tab-roles">
+        <div class="roles-intro">
+          <p>
+            Hệ thống phân quyền theo vai trò. Mỗi tài khoản được gán một vai trò
+            xác định quyền truy cập.
+          </p>
+        </div>
+        <div class="roles-grid">
+          <div class="role-card role-card-admin">
+            <div class="role-card-header">
+              <span class="role-icon"><i class="fa fa-user-shield"></i></span>
+              <h3>Quản trị viên</h3>
+              <span class="role-tag role-ADMIN">ADMIN</span>
+            </div>
+            <ul class="role-perms">
+              <li>
+                <i class="fa fa-check"></i> Xem và quản lý tất cả tài khoản
+              </li>
+              <li>
+                <i class="fa fa-check"></i> Tạo, sửa, khóa/mở khóa tài khoản
+              </li>
+              <li>
+                <i class="fa fa-check"></i> Gán và thay đổi vai trò người dùng
+              </li>
+              <li>
+                <i class="fa fa-check"></i> Truy cập toàn bộ tính năng hệ thống
+              </li>
+              <li>
+                <i class="fa fa-check"></i> Xem thống kê và báo cáo tổng hợp
+              </li>
+            </ul>
+          </div>
+
+          <div class="role-card role-card-owner">
+            <div class="role-card-header">
+              <span class="role-icon"><i class="fa fa-house-user"></i></span>
+              <h3>Chủ nhà trọ</h3>
+              <span class="role-tag role-OWNER">OWNER</span>
+            </div>
+            <ul class="role-perms">
+              <li><i class="fa fa-check"></i> Quản lý phòng và loại phòng</li>
+              <li><i class="fa fa-check"></i> Xem và phê duyệt đặt phòng</li>
+              <li><i class="fa fa-check"></i> Xem báo cáo doanh thu</li>
+              <li><i class="fa fa-check"></i> Cài đặt giá và chính sách</li>
+              <li>
+                <i class="fa fa-times perm-no"></i> Quản lý tài khoản người dùng
+              </li>
+            </ul>
+          </div>
+
+          <div class="role-card role-card-receptionist">
+            <div class="role-card-header">
+              <span class="role-icon"
+                ><i class="fa fa-concierge-bell"></i
+              ></span>
+              <h3>Lễ tân</h3>
+              <span class="role-tag role-RECEPTIONIST">RECEPTIONIST</span>
+            </div>
+            <ul class="role-perms">
+              <li><i class="fa fa-check"></i> Tiếp nhận và xử lý đặt phòng</li>
+              <li><i class="fa fa-check"></i> Quản lý check-in / check-out</li>
+              <li>
+                <i class="fa fa-check"></i> Xem danh sách phòng và trạng thái
+              </li>
+              <li>
+                <i class="fa fa-times perm-no"></i> Xem thông tin tài chính
+              </li>
+              <li>
+                <i class="fa fa-times perm-no"></i> Quản lý tài khoản người dùng
+              </li>
+            </ul>
+          </div>
+
+          <div class="role-card role-card-housekeeper">
+            <div class="role-card-header">
+              <span class="role-icon"><i class="fa fa-broom"></i></span>
+              <h3>Nhân viên phòng</h3>
+              <span class="role-tag role-HOUSEKEEPER">HOUSEKEEPER</span>
+            </div>
+            <ul class="role-perms">
+              <li>
+                <i class="fa fa-check"></i> Xem danh sách phòng cần dọn dẹp
+              </li>
+              <li><i class="fa fa-check"></i> Cập nhật trạng thái phòng</li>
+              <li><i class="fa fa-check"></i> Báo cáo sự cố trong phòng</li>
+              <li>
+                <i class="fa fa-times perm-no"></i> Xem thông tin đặt phòng chi
+                tiết
+              </li>
+              <li>
+                <i class="fa fa-times perm-no"></i> Quản lý tài khoản người dùng
+              </li>
+            </ul>
+          </div>
+
+          <div class="role-card role-card-accountant">
+            <div class="role-card-header">
+              <span class="role-icon"><i class="fa fa-calculator"></i></span>
+              <h3>Kế toán</h3>
+              <span class="role-tag role-ACCOUNTANT">ACCOUNTANT</span>
+            </div>
+            <ul class="role-perms">
+              <li><i class="fa fa-check"></i> Xem và xuất báo cáo tài chính</li>
+              <li><i class="fa fa-check"></i> Quản lý hóa đơn và thanh toán</li>
+              <li><i class="fa fa-check"></i> Theo dõi doanh thu và chi phí</li>
+              <li><i class="fa fa-times perm-no"></i> Quản lý đặt phòng</li>
+              <li>
+                <i class="fa fa-times perm-no"></i> Quản lý tài khoản người dùng
+              </li>
+            </ul>
+          </div>
+
+          <div class="role-card role-card-none">
+            <div class="role-card-header">
+              <span class="role-icon"><i class="fa fa-user-clock"></i></span>
+              <h3>Chưa phân quyền</h3>
+              <span class="role-tag role-NONE">NONE</span>
+            </div>
+            <ul class="role-perms">
+              <li><i class="fa fa-check"></i> Đăng nhập vào hệ thống</li>
+              <li><i class="fa fa-check"></i> Xem thông tin cá nhân</li>
+              <li><i class="fa fa-check"></i> Đổi mật khẩu tài khoản</li>
+              <li>
+                <i class="fa fa-times perm-no"></i> Truy cập các tính năng
+                nghiệp vụ
+              </li>
+              <li><i class="fa fa-times perm-no"></i> Xem dữ liệu hệ thống</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Bảo mật ═══ -->
+      <div class="tab-panel" id="tab-security">
+        <div class="security-grid">
+          <!-- Đổi mật khẩu -->
+          <div class="security-card">
+            <div class="security-card-icon security-icon-green">
+              <i class="fa fa-key"></i>
+            </div>
+            <div class="security-card-body">
+              <h3>Đổi mật khẩu</h3>
+              <p>
+                Thay đổi mật khẩu định kỳ để bảo vệ tài khoản. Mật khẩu phải có
+                ít nhất 6 ký tự.
+              </p>
+              <a href="../auth/change-password.html" class="btn-primary btn-sm">
+                <i class="fa fa-arrow-right"></i> Đổi ngay
+              </a>
+            </div>
+          </div>
+
+          <!-- Thông tin phiên -->
+          <div class="security-card">
+            <div class="security-card-icon security-icon-blue">
+              <i class="fa fa-fingerprint"></i>
+            </div>
+            <div class="security-card-body">
+              <h3>Phiên đăng nhập</h3>
+              <p>Thông tin phiên làm việc hiện tại của bạn.</p>
+              <div class="session-info" id="sessionInfo">
+                <div class="session-row">
+                  <span class="session-label">Trình duyệt</span>
+                  <span id="sessionBrowser">—</span>
+                </div>
+                <div class="session-row">
+                  <span class="session-label">Thời gian</span>
+                  <span id="sessionTime">—</span>
+                </div>
+                <div class="session-row">
+                  <span class="session-label">Trạng thái</span>
+                  <span class="status-active-dot"
+                    ><i class="fa fa-circle" style="font-size: 8px"></i> Đang
+                    hoạt động</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Đăng xuất -->
+          <div class="security-card">
+            <div class="security-card-icon security-icon-red">
+              <i class="fa fa-right-from-bracket"></i>
+            </div>
+            <div class="security-card-body">
+              <h3>Đăng xuất</h3>
+              <p>
+                Kết thúc phiên làm việc hiện tại và xóa dữ liệu đăng nhập khỏi
+                thiết bị này.
+              </p>
+              <button class="btn-danger btn-sm" id="logoutSecurityBtn">
+                <i class="fa fa-sign-out-alt"></i> Đăng xuất ngay
+              </button>
+            </div>
+          </div>
+
+          <!-- Tài khoản bị khóa -->
+          <div class="security-card">
+            <div class="security-card-icon security-icon-orange">
+              <i class="fa fa-circle-info"></i>
+            </div>
+            <div class="security-card-body">
+              <h3>Chính sách khóa tài khoản</h3>
+              <p>
+                Quản trị viên có thể khóa tài khoản của bạn nếu phát hiện vi
+                phạm. Tài khoản bị khóa sẽ không thể đăng nhập cho đến khi được
+                mở khóa.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="../../js/constants/config.js"></script>
+    <script src="../../js/utils/auth.js"></script>
+    <script src="../../js/api/api.js"></script>
+    <script src="profile.js"></script>
+  </body>
+</html>

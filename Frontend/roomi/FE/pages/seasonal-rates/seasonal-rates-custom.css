@@ -1,0 +1,107 @@
+/**
+ * seasonal-rates-custom.css - Custom styles for seasonal rates page
+ */
+
+/* Date range display */
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.date-range i {
+  color: #11998e;
+}
+
+/* Price display */
+.price-amount {
+  font-weight: 600;
+  color: #11998e;
+  font-size: 14px;
+}
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-group label i {
+  color: #11998e;
+}
+
+.filter-group select {
+  padding: 8px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: "Montserrat", sans-serif;
+  min-width: 220px;
+  background: #fafafa;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.filter-group select:focus {
+  border-color: #11998e;
+  background: #fff;
+}
+
+/* Form row for 2 columns */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  grid-column: 1 / -1;
+}
+
+/* Date input wrapper */
+.date-input-wrapper {
+  position: relative;
+}
+
+.date-input-wrapper input[type="date"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: "Montserrat", sans-serif;
+  background: #fafafa;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.date-input-wrapper input[type="date"]:focus {
+  border-color: #11998e;
+  background: #fff;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
