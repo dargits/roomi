@@ -1,0 +1,236 @@
+{
+  "info": {
+    "_postman_id": "roomi-booking-guest-v1",
+    "name": "Roomi - Booking & Guest API",
+    "description": "Test đầy đủ chức năng Booking và Guest.\n\nThứ tự chạy:\n  1. Auth (login lấy token)\n  2. Guest CRUD\n  3. Booking - Happy path (tạo → gán phòng → confirm → check-in → check-out)\n  4. Booking - Kiểm thử chồng lấn gói thời gian (gán phòng đã bị đặt)\n  5. Booking - Hủy\n  6. Edge cases\n\nBase URL: {{baseUrl}}",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",    "value": "http://localhost:8080", "type": "string" },
+    { "key": "token",      "value": "", "type": "string",
+      "description": "Tự động set sau bước Login" },
+    { "key": "guestId",    "value": "1", "type": "string" },
+    { "key": "roomTypeId", "value": "1", "type": "string" },
+    { "key": "roomId",     "value": "1", "type": "string" },
+    { "key": "bookingId",  "value": "1", "type": "string" },
+    { "key": "bookingId2", "value": "2", "type": "string",
+      "description": "Booking thứ hai dùng cho test chồng lấn" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "description": "Login để lấy token dùng cho các request cần xác thực",
+      "item": [
+        {
+          "name": "1.1 Login (lấy token)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Có token', () => pm.expect(res.token).to.be.a('string').and.not.empty);",
+            "pm.collectionVariables.set('token', res.token);",
+            "console.log('Token saved:', res.token);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Guest CRUD",
+      "description": "CRUD /api/v1/guests",
+      "item": [
+        {
+          "name": "2.1 Create Guest",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('mess = Tạo khách hàng thành công', () => pm.expect(res.mess).to.eql('Tạo khách hàng thành công'));",
+            "pm.test('data.id tồn tại', () => pm.expect(res.data.id).to.be.a('number'));",
+            "pm.test('fullName đúng', () => pm.expect(res.data.fullName).to.eql('Nguyễn Văn A'));",
+            "pm.test('phone đúng', () => pm.expect(res.data.phone).to.eql('0901234567'));",
+            "pm.test('loyaltyPoints = 0', () => pm.expect(res.data.loyaltyPoints).to.eql(0));",
+            "pm.collectionVariables.set('guestId', res.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/guests", "host": ["{{baseUrl}}"], "path": ["api","v1","guests"] },
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Nguyễn Văn A\",\n  \"phone\": \"0901234567\",\n  \"email\": \"nguyenvana@email.com\",\n  \"idNumber\": \"012345678901\",\n  \"note\": \"Khách thân thiết\"\n}" }
+          }
+        },
+        {
+          "name": "2.2 Create Guest - Trùng SĐT (phải lỗi)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "const res = pm.response.json();",
+            "pm.test('Có mess lỗi', () => pm.expect(res.mess).to.be.a('string').and.not.empty);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/guests", "host": ["{{baseUrl}}"], "path": ["api","v1","guests"] },
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Trần Thị B\",\n  \"phone\": \"0901234567\"\n}" }
+          }
+        },
+        {
+          "name": "2.3 Get All Guests",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data là array', () => pm.expect(res.data).to.be.an('array'));",
+            "pm.test('data không rỗng', () => pm.expect(res.data.length).to.be.above(0));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/guests", "host": ["{{baseUrl}}"], "path": ["api","v1","guests"] }
+          }
+        },
+        {
+          "name": "2.4 Get Guest by ID",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data.id khớp', () => pm.expect(String(res.data.id)).to.eql(pm.collectionVariables.get('guestId')));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/guests/{{guestId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","guests","{{guestId}}"] }
+          }
+        },
+        {
+          "name": "2.5 Get Guest by Phone",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('phone khớp', () => pm.expect(res.data.phone).to.eql('0901234567'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/guests/phone/0901234567", "host": ["{{baseUrl}}"], "path": ["api","v1","guests","phone","0901234567"] }
+          }
+        },
+        {
+          "name": "2.6 Search Guest by Name",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data là array', () => pm.expect(res.data).to.be.an('array'));",
+            "pm.test('Kết quả chứa tên tìm kiếm', () => {",
+            "  res.data.forEach(g => pm.expect(g.fullName.toLowerCase()).to.include('nguyễn'));",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/guests/search?name=Nguyễn", "host": ["{{baseUrl}}"], "path": ["api","v1","guests","search"], "query": [{ "key": "name", "value": "Nguyễn" }] }
+          }
+        },
+        {
+          "name": "2.7 Update Guest",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('mess = Cập nhật khách hàng thành công', () => pm.expect(res.mess).to.eql('Cập nhật khách hàng thành công'));",
+            "pm.test('fullName đã đổi', () => pm.expect(res.data.fullName).to.eql('Nguyễn Văn A (updated)'));"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/guests/{{guestId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","guests","{{guestId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Nguyễn Văn A (updated)\",\n  \"phone\": \"0901234567\",\n  \"email\": \"updated@email.com\",\n  \"idNumber\": \"012345678901\",\n  \"note\": \"Khách VIP\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Booking - Happy Path",
+      "description": "Luồng đầy đủ: Tạo → Gán phòng → Confirm → Check-in → Check-out",
+      "item": [
+        {
+          "name": "3.1 Create Booking (chưa gán phòng)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('mess = Tạo booking thành công', () => pm.expect(res.mess).to.eql('Tạo booking thành công'));",
+            "pm.test('data.id tồn tại', () => pm.expect(res.data.id).to.be.a('number'));",
+            "pm.test('status = NEW', () => pm.expect(res.data.status).to.eql('NEW'));",
+            "pm.test('roomId null (chưa gán)', () => pm.expect(res.data.roomId).to.be.null);",
+            "pm.test('nights đúng', () => pm.expect(res.data.nights).to.eql(3));",
+            "pm.test('guestName đúng', () => pm.expect(res.data.guestName).to.include('Nguyễn Văn A'));",
+            "pm.collectionVariables.set('bookingId', res.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": { "mode": "raw", "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2027-08-01\",\n  \"checkOutDate\": \"2027-08-04\",\n  \"source\": \"WALK_IN\"\n}" }
+          }
+        },
+        {
+          "name": "3.2 Assign Room cho Booking",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('mess = Gán phòng thành công', () => pm.expect(res.mess).to.eql('Gán phòng thành công'));",
+            "pm.test('roomId đã được gán', () => pm.expect(res.data.roomId).to.be.a('number'));",
+            "pm.test('roomNumber tồn tại', () => pm.expect(res.data.roomNumber).to.be.a('string').and.not.empty);",
+            "pm.test('expectedPrice > 0', () => pm.expect(Number(res.data.expectedPrice)).to.be.above(0));",
+            "pm.test('status vẫn là NEW', () => pm.expect(res.data.status).to.eql('NEW'));",
+            "console.log('expectedPrice =', res.data.expectedPrice, '| nights =', res.data.nights);"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/assign-room?roomId={{roomId}}",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","assign-room"],
+              "query": [{ "key": "roomId", "value": "{{roomId}}" }]
+            }
+          }
+        },
+        {
+          "name": "3.3 Confirm Booking (NEW → CONFIRMED)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('mess = Xác nhận booking thành công', () => pm.expect(res.mess).to.eql('Xác nhận booking thành công'));",
+            "pm.test('status = CONFIRMED', () => pm.expect(res.data.status).to.eql('CONFIRMED'));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/confirm", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","confirm"] }
+          }
+        },
+        {
+          "name": "3.4 Check-in (CONFIRMED → CHECKED_IN)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('mess = Check-in thành công', () => pm.expect(res.mess).to.eql('Check-in thành công'));",
+            "pm.test('status = CHECKED_IN', () => pm.expect(res.data.status).to.eql('CHECKED_IN'));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/check-in", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","check-in"] }
+          }
+        },
+        {
+          "name": "3.5 Check-out (CHECKED_IN → CHECKED_OUT)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('mess = Check-out thành công', () => pm.expect(res.mess).to.eql('Check-out thành công'));",
+            "pm.test('status = CHECKED_OUT', () => pm.expect(res.data.status).to.eql('CHECKED_OUT'));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/check-out", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","check-out"] }
+          }
+        }
+      ]
+    },
