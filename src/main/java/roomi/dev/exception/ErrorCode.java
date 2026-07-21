@@ -30,4 +30,10 @@ public class ErrorCode {
     public static final String CANNOT_LOCK_ADMIN = "USER_002";
     public static final String USER_ALREADY_LOCKED = "USER_003";
     public static final String USER_ALREADY_ACTIVE = "USER_004";
+
+    // Seasonal Rate errors
+    public static final String ROOM_TYPE_NOT_FOUND = "RATE_001";
+    public static final String SEASONAL_RATE_NOT_FOUND = "RATE_002";
+    public static final String DATE_RANGE_OVERLAP = "RATE_003";
+    public static final String INVALID_DATE_RANGE = "RATE_004";
 }

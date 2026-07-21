@@ -1,0 +1,832 @@
+{
+	"info": {
+		"_postman_id": "11111111-2222-3333-4444-555555555555",
+		"name": "Roomi - Seasonal Rate Management API Tests",
+		"description": "Collection để test các API cấu hình và tra cứu giá theo ngày trong hệ thống Roomi Hotel Management",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "🔐 Get Admin Token First",
+			"item": [
+				{
+					"name": "Login Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.token) {",
+									"        pm.collectionVariables.set('admin_token', response.token);",
+									"        console.log('Admin token saved:', response.token);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🏠 Setup Room Types (Prerequisites)",
+			"item": [
+				{
+					"name": "Create Standard Room Type",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.id) {",
+									"        pm.collectionVariables.set('standard_room_type_id', response.data.id);",
+									"        console.log('Standard Room Type ID saved:', response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Phòng Standard\",\n  \"capacity\": 2,\n  \"amenities\": \"TV, Điều hòa, WiFi, Minibar\",\n  \"basePrice\": 500000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/room-types",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"room-types"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Deluxe Room Type",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.id) {",
+									"        pm.collectionVariables.set('deluxe_room_type_id', response.data.id);",
+									"        console.log('Deluxe Room Type ID saved:', response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Phòng Deluxe\",\n  \"capacity\": 3,\n  \"amenities\": \"TV LCD, Điều hòa, WiFi, Minibar, Ban công, Bồn tắm\",\n  \"basePrice\": 800000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/room-types",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"room-types"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "💰 Seasonal Rate Management",
+			"item": [
+				{
+					"name": "Get All Seasonal Rates (Empty)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Summer Rate - Standard Room",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.id) {",
+									"        pm.collectionVariables.set('summer_rate_id', response.data.id);",
+									"        console.log('Summer Rate ID saved:', response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": {{standard_room_type_id}},\n  \"startDate\": \"2024-06-01\",\n  \"endDate\": \"2024-08-31\",\n  \"price\": 700000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create New Year Rate - Standard Room",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": {{standard_room_type_id}},\n  \"startDate\": \"2024-12-30\",\n  \"endDate\": \"2025-01-03\",\n  \"price\": 900000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Summer Rate - Deluxe Room",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": {{deluxe_room_type_id}},\n  \"startDate\": \"2024-06-01\",\n  \"endDate\": \"2024-08-31\",\n  \"price\": 1200000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Try Create Overlapping Rate (Should Fail)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": {{standard_room_type_id}},\n  \"startDate\": \"2024-07-01\",\n  \"endDate\": \"2024-09-30\",\n  \"price\": 750000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get All Seasonal Rates (With Data)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Seasonal Rates by Room Type - Standard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/room-type/{{standard_room_type_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"room-type",
+								"{{standard_room_type_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Seasonal Rate by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/{{summer_rate_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"{{summer_rate_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Seasonal Rate",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": {{standard_room_type_id}},\n  \"startDate\": \"2024-06-01\",\n  \"endDate\": \"2024-08-31\",\n  \"price\": 750000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/{{summer_rate_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"{{summer_rate_id}}"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🔍 Price Lookup Tests",
+			"item": [
+				{
+					"name": "Lookup Price - Summer Date (Seasonal Rate)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId={{standard_room_type_id}}&date=2024-07-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"price-lookup"
+							],
+							"query": [
+								{
+									"key": "roomTypeId",
+									"value": "{{standard_room_type_id}}"
+								},
+								{
+									"key": "date",
+									"value": "2024-07-15"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Lookup Price - Regular Date (Base Price)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId={{standard_room_type_id}}&date=2024-10-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"price-lookup"
+							],
+							"query": [
+								{
+									"key": "roomTypeId",
+									"value": "{{standard_room_type_id}}"
+								},
+								{
+									"key": "date",
+									"value": "2024-10-15"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Lookup Price - New Year Date (High Season)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId={{standard_room_type_id}}&date=2025-01-01",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"price-lookup"
+							],
+							"query": [
+								{
+									"key": "roomTypeId",
+									"value": "{{standard_room_type_id}}"
+								},
+								{
+									"key": "date",
+									"value": "2025-01-01"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Lookup Price - Deluxe Summer",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId={{deluxe_room_type_id}}&date=2024-07-20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"price-lookup"
+							],
+							"query": [
+								{
+									"key": "roomTypeId",
+									"value": "{{deluxe_room_type_id}}"
+								},
+								{
+									"key": "date",
+									"value": "2024-07-20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Lookup Price - Non-existing Room Type (Should Fail)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId=999&date=2024-07-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"price-lookup"
+							],
+							"query": [
+								{
+									"key": "roomTypeId",
+									"value": "999"
+								},
+								{
+									"key": "date",
+									"value": "2024-07-15"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "❌ Error Testing",
+			"item": [
+				{
+					"name": "Create Rate with Invalid Date Range",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": {{standard_room_type_id}},\n  \"startDate\": \"2024-08-31\",\n  \"endDate\": \"2024-06-01\",\n  \"price\": 600000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Rate with Non-existing Room Type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": 999,\n  \"startDate\": \"2024-10-01\",\n  \"endDate\": \"2024-10-31\",\n  \"price\": 600000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Non-existing Seasonal Rate",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomTypeId\": {{standard_room_type_id}},\n  \"startDate\": \"2024-09-01\",\n  \"endDate\": \"2024-09-30\",\n  \"price\": 650000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/999",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"999"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Non-existing Seasonal Rate",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/999",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"999"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🗑️ Cleanup",
+			"item": [
+				{
+					"name": "Delete Seasonal Rate",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/{{summer_rate_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"{{summer_rate_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Try Delete Non-existing Rate (Should Fail)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/seasonal-rates/999",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"seasonal-rates",
+								"999"
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "standard_room_type_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "deluxe_room_type_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "summer_rate_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
