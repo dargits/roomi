@@ -1,0 +1,276 @@
+package roomi.dev.controller;
+
+import tools.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import roomi.dev.dto.request.RoomTypeRequest;
+import roomi.dev.exception.BusinessException;
+import roomi.dev.exception.ErrorCode;
+import roomi.dev.model.RoomType;
+import roomi.dev.service.RoomTypeService;
+
+import java.math.BigDecimal;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(RoomTypeController.class)
+class RoomTypeControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private RoomTypeService roomTypeService;
+
+    // ------------------------------------------------------------------ helpers
+
+    private RoomTypeRequest buildRequest(String name, Integer capacity, String amenities, BigDecimal basePrice) {
+        RoomTypeRequest req = new RoomTypeRequest();
+        req.setName(name);
+        req.setCapacity(capacity);
+        req.setAmenities(amenities);
+        req.setBasePrice(basePrice);
+        return req;
+    }
+
+    private RoomType buildRoomType(Long id, String name, int capacity, BigDecimal basePrice) {
+        return RoomType.builder()
+                .id(id)
+                .name(name)
+                .capacity(capacity)
+                .amenities("WiFi, TV")
+                .basePrice(basePrice)
+                .build();
+    }
+
+    // ================================================================== POST /api/v1/room-types
+    @Nested
+    @DisplayName("POST /api/v1/room-types — Thêm loại phòng")
+    class CreateRoomType {
+
+        @Test
+        @DisplayName("201 Created — thêm loại phòng thành công")
+        void createRoomType_success_returns201() throws Exception {
+            RoomTypeRequest request = buildRequest("Deluxe", 2, "WiFi, TV", new BigDecimal("500000"));
+            RoomType saved = buildRoomType(1L, "Deluxe", 2, new BigDecimal("500000"));
+
+            when(roomTypeService.createRoomType(any(RoomTypeRequest.class))).thenReturn(saved);
+
+            mockMvc.perform(post("/api/v1/room-types")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.mess").value("Tạo loại phòng thành công"))
+                    .andExpect(jsonPath("$.data.id").value(1))
+                    .andExpect(jsonPath("$.data.name").value("Deluxe"))
+                    .andExpect(jsonPath("$.data.capacity").value(2))
+                    .andExpect(jsonPath("$.data.basePrice").value(500000));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — tên loại phòng đã tồn tại")
+        void createRoomType_duplicateName_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("Deluxe", 2, "WiFi", new BigDecimal("500000"));
+
+            when(roomTypeService.createRoomType(any(RoomTypeRequest.class)))
+                    .thenThrow(new BusinessException("Loại phòng đã tồn tại", ErrorCode.INVALID_INPUT));
+
+            mockMvc.perform(post("/api/v1/room-types")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("Loại phòng đã tồn tại"))
+                    .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — name bị bỏ trống (validation)")
+        void createRoomType_blankName_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("", 2, "WiFi", new BigDecimal("500000"));
+
+            mockMvc.perform(post("/api/v1/room-types")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("name không được để trống"));
+
+            verify(roomTypeService, never()).createRoomType(any());
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — capacity bị null (validation)")
+        void createRoomType_nullCapacity_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("Deluxe", null, "WiFi", new BigDecimal("500000"));
+
+            mockMvc.perform(post("/api/v1/room-types")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("capacity không được để trống"));
+
+            verify(roomTypeService, never()).createRoomType(any());
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — basePrice bị null (validation)")
+        void createRoomType_nullBasePrice_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("Deluxe", 2, "WiFi", null);
+
+            mockMvc.perform(post("/api/v1/room-types")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("basePrice không được để trống"));
+
+            verify(roomTypeService, never()).createRoomType(any());
+        }
+
+        @Test
+        @DisplayName("201 Created — amenities có thể null (optional field)")
+        void createRoomType_nullAmenities_success() throws Exception {
+            RoomTypeRequest request = buildRequest("Standard", 1, null, new BigDecimal("300000"));
+            RoomType saved = RoomType.builder()
+                    .id(2L).name("Standard").capacity(1).amenities(null)
+                    .basePrice(new BigDecimal("300000")).build();
+
+            when(roomTypeService.createRoomType(any(RoomTypeRequest.class))).thenReturn(saved);
+
+            mockMvc.perform(post("/api/v1/room-types")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.data.name").value("Standard"))
+                    .andExpect(jsonPath("$.data.amenities").doesNotExist());
+        }
+    }
+
+    // ================================================================== PUT /api/v1/room-types/{id}
+    @Nested
+    @DisplayName("PUT /api/v1/room-types/{id} — Sửa loại phòng")
+    class UpdateRoomType {
+
+        @Test
+        @DisplayName("200 OK — sửa loại phòng thành công")
+        void updateRoomType_success_returns200() throws Exception {
+            RoomTypeRequest request = buildRequest("Superior", 3, "WiFi, Pool", new BigDecimal("800000"));
+            RoomType updated = buildRoomType(1L, "Superior", 3, new BigDecimal("800000"));
+
+            when(roomTypeService.updateRoomType(eq(1L), any(RoomTypeRequest.class))).thenReturn(updated);
+
+            mockMvc.perform(put("/api/v1/room-types/1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.mess").value("Cập nhật loại phòng thành công"))
+                    .andExpect(jsonPath("$.data.id").value(1))
+                    .andExpect(jsonPath("$.data.name").value("Superior"))
+                    .andExpect(jsonPath("$.data.capacity").value(3))
+                    .andExpect(jsonPath("$.data.basePrice").value(800000));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — id không tồn tại")
+        void updateRoomType_notFound_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("Superior", 3, "WiFi", new BigDecimal("800000"));
+
+            when(roomTypeService.updateRoomType(eq(99L), any(RoomTypeRequest.class)))
+                    .thenThrow(new BusinessException("Không tìm thấy loại phòng", ErrorCode.INVALID_INPUT));
+
+            mockMvc.perform(put("/api/v1/room-types/99")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("Không tìm thấy loại phòng"))
+                    .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — tên mới đã tồn tại ở bản ghi khác")
+        void updateRoomType_duplicateNewName_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("Superior", 3, "WiFi", new BigDecimal("800000"));
+
+            when(roomTypeService.updateRoomType(eq(1L), any(RoomTypeRequest.class)))
+                    .thenThrow(new BusinessException("Loại phòng đã tồn tại", ErrorCode.INVALID_INPUT));
+
+            mockMvc.perform(put("/api/v1/room-types/1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("Loại phòng đã tồn tại"));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — name bị bỏ trống khi sửa (validation)")
+        void updateRoomType_blankName_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("", 3, "WiFi", new BigDecimal("800000"));
+
+            mockMvc.perform(put("/api/v1/room-types/1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("name không được để trống"));
+
+            verify(roomTypeService, never()).updateRoomType(any(), any());
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — basePrice bị null khi sửa (validation)")
+        void updateRoomType_nullBasePrice_returns400() throws Exception {
+            RoomTypeRequest request = buildRequest("Superior", 3, "WiFi", null);
+
+            mockMvc.perform(put("/api/v1/room-types/1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("basePrice không được để trống"));
+
+            verify(roomTypeService, never()).updateRoomType(any(), any());
+        }
+    }
+
+    // ================================================================== DELETE /api/v1/room-types/{id}
+    @Nested
+    @DisplayName("DELETE /api/v1/room-types/{id} — Xóa loại phòng")
+    class DeleteRoomType {
+
+        @Test
+        @DisplayName("200 OK — xóa loại phòng thành công")
+        void deleteRoomType_success_returns200() throws Exception {
+            doNothing().when(roomTypeService).deleteRoomType(1L);
+
+            mockMvc.perform(delete("/api/v1/room-types/1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.mess").value("Xóa loại phòng thành công"))
+                    .andExpect(jsonPath("$.data").doesNotExist());
+
+            verify(roomTypeService).deleteRoomType(1L);
+        }
+
+        @Test
+        @DisplayName("400 Bad Request — id không tồn tại khi xóa")
+        void deleteRoomType_notFound_returns400() throws Exception {
+            doThrow(new BusinessException("Không tìm thấy loại phòng", ErrorCode.INVALID_INPUT))
+                    .when(roomTypeService).deleteRoomType(99L);
+
+            mockMvc.perform(delete("/api/v1/room-types/99"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mess").value("Không tìm thấy loại phòng"))
+                    .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT));
+
+            verify(roomTypeService).deleteRoomType(99L);
+        }
+    }
+}

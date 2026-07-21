@@ -1,0 +1,504 @@
+{
+  "info": {
+    "_postman_id": "roomi-timeslot-error-tests-v1",
+    "name": "Roomi — Kiểm thử khoảng ngày sai & thiếu thông tin",
+    "description": "Collection kiểm thử các trường hợp lỗi: khoảng ngày sai, thiếu field bắt buộc, trùng lịch phòng — dùng cho POST /api/v1/bookings và PATCH /{id}/assign-room, GET /api/v1/calendar/*",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",   "value": "http://localhost:8080",      "type": "string" },
+    { "key": "token",     "value": "your-session-token-here",    "type": "string" },
+    { "key": "guestId",   "value": "1",                          "type": "string" },
+    { "key": "roomTypeId","value": "1",                          "type": "string" },
+    { "key": "roomId",    "value": "1",                          "type": "string" },
+    { "key": "bookingId", "value": "1",                          "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "1. Tạo Booking — Khoảng ngày sai",
+      "item": [
+        {
+          "name": "1.1 checkInDate > checkOutDate",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_002', () => pm.expect(pm.response.json().code).to.eql('BOOK_002'));",
+            "pm.test('mess chứa checkInDate', () => pm.expect(pm.response.json().mess).to.include('checkInDate'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"checkOutDate\": \"2026-09-05\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "1.2 checkInDate == checkOutDate (cùng ngày)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_002', () => pm.expect(pm.response.json().code).to.eql('BOOK_002'));",
+            "pm.test('mess chứa phải trước', () => pm.expect(pm.response.json().mess).to.include('phải trước'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"checkOutDate\": \"2026-09-10\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "1.3 checkInDate trong quá khứ (hôm qua)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_002', () => pm.expect(pm.response.json().code).to.eql('BOOK_002'));",
+            "pm.test('mess chứa quá khứ', () => pm.expect(pm.response.json().mess).to.include('quá khứ'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2020-01-01\",\n  \"checkOutDate\": \"2020-01-05\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "1.4 checkInDate định dạng sai (không phải yyyy-MM-dd)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"10/09/2026\",\n  \"checkOutDate\": \"2026-09-15\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "1.5 checkOutDate định dạng sai (chuỗi text)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"checkOutDate\": \"next-monday\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "2. Tạo Booking — Thiếu thông tin bắt buộc",
+      "item": [
+        {
+          "name": "2.1 Thiếu guestId",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));",
+            "pm.test('mess chứa guestId', () => pm.expect(pm.response.json().mess).to.include('guestId'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"checkOutDate\": \"2026-09-15\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "2.2 Thiếu roomTypeId",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));",
+            "pm.test('mess chứa roomTypeId', () => pm.expect(pm.response.json().mess).to.include('roomTypeId'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"checkOutDate\": \"2026-09-15\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "2.3 Thiếu checkInDate",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));",
+            "pm.test('mess chứa checkInDate', () => pm.expect(pm.response.json().mess).to.include('checkInDate'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkOutDate\": \"2026-09-15\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "2.4 Thiếu checkOutDate",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));",
+            "pm.test('mess chứa checkOutDate', () => pm.expect(pm.response.json().mess).to.include('checkOutDate'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "2.5 Thiếu cả checkInDate và checkOutDate",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"source\": \"WALK_IN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "2.6 Body rỗng hoàn toàn {}",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "2.7 Token không có trong header",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400 hoặc 401', () => pm.expect(pm.response.code).to.be.oneOf([400, 401]));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"checkOutDate\": \"2026-09-15\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        },
+        {
+          "name": "2.8 Token hết hạn / không hợp lệ",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "const body = pm.response.json();",
+            "pm.test('code SESSION_EXPIRED hoặc SESSION_INVALID', () => pm.expect(body.code).to.be.oneOf(['AUTH_004','AUTH_005']));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "invalid-token-xyz-123" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestId\": {{guestId}},\n  \"roomTypeId\": {{roomTypeId}},\n  \"checkInDate\": \"2026-09-10\",\n  \"checkOutDate\": \"2026-09-15\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "3. Gán phòng (assign-room) — Lỗi xung đột & sai thông tin",
+      "item": [
+        {
+          "name": "3.1 Booking không tồn tại",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_001', () => pm.expect(pm.response.json().code).to.eql('BOOK_001'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/999999/assign-room?roomId={{roomId}}",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","999999","assign-room"],
+              "query": [{ "key": "roomId", "value": "{{roomId}}" }]
+            }
+          }
+        },
+        {
+          "name": "3.2 Phòng không tồn tại",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));",
+            "pm.test('mess chứa Không tìm thấy phòng', () => pm.expect(pm.response.json().mess).to.include('Không tìm thấy phòng'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/assign-room?roomId=999999",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","assign-room"],
+              "query": [{ "key": "roomId", "value": "999999" }]
+            }
+          }
+        },
+        {
+          "name": "3.3 RoomType của phòng không khớp booking",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_006', () => pm.expect(pm.response.json().code).to.eql('BOOK_006'));",
+            "pm.test('mess chứa không khớp', () => pm.expect(pm.response.json().mess).to.include('khớp'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/assign-room?roomId={{roomId}}",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","assign-room"],
+              "query": [{ "key": "roomId", "value": "{{roomId}}" }]
+            }
+          }
+        },
+        {
+          "name": "3.4 Phòng bị trùng lịch (BOOKING_CONFLICT)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_003', () => pm.expect(pm.response.json().code).to.eql('BOOK_003'));",
+            "pm.test('mess chứa đã được đặt', () => pm.expect(pm.response.json().mess).to.include('đã được đặt'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/assign-room?roomId={{roomId}}",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","assign-room"],
+              "query": [{ "key": "roomId", "value": "{{roomId}}" }]
+            }
+          }
+        },
+        {
+          "name": "3.5 Gán phòng khi booking đã CHECKED_IN (sai trạng thái)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_005', () => pm.expect(pm.response.json().code).to.eql('BOOK_005'));",
+            "pm.test('mess chứa trạng thái', () => pm.expect(pm.response.json().mess).to.include('trạng thái'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/assign-room?roomId={{roomId}}",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","assign-room"],
+              "query": [{ "key": "roomId", "value": "{{roomId}}" }]
+            }
+          }
+        },
+        {
+          "name": "3.6 Thiếu param roomId",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/assign-room",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","assign-room"]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "4. Calendar — Khoảng ngày sai trên query param",
+      "item": [
+        {
+          "name": "4.1 [GET rooms] checkIn > checkOut",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_002', () => pm.expect(pm.response.json().code).to.eql('BOOK_002'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calendar/rooms?checkIn=2026-09-15&checkOut=2026-09-10",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","calendar","rooms"],
+              "query": [
+                { "key": "checkIn",  "value": "2026-09-15" },
+                { "key": "checkOut", "value": "2026-09-10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.2 [GET rooms] checkIn == checkOut",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_002', () => pm.expect(pm.response.json().code).to.eql('BOOK_002'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calendar/rooms?checkIn=2026-09-10&checkOut=2026-09-10",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","calendar","rooms"],
+              "query": [
+                { "key": "checkIn",  "value": "2026-09-10" },
+                { "key": "checkOut", "value": "2026-09-10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.3 [GET rooms] Thiếu param checkIn",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calendar/rooms?checkOut=2026-09-15",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","calendar","rooms"],
+              "query": [{ "key": "checkOut", "value": "2026-09-15" }]
+            }
+          }
+        },
+        {
+          "name": "4.4 [GET rooms] Thiếu param checkOut",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calendar/rooms?checkIn=2026-09-10",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","calendar","rooms"],
+              "query": [{ "key": "checkIn", "value": "2026-09-10" }]
+            }
+          }
+        },
+        {
+          "name": "4.5 [GET rooms/{id}] Định dạng ngày sai",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calendar/rooms/1?checkIn=01-09-2026&checkOut=2026-09-15",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","calendar","rooms","1"],
+              "query": [
+                { "key": "checkIn",  "value": "01-09-2026" },
+                { "key": "checkOut", "value": "2026-09-15" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.6 [GET available-rooms] checkIn > checkOut",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code BOOK_002', () => pm.expect(pm.response.json().code).to.eql('BOOK_002'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calendar/available-rooms?checkIn=2026-09-20&checkOut=2026-09-10",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","calendar","available-rooms"],
+              "query": [
+                { "key": "checkIn",  "value": "2026-09-20" },
+                { "key": "checkOut", "value": "2026-09-10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.7 [GET available-rooms] roomTypeId không tồn tại",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('code VAL_001', () => pm.expect(pm.response.json().code).to.eql('VAL_001'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calendar/available-rooms?roomTypeId=999999&checkIn=2026-09-10&checkOut=2026-09-15",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","calendar","available-rooms"],
+              "query": [
+                { "key": "roomTypeId", "value": "999999" },
+                { "key": "checkIn",    "value": "2026-09-10" },
+                { "key": "checkOut",   "value": "2026-09-15" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
