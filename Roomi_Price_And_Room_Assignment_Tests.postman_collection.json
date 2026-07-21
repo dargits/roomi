@@ -1,0 +1,189 @@
+﻿{
+  "info": {
+    "name": "Roomi - Price & Room Assignment Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "room_type_id", "value": "" },
+    { "key": "room_id", "value": "" },
+    { "key": "rate_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Login Admin",
+      "event": [{ "listen": "test", "script": { "exec": ["if(pm.response.code===200){ pm.collectionVariables.set('token', pm.response.json().token); }"], "type": "text/javascript" } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api","v1","auth","login"] }
+      }
+    },
+    {
+      "name": "2. Create RoomType",
+      "event": [{ "listen": "test", "script": { "exec": ["if(pm.response.code===201){ pm.collectionVariables.set('room_type_id', pm.response.json().data.id); }"], "type": "text/javascript" } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Phong Standard\",\n  \"capacity\": 2,\n  \"amenities\": \"TV, Dieu hoa, WiFi\",\n  \"basePrice\": 500000\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/room-types", "host": ["{{base_url}}"], "path": ["api","v1","room-types"] }
+      }
+    },
+    {
+      "name": "3. Create Room",
+      "event": [{ "listen": "test", "script": { "exec": ["if(pm.response.code===201){ pm.collectionVariables.set('room_id', pm.response.json().data.id); }"], "type": "text/javascript" } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"roomNumber\": \"101\",\n  \"floor\": \"1\",\n  \"status\": \"AVAILABLE\",\n  \"note\": \"Phong test\"\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/rooms", "host": ["{{base_url}}"], "path": ["api","v1","rooms"] }
+      }
+    },
+    {
+      "name": "4. Create Seasonal Rate (Summer)",
+      "event": [{ "listen": "test", "script": { "exec": ["if(pm.response.code===201){ pm.collectionVariables.set('rate_id', pm.response.json().data.id); }"], "type": "text/javascript" } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"startDate\": \"2025-06-01\",\n  \"endDate\": \"2025-08-31\",\n  \"price\": 750000\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates"] }
+      }
+    },
+    {
+      "name": "5. Create Seasonal Rate (New Year)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"startDate\": \"2025-12-30\",\n  \"endDate\": \"2026-01-03\",\n  \"price\": 1000000\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates"] }
+      }
+    },
+    {
+      "name": "6. Create Overlapping Rate - Should Fail",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"startDate\": \"2025-07-01\",\n  \"endDate\": \"2025-09-30\",\n  \"price\": 800000\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates"] }
+      }
+    },
+    {
+      "name": "7. Get All Seasonal Rates",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates"] }
+      }
+    },
+    {
+      "name": "8. Get Rates by RoomType",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates/room-type/{{room_type_id}}", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates","room-type","{{room_type_id}}"] }
+      }
+    },
+    {
+      "name": "9. Lookup Price - Summer Date (Seasonal Rate Expected)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId={{room_type_id}}&date=2025-07-15", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates","price-lookup"], "query": [{ "key": "roomTypeId", "value": "{{room_type_id}}" }, { "key": "date", "value": "2025-07-15" }] }
+      }
+    },
+    {
+      "name": "10. Lookup Price - Regular Date (Base Price Expected)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId={{room_type_id}}&date=2025-10-10", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates","price-lookup"], "query": [{ "key": "roomTypeId", "value": "{{room_type_id}}" }, { "key": "date", "value": "2025-10-10" }] }
+      }
+    },
+    {
+      "name": "11. Lookup Price - New Year (Seasonal Rate Expected)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates/price-lookup?roomTypeId={{room_type_id}}&date=2026-01-01", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates","price-lookup"], "query": [{ "key": "roomTypeId", "value": "{{room_type_id}}" }, { "key": "date", "value": "2026-01-01" }] }
+      }
+    },
+    {
+      "name": "12. Update Seasonal Rate",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"startDate\": \"2025-06-01\",\n  \"endDate\": \"2025-08-31\",\n  \"price\": 800000\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates/{{rate_id}}", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates","{{rate_id}}"] }
+      }
+    },
+    {
+      "name": "13. Get All Rooms",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/rooms", "host": ["{{base_url}}"], "path": ["api","v1","rooms"] }
+      }
+    },
+    {
+      "name": "14. Get Room by ID",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/rooms/{{room_id}}", "host": ["{{base_url}}"], "path": ["api","v1","rooms","{{room_id}}"] }
+      }
+    },
+    {
+      "name": "15. Update Room Status - OCCUPIED",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"roomNumber\": \"101\",\n  \"floor\": \"1\",\n  \"status\": \"OCCUPIED\",\n  \"note\": \"Khach dang o\"\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/rooms/{{room_id}}", "host": ["{{base_url}}"], "path": ["api","v1","rooms","{{room_id}}"] }
+      }
+    },
+    {
+      "name": "16. Update Room Status - NEEDS_CLEANING",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"roomNumber\": \"101\",\n  \"floor\": \"1\",\n  \"status\": \"NEEDS_CLEANING\",\n  \"note\": \"Khach tra phong\"\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/rooms/{{room_id}}", "host": ["{{base_url}}"], "path": ["api","v1","rooms","{{room_id}}"] }
+      }
+    },
+    {
+      "name": "17. Update Room Status - AVAILABLE",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "{{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"roomTypeId\": {{room_type_id}},\n  \"roomNumber\": \"101\",\n  \"floor\": \"1\",\n  \"status\": \"AVAILABLE\",\n  \"note\": \"Da don dep xong\"\n}" },
+        "url": { "raw": "{{base_url}}/api/v1/rooms/{{room_id}}", "host": ["{{base_url}}"], "path": ["api","v1","rooms","{{room_id}}"] }
+      }
+    },
+    {
+      "name": "18. Delete Seasonal Rate",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/seasonal-rates/{{rate_id}}", "host": ["{{base_url}}"], "path": ["api","v1","seasonal-rates","{{rate_id}}"] }
+      }
+    },
+    {
+      "name": "19. Delete Room",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/rooms/{{room_id}}", "host": ["{{base_url}}"], "path": ["api","v1","rooms","{{room_id}}"] }
+      }
+    },
+    {
+      "name": "20. Delete RoomType",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "{{token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/room-types/{{room_type_id}}", "host": ["{{base_url}}"], "path": ["api","v1","room-types","{{room_type_id}}"] }
+      }
+    }
+  ]
+}
