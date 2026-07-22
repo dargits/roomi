@@ -1,0 +1,152 @@
+/**
+ * bookings-custom.css - Custom styles for bookings page
+ */
+
+/* Booking status badges */
+.booking-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-PENDING,
+.status-NEW {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-CONFIRMED {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-CHECKED_IN {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.status-CHECKED_OUT {
+  background: #d6d8db;
+  color: #383d41;
+}
+
+.status-CANCELLED,
+.status-NO_SHOW {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Date info display */
+.date-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.date-label {
+  color: #666;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Search panel */
+.search-panel {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.search-panel h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-panel h3 i {
+  color: #11998e;
+}
+
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.search-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* Form grid 2 columns */
+.form-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Section styling */
+.guest-info-section,
+.booking-info-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 0;
+  border: 1px solid #e0e0e0;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #222;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title i {
+  color: #11998e;
+}
+
+/* Price preview */
+.price-preview {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+  display: none;
+  border: 1px solid #90caf9;
+}
+
+.price-preview.show {
+  display: block;
+}
+
+.price-amount-large {
+  font-size: 28px;
+  font-weight: 700;
+  color: #11998e;
+  background: linear-gradient(135deg, #38ef7d, #11998e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@media (max-width: 768px) {
+  .search-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-grid-2col {
+    grid-template-columns: 1fr;
+  }
+}

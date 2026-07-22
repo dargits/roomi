@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Roomi Dev - Dashboard quản lý phòng trọ"
+    />
+    <title>Dashboard - Roomi Dev</title>
+    <style>
+      /* Ngăn nháy trắng - phải đặt trước mọi CSS khác */
+      html {
+        background: #f6f5f7;
+      }
+      body {
+        opacity: 0 !important;
+        transition: opacity 0.2s ease-in;
+      }
+      body.loaded {
+        opacity: 1 !important;
+      }
+    </style>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../../css/page-transition.css" />
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2><i class="fas fa-building"></i> Roomi Dev</h2>
+      </div>
+      <ul>
+        <li>
+          <a href="dashboard.html" class="active" id="navDashboard">
+            <i class="fa fa-home"></i> Trang chủ
+          </a>
+        </li>
+        <!-- Chỉ hiện với ADMIN -->
+        <li id="navUsersMenuItem" style="display: none">
+          <a href="../users/users.html" id="navUsers">
+            <i class="fa fa-users"></i> Quản lý người dùng
+          </a>
+        </li>
+        <li>
+          <a href="../room-types/room-types.html">
+            <i class="fa fa-tag"></i> Loại phòng
+          </a>
+        </li>
+        <li>
+          <a href="../rooms/rooms.html" id="navRooms">
+            <i class="fa fa-door-open"></i> Quản lý phòng
+          </a>
+        </li>
+        <li>
+          <a href="../bookings/bookings.html">
+            <i class="fa fa-calendar-check"></i> Quản lý đặt phòng
+          </a>
+        </li>
+        <!-- MỚI BỔ SUNG: Quản lý khách hàng -->
+        <li>
+          <a href="../guests/guests.html" id="navGuests">
+            <i class="fa fa-user-friends"></i> Quản lý khách hàng
+          </a>
+        </li>
+        <li>
+          <a href="../room-calendar/room-calendar.html">
+            <i class="fa fa-calendar-alt"></i> Lịch phòng
+          </a>
+        </li>
+        <li>
+          <a href="../seasonal-rates/seasonal-rates.html">
+            <i class="fa fa-chart-line"></i> Giá theo mùa
+          </a>
+        </li>
+        <li>
+          <a href="../profile/profile.html" id="navProfile">
+            <i class="fa fa-user-cog"></i> Cấu hình tài khoản
+          </a>
+        </li>
+        <li>
+          <a href="../auth/change-password.html" id="navChangePassword">
+            <i class="fa fa-key"></i> Đổi mật khẩu
+          </a>
+        </li>
+        <li>
+          <a href="#" id="logoutBtn">
+            <i class="fa fa-sign-out-alt"></i> Đăng xuất
+          </a>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info-sidebar">
+          <div class="avatar-sidebar" id="userAvatar">
+            <i class="fa fa-user-circle"></i>
+          </div>
+          <div class="sidebar-user-detail">
+            <span id="sidebarUsername">Người dùng</span>
+            <span class="sidebar-role-badge" id="sidebarRoleBadge"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nội dung chính -->
+    <div class="main-content">
+      <header class="dashboard-header">
+        <div class="header-left">
+          <h1 id="welcomeMessage">Chào mừng đến với Dashboard!</h1>
+          <p id="userInfoText">
+            Quản lý thông tin và tài khoản của bạn tại đây.
+          </p>
+        </div>
+        <div class="header-right">
+          <div class="header-date" id="headerDate"></div>
+        </div>
+      </header>
+
+      <!-- Thống kê nhanh (chỉ admin) -->
+      <div class="stats-row" id="adminStatsRow" style="display: none">
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-blue">
+            <i class="fa fa-users"></i>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value" id="statTotalUsers">—</div>
+            <div class="stat-label">Tổng người dùng</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-green">
+            <i class="fa fa-user-check"></i>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value" id="statActiveUsers">—</div>
+            <div class="stat-label">Đang hoạt động</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-red">
+            <i class="fa fa-user-lock"></i>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value" id="statLockedUsers">—</div>
+            <div class="stat-label">Đã khóa</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-orange">
+            <i class="fa fa-user-tag"></i>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value" id="statRoles">—</div>
+            <div class="stat-label">Vai trò khác nhau</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards chính -->
+      <div class="cards">
+        <!-- Card Quản lý người dùng - chỉ Admin thấy -->
+        <div
+          class="card card-admin"
+          id="accountManagementCard"
+          style="display: none"
+        >
+          <h3><i class="fa fa-users-cog"></i> Quản lý người dùng</h3>
+          <p>Tạo, chỉnh sửa, phân quyền và khóa/mở khóa tài khoản nhân viên.</p>
+          <div class="card-actions">
+            <button class="card-btn card-btn-primary" id="manageUsersBtn">
+              <i class="fa fa-list"></i> Xem danh sách
+            </button>
+            <button class="card-btn card-btn-outline" id="createUserQuickBtn">
+              <i class="fa fa-user-plus"></i> Tạo mới
+            </button>
+          </div>
+        </div>
+
+        <!-- MỚI BỔ SUNG: Card Quản lý khách hàng -->
+        <div
+          class="card"
+          style="cursor: pointer"
+          onclick="window.location.href = '../guests/guests.html'"
+          role="button"
+          tabindex="0"
+        >
+          <h3><i class="fa fa-user-friends"></i> Quản lý khách hàng</h3>
+          <p>
+            Tra cứu thông tin, tìm kiếm theo SĐT/tên và quản lý hồ sơ khách lưu
+            trú.
+          </p>
+        </div>
+
+        <!-- Card Cấu hình tài khoản -->
+        <div
+          class="card"
+          style="cursor: pointer"
+          onclick="window.location.href = '../profile/profile.html'"
+          role="button"
+          tabindex="0"
+        >
+          <h3><i class="fa fa-user-cog"></i> Cấu hình tài khoản</h3>
+          <p>
+            Xem thông tin cá nhân, đổi mật khẩu và cấu hình tài khoản của bạn.
+          </p>
+        </div>
+
+        <!-- Card Đổi mật khẩu -->
+        <div
+          class="card"
+          style="cursor: pointer"
+          onclick="window.location.href = '../auth/change-password.html'"
+          role="button"
+          tabindex="0"
+        >
+          <h3><i class="fa fa-key"></i> Đổi mật khẩu</h3>
+          <p>Cập nhật mật khẩu để bảo vệ tài khoản của bạn.</p>
+        </div>
+
+        <!-- Card Bảo mật -->
+        <div class="card">
+          <h3><i class="fa fa-shield-alt"></i> Bảo mật</h3>
+          <p>
+            Tình trạng tài khoản:
+            <strong class="text-active">Đang hoạt động</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script src="../../js/constants/config.js"></script>
+    <script src="../../js/utils/auth.js"></script>
+    <script src="../../js/api/api.js"></script>
+    <script src="dashboard.js"></script>
+  </body>
+</html>

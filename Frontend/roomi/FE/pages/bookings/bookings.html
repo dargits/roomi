@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quản lý đặt phòng - Roomi Dev</title>
+    <style>
+      /* Ngăn nháy trắng - phải đặt trước mọi CSS khác */
+      html {
+        background: #f6f5f7;
+      }
+      body {
+        opacity: 0 !important;
+        transition: opacity 0.2s ease-in;
+      }
+      body.loaded {
+        opacity: 1 !important;
+      }
+    </style>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../../css/page-transition.css" />
+    <link rel="stylesheet" href="../../css/shared-styles.css" />
+    <link rel="stylesheet" href="bookings-custom.css" />
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2><i class="fas fa-building"></i> Roomi Dev</h2>
+      </div>
+      <ul>
+        <li>
+          <a href="../dashboard/dashboard.html"
+            ><i class="fa fa-home"></i> Trang chủ</a
+          >
+        </li>
+        <li>
+          <a href="../users/users.html"
+            ><i class="fa fa-users"></i> Quản lý người dùng</a
+          >
+        </li>
+        <li>
+          <a href="../room-types/room-types.html"
+            ><i class="fa fa-tag"></i> Loại phòng</a
+          >
+        </li>
+        <li>
+          <a href="../rooms/rooms.html"
+            ><i class="fa fa-door-open"></i> Quản lý phòng</a
+          >
+        </li>
+        <li>
+          <a href="bookings.html" class="active"
+            ><i class="fa fa-calendar-check"></i> Quản lý đặt phòng</a
+          >
+        </li>
+        <li>
+          <a href="../guests/guests.html">
+            <i class="fa fa-user-friends"></i> Quản lý khách hàng
+          </a>
+        </li>
+        <li>
+          <a href="../room-calendar/room-calendar.html"
+            ><i class="fa fa-calendar-alt"></i> Lịch phòng</a
+          >
+        </li>
+        <li>
+          <a href="../seasonal-rates/seasonal-rates.html"
+            ><i class="fa fa-chart-line"></i> Giá theo mùa</a
+          >
+        </li>
+        <li>
+          <a href="../profile/profile.html"
+            ><i class="fa fa-user-cog"></i> Cấu hình tài khoản</a
+          >
+        </li>
+        <li>
+          <a href="../auth/change-password.html"
+            ><i class="fa fa-key"></i> Đổi mật khẩu</a
+          >
+        </li>
+        <li>
+          <a href="#" id="logoutBtn"
+            ><i class="fa fa-sign-out-alt"></i> Đăng xuất</a
+          >
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info-sidebar">
+          <div class="avatar-sidebar"><i class="fa fa-user-circle"></i></div>
+          <div class="sidebar-user-detail">
+            <span id="sidebarUsername">Người dùng</span>
+            <span class="sidebar-role-badge" id="sidebarRoleBadge"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1><i class="fa fa-book"></i> Quản lý đặt phòng</h1>
+          <p>Tạo, tìm kiếm và quản lý đơn đặt phòng.</p>
+        </div>
+        <button class="btn-primary" id="openCreateModalBtn">
+          <i class="fa fa-plus"></i> Tạo đặt phòng
+        </button>
+      </div>
+
+      <!-- Search Panel -->
+      <div class="search-panel">
+        <h3 style="margin-bottom: 16px">
+          <i class="fa fa-search"></i> Tìm kiếm đặt phòng
+        </h3>
+        <div class="search-grid">
+          <div class="form-group">
+            <label for="searchGuestName">Tên khách</label>
+            <input
+              type="text"
+              id="searchGuestName"
+              placeholder="Nhập tên khách..."
+            />
+          </div>
+          <div class="form-group">
+            <label for="searchPhone">Số điện thoại</label>
+            <input type="text" id="searchPhone" placeholder="Nhập SĐT..." />
+          </div>
+          <div class="form-group">
+            <label for="searchIdNumber">CMND/CCCD</label>
+            <input
+              type="text"
+              id="searchIdNumber"
+              placeholder="Nhập số CMND..."
+            />
+          </div>
+          <div class="form-group">
+            <label for="searchRoomType">Loại phòng</label>
+            <select id="searchRoomType">
+              <option value="">Tất cả</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="searchFromDate">Từ ngày</label>
+            <input type="date" id="searchFromDate" />
+          </div>
+          <div class="form-group">
+            <label for="searchToDate">Đến ngày</label>
+            <input type="date" id="searchToDate" />
+          </div>
+        </div>
+        <div class="search-actions">
+          <button class="btn-outline" id="clearSearchBtn">
+            <i class="fa fa-eraser"></i> Xóa bộ lọc
+          </button>
+          <button class="btn-primary" id="searchBtn">
+            <i class="fa fa-search"></i> Tìm kiếm
+          </button>
+        </div>
+      </div>
+
+      <div class="message-box" id="pageMessage"></div>
+
+      <!-- Bookings Table -->
+      <div class="table-wrapper">
+        <div class="toolbar">
+          <span class="total-label" id="totalLabel">0 đơn đặt phòng</span>
+          <button class="btn-icon" id="refreshBtn" title="Tải lại">
+            <i class="fa fa-sync-alt"></i>
+          </button>
+        </div>
+        <div class="table-container">
+          <table class="rooms-table" id="bookingsTable">
+            <thead>
+              <tr>
+                <th style="width: 44px">#</th>
+                <th>Khách hàng</th>
+                <th>Loại phòng</th>
+                <th style="width: 180px">Ngày nhận / trả phòng</th>
+                <th style="width: 120px">Giá dự kiến</th>
+                <th style="width: 100px">Trạng thái</th>
+                <th style="width: 150px">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsTableBody"></tbody>
+          </table>
+          <div class="table-empty" id="tableEmpty" style="display: none">
+            <i class="fa fa-book"></i>
+            <p>Chưa có đơn đặt phòng nào.</p>
+          </div>
+          <div class="table-loading" id="tableLoading" style="display: none">
+            <i class="fa fa-spinner fa-spin"></i> Đang tìm kiếm...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MODAL: Tạo / Chỉnh sửa đặt phòng ═══ -->
+    <div class="modal-overlay" id="bookingModal">
+      <div class="modal" style="max-width: 700px">
+        <div class="modal-header">
+          <h2 id="modalTitle"><i class="fa fa-plus"></i> Tạo đặt phòng mới</h2>
+          <button class="modal-close" id="closeModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="message-box" id="modalMessage"></div>
+
+          <!-- Guest Information -->
+          <div class="guest-info-section">
+            <div class="section-title">
+              <i class="fa fa-user"></i> Thông tin khách hàng
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="inputFullName"
+                  >Họ và tên <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="inputFullName"
+                  placeholder="Nguyễn Văn A"
+                  maxlength="100"
+                />
+              </div>
+              <div class="form-group">
+                <label for="inputPhone"
+                  >Số điện thoại <span class="required">*</span></label
+                >
+                <input
+                  type="tel"
+                  id="inputPhone"
+                  placeholder="0912345678"
+                  maxlength="15"
+                />
+              </div>
+              <div class="form-group">
+                <label for="inputIdNumber"
+                  >CMND/CCCD <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="inputIdNumber"
+                  placeholder="001234567890"
+                  maxlength="20"
+                />
+              </div>
+              <div class="form-group">
+                <label for="inputEmail">Email</label>
+                <input
+                  type="email"
+                  id="inputEmail"
+                  placeholder="email@example.com"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Booking Information -->
+          <div class="booking-info-section">
+            <div class="section-title">
+              <i class="fa fa-calendar-check"></i> Thông tin đặt phòng
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="inputRoomType"
+                  >Loại phòng <span class="required">*</span></label
+                >
+                <select id="inputRoomType">
+                  <option value="">-- Chọn loại phòng --</option>
+                </select>
+              </div>
+              <div class="form-grid-2col">
+                <div class="form-group">
+                  <label for="inputCheckInDate"
+                    >Ngày nhận phòng <span class="required">*</span></label
+                  >
+                  <input type="date" id="inputCheckInDate" />
+                </div>
+                <div class="form-group">
+                  <label for="inputCheckOutDate"
+                    >Ngày trả phòng <span class="required">*</span></label
+                  >
+                  <input type="date" id="inputCheckOutDate" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="inputSource">Nguồn đặt phòng</label>
+                <select id="inputSource">
+                  <option value="WALK_IN">Trực tiếp (Walk-in)</option>
+                  <option value="PHONE">Điện thoại</option>
+                  <option value="EXTERNAL_CHANNEL">Kênh bên ngoài</option>
+                  <option value="BOOKING_PORTAL">Cổng đặt phòng</option>
+                </select>
+              </div>
+              <div class="form-group form-group-full">
+                <label for="inputNote">Ghi chú</label>
+                <textarea
+                  id="inputNote"
+                  rows="2"
+                  placeholder="Ghi chú đặc biệt..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Price Preview -->
+            <div class="price-preview" id="pricePreview">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <div>
+                  <div style="font-size: 14px; color: #666; margin-bottom: 4px">
+                    Giá dự kiến
+                  </div>
+                  <div class="price-amount-large" id="priceAmount">0 ₫</div>
+                  <div
+                    style="font-size: 12px; color: #666; margin-top: 4px"
+                    id="priceDetails"
+                  >
+                    <span id="nightCount">0</span> đêm
+                  </div>
+                </div>
+                <i
+                  class="fa fa-calculator"
+                  style="font-size: 32px; color: #1976d2; opacity: 0.3"
+                ></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" id="cancelModalBtn">Hủy</button>
+          <button class="btn-primary" id="saveBookingBtn">
+            <i class="fa fa-save"></i>
+            <span id="saveBookingBtnText">Tạo đặt phòng</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MODAL: Xác nhận xóa ═══ -->
+    <div class="modal-overlay" id="confirmModal">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2 id="confirmTitle">
+            <i class="fa fa-exclamation-triangle"></i> Xác nhận xóa
+          </h2>
+          <button class="modal-close" id="closeConfirmBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmMessage">
+            Bạn có chắc chắn muốn xóa đơn đặt phòng này?
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" id="cancelConfirmBtn">Hủy</button>
+          <button class="btn-danger" id="confirmActionBtn">
+            <i class="fa fa-trash"></i> Xóa
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../../js/utils/page-loader.js"></script>
+    <script src="../../js/constants/config.js"></script>
+    <script src="../../js/utils/auth.js"></script>
+    <script src="../../js/api/api.js"></script>
+    <script src="bookings.js"></script>
+  </body>
+</html>
