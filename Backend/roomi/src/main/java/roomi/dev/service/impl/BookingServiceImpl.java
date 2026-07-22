@@ -104,6 +104,7 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setRoom(room);
         booking.setExpectedPrice(calcExpectedPrice(booking.getRoomType(), slot));
+        markRoomAsReserved(room);
 
         return toResponse(bookingRepository.save(booking));
     }
@@ -116,6 +117,9 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = findById(bookingId);
         requireStatus(booking, Booking.Status.NEW);
         booking.setStatus(Booking.Status.CONFIRMED);
+        if (booking.getRoom() != null) {
+            markRoomAsReserved(booking.getRoom());
+        }
         return toResponse(bookingRepository.save(booking));
     }
 
@@ -124,6 +128,7 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponse checkIn(Long bookingId) {
         Booking booking = findById(bookingId);
         requireStatus(booking, Booking.Status.CONFIRMED);
+        requireCurrentStay(booking, "check-in");
 
         if (booking.getRoom() == null) {
             throw new BusinessException(
@@ -146,6 +151,12 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = findById(bookingId);
         requireStatus(booking, Booking.Status.CHECKED_IN);
 
+        if (LocalDate.now().isBefore(booking.getCheckInDate())) {
+            throw new BusinessException(
+                    "Chưa đến ngày nhận phòng, không thể check-out",
+                    ErrorCode.BOOKING_INVALID_STATUS);
+        }
+
         // Đổi trạng thái phòng → NEEDS_CLEANING
         Room room = booking.getRoom();
         room.setStatus(Room.Status.NEEDS_CLEANING);
@@ -167,8 +178,7 @@ public class BookingServiceImpl implements BookingService {
                     ErrorCode.BOOKING_INVALID_STATUS);
         }
 
-        // Trả phòng về AVAILABLE nếu đã gán
-        if (booking.getRoom() != null) {
+        if (booking.getRoom() != null && booking.getRoom().getStatus() == Room.Status.RESERVED) {
             Room room = booking.getRoom();
             room.setStatus(Room.Status.AVAILABLE);
             roomRepository.save(room);
@@ -254,6 +264,22 @@ public class BookingServiceImpl implements BookingService {
         }
     }
 
+    private void markRoomAsReserved(Room room) {
+        if (room.getStatus() == Room.Status.AVAILABLE) {
+            room.setStatus(Room.Status.RESERVED);
+            roomRepository.save(room);
+        }
+    }
+
+    private void requireCurrentStay(Booking booking, String action) {
+        LocalDate today = LocalDate.now();
+        if (today.isBefore(booking.getCheckInDate()) || !today.isBefore(booking.getCheckOutDate())) {
+            throw new BusinessException(
+                    "Không thể " + action + " ngoài thời gian lưu trú của booking",
+                    ErrorCode.BOOKING_INVALID_STATUS);
+        }
+    }
+
     private Booking findById(Long id) {
         return bookingRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(
@@ -294,21 +320,82 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingResponse updateBooking(Long id, BookingRequest request) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'updateBooking'");
+        Booking booking = findById(id);
+        if (booking.getStatus() != Booking.Status.NEW
+                && booking.getStatus() != Booking.Status.CONFIRMED) {
+            throw new BusinessException(
+                    "Không thể cập nhật booking ở trạng thái " + booking.getStatus(),
+                    ErrorCode.BOOKING_INVALID_STATUS);
+        }
+
+        TimeRangeValidator.validate(request.getCheckInDate(), request.getCheckOutDate());
+        Guest guest = guestService.findOrCreateGuest(
+                request.getIdNumber(),
+                request.getFullName(),
+                request.getPhone(),
+                request.getEmail(),
+                request.getNote());
+        RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
+                .orElseThrow(() -> new BusinessException(
+                        "Không tìm thấy loại phòng", ErrorCode.INVALID_INPUT));
+        TimeSlot slot = TimeSlot.of(request.getCheckInDate(), request.getCheckOutDate());
+
+        Room room = booking.getRoom();
+        if (request.getRoomId() != null) {
+            room = conflictChecker.validateAndGetRoom(request.getRoomId(), roomType, slot, booking.getId());
+        } else if (room != null && room.getRoomType().getId().equals(roomType.getId())) {
+            conflictChecker.validateAndGetRoom(room.getId(), roomType, slot, booking.getId());
+        } else {
+            room = null;
+        }
+
+        booking.setGuest(guest);
+        booking.setRoomType(roomType);
+        booking.setRoom(room);
+        booking.setCheckInDate(request.getCheckInDate());
+        booking.setCheckOutDate(request.getCheckOutDate());
+        booking.setSource(parseSource(request.getSource()));
+        booking.setExpectedPrice(room != null ? calcExpectedPrice(roomType, slot) : BigDecimal.ZERO);
+
+        return toResponse(bookingRepository.save(booking));
     }
 
     @Override
     public void deleteBooking(Long id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'deleteBooking'");
+        Booking booking = findById(id);
+        if (booking.getStatus() == Booking.Status.CHECKED_IN
+                || booking.getStatus() == Booking.Status.CHECKED_OUT) {
+            throw new BusinessException(
+                    "Không thể xóa booking ở trạng thái " + booking.getStatus(),
+                    ErrorCode.BOOKING_INVALID_STATUS);
+        }
+        bookingRepository.delete(booking);
     }
 
     @Override
     public List<BookingResponse> searchBookings(String guestName, String phone, String idNumber, Long roomTypeId,
             LocalDate fromDate, LocalDate toDate) {
-        // TODO Auto-generated method stub
-        //throw new UnsupportedOperationException("Unimplemented method 'searchBookings'");
-        return new Arralist();
+        if (fromDate != null && toDate != null) {
+            if (toDate.isBefore(fromDate)) {
+                throw new BusinessException(
+                        "fromDate phải trước hoặc bằng toDate",
+                        ErrorCode.INVALID_DATE_RANGE);
+            }
+        }
+
+        return bookingRepository.searchBookings(
+                        normalizeSearchTerm(guestName),
+                        normalizeSearchTerm(phone),
+                        normalizeSearchTerm(idNumber),
+                        roomTypeId,
+                        fromDate,
+                        toDate)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    private String normalizeSearchTerm(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

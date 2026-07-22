@@ -3,17 +3,8 @@
  * File này được import trước shared-styles.css để đảm bảo body ẩn ngay từ đầu
  */
 
-/* Đặt background cho html ngay từ đầu */
-html {
-  background: #f6f5f7;
-}
-
-/* Body ẩn đi khi load, hiện ra khi có class 'loaded' */
+/* Giữ trang hiện ngay khi tải để không lộ nền trắng giữa các lần điều hướng. */
+html,
 body {
-  opacity: 0;
-  transition: opacity 0.2s ease-in;
-}
-
-body.loaded {
-  opacity: 1;
+  background: #f6f5f7;
 }

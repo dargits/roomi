@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import roomi.dev.dto.response.AvailableRoomResponse;
 import roomi.dev.dto.response.BookingSlotResponse;
+import roomi.dev.dto.response.DailyRoomStatusResponse;
 import roomi.dev.dto.response.RoomCalendarResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
@@ -122,6 +123,19 @@ public class CalendarServiceImpl implements CalendarService {
                 .collect(Collectors.toList());
     }
 
+        @Override
+        public List<DailyRoomStatusResponse> getDailyRoomStatuses(LocalDate date) {
+                LocalDate nextDate = date.plusDays(1);
+
+                return roomRepository.findAll().stream()
+                                .map(room -> {
+                                        List<Booking> bookings = bookingRepository
+                                                        .findActiveBookingsByRoomAndDateRange(room.getId(), date, nextDate);
+                                        return toDailyRoomStatusResponse(room, date, bookings);
+                                })
+                                .collect(Collectors.toList());
+        }
+
     // ======================================================== PRIVATE HELPERS
 
     private RoomCalendarResponse toRoomCalendarResponse(Room room, List<Booking> bookings) {
@@ -139,6 +153,48 @@ public class CalendarServiceImpl implements CalendarService {
                 .bookings(slots)
                 .build();
     }
+
+        private DailyRoomStatusResponse toDailyRoomStatusResponse(
+                        Room room, LocalDate date, List<Booking> bookings) {
+                Booking checkedInBooking = bookings.stream()
+                                .filter(booking -> booking.getStatus() == Booking.Status.CHECKED_IN)
+                                .findFirst()
+                                .orElse(null);
+                Booking reservedBooking = bookings.stream()
+                                .filter(booking -> booking.getStatus() == Booking.Status.NEW
+                                                || booking.getStatus() == Booking.Status.CONFIRMED)
+                                .findFirst()
+                                .orElse(null);
+
+                String status;
+                Booking relatedBooking = null;
+                if (room.getStatus() == Room.Status.NEEDS_CLEANING) {
+                        status = "CLEANING";
+                } else if (checkedInBooking != null
+                        || (date.equals(LocalDate.now()) && room.getStatus() == Room.Status.OCCUPIED)) {
+                        status = "OCCUPIED";
+                        relatedBooking = checkedInBooking;
+                } else if (reservedBooking != null) {
+                        status = "RESERVED";
+                        relatedBooking = reservedBooking;
+                } else if (room.getStatus() == Room.Status.MAINTENANCE) {
+                        status = "MAINTENANCE";
+                } else {
+                        status = "AVAILABLE";
+                }
+
+                return DailyRoomStatusResponse.builder()
+                                .roomId(room.getId())
+                                .roomNumber(room.getRoomNumber())
+                                .floor(room.getFloor())
+                                .roomTypeId(room.getRoomType().getId())
+                                .roomTypeName(room.getRoomType().getName())
+                                .date(date)
+                                .status(status)
+                                .bookingId(relatedBooking != null ? relatedBooking.getId() : null)
+                                .guestName(relatedBooking != null ? relatedBooking.getGuest().getFullName() : null)
+                                .build();
+        }
 
     private BookingSlotResponse toBookingSlotResponse(Booking b) {
         int nights = (int) ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate());

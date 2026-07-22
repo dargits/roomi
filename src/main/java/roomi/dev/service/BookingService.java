@@ -4,6 +4,7 @@ import roomi.dev.dto.request.BookingRequest;
 import roomi.dev.dto.response.BookingResponse;
 import roomi.dev.model.User;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface BookingService {
@@ -39,4 +40,7 @@ public interface BookingService {
     List<BookingResponse> getBookingsByGuest(Long guestId);
 
     List<BookingResponse> getBookingsByStatus(String status);
+
+    List<BookingResponse> searchBookings(String guestName, String phone, String idNumber,
+                                         Long roomTypeId, LocalDate fromDate, LocalDate toDate);
 }

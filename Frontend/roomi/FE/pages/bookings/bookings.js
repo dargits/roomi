@@ -237,7 +237,9 @@ async function performSearch() {
   console.log("[Bookings] Searching with params:", params);
 
   try {
-    const response = await API.searchBookings(params);
+    const response = Object.keys(params).length === 0
+      ? await API.getAllBookings()
+      : await API.searchBookings(params);
     console.log("[Bookings] Search response:", response);
 
     if (response?.ok && response.data?.data) {

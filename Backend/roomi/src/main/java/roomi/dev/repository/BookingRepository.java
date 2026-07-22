@@ -75,8 +75,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "AND (:phone IS NULL OR b.guest.phone LIKE CONCAT('%', :phone, '%')) " +
            "AND (:idNumber IS NULL OR b.guest.idNumber LIKE CONCAT('%', :idNumber, '%')) " +
            "AND (:roomTypeId IS NULL OR b.roomType.id = :roomTypeId) " +
-           "AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
-           "AND (:toDate IS NULL OR b.checkOutDate <= :toDate) " +
+           "AND (:fromDate IS NULL OR b.checkOutDate > :fromDate) " +
+           "AND (:toDate IS NULL OR b.checkInDate <= :toDate) " +
            "ORDER BY b.createdAt DESC")
     List<Booking> searchBookings(@Param("guestName") String guestName,
                                  @Param("phone") String phone,

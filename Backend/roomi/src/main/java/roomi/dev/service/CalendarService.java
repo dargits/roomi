@@ -1,6 +1,7 @@
 package roomi.dev.service;
 
 import roomi.dev.dto.response.AvailableRoomResponse;
+import roomi.dev.dto.response.DailyRoomStatusResponse;
 import roomi.dev.dto.response.RoomCalendarResponse;
 
 import java.time.LocalDate;
@@ -49,4 +50,10 @@ public interface CalendarService {
     List<AvailableRoomResponse> getAvailableRooms(Long roomTypeId,
                                                   LocalDate checkIn,
                                                   LocalDate checkOut);
+
+    /**
+     * Lấy trạng thái vận hành của tất cả phòng trong một ngày.
+     * Booking được xét theo khoảng [date, date + 1).
+     */
+    List<DailyRoomStatusResponse> getDailyRoomStatuses(LocalDate date);
 }

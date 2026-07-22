@@ -96,6 +96,7 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setRoom(room);
         booking.setExpectedPrice(calcExpectedPrice(booking.getRoomType(), slot));
+        markRoomAsReserved(room);
 
         return toResponse(bookingRepository.save(booking));
     }
@@ -108,6 +109,9 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = findById(bookingId);
         requireStatus(booking, Booking.Status.NEW);
         booking.setStatus(Booking.Status.CONFIRMED);
+        if (booking.getRoom() != null) {
+            markRoomAsReserved(booking.getRoom());
+        }
         return toResponse(bookingRepository.save(booking));
     }
 
@@ -159,8 +163,8 @@ public class BookingServiceImpl implements BookingService {
                     ErrorCode.BOOKING_INVALID_STATUS);
         }
 
-        // Trả phòng về AVAILABLE nếu đã gán
-        if (booking.getRoom() != null) {
+        // Chỉ trả phòng về AVAILABLE nếu trạng thái hiện tại là RESERVED.
+        if (booking.getRoom() != null && booking.getRoom().getStatus() == Room.Status.RESERVED) {
             Room room = booking.getRoom();
             room.setStatus(Room.Status.AVAILABLE);
             roomRepository.save(room);
@@ -200,6 +204,27 @@ public class BookingServiceImpl implements BookingService {
             throw new BusinessException("Trạng thái không hợp lệ: " + status, ErrorCode.INVALID_INPUT);
         }
         return bookingRepository.findByStatus(s).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<BookingResponse> searchBookings(String guestName, String phone, String idNumber,
+                                                 Long roomTypeId, LocalDate fromDate, LocalDate toDate) {
+        if (fromDate != null && toDate != null && toDate.isBefore(fromDate)) {
+            throw new BusinessException(
+                    "fromDate phải trước hoặc bằng toDate",
+                    ErrorCode.INVALID_DATE_RANGE);
+        }
+
+        return bookingRepository.searchBookings(
+                        normalizeSearchTerm(guestName),
+                        normalizeSearchTerm(phone),
+                        normalizeSearchTerm(idNumber),
+                        roomTypeId,
+                        fromDate,
+                        toDate)
+                .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -246,6 +271,13 @@ public class BookingServiceImpl implements BookingService {
         }
     }
 
+    private void markRoomAsReserved(Room room) {
+        if (room.getStatus() == Room.Status.AVAILABLE) {
+            room.setStatus(Room.Status.RESERVED);
+            roomRepository.save(room);
+        }
+    }
+
     private Booking findById(Long id) {
         return bookingRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(
@@ -259,6 +291,10 @@ public class BookingServiceImpl implements BookingService {
         } catch (IllegalArgumentException e) {
             throw new BusinessException("Source không hợp lệ: " + source, ErrorCode.INVALID_INPUT);
         }
+    }
+
+    private String normalizeSearchTerm(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private BookingResponse toResponse(Booking b) {

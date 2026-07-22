@@ -46,8 +46,9 @@ public class BookingConflictChecker {
                 .orElseThrow(() -> new BusinessException(
                         "Không tìm thấy phòng với id = " + roomId,
                         ErrorCode.INVALID_INPUT));
-        
+
         validateRoomType(room, expectedRoomType);
+        validateOperationalStatus(room, slot);
         validateNoConflict(room, slot, excludeBookingId);
         
         return room;
@@ -113,6 +114,7 @@ public class BookingConflictChecker {
      */
     public List<Room> filterAvailableRooms(List<Room> rooms, TimeSlot slot) {
         return rooms.stream()
+                .filter(room -> isOperationallyAvailable(room, slot))
                 .filter(room -> isRoomAvailable(room.getId(), slot))
                 .collect(Collectors.toList());
     }
@@ -128,5 +130,40 @@ public class BookingConflictChecker {
                     + expectedRoomType.getName() + "\"",
                     ErrorCode.ROOM_TYPE_MISMATCH);
         }
+    }
+
+    private void validateOperationalStatus(Room room, TimeSlot slot) {
+        if (room.getStatus() == Room.Status.MAINTENANCE) {
+            throw new BusinessException(
+                    "Phòng " + room.getRoomNumber() + " đang bảo trì",
+                    ErrorCode.ROOM_NOT_AVAILABLE);
+        }
+
+        if (room.getStatus() == Room.Status.NEEDS_CLEANING
+                && slot.getStartDate().isEqual(LocalDate.now())) {
+            throw new BusinessException(
+                    "Phòng " + room.getRoomNumber() + " đang chờ dọn dẹp",
+                    ErrorCode.ROOM_NOT_AVAILABLE);
+        }
+
+        if (room.getStatus() == Room.Status.OCCUPIED
+                && slot.getStartDate().isEqual(LocalDate.now())) {
+            throw new BusinessException(
+                    "Phòng " + room.getRoomNumber() + " đang được sử dụng",
+                    ErrorCode.ROOM_NOT_AVAILABLE);
+        }
+    }
+
+    private boolean isOperationallyAvailable(Room room, TimeSlot slot) {
+        if (room.getStatus() == Room.Status.MAINTENANCE) {
+            return false;
+        }
+
+        if (!slot.getStartDate().isEqual(LocalDate.now())) {
+            return true;
+        }
+
+        return room.getStatus() != Room.Status.NEEDS_CLEANING
+                && room.getStatus() != Room.Status.OCCUPIED;
     }
 }

@@ -25,7 +25,10 @@
     <link rel="stylesheet" href="../../css/shared-styles.css" />
     <link rel="stylesheet" href="room-calendar.css" />
   </head>
-  <body>
+  <body class="loaded">
+    <script>
+      document.body.classList.add("loaded");
+    </script>
     <!-- Sidebar -->
     <div class="sidebar">
       <div class="sidebar-header">
@@ -145,6 +148,20 @@
       </div>
 
       <div class="message-box" id="pageMessage"></div>
+
+      <section class="daily-room-status" aria-labelledby="dailyStatusTitle">
+        <div class="daily-room-status-header">
+          <div>
+            <h2 id="dailyStatusTitle"><i class="fa fa-calendar-day"></i> Trạng thái phòng theo ngày</h2>
+            <p id="dailyStatusLabel"></p>
+          </div>
+          <label class="daily-date-picker" for="dailyStatusDate">
+            <span>Chọn ngày</span>
+            <input type="date" id="dailyStatusDate" />
+          </label>
+        </div>
+        <div class="daily-status-grid" id="dailyStatusGrid" aria-live="polite"></div>
+      </section>
 
       <!-- Legend -->
       <div class="calendar-legend">

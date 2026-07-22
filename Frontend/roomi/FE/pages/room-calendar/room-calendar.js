@@ -25,6 +25,9 @@ const currentPeriod = document.getElementById("currentPeriod");
 const roomTypeFilter = document.getElementById("roomTypeFilter");
 const pageMessage = document.getElementById("pageMessage");
 const pendingBadge = document.getElementById("pendingBadge");
+const dailyStatusDate = document.getElementById("dailyStatusDate");
+const dailyStatusGrid = document.getElementById("dailyStatusGrid");
+const dailyStatusLabel = document.getElementById("dailyStatusLabel");
 
 // Modals
 const pendingBookingsModal = document.getElementById("pendingBookingsModal");
@@ -49,6 +52,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadRoomTypes();
   await loadRooms();
   await loadBookings();
+  initializeDailyStatusDate();
+  await loadDailyRoomStatuses();
   renderCalendar();
 });
 
@@ -94,31 +99,43 @@ function attachEventListeners() {
   });
 
   // Navigation
-  document.getElementById("prevWeekBtn")?.addEventListener("click", () => {
+  document.getElementById("prevWeekBtn")?.addEventListener("click", async () => {
     currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+    await loadBookings();
     renderCalendar();
   });
 
-  document.getElementById("nextWeekBtn")?.addEventListener("click", () => {
+  document.getElementById("nextWeekBtn")?.addEventListener("click", async () => {
     currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+    await loadBookings();
     renderCalendar();
   });
 
-  document.getElementById("todayBtn")?.addEventListener("click", () => {
+  document.getElementById("todayBtn")?.addEventListener("click", async () => {
     const today = new Date();
-    currentWeekStart = new Date(today);
-    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1);
-    currentWeekStart.setHours(0, 0, 0, 0);
+    currentWeekStart = getWeekStart(today);
+    if (dailyStatusDate) dailyStatusDate.value = formatDateForAPI(today);
+    await loadBookings();
+    await loadDailyRoomStatuses();
     renderCalendar();
   });
 
   // Filter
   roomTypeFilter?.addEventListener("change", renderCalendar);
 
+  dailyStatusDate?.addEventListener("change", async () => {
+    if (!dailyStatusDate.value) return;
+    currentWeekStart = getWeekStart(parseDateInput(dailyStatusDate.value));
+    await loadBookings();
+    renderCalendar();
+    await loadDailyRoomStatuses();
+  });
+
   // Refresh
   document.getElementById("refreshBtn")?.addEventListener("click", async () => {
     await loadRooms();
     await loadBookings();
+    await loadDailyRoomStatuses();
     renderCalendar();
     showMessage(pageMessage, "Đã làm mới dữ liệu", "success");
   });
@@ -149,6 +166,91 @@ function attachEventListeners() {
   cellDetailModal?.addEventListener("click", (e) => {
     if (e.target === cellDetailModal) closeCellDetailModal();
   });
+}
+
+function initializeDailyStatusDate() {
+  if (dailyStatusDate) {
+    dailyStatusDate.value = formatDateForAPI(new Date());
+  }
+}
+
+async function loadDailyRoomStatuses() {
+  if (!dailyStatusDate?.value || !dailyStatusGrid) return;
+
+  dailyStatusGrid.innerHTML = '<div class="daily-status-loading"><i class="fa fa-spinner fa-spin"></i> Đang tải trạng thái phòng...</div>';
+  try {
+    const response = await API.getAllBookings();
+    if (!response?.ok || !response.data?.data) {
+      throw new Error(response?.data?.mess || "Không thể tải trạng thái phòng");
+    }
+    renderDailyRoomStatuses(getDailyRoomStatuses(response.data.data));
+  } catch (error) {
+    console.error("Error loading daily room statuses:", error);
+    dailyStatusGrid.innerHTML = '<div class="daily-status-error">Không thể tải trạng thái phòng. Vui lòng thử lại.</div>';
+  }
+}
+
+function getDailyRoomStatuses(dailyBookings) {
+  const selectedDate = dailyStatusDate.value;
+  const today = formatDateForAPI(new Date());
+
+  return rooms.map((room) => {
+    const roomBookings = dailyBookings.filter((booking) =>
+      booking.roomId === room.id && isBookingActiveOnDate(booking, selectedDate));
+    const checkedInBooking = roomBookings.find((booking) => booking.status === "CHECKED_IN");
+    let status = "AVAILABLE";
+    let relatedBooking = null;
+
+    if (room.status === "MAINTENANCE") {
+      status = "MAINTENANCE";
+    } else if (room.status === "NEEDS_CLEANING") {
+      status = "CLEANING";
+    } else if (checkedInBooking || (selectedDate === today && room.status === "OCCUPIED")) {
+      status = "OCCUPIED";
+      relatedBooking = checkedInBooking;
+    }
+
+    return {
+      roomNumber: room.roomNumber,
+      roomTypeName: room.roomType?.name || "Chưa có loại phòng",
+      status,
+      guestName: relatedBooking?.guestName,
+    };
+  });
+}
+
+function isBookingActiveOnDate(booking, date) {
+  return booking.status !== "CANCELLED"
+    && booking.status !== "NO_SHOW"
+    && booking.checkInDate <= date
+    && date < booking.checkOutDate;
+}
+
+function renderDailyRoomStatuses(dailyRooms) {
+  const statuses = [
+    { key: "AVAILABLE", title: "Phòng trống", icon: "fa-door-open" },
+    { key: "OCCUPIED", title: "Đang sử dụng", icon: "fa-bed" },
+    { key: "CLEANING", title: "Đang dọn dẹp", icon: "fa-broom" },
+    { key: "MAINTENANCE", title: "Bảo trì", icon: "fa-screwdriver-wrench" },
+  ];
+  dailyStatusLabel.textContent = `Ngày ${formatDate(dailyStatusDate.value)}`;
+
+  dailyStatusGrid.innerHTML = statuses.map((status) => {
+    const roomsForStatus = dailyRooms.filter((room) => room.status === status.key);
+    const roomCards = roomsForStatus.length
+      ? roomsForStatus.map((room) => `
+          <li class="daily-room-card">
+            <strong>Phòng ${room.roomNumber}</strong>
+            <span>${room.roomTypeName}</span>
+            ${room.guestName ? `<small>${room.guestName}</small>` : ""}
+          </li>`).join("")
+      : '<li class="daily-room-empty">Không có phòng</li>';
+
+    return `<section class="daily-status-column ${status.key.toLowerCase()}">
+      <h3><i class="fa ${status.icon}"></i> ${status.title}<span>${roomsForStatus.length}</span></h3>
+      <ul>${roomCards}</ul>
+    </section>`;
+  }).join("");
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -200,15 +302,23 @@ async function loadBookings() {
       fromDate: weekStart,
       toDate: weekEndStr,
     });
-    if (response?.ok && response.data?.data) {
+    if (!response?.ok || !Array.isArray(response.data?.data)) {
+      const allBookingsResponse = await API.getAllBookings();
+      if (!allBookingsResponse?.ok || !Array.isArray(allBookingsResponse.data?.data)) {
+        throw new Error(response?.data?.mess || "Không thể tải danh sách booking");
+      }
+      bookings = allBookingsResponse.data.data;
+    } else {
       bookings = response.data.data;
-      
-      // Filter pending bookings (not assigned to rooms yet)
-      pendingBookings = bookings.filter((b) => b.status === "PENDING");
-      updatePendingBadge();
     }
+
+    pendingBookings = bookings.filter((b) => b.status === "NEW" && !b.roomId);
+    updatePendingBadge();
   } catch (error) {
     console.error("Error loading bookings:", error);
+    bookings = [];
+    pendingBookings = [];
+    updatePendingBadge();
   }
 }
 
@@ -291,6 +401,7 @@ function buildCalendarGrid(filteredRooms, weekDays) {
       <div>
         <div class="room-number">${room.roomNumber}</div>
         <div class="room-type-name">${room.roomType.name}</div>
+        <div class="room-type-name">${getRoomStatusText(room.status)}</div>
       </div>
     </div>`;
 
@@ -313,14 +424,12 @@ function getCellData(roomId, date) {
   // Note: In a real system, you'd need a room assignment table
   // For now, we'll simulate by checking if booking dates overlap
   
-  const dateStr = formatDateForAPI(date);
-  
   // Find bookings that overlap with this date
   const overlappingBookings = bookings.filter((booking) => {
-    if (!booking.assignedRoomId || booking.assignedRoomId !== roomId) return false;
+    if (!booking.roomId || booking.roomId !== roomId) return false;
     
-    const checkIn = new Date(booking.checkInDate);
-    const checkOut = new Date(booking.checkOutDate);
+    const checkIn = parseDateInput(booking.checkInDate);
+    const checkOut = parseDateInput(booking.checkOutDate);
     const current = new Date(date);
     
     return current >= checkIn && current < checkOut;
@@ -333,7 +442,7 @@ function getCellData(roomId, date) {
   if (overlappingBookings.length === 1) {
     const booking = overlappingBookings[0];
     return {
-      status: booking.status === "PENDING" ? "pending" : "occupied",
+      status: booking.status === "NEW" ? "pending" : "occupied",
       booking: booking,
     };
   }
@@ -354,7 +463,7 @@ function buildCalendarCell(roomId, date, cellData, isToday) {
   if (cellData.booking) {
     const booking = cellData.booking;
     content = `<div class="booking-block ${cellData.status}">
-      <div class="booking-guest-name">${booking.guestFullName}</div>
+      <div class="booking-guest-name">${booking.guestName}</div>
       <div class="booking-dates">${formatDateShort(new Date(booking.checkInDate))} - ${formatDateShort(new Date(booking.checkOutDate))}</div>
     </div>`;
   } else if (cellData.bookings) {
@@ -405,7 +514,7 @@ function openPendingBookingsModal() {
       row.innerHTML = `
         <td>${index + 1}</td>
         <td>
-          <strong>${booking.guestFullName}</strong><br>
+          <strong>${booking.guestName}</strong><br>
           <small style="color: #666;"><i class="fa fa-phone"></i> ${booking.guestPhone}</small>
         </td>
         <td>${booking.roomTypeName}</td>
@@ -456,7 +565,7 @@ async function openAssignRoomModal(bookingId) {
   bookingInfo.innerHTML = `
     <div class="booking-info-row">
       <div class="booking-info-label">Khách hàng:</div>
-      <div class="booking-info-value"><strong>${booking.guestFullName}</strong></div>
+      <div class="booking-info-value"><strong>${booking.guestName}</strong></div>
     </div>
     <div class="booking-info-row">
       <div class="booking-info-label">Số điện thoại:</div>
@@ -476,9 +585,14 @@ async function openAssignRoomModal(bookingId) {
     </div>
   `;
 
-  // Find available rooms
-  const availableRooms = await findAvailableRooms(booking);
-  renderAvailableRooms(availableRooms);
+  try {
+    const availableRooms = await findAvailableRooms(booking);
+    renderAvailableRooms(availableRooms);
+  } catch (error) {
+    console.error("Error loading available rooms:", error);
+    showMessage(pageMessage, "Không thể tải danh sách phòng phù hợp.", "error");
+    return;
+  }
 
   document.getElementById("confirmAssignBtn").disabled = true;
   closePendingBookingsModal();
@@ -486,40 +600,20 @@ async function openAssignRoomModal(bookingId) {
 }
 
 async function findAvailableRooms(booking) {
-  // Find rooms of the same type
-  const matchingRooms = rooms.filter((r) => r.roomType.id === booking.roomTypeId);
+  const response = await API.getAvailableRooms(
+    booking.roomTypeId,
+    booking.checkInDate,
+    booking.checkOutDate,
+  );
 
-  // Check which ones are available for the entire period
-  const available = [];
-  
-  for (const room of matchingRooms) {
-    const isAvailable = checkRoomAvailability(room.id, booking.checkInDate, booking.checkOutDate, booking.id);
-    if (isAvailable) {
-      available.push(room);
-    }
+  if (!response?.ok || !Array.isArray(response.data?.data)) {
+    throw new Error(response?.data?.mess || "Không thể tải phòng trống");
   }
 
-  return available;
-}
-
-function checkRoomAvailability(roomId, checkInDate, checkOutDate, excludeBookingId = null) {
-  // Check if room is available for the entire period
-  const checkIn = new Date(checkInDate);
-  const checkOut = new Date(checkOutDate);
-
-  const conflicts = bookings.filter((b) => {
-    if (b.id === excludeBookingId) return false;
-    if (!b.assignedRoomId || b.assignedRoomId !== roomId) return false;
-    if (b.status === "CANCELLED") return false;
-
-    const bCheckIn = new Date(b.checkInDate);
-    const bCheckOut = new Date(b.checkOutDate);
-
-    // Check for overlap
-    return checkIn < bCheckOut && checkOut > bCheckIn;
-  });
-
-  return conflicts.length === 0;
+  return response.data.data.map((room) => ({
+    id: room.roomId,
+    roomNumber: room.roomNumber,
+  }));
 }
 
 function renderAvailableRooms(availableRooms) {
@@ -562,18 +656,22 @@ function selectRoom(roomId) {
 async function confirmAssignRoom() {
   if (!selectedRoomId || !selectedBookingId) return;
 
-  // In a real system, you would call an API to assign the room
-  // For now, we'll simulate by updating the booking locally
-  const booking = bookings.find((b) => b.id === selectedBookingId);
-  if (booking) {
-    booking.assignedRoomId = selectedRoomId;
-    booking.status = "CONFIRMED";
-  }
+  try {
+    const response = await API.assignRoom(selectedBookingId, selectedRoomId);
+    if (!response?.ok) {
+      showMessage(pageMessage, response?.data?.mess || "Không thể gán phòng", "error");
+      return;
+    }
 
-  showMessage(pageMessage, "Đã gán phòng thành công!", "success");
-  closeAssignRoomModal();
-  await loadBookings();
-  renderCalendar();
+    showMessage(pageMessage, "Đã gán phòng thành công!", "success");
+    closeAssignRoomModal();
+    await loadBookings();
+    await loadDailyRoomStatuses();
+    renderCalendar();
+  } catch (error) {
+    console.error("Error assigning room:", error);
+    showMessage(pageMessage, "Không thể gán phòng. Vui lòng thử lại.", "error");
+  }
 }
 
 function closeAssignRoomModal() {
@@ -592,10 +690,10 @@ function showCellDetail(roomId, dateStr) {
   
   // Find bookings for this cell
   const cellBookings = bookings.filter((booking) => {
-    if (!booking.assignedRoomId || booking.assignedRoomId !== roomId) return false;
+    if (!booking.roomId || booking.roomId !== roomId) return false;
     
-    const checkIn = new Date(booking.checkInDate);
-    const checkOut = new Date(booking.checkOutDate);
+    const checkIn = parseDateInput(booking.checkInDate);
+    const checkOut = parseDateInput(booking.checkOutDate);
     
     return date >= checkIn && date < checkOut;
   });
@@ -609,7 +707,7 @@ function showCellDetail(roomId, dateStr) {
     html += `
       <div class="detail-row">
         <div class="detail-label">Khách hàng:</div>
-        <div class="detail-value"><strong>${booking.guestFullName}</strong></div>
+        <div class="detail-value"><strong>${booking.guestName}</strong></div>
       </div>
       <div class="detail-row">
         <div class="detail-label">SĐT:</div>
@@ -645,8 +743,20 @@ function closeCellDetailModal() {
 
 function formatDate(dateString) {
   if (!dateString) return "N/A";
-  const date = new Date(dateString);
+  const date = typeof dateString === "string" ? parseDateInput(dateString) : dateString;
   return date.toLocaleDateString("vi-VN");
+}
+
+function parseDateInput(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function getWeekStart(date) {
+  const weekStart = new Date(date);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
 }
 
 function formatDateShort(date) {
@@ -669,11 +779,22 @@ function getDayName(date) {
 
 function getStatusText(status) {
   const statusMap = {
-    PENDING: "Chờ xác nhận",
+    NEW: "Mới tạo",
     CONFIRMED: "Đã xác nhận",
     CHECKED_IN: "Đã nhận phòng",
     CHECKED_OUT: "Đã trả phòng",
     CANCELLED: "Đã hủy",
+  };
+  return statusMap[status] || status;
+}
+
+function getRoomStatusText(status) {
+  const statusMap = {
+    AVAILABLE: "Trống",
+    RESERVED: "Trống",
+    OCCUPIED: "Đang sử dụng",
+    NEEDS_CLEANING: "Cần dọn dẹp",
+    MAINTENANCE: "Bảo trì",
   };
   return statusMap[status] || status;
 }

@@ -2,6 +2,7 @@ package roomi.dev.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import roomi.dev.model.User;
 import roomi.dev.service.BookingService;
 import roomi.dev.util.AuthUtil;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -30,6 +32,22 @@ public class BookingController {
         return ResponseEntity.ok(BaseResponse.<List<BookingResponse>>builder()
                 .mess("Thành công")
                 .data(bookingService.getAllBookings())
+                .build());
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<BaseResponse<List<BookingResponse>>> searchBookings(
+            @RequestParam(required = false) String guestName,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String idNumber,
+            @RequestParam(required = false) Long roomTypeId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+
+        return ResponseEntity.ok(BaseResponse.<List<BookingResponse>>builder()
+                .mess("Tìm kiếm thành công")
+                .data(bookingService.searchBookings(
+                        guestName, phone, idNumber, roomTypeId, fromDate, toDate))
                 .build());
     }
 

@@ -33,6 +33,6 @@ public class Room {
     private String note;
     
     public enum Status {
-        AVAILABLE, OCCUPIED, NEEDS_CLEANING, MAINTENANCE
+        AVAILABLE, RESERVED, OCCUPIED, NEEDS_CLEANING, MAINTENANCE
     }
 }

@@ -254,6 +254,7 @@ function renderRoomsTable() {
 function renderStatusBadge(status) {
   const statusMap = {
     AVAILABLE: { label: "Còn trống", class: "available" },
+    RESERVED: { label: "Còn trống", class: "available" },
     OCCUPIED: { label: "Đang sử dụng", class: "occupied" },
     NEEDS_CLEANING: { label: "Cần dọn dẹp", class: "needs-cleaning" },
     MAINTENANCE: { label: "Bảo trì", class: "maintenance" },

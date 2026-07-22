@@ -282,6 +282,12 @@ const API = {
       method: "GET",
     }),
 
+  /** Lấy trạng thái tất cả phòng trong một ngày cho màn hình lễ tân */
+  getDailyRoomStatuses: (date) =>
+    apiCall(`/calendar/daily-room-statuses?date=${encodeURIComponent(date)}`, {
+      method: "GET",
+    }),
+
   /**
    * Lấy thông tin phòng theo ID
    * @param {number} id
@@ -461,9 +467,15 @@ const API = {
    * @param {number} roomId
    */
   assignRoom: (bookingId, roomId) =>
-    apiCall(`/bookings/${bookingId}/assign-room/${roomId}`, {
-      method: "PUT",
+    apiCall(`/bookings/${bookingId}/assign-room?roomId=${roomId}`, {
+      method: "PATCH",
     }),
+
+  getAvailableRooms: (roomTypeId, checkInDate, checkOutDate) =>
+    apiCall(
+      `/calendar/available-rooms?roomTypeId=${roomTypeId}&checkIn=${checkInDate}&checkOut=${checkOutDate}`,
+      { method: "GET" },
+    ),
 
   /**
    * Check-in

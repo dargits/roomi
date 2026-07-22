@@ -83,4 +83,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     long countActiveBookingsByRoomAndDateRange(@Param("roomId")   Long roomId,
                                               @Param("checkIn")  LocalDate checkIn,
                                               @Param("checkOut") LocalDate checkOut);
+
+    @Query("SELECT b FROM Booking b " +
+           "WHERE (:guestName IS NULL OR LOWER(b.guest.fullName) LIKE LOWER(CONCAT('%', :guestName, '%'))) " +
+           "AND (:phone IS NULL OR b.guest.phone LIKE CONCAT('%', :phone, '%')) " +
+           "AND (:idNumber IS NULL OR b.guest.idNumber LIKE CONCAT('%', :idNumber, '%')) " +
+           "AND (:roomTypeId IS NULL OR b.roomType.id = :roomTypeId) " +
+           "AND (:fromDate IS NULL OR b.checkOutDate > :fromDate) " +
+           "AND (:toDate IS NULL OR b.checkInDate <= :toDate) " +
+           "ORDER BY b.createdAt DESC")
+    List<Booking> searchBookings(@Param("guestName") String guestName,
+                                 @Param("phone") String phone,
+                                 @Param("idNumber") String idNumber,
+                                 @Param("roomTypeId") Long roomTypeId,
+                                 @Param("fromDate") LocalDate fromDate,
+                                 @Param("toDate") LocalDate toDate);
 }
