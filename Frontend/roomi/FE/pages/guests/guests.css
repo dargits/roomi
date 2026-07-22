@@ -224,3 +224,106 @@
   gap: 12px;
   margin-top: 24px;
 }
+
+.modal-sm {
+  max-width: 400px;
+}
+
+.card-btn-danger {
+  background: #e53935;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.card-btn-danger:hover {
+  background: #c62828;
+}
+
+.card-btn-outline {
+  background: #fff;
+  color: #555;
+  border: 1px solid #ccc;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.card-btn-outline:hover {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+/* ─── TOAST NOTIFICATIONS ─────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  animation: slideInRight 0.35s cubic-bezier(0.68, -0.55, 0.265, 1.55), fadeOut 0.4s ease 3s forwards;
+}
+
+.toast-success {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.toast-error {
+  background: linear-gradient(135deg, #eb3b5a 0%, #fa8231 100%);
+}
+
+.toast-info {
+  background: linear-gradient(135deg, #2d98da 0%, #45aaf2 100%);
+}
+
+.toast i {
+  font-size: 18px;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}

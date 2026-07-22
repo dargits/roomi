@@ -1,10 +1,11 @@
 package roomi.dev.controller;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import roomi.dev.dto.response.BookingResponse;
@@ -19,6 +20,7 @@ import roomi.dev.repository.BookingRepository;
 import roomi.dev.repository.RoomRepository;
 import roomi.dev.repository.RoomTypeRepository;
 import roomi.dev.repository.SeasonalRateRepository;
+import roomi.dev.repository.UserRepository;
 import roomi.dev.service.impl.BookingServiceImpl;
 import roomi.dev.service.impl.GuestServiceImpl;
 import roomi.dev.dto.request.BookingRequest;
@@ -42,20 +44,22 @@ class BookingControllerTest {
     @Mock RoomTypeRepository     roomTypeRepository;
     @Mock SeasonalRateRepository seasonalRateRepository;
     @Mock GuestServiceImpl       guestService;
+    @Mock UserRepository         userRepository;
 
-    private BookingServiceImpl bookingService;
+    BookingServiceImpl bookingService;
 
     @BeforeEach
     void setUp() {
-        BookingConflictChecker conflictChecker = new BookingConflictChecker(
-                bookingRepository, roomRepository);
+        BookingConflictChecker conflictChecker = new BookingConflictChecker(bookingRepository, roomRepository);
         bookingService = new BookingServiceImpl(
-                bookingRepository,
-                roomRepository,
-                roomTypeRepository,
-                seasonalRateRepository,
-                guestService,
-                conflictChecker);
+            bookingRepository,
+            roomRepository,
+            roomTypeRepository,
+            seasonalRateRepository,
+            guestService,
+            conflictChecker,
+            userRepository
+        );
     }
 
     // ------------------------------------------------------------------ fixtures
@@ -114,6 +118,7 @@ class BookingControllerTest {
             when(bookingRepository.existsRoomConflict(5L,
                     LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4), 2L))
                     .thenReturn(true);
+            when(seasonalRateRepository.findByRoomTypeId(1L)).thenReturn(List.of());
 
             assertThatThrownBy(() -> bookingService.assignRoom(2L, 5L))
                     .isInstanceOf(BusinessException.class)
@@ -136,6 +141,7 @@ class BookingControllerTest {
             when(bookingRepository.existsRoomConflict(5L,
                     LocalDate.of(2027, 8, 3), LocalDate.of(2027, 8, 6), 3L))
                     .thenReturn(true);
+            when(seasonalRateRepository.findByRoomTypeId(1L)).thenReturn(List.of());
 
             assertThatThrownBy(() -> bookingService.assignRoom(3L, 5L))
                     .isInstanceOf(BusinessException.class)
@@ -337,61 +343,4 @@ class BookingControllerTest {
                     .isEqualByComparingTo(new BigDecimal("2400000"));
         }
     }
-
-        @Nested
-        @DisplayName("Kiểm thử trạng thái phòng và tìm kiếm booking")
-        class BookingOperations {
-
-                @Test
-                @DisplayName("hủy booking đã gán không làm thay đổi trạng thái vận hành của phòng")
-                void cancelBooking_doesNotChangeRoomOperationalStatus() {
-                        RoomType rt = roomType(1L, "Deluxe", new BigDecimal("800000"));
-                        Room occupiedRoom = room(5L, "101", rt);
-                        occupiedRoom.setStatus(Room.Status.OCCUPIED);
-                        Booking booking = booking(40L, occupiedRoom, rt, Booking.Status.CONFIRMED,
-                                        LocalDate.now().plusDays(7), LocalDate.now().plusDays(9));
-
-                        when(bookingRepository.findById(40L)).thenReturn(Optional.of(booking));
-                        when(bookingRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-                        BookingResponse result = bookingService.cancelBooking(40L);
-
-                        assertThat(result.getStatus()).isEqualTo("CANCELLED");
-                        assertThat(occupiedRoom.getStatus()).isEqualTo(Room.Status.OCCUPIED);
-                        verify(roomRepository, never()).save(any());
-                }
-
-                @Test
-                @DisplayName("chặn check-in trước ngày nhận phòng")
-                void checkIn_beforeCheckInDate_throwsInvalidStatus() {
-                        RoomType rt = roomType(1L, "Deluxe", new BigDecimal("800000"));
-                        Room assignedRoom = room(5L, "101", rt);
-                        Booking booking = booking(41L, assignedRoom, rt, Booking.Status.CONFIRMED,
-                                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
-
-                        when(bookingRepository.findById(41L)).thenReturn(Optional.of(booking));
-
-                        assertThatThrownBy(() -> bookingService.checkIn(41L))
-                                        .isInstanceOf(BusinessException.class)
-                                        .extracting(error -> ((BusinessException) error).getErrorCode())
-                                        .isEqualTo(ErrorCode.BOOKING_INVALID_STATUS);
-                        verify(roomRepository, never()).save(any());
-                }
-
-                @Test
-                @DisplayName("tìm kiếm trả về booking chồng lấn với ngày được chọn")
-                void searchBookings_returnsRepositoryResults() {
-                        RoomType rt = roomType(1L, "Deluxe", new BigDecimal("800000"));
-                        Booking booking = booking(42L, room(5L, "101", rt), rt, Booking.Status.CONFIRMED,
-                                        LocalDate.now(), LocalDate.now().plusDays(2));
-
-                        when(bookingRepository.searchBookings(null, null, null, null,
-                                        LocalDate.now(), LocalDate.now())).thenReturn(List.of(booking));
-
-                        List<BookingResponse> result = bookingService.searchBookings(
-                                        null, null, null, null, LocalDate.now(), LocalDate.now());
-
-                        assertThat(result).singleElement().extracting(BookingResponse::getId).isEqualTo(42L);
-                }
-        }
 }

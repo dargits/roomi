@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import roomi.dev.dto.response.AvailableRoomResponse;
 import roomi.dev.dto.response.BaseResponse;
-import roomi.dev.dto.response.DailyRoomStatusResponse;
 import roomi.dev.dto.response.RoomCalendarResponse;
 import roomi.dev.service.CalendarService;
 
@@ -23,7 +22,6 @@ import java.util.List;
  *   GET /api/v1/calendar/rooms                        — lịch tất cả phòng
  *   GET /api/v1/calendar/room-types/{roomTypeId}      — lịch theo loại phòng
  *   GET /api/v1/calendar/available-rooms              — danh sách phòng còn trống + giá
- *   GET /api/v1/calendar/daily-room-statuses          — trạng thái phòng trong một ngày
  */
 @RestController
 @RequestMapping("/api/v1/calendar")
@@ -120,20 +118,4 @@ public class CalendarController {
                 .data(calendarService.getAvailableRooms(roomTypeId, checkIn, checkOut))
                 .build());
     }
-
-        /**
-         * Trạng thái phòng cho một ngày để lễ tân theo dõi: trống, đang sử dụng,
-         * đã đặt trước, đang dọn dẹp hoặc bảo trì.
-         *
-         * Ví dụ: GET /api/v1/calendar/daily-room-statuses?date=2026-08-10
-         */
-        @GetMapping("/daily-room-statuses")
-        public ResponseEntity<BaseResponse<List<DailyRoomStatusResponse>>> getDailyRoomStatuses(
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-
-                return ResponseEntity.ok(BaseResponse.<List<DailyRoomStatusResponse>>builder()
-                                .mess("Thành công")
-                                .data(calendarService.getDailyRoomStatuses(date))
-                                .build());
-        }
 }

@@ -67,7 +67,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Set default dates
   setDefaultDates();
 
-  console.log("[Bookings] Page loaded. Click 'Tìm kiếm' to load data.");
+  // Load all bookings automatically
+  await loadAllBookings();
 });
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -215,21 +216,66 @@ function populateRoomTypeSelects() {
   });
 }
 
+async function loadAllBookings() {
+  tableLoading.style.display = "flex";
+  tableEmpty.style.display = "none";
+  bookingsTableBody.innerHTML = "";
+
+  try {
+    const response = await API.getAllBookings();
+    console.log("[Bookings] Load all response:", response);
+
+    if (response?.ok && response.data?.data) {
+      bookings = response.data.data;
+      console.log("[Bookings] Loaded bookings count:", bookings.length);
+      renderBookings();
+    } else {
+      const errorMsg =
+        response?.data?.mess || response?.data?.error || "Không thể tải danh sách đặt phòng";
+      showMessage(pageMessage, errorMsg, "error");
+      bookings = [];
+      renderBookings();
+    }
+  } catch (error) {
+    console.error("[Bookings] Error loading all bookings:", error);
+    showMessage(
+      pageMessage,
+      "Lỗi kết nối backend. Vui lòng kiểm tra backend có đang chạy không.",
+      "error",
+    );
+    bookings = [];
+    renderBookings();
+  } finally {
+    tableLoading.style.display = "none";
+  }
+}
+
 async function performSearch() {
+  const guestName = searchGuestName.value.trim();
+  const phone = searchPhone.value.trim();
+  const idNumber = searchIdNumber.value.trim();
+  const roomTypeId = searchRoomType.value;
+  const fromDate = searchFromDate.value;
+  const toDate = searchToDate.value;
+
+  if (!guestName && !phone && !idNumber && !roomTypeId && !fromDate && !toDate) {
+    await loadAllBookings();
+    return;
+  }
+
   tableLoading.style.display = "flex";
   tableEmpty.style.display = "none";
   bookingsTableBody.innerHTML = "";
 
   const params = {
-    guestName: searchGuestName.value.trim() || undefined,
-    phone: searchPhone.value.trim() || undefined,
-    idNumber: searchIdNumber.value.trim() || undefined,
-    roomTypeId: searchRoomType.value || undefined,
-    fromDate: searchFromDate.value || undefined,
-    toDate: searchToDate.value || undefined,
+    guestName: guestName || undefined,
+    phone: phone || undefined,
+    idNumber: idNumber || undefined,
+    roomTypeId: roomTypeId || undefined,
+    fromDate: fromDate || undefined,
+    toDate: toDate || undefined,
   };
 
-  // Loại bỏ các params undefined để không gửi lên server
   Object.keys(params).forEach(
     (key) => params[key] === undefined && delete params[key],
   );
@@ -237,9 +283,7 @@ async function performSearch() {
   console.log("[Bookings] Searching with params:", params);
 
   try {
-    const response = Object.keys(params).length === 0
-      ? await API.getAllBookings()
-      : await API.searchBookings(params);
+    const response = await API.searchBookings(params);
     console.log("[Bookings] Search response:", response);
 
     if (response?.ok && response.data?.data) {
@@ -275,9 +319,8 @@ function clearSearch() {
   searchRoomType.value = "";
   searchFromDate.value = "";
   searchToDate.value = "";
-  bookings = [];
-  renderBookings();
   clearMessage(pageMessage);
+  loadAllBookings();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -375,7 +418,7 @@ function openEditModal(id) {
   modalTitle.innerHTML = '<i class="fa fa-edit"></i> Chỉnh sửa đặt phòng';
   document.getElementById("saveBookingBtnText").textContent = "Cập nhật";
 
-  inputFullName.value = booking.guestFullName || booking.guestName || "";
+  inputFullName.value = booking.guestName || booking.guestFullName || "";
   inputPhone.value = booking.guestPhone || "";
   inputIdNumber.value = booking.guestIdNumber || "";
   inputEmail.value = booking.guestEmail || "";
@@ -599,7 +642,7 @@ async function saveBooking() {
       const message = response.data?.mess || "Lưu thành công";
       showMessage(pageMessage, message, "success");
       closeModal();
-      await performSearch();
+      await loadAllBookings();
     } else {
       let errorMsg = "Có lỗi xảy ra";
       if (response?.data?.mess) {
@@ -639,7 +682,7 @@ async function confirmDelete() {
         "success",
       );
       closeConfirmModal();
-      await performSearch();
+      await loadAllBookings();
     } else {
       showMessage(
         pageMessage,

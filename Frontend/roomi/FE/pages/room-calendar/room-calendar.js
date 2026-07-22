@@ -192,12 +192,12 @@ async function loadDailyRoomStatuses() {
 
 function getDailyRoomStatuses(dailyBookings) {
   const selectedDate = dailyStatusDate.value;
-  const today = formatDateForAPI(new Date());
 
   return rooms.map((room) => {
-    const roomBookings = dailyBookings.filter((booking) =>
-      booking.roomId === room.id && isBookingActiveOnDate(booking, selectedDate));
-    const checkedInBooking = roomBookings.find((booking) => booking.status === "CHECKED_IN");
+    const activeBooking = dailyBookings.find((booking) =>
+      booking.roomId === room.id && isBookingActiveOnDate(booking, selectedDate)
+    );
+
     let status = "AVAILABLE";
     let relatedBooking = null;
 
@@ -205,25 +205,33 @@ function getDailyRoomStatuses(dailyBookings) {
       status = "MAINTENANCE";
     } else if (room.status === "NEEDS_CLEANING") {
       status = "CLEANING";
-    } else if (checkedInBooking || (selectedDate === today && room.status === "OCCUPIED")) {
+    } else if (activeBooking) {
       status = "OCCUPIED";
-      relatedBooking = checkedInBooking;
+      relatedBooking = activeBooking;
     }
 
     return {
       roomNumber: room.roomNumber,
-      roomTypeName: room.roomType?.name || "Chưa có loại phòng",
+      roomTypeName: room.roomType?.name || room.roomTypeName || "Chưa có loại phòng",
       status,
       guestName: relatedBooking?.guestName,
     };
   });
 }
 
-function isBookingActiveOnDate(booking, date) {
-  return booking.status !== "CANCELLED"
-    && booking.status !== "NO_SHOW"
-    && booking.checkInDate <= date
-    && date < booking.checkOutDate;
+function isBookingActiveOnDate(booking, dateStr) {
+  if (!booking.roomId) return false;
+  if (booking.status === "CANCELLED" || booking.status === "NO_SHOW") return false;
+  
+  const checkIn = parseDateInput(booking.checkInDate);
+  const checkOut = parseDateInput(booking.checkOutDate);
+  const current = parseDateInput(dateStr);
+  
+  checkIn.setHours(0, 0, 0, 0);
+  checkOut.setHours(0, 0, 0, 0);
+  current.setHours(0, 0, 0, 0);
+  
+  return current >= checkIn && current < checkOut;
 }
 
 function renderDailyRoomStatuses(dailyRooms) {
@@ -291,28 +299,20 @@ async function loadRooms() {
 }
 
 async function loadBookings() {
-  // Load all bookings for the current period
-  const weekStart = formatDateForAPI(currentWeekStart);
-  const weekEnd = new Date(currentWeekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekEndStr = formatDateForAPI(weekEnd);
-
   try {
-    const response = await API.searchBookings({
-      fromDate: weekStart,
-      toDate: weekEndStr,
-    });
-    if (!response?.ok || !Array.isArray(response.data?.data)) {
-      const allBookingsResponse = await API.getAllBookings();
-      if (!allBookingsResponse?.ok || !Array.isArray(allBookingsResponse.data?.data)) {
-        throw new Error(response?.data?.mess || "Không thể tải danh sách booking");
-      }
-      bookings = allBookingsResponse.data.data;
-    } else {
+    // Tải toàn bộ danh sách booking để đảm bảo không bỏ sót booking kéo dài qua các tuần
+    // hoặc các đơn chưa gán phòng ở khoảng thời gian khác
+    const response = await API.getAllBookings();
+    if (response?.ok && Array.isArray(response.data?.data)) {
       bookings = response.data.data;
+    } else {
+      bookings = [];
     }
 
-    pendingBookings = bookings.filter((b) => b.status === "NEW" && !b.roomId);
+    // Đơn chờ gán phòng là đơn chưa có roomId và chưa bị hủy/no-show
+    pendingBookings = bookings.filter(
+      (b) => !b.roomId && b.status !== "CANCELLED" && b.status !== "NO_SHOW"
+    );
     updatePendingBadge();
   } catch (error) {
     console.error("Error loading bookings:", error);
@@ -342,7 +342,10 @@ function renderCalendar() {
   const selectedRoomType = roomTypeFilter.value;
   let filteredRooms = rooms;
   if (selectedRoomType) {
-    filteredRooms = rooms.filter((r) => r.roomType.id === parseInt(selectedRoomType));
+    const typeId = parseInt(selectedRoomType);
+    filteredRooms = rooms.filter(
+      (r) => (r.roomType?.id || r.roomTypeId) === typeId
+    );
   }
 
   if (filteredRooms.length === 0) {
@@ -397,10 +400,11 @@ function buildCalendarGrid(filteredRooms, weekDays) {
     html += '<div class="calendar-row">';
     
     // Room label
+    const roomTypeName = room.roomType?.name || room.roomTypeName || "Chưa có loại";
     html += `<div class="calendar-cell room-label">
       <div>
         <div class="room-number">${room.roomNumber}</div>
-        <div class="room-type-name">${room.roomType.name}</div>
+        <div class="room-type-name">${roomTypeName}</div>
         <div class="room-type-name">${getRoomStatusText(room.status)}</div>
       </div>
     </div>`;
@@ -420,17 +424,15 @@ function buildCalendarGrid(filteredRooms, weekDays) {
 }
 
 function getCellData(roomId, date) {
-  // Check if there's a booking for this room on this date
-  // Note: In a real system, you'd need a room assignment table
-  // For now, we'll simulate by checking if booking dates overlap
-  
-  // Find bookings that overlap with this date
+  // Tìm các booking hợp lệ chồng lấp với ngày này
   const overlappingBookings = bookings.filter((booking) => {
     if (!booking.roomId || booking.roomId !== roomId) return false;
+    if (booking.status === "CANCELLED" || booking.status === "NO_SHOW") return false;
     
     const checkIn = parseDateInput(booking.checkInDate);
     const checkOut = parseDateInput(booking.checkOutDate);
     const current = new Date(date);
+    current.setHours(0, 0, 0, 0);
     
     return current >= checkIn && current < checkOut;
   });
@@ -441,8 +443,12 @@ function getCellData(roomId, date) {
 
   if (overlappingBookings.length === 1) {
     const booking = overlappingBookings[0];
+    let cellStatus = "occupied";
+    if (booking.status === "NEW") {
+      cellStatus = "pending";
+    }
     return {
-      status: booking.status === "NEW" ? "pending" : "occupied",
+      status: cellStatus,
       booking: booking,
     };
   }
@@ -485,11 +491,15 @@ function attachCellHandlers() {
       const date = cell.dataset.date;
       const status = cell.dataset.status;
 
-      if (status === "occupied" || status === "conflict") {
+      if (status === "occupied" || status === "pending" || status === "conflict") {
         showCellDetail(roomId, date);
-      } else {
-        // Available cell - could show assign options
-        console.log("Available cell clicked", roomId, date);
+      } else if (status === "available") {
+        // Ô trống: Nếu có đơn chưa gán, mở danh sách đơn chờ gán phòng
+        if (pendingBookings.length > 0) {
+          openPendingBookingsModal();
+        } else {
+          showMessage(pageMessage, `Phòng trống ngày ${formatDate(date)}. Không có đơn đặt phòng nào đang chờ gán.`, "info");
+        }
       }
     });
   });
@@ -665,6 +675,7 @@ async function confirmAssignRoom() {
 
     showMessage(pageMessage, "Đã gán phòng thành công!", "success");
     closeAssignRoomModal();
+    await loadRooms();
     await loadBookings();
     await loadDailyRoomStatuses();
     renderCalendar();

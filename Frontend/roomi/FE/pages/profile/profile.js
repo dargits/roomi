@@ -154,57 +154,7 @@ function renderEditForm(userInfo) {
 
 // ─── SAVE INFO ────────────────────────────────────────────────────────────────
 function setupSaveInfo(userInfo) {
-  const btn = document.getElementById("saveInfoBtn");
-  if (!btn) return;
-
-  // Giữ reference tới userInfo hiện tại (mutable để update sau save)
-  let currentUser = { ...userInfo };
-
-  btn.addEventListener("click", async () => {
-    const fullName = document.getElementById("editFullName").value.trim();
-    const phone    = document.getElementById("editPhone").value.trim();
-
-    if (!fullName) {
-      showMessage("infoMessage", "Họ và tên không được để trống.", "error");
-      return;
-    }
-
-    if (!currentUser.id) {
-      showMessage("infoMessage", "Không thể xác định tài khoản. Vui lòng tải lại trang.", "error");
-      return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang lưu...';
-    hideMessage("infoMessage");
-
-    try {
-      const result = await API.updateProfile({
-        fullName,
-        phone: phone || null,
-      });
-      
-      if (result && result.ok) {
-        const updated = result.data?.data || result.data;
-        if (updated && updated.id) {
-          currentUser = { ...currentUser, ...updated };
-          Auth.setUserInfo(currentUser);
-          renderProfileCard(currentUser);
-          renderSidebar(currentUser);
-        }
-        showMessage("infoMessage", result.data?.mess || "Cập nhật thông tin thành công!", "success");
-      } else {
-        const errMsg = result?.data?.mess || "Cập nhật thất bại.";
-        showMessage("infoMessage", errMsg, "error");
-      }
-    } catch (err) {
-      showMessage("infoMessage", "Lỗi kết nối máy chủ.", "error");
-      console.error(err);
-    } finally {
-      btn.disabled  = false;
-      btn.innerHTML = '<i class="fa fa-save"></i> Lưu thay đổi';
-    }
-  });
+  // Chức năng cập nhật thông tin cá nhân không được hỗ trợ bởi backend
 }
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────

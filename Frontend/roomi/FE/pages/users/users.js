@@ -243,10 +243,6 @@ function buildRow(u, index) {
       <td>${createdAt}</td>
       <td>
         <div class="action-btns">
-          <button class="action-btn action-btn-edit"
-                  onclick="openEditModal(${u.id})" title="Sửa thông tin">
-            <i class="fa fa-pen"></i>
-          </button>
           ${lockBtn}
         </div>
       </td>

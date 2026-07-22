@@ -282,12 +282,6 @@ const API = {
       method: "GET",
     }),
 
-  /** Lấy trạng thái tất cả phòng trong một ngày cho màn hình lễ tân */
-  getDailyRoomStatuses: (date) =>
-    apiCall(`/calendar/daily-room-statuses?date=${encodeURIComponent(date)}`, {
-      method: "GET",
-    }),
-
   /**
    * Lấy thông tin phòng theo ID
    * @param {number} id
@@ -471,11 +465,14 @@ const API = {
       method: "PATCH",
     }),
 
-  getAvailableRooms: (roomTypeId, checkInDate, checkOutDate) =>
-    apiCall(
-      `/calendar/available-rooms?roomTypeId=${roomTypeId}&checkIn=${checkInDate}&checkOut=${checkOutDate}`,
-      { method: "GET" },
-    ),
+  /**
+   * Xác nhận đặt phòng
+   * @param {number} bookingId
+   */
+  confirmBooking: (bookingId) =>
+    apiCall(`/bookings/${bookingId}/confirm`, {
+      method: "PATCH",
+    }),
 
   /**
    * Check-in
@@ -483,7 +480,7 @@ const API = {
    */
   checkIn: (bookingId) =>
     apiCall(`/bookings/${bookingId}/check-in`, {
-      method: "PUT",
+      method: "PATCH",
     }),
 
   /**
@@ -492,7 +489,7 @@ const API = {
    */
   checkOut: (bookingId) =>
     apiCall(`/bookings/${bookingId}/check-out`, {
-      method: "PUT",
+      method: "PATCH",
     }),
 
   /**
@@ -501,6 +498,30 @@ const API = {
    */
   cancelBooking: (bookingId) =>
     apiCall(`/bookings/${bookingId}/cancel`, {
-      method: "PUT",
+      method: "PATCH",
     }),
+
+  // ─── CALENDAR ────────────────────────────────────────────────────────────
+  getRoomCalendar: (roomId, checkIn, checkOut) =>
+    apiCall(`/calendar/rooms/${roomId}?checkIn=${checkIn}&checkOut=${checkOut}`, {
+      method: "GET",
+    }),
+
+  getAllRoomsCalendar: (checkIn, checkOut) =>
+    apiCall(`/calendar/rooms?checkIn=${checkIn}&checkOut=${checkOut}`, {
+      method: "GET",
+    }),
+
+  getRoomCalendarByType: (roomTypeId, checkIn, checkOut) =>
+    apiCall(`/calendar/room-types/${roomTypeId}?checkIn=${checkIn}&checkOut=${checkOut}`, {
+      method: "GET",
+    }),
+
+  getAvailableRooms: (roomTypeId, checkIn, checkOut) => {
+    let url = `/calendar/available-rooms?checkIn=${checkIn}&checkOut=${checkOut}`;
+    if (roomTypeId) {
+      url += `&roomTypeId=${roomTypeId}`;
+    }
+    return apiCall(url, { method: "GET" });
+  },
 };

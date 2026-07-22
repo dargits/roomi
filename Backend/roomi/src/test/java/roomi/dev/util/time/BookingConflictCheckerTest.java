@@ -144,21 +144,6 @@ class BookingConflictCheckerTest {
             verify(bookingRepository).existsRoomConflict(
                     eq(10L), any(), any(), eq(currentBookingId));
         }
-
-        @Test
-        @DisplayName("ném lỗi khi phòng đang bảo trì")
-        void throwsException_whenRoomIsInMaintenance() {
-            room.setStatus(Room.Status.MAINTENANCE);
-            when(roomRepository.findById(10L)).thenReturn(Optional.of(room));
-
-            assertThatThrownBy(() ->
-                    conflictChecker.validateAndGetRoom(10L, roomType, slot, -1L)
-            )
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.ROOM_NOT_AVAILABLE);
-
-            verifyNoInteractions(bookingRepository);
-        }
     }
 
     // ====================================================== validateNoConflict

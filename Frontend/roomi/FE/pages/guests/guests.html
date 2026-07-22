@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="../dashboard/dashboard.css" />
     <link rel="stylesheet" href="guests.css" />
   </head>
-  <body class="loaded">
+  <body>
     <!-- Sidebar (Giữ nguyên cấu trúc trang chủ) -->
     <div class="sidebar">
       <div class="sidebar-header">
@@ -149,14 +149,14 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th style="width: 60px;">STT</th>
               <th>Họ và tên</th>
               <th>Số điện thoại</th>
               <th>Số CCCD/CMND</th>
               <th>Email</th>
               <th>Điểm tích lũy</th>
               <th>Ghi chú</th>
-              <th>Thao tác</th>
+              <th style="width: 110px;">Thao tác</th>
             </tr>
           </thead>
           <tbody id="guestTableBody">
@@ -167,6 +167,9 @@
         </table>
       </div>
     </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
 
     <!-- Modal Thêm/Sửa Khách hàng -->
     <div class="modal-overlay" id="guestModal">
@@ -229,6 +232,23 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Modal Xác nhận xóa -->
+    <div class="modal-overlay" id="confirmModal">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h3><i class="fa fa-exclamation-triangle" style="color: #e53935;"></i> Xác nhận xóa</h3>
+          <button class="modal-close" id="btnCloseConfirmModal">&times;</button>
+        </div>
+        <p style="margin-bottom: 24px; color: #555; font-size: 14px;" id="confirmDeleteText">
+          Bạn có chắc chắn muốn xóa khách hàng này không?
+        </p>
+        <div class="modal-actions">
+          <button class="card-btn card-btn-outline" id="btnCancelConfirmModal">Hủy</button>
+          <button class="card-btn card-btn-danger" id="btnDoDelete">Xóa ngay</button>
+        </div>
       </div>
     </div>
 
