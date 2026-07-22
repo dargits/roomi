@@ -30,4 +30,13 @@ public class ErrorCode {
     public static final String CANNOT_LOCK_ADMIN = "USER_002";
     public static final String USER_ALREADY_LOCKED = "USER_003";
     public static final String USER_ALREADY_ACTIVE = "USER_004";
+
+    // Guest errors
+    public static final String GUEST_NOT_FOUND = "GUEST_001";
+
+    // Booking errors
+    public static final String BOOKING_CONFLICT       = "BOOK_003";  // phòng đã bị đặt trong khoảng thời gian đó
+    public static final String BOOKING_ALREADY_ASSIGNED = "BOOK_004"; // booking đã được gán phòng rồi
+    public static final String BOOKING_INVALID_STATUS = "BOOK_005";  // trạng thái không cho phép thao tác
+    public static final String ROOM_TYPE_MISMATCH     = "BOOK_006";  // roomType của phòng không khớp booking
 }
