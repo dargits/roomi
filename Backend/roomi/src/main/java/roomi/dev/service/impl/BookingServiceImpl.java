@@ -308,6 +308,7 @@ public class BookingServiceImpl implements BookingService {
     public List<BookingResponse> searchBookings(String guestName, String phone, String idNumber, Long roomTypeId,
             LocalDate fromDate, LocalDate toDate) {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'searchBookings'");
+        //throw new UnsupportedOperationException("Unimplemented method 'searchBookings'");
+        return new Arralist();
     }
 }
