@@ -25,12 +25,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   renderUserInfo(userInfo);
 
-  // Đăng xuất
-  document.getElementById("logoutBtn").addEventListener("click", (e) => {
-    e.preventDefault();
-    window.location.href = "../auth/logout.html";
-  });
-
   // Nút tạo user nhanh (chỉ admin)
   const createUserQuickBtn = document.getElementById("createUserQuickBtn");
   if (createUserQuickBtn) {

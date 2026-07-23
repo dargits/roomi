@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" style="background-color: #f6f5f7;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -27,77 +27,8 @@
   </head>
   <body>
     <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <h2><i class="fas fa-building"></i> Roomi Dev</h2>
-      </div>
-      <ul>
-        <li>
-          <a href="../dashboard/dashboard.html"
-            ><i class="fa fa-home"></i> Trang chủ</a
-          >
-        </li>
-        <li>
-          <a href="../users/users.html"
-            ><i class="fa fa-users"></i> Quản lý người dùng</a
-          >
-        </li>
-        <li>
-          <a href="../room-types/room-types.html"
-            ><i class="fa fa-tag"></i> Loại phòng</a
-          >
-        </li>
-        <li>
-          <a href="../rooms/rooms.html"
-            ><i class="fa fa-door-open"></i> Quản lý phòng</a
-          >
-        </li>
-        <li>
-          <a href="../bookings/bookings.html"
-            ><i class="fa fa-calendar-check"></i> Quản lý đặt phòng</a
-          >
-        </li>
-        <li>
-          <a href="../guests/guests.html">
-            <i class="fa fa-user-friends"></i> Quản lý khách hàng
-          </a>
-        </li>
-        <li>
-          <a href="../room-calendar/room-calendar.html"
-            ><i class="fa fa-calendar-alt"></i> Lịch phòng</a
-          >
-        </li>
-        <li>
-          <a href="seasonal-rates.html" class="active"
-            ><i class="fa fa-chart-line"></i> Giá theo mùa</a
-          >
-        </li>
-        <li>
-          <a href="../profile/profile.html"
-            ><i class="fa fa-user-cog"></i> Cấu hình tài khoản</a
-          >
-        </li>
-        <li>
-          <a href="../auth/change-password.html"
-            ><i class="fa fa-key"></i> Đổi mật khẩu</a
-          >
-        </li>
-        <li>
-          <a href="#" id="logoutBtn"
-            ><i class="fa fa-sign-out-alt"></i> Đăng xuất</a
-          >
-        </li>
-      </ul>
-      <div class="sidebar-footer">
-        <div class="user-info-sidebar">
-          <div class="avatar-sidebar"><i class="fa fa-user-circle"></i></div>
-          <div class="sidebar-user-detail">
-            <span id="sidebarUsername">Người dùng</span>
-            <span class="sidebar-role-badge" id="sidebarRoleBadge"></span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="sidebar-container"></div>
+
 
     <!-- Main Content -->
     <div class="main-content">
@@ -250,10 +181,10 @@
       </div>
     </div>
 
-    <script src="../../js/utils/page-loader.js"></script>
     <script src="../../js/constants/config.js"></script>
     <script src="../../js/utils/auth.js"></script>
     <script src="../../js/api/api.js"></script>
+    <script src="../../components/sidebar/sidebar.js"></script>
     <script src="seasonal-rates.js"></script>
   </body>
 </html>

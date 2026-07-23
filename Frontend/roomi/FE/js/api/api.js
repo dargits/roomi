@@ -466,6 +466,18 @@ const API = {
     }),
 
   /**
+   * Đổi phòng cho đặt phòng
+   * @param {number} bookingId
+   * @param {number} roomId
+   * @param {string} reason
+   */
+  changeRoom: (bookingId, roomId, reason = "") =>
+    apiCall(`/bookings/${bookingId}/change-room`, {
+      method: "PATCH",
+      body: JSON.stringify({ roomId, reason }),
+    }),
+
+  /**
    * Xác nhận đặt phòng
    * @param {number} bookingId
    */
@@ -524,4 +536,70 @@ const API = {
     }
     return apiCall(url, { method: "GET" });
   },
+
+  // ─── SURCHARGE SERVICES (QUẢN LÝ DỊCH VỤ PHỤ THU) ────────────────────────
+  getAllSurchargeServices: (activeOnly = true) =>
+    apiCall(`/surcharge-services?activeOnly=${activeOnly}`, {
+      method: "GET",
+    }),
+
+  getSurchargeServiceById: (id) =>
+    apiCall(`/surcharge-services/${id}`, {
+      method: "GET",
+    }),
+
+  createSurchargeService: (data) =>
+    apiCall("/surcharge-services", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSurchargeService: (id, data) =>
+    apiCall(`/surcharge-services/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deactivateSurchargeService: (id) =>
+    apiCall(`/surcharge-services/${id}/deactivate`, {
+      method: "PATCH",
+    }),
+
+  reactivateSurchargeService: (id) =>
+    apiCall(`/surcharge-services/${id}/reactivate`, {
+      method: "PATCH",
+    }),
+
+  deleteSurchargeService: (id) =>
+    apiCall(`/surcharge-services/${id}`, {
+      method: "DELETE",
+    }),
+
+  // ─── BOOKING SURCHARGE USAGE (SỬ DỤNG DỊCH VỤ PHÁT SINH) ─────────────────
+  getBookingServiceUsages: (bookingId) =>
+    apiCall(`/bookings/${bookingId}/service-usages`, {
+      method: "GET",
+    }),
+
+  createBookingServiceUsage: (bookingId, data) =>
+    apiCall(`/bookings/${bookingId}/service-usages`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateBookingServiceUsage: (bookingId, usageId, data) =>
+    apiCall(`/bookings/${bookingId}/service-usages/${usageId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deleteBookingServiceUsage: (bookingId, usageId) =>
+    apiCall(`/bookings/${bookingId}/service-usages/${usageId}`, {
+      method: "DELETE",
+    }),
+
+  getBookingInvoice: (bookingId) =>
+    apiCall(`/bookings/${bookingId}/invoice`, {
+      method: "GET",
+    }),
 };

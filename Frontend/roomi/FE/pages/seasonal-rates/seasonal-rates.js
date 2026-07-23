@@ -63,52 +63,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (actionHeader) actionHeader.style.display = "none";
   }
 
-  renderSidebar();
   attachEventListeners();
   await loadRoomTypes();
   await loadSeasonalRates();
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3. SIDEBAR
-// ═══════════════════════════════════════════════════════════════════════
-
-function renderSidebar() {
-  const userInfo = Auth.getUserInfo();
-  if (!userInfo) return;
-
-  const sidebarUsername = document.getElementById("sidebarUsername");
-  const sidebarRoleBadge = document.getElementById("sidebarRoleBadge");
-
-  if (sidebarUsername) {
-    sidebarUsername.textContent = Auth.getDisplayName(userInfo);
-  }
-
-  if (sidebarRoleBadge) {
-    const roleLabels = {
-      ADMIN: "Quản trị viên",
-      OWNER: "Chủ nhà trọ",
-      RECEPTIONIST: "Lễ tân",
-      HOUSEKEEPER: "Nhân viên phòng",
-      ACCOUNTANT: "Kế toán",
-      NONE: "Chưa phân quyền",
-    };
-    sidebarRoleBadge.textContent = roleLabels[userInfo.role] || userInfo.role;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
 // 4. EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════════════════
 
 function attachEventListeners() {
-  // Logout
-  document.getElementById("logoutBtn")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    await API.logout();
-    Auth.clearAuth();
-    window.location.href = "../auth/login.html";
-  });
+
 
   // Open create modal
   document

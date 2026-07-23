@@ -79,7 +79,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   isAdmin       = true;
   currentUserId = userInfo.id;
-  renderSidebarUser(userInfo);
   bindEvents();
 
   const params = new URLSearchParams(window.location.search);
@@ -104,24 +103,8 @@ function showAccessDenied() {
     </div>`;
 }
 
-// ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-function renderSidebarUser(userInfo) {
-  const nameEl  = document.getElementById("sidebarUsername");
-  const badgeEl = document.getElementById("sidebarRoleBadge");
-  if (nameEl)  nameEl.textContent  = userInfo.fullName || userInfo.username || "Người dùng";
-  if (badgeEl) {
-    badgeEl.textContent  = ROLE_LABELS[userInfo.role] || userInfo.role;
-    badgeEl.style.display = "inline-block";
-  }
-}
-
 // ─── BIND EVENTS ──────────────────────────────────────────────────────────────
 function bindEvents() {
-  document.getElementById("logoutBtn").addEventListener("click", (e) => {
-    e.preventDefault();
-    window.location.href = "../auth/logout.html";
-  });
-
   document.getElementById("searchInput").addEventListener("input", applyFilters);
   document.getElementById("filterRole").addEventListener("change", applyFilters);
   document.getElementById("filterStatus").addEventListener("change", applyFilters);

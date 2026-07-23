@@ -40,7 +40,7 @@ function togglePasswordVisibility(inputId, iconElement) {
 }
 
 function resetPasswordFields() {
-  ["regPassword", "loginPassword"].forEach((id) => {
+  ["regPassword", "regConfirmPassword", "loginPassword"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.type = "password";
   });
@@ -82,15 +82,21 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
     phone: document.getElementById("regPhone").value.trim() || null,
     password: document.getElementById("regPassword").value,
   };
+  const confirmPassword = document.getElementById("regConfirmPassword").value;
 
   // Validate cơ bản
-  if (!userData.username || !userData.fullName || !userData.password) {
+  if (!userData.username || !userData.fullName || !userData.password || !confirmPassword) {
     showMessage("registerMessage", "Vui lòng điền đầy đủ thông tin bắt buộc!", "error");
     return;
   }
 
   if (userData.password.length < 6) {
     showMessage("registerMessage", "Mật khẩu phải có ít nhất 6 ký tự!", "error");
+    return;
+  }
+
+  if (userData.password !== confirmPassword) {
+    showMessage("registerMessage", "Mật khẩu nhập lại không trùng khớp!", "error");
     return;
   }
 
@@ -116,6 +122,7 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
       const errMsg = result?.data?.mess || "Thông tin không hợp lệ!";
       showMessage("registerMessage", `Đăng ký thất bại: ${errMsg}`, "error");
       document.getElementById("regPassword").value = "";
+      document.getElementById("regConfirmPassword").value = "";
     }
   } catch (error) {
     showMessage("registerMessage", "Không thể kết nối đến máy chủ!", "error");

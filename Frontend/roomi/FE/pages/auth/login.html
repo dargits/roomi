@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" style="background-color: #f6f5f7;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -68,6 +68,22 @@
             <i
               class="toggle-password fa-regular fa-eye-slash"
               onclick="togglePasswordVisibility('regPassword', this)"
+              title="Hiện/ẩn mật khẩu"
+            ></i>
+          </div>
+
+          <!-- Confirm Password Group -->
+          <div class="password-group">
+            <input
+              type="password"
+              id="regConfirmPassword"
+              placeholder="Nhập lại mật khẩu *"
+              required
+              autocomplete="new-password"
+            />
+            <i
+              class="toggle-password fa-regular fa-eye-slash"
+              onclick="togglePasswordVisibility('regConfirmPassword', this)"
               title="Hiện/ẩn mật khẩu"
             ></i>
           </div>

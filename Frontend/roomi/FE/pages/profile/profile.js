@@ -87,27 +87,11 @@ async function fetchProfile() {
 
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 function renderAll(userInfo) {
-  renderSidebar(userInfo);
   renderProfileCard(userInfo);
   renderEditForm(userInfo);
 }
 
-function renderSidebar(userInfo) {
-  const nameEl  = document.getElementById("sidebarUsername");
-  const badgeEl = document.getElementById("sidebarRoleBadge");
-  if (nameEl)  nameEl.textContent = userInfo.fullName || userInfo.username || "Người dùng";
-  if (badgeEl && userInfo.role) {
-    badgeEl.textContent    = ROLE_LABELS[userInfo.role] || userInfo.role;
-    badgeEl.style.display  = "inline-block";
-  }
 
-  const avatarEl = document.getElementById("sidebarAvatar");
-  if (avatarEl) {
-    avatarEl.textContent   = getInitials(userInfo.fullName || userInfo.username || "?");
-    avatarEl.style.fontSize    = "14px";
-    avatarEl.style.fontWeight  = "700";
-  }
-}
 
 function renderProfileCard(userInfo) {
   const avatarEl = document.getElementById("profileAvatar");
@@ -177,15 +161,13 @@ function setupTabs() {
 
 // ─── LOGOUT ───────────────────────────────────────────────────────────────────
 function setupLogout() {
-  ["logoutBtn", "logoutSecurityBtn"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener("click", (e) => {
-        e.preventDefault();
-        window.location.href = "../auth/logout.html";
-      });
-    }
-  });
+  const el = document.getElementById("logoutSecurityBtn");
+  if (el) {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.location.href = "../auth/logout.html";
+    });
+  }
 }
 
 // ─── ADMIN SECTIONS ───────────────────────────────────────────────────────────

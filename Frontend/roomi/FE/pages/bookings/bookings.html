@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" style="background-color: #f6f5f7;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -27,77 +27,8 @@
   </head>
   <body>
     <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <h2><i class="fas fa-building"></i> Roomi Dev</h2>
-      </div>
-      <ul>
-        <li>
-          <a href="../dashboard/dashboard.html"
-            ><i class="fa fa-home"></i> Trang chủ</a
-          >
-        </li>
-        <li>
-          <a href="../users/users.html"
-            ><i class="fa fa-users"></i> Quản lý người dùng</a
-          >
-        </li>
-        <li>
-          <a href="../room-types/room-types.html"
-            ><i class="fa fa-tag"></i> Loại phòng</a
-          >
-        </li>
-        <li>
-          <a href="../rooms/rooms.html"
-            ><i class="fa fa-door-open"></i> Quản lý phòng</a
-          >
-        </li>
-        <li>
-          <a href="bookings.html" class="active"
-            ><i class="fa fa-calendar-check"></i> Quản lý đặt phòng</a
-          >
-        </li>
-        <li>
-          <a href="../guests/guests.html">
-            <i class="fa fa-user-friends"></i> Quản lý khách hàng
-          </a>
-        </li>
-        <li>
-          <a href="../room-calendar/room-calendar.html"
-            ><i class="fa fa-calendar-alt"></i> Lịch phòng</a
-          >
-        </li>
-        <li>
-          <a href="../seasonal-rates/seasonal-rates.html"
-            ><i class="fa fa-chart-line"></i> Giá theo mùa</a
-          >
-        </li>
-        <li>
-          <a href="../profile/profile.html"
-            ><i class="fa fa-user-cog"></i> Cấu hình tài khoản</a
-          >
-        </li>
-        <li>
-          <a href="../auth/change-password.html"
-            ><i class="fa fa-key"></i> Đổi mật khẩu</a
-          >
-        </li>
-        <li>
-          <a href="#" id="logoutBtn"
-            ><i class="fa fa-sign-out-alt"></i> Đăng xuất</a
-          >
-        </li>
-      </ul>
-      <div class="sidebar-footer">
-        <div class="user-info-sidebar">
-          <div class="avatar-sidebar"><i class="fa fa-user-circle"></i></div>
-          <div class="sidebar-user-detail">
-            <span id="sidebarUsername">Người dùng</span>
-            <span class="sidebar-role-badge" id="sidebarRoleBadge"></span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="sidebar-container"></div>
+
 
     <!-- Main Content -->
     <div class="main-content">
@@ -344,7 +275,7 @@
       </div>
     </div>
 
-    <!-- ═══ MODAL: Xác nhận xóa ═══ -->
+    <!-- ═══ MODAL: Xác nhận xóa / Thao tác ═══ -->
     <div class="modal-overlay" id="confirmModal">
       <div class="modal modal-sm">
         <div class="modal-header">
@@ -367,10 +298,281 @@
       </div>
     </div>
 
-    <script src="../../js/utils/page-loader.js"></script>
+    <!-- ═══ MODAL: Chi tiết đặt phòng & Dịch vụ ═══ -->
+    <div class="modal-overlay" id="bookingDetailsModal">
+      <div class="modal" style="max-width: 900px; width: 95%;">
+        <div class="modal-header">
+          <h2><i class="fa fa-info-circle"></i> Chi tiết đặt phòng</h2>
+          <button class="modal-close" id="closeDetailsModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="message-box" id="detailsModalMessage"></div>
+
+          <div class="details-grid">
+            <!-- Cột trái: Thông tin & Thao tác trạng thái -->
+            <div>
+              <div class="details-section">
+                <div class="details-section-title">
+                  <i class="fa fa-user"></i> Khách hàng & Phòng
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Khách hàng:</span>
+                  <span class="detail-value" id="detGuestName">N/A</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Số điện thoại:</span>
+                  <span class="detail-value" id="detGuestPhone">N/A</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">CMND/CCCD:</span>
+                  <span class="detail-value" id="detGuestId">N/A</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Email:</span>
+                  <span class="detail-value" id="detGuestEmail">N/A</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Loại phòng:</span>
+                  <span class="detail-value" id="detRoomType">N/A</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Phòng được gán:</span>
+                  <span class="detail-value" id="detRoomNumber" style="color: #11998e;">Chưa gán</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Lưu trú:</span>
+                  <span class="detail-value" id="detDates">N/A</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Số đêm:</span>
+                  <span class="detail-value" id="detNights">0 đêm</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Nguồn đặt:</span>
+                  <span class="detail-value" id="detSource">Walk-in</span>
+                </div>
+                <div class="detail-row" style="flex-direction: column; align-items: flex-start; border-bottom: none;">
+                  <span class="detail-label">Ghi chú:</span>
+                  <span class="detail-value" id="detNote" style="text-align: left; margin-top: 4px; font-weight: normal; color: #555;">Không có</span>
+                </div>
+              </div>
+
+              <div class="details-section">
+                <div class="details-section-title">
+                  <i class="fa fa-cogs"></i> Trạng thái & Thao tác
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Trạng thái hiện tại:</span>
+                  <span class="booking-status" id="detStatus">NEW</span>
+                </div>
+                
+                <!-- Nhóm nút thao tác trạng thái -->
+                <div class="action-block" id="statusActionsBlock">
+                  <!-- Các nút này được thêm bằng JS tùy trạng thái -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Cột phải: Dịch vụ phụ thu & Hóa đơn sơ bộ -->
+            <div>
+              <div class="details-section" style="min-height: 200px;">
+                <div class="details-section-title" style="justify-content: space-between; align-items: center;">
+                  <span><i class="fa fa-concierge-bell"></i> Dịch vụ phụ thu đã dùng</span>
+                  <button class="btn-primary btn-compact" id="openAddServiceBtn" style="font-size: 11px; padding: 4px 10px;">
+                    <i class="fa fa-plus"></i> Thêm dịch vụ
+                  </button>
+                </div>
+                
+                <table class="surcharge-table">
+                  <thead>
+                    <tr>
+                      <th>Dịch vụ</th>
+                      <th style="width: 70px;">Đơn giá</th>
+                      <th style="width: 50px; text-align: center;">SL</th>
+                      <th style="width: 80px; text-align: right;">Tổng</th>
+                      <th style="width: 50px; text-align: center;">Xóa</th>
+                    </tr>
+                  </thead>
+                  <tbody id="surchargeTableBody">
+                    <!-- Dữ liệu render từ JS -->
+                  </tbody>
+                </table>
+                <div id="surchargeEmpty" style="text-align: center; color: #999; padding: 20px 0; font-size: 13px;">
+                  Chưa ghi nhận dịch vụ phát sinh nào cho phòng này.
+                </div>
+              </div>
+
+              <!-- Tóm tắt hóa đơn sơ bộ -->
+              <div class="invoice-summary-box">
+                <div class="invoice-summary-title">Tóm tắt thanh toán</div>
+                <div class="invoice-summary-row">
+                  <span class="detail-label">Tiền thuê phòng:</span>
+                  <span id="sumRoomCharge">0 ₫</span>
+                </div>
+                <div class="invoice-summary-row">
+                  <span class="detail-label">Tiền dịch vụ phát sinh:</span>
+                  <span id="sumServiceCharge">0 ₫</span>
+                </div>
+                <div class="invoice-summary-row">
+                  <span class="detail-label">Giảm giá:</span>
+                  <span id="sumDiscount" style="color: #dc3545;">-0 ₫</span>
+                </div>
+                <div class="invoice-summary-total">
+                  <span>Tổng thanh toán:</span>
+                  <span id="sumTotalAmount">0 ₫</span>
+                </div>
+                
+                <div style="margin-top: 15px; text-align: right;" id="invoiceActionBlock">
+                  <button class="btn-outline" id="viewFullInvoiceBtn" style="width: 100%; justify-content: center; border-color: #11998e; color: #11998e;">
+                    <i class="fa fa-file-invoice-dollar"></i> Xem & In Hóa Đơn
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" id="closeDetailsBottomBtn">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MODAL: Ghi nhận sử dụng dịch vụ ═══ -->
+    <div class="modal-overlay" id="addServiceUsageModal" style="z-index: 2010;">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2 id="serviceUsageModalTitle"><i class="fa fa-plus"></i> Ghi nhận dịch vụ</h2>
+          <button class="modal-close" id="closeServiceUsageModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="message-box" id="serviceUsageModalMessage"></div>
+          
+          <div class="form-grid" style="grid-template-columns: 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="inputUsageServiceId">Chọn dịch vụ <span class="required">*</span></label>
+              <select id="inputUsageServiceId">
+                <option value="">-- Chọn dịch vụ --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="inputUsageQuantity">Số lượng <span class="required">*</span></label>
+              <input type="number" id="inputUsageQuantity" min="1" value="1" />
+            </div>
+            <div class="form-group">
+              <label for="inputUsageNote">Ghi chú phát sinh</label>
+              <input type="text" id="inputUsageNote" placeholder="Ví dụ: Chỉ số điện cũ..." />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" id="cancelServiceUsageModalBtn">Hủy</button>
+          <button class="btn-primary" id="saveServiceUsageBtn">Lưu phát sinh</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MODAL: Gán phòng ═══ -->
+    <div class="modal-overlay" id="assignRoomModal" style="z-index: 2010;">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2><i class="fa fa-door-open"></i> Gán phòng trống</h2>
+          <button class="modal-close" id="closeAssignRoomModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="message-box" id="assignRoomModalMessage"></div>
+          
+          <div class="form-group">
+            <label for="inputAssignRoom">Chọn phòng trống khả dụng <span class="required">*</span></label>
+            <select id="inputAssignRoom">
+              <option value="">-- Chọn phòng --</option>
+            </select>
+            <p style="font-size: 11px; color: #666; margin-top: 5px;">Danh sách chỉ hiển thị các phòng thuộc loại phòng đã đặt và đang trống trong khoảng ngày lưu trú.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" id="cancelAssignRoomModalBtn">Hủy</button>
+          <button class="btn-primary" id="saveAssignRoomBtn">Xác nhận gán</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MODAL: Xem hóa đơn (Invoice) ═══ -->
+    <div class="modal-overlay" id="invoiceModal" style="z-index: 2020;">
+      <div class="modal" style="max-width: 600px; width: 95%;">
+        <div class="modal-header">
+          <h2><i class="fa fa-receipt"></i> Hóa đơn thanh toán</h2>
+          <button class="modal-close" id="closeInvoiceModalBtn">&times;</button>
+        </div>
+        <div class="modal-body" style="background-color: #f1f5f9;">
+          <!-- Khung hóa đơn -->
+          <div class="invoice-receipt" id="invoiceReceiptArea">
+            <div class="invoice-receipt-header">
+              <h2>ROOMI DEV</h2>
+              <p>Hệ thống Quản lý Phòng trọ Thông minh</p>
+              <p>Hóa đơn dịch vụ & tiền thuê phòng</p>
+            </div>
+            
+            <div class="invoice-receipt-details">
+              <strong>Mã hóa đơn:</strong> <span id="invId">N/A</span><br>
+              <strong>Đặt phòng ID:</strong> <span id="invBookingId">N/A</span><br>
+              <strong>Khách hàng:</strong> <span id="invGuestName">N/A</span><br>
+              <strong>Phòng trọ:</strong> <span id="invRoomNumber">N/A</span> (<span id="invRoomType">N/A</span>)<br>
+              <strong>Thời gian:</strong> <span id="invDates">N/A</span> (<span id="invNights">0</span> đêm)<br>
+              <strong>Ngày in:</strong> <span id="invPrintDate">N/A</span>
+            </div>
+
+            <table class="invoice-receipt-table">
+              <thead>
+                <tr>
+                  <th>Nội dung thanh toán</th>
+                  <th style="width: 50px; text-align: center;">SL</th>
+                  <th style="width: 90px; text-align: right;">Đơn giá</th>
+                  <th style="width: 100px; text-align: right;">Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody id="invoiceReceiptTableBody">
+                <!-- Danh mục thanh toán -->
+              </tbody>
+            </table>
+
+            <div class="invoice-receipt-summary">
+              <div class="invoice-receipt-summary-row">
+                <span>Tiền thuê phòng:</span>
+                <span id="invRoomCharge">0 ₫</span>
+              </div>
+              <div class="invoice-receipt-summary-row">
+                <span>Tiền dịch vụ phụ thu:</span>
+                <span id="invServiceCharge">0 ₫</span>
+              </div>
+              <div class="invoice-receipt-summary-row">
+                <span>Giảm giá (Chiết khấu):</span>
+                <span id="invDiscount">-0 ₫</span>
+              </div>
+              <div class="invoice-receipt-summary-total">
+                <span>TỔNG THÀNH TIỀN:</span>
+                <span id="invTotalAmount">0 ₫</span>
+              </div>
+            </div>
+
+            <div class="invoice-receipt-footer">
+              <p>Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ!</p>
+              <p>Hệ thống tự động phát hành bởi Roomi Dev</p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" id="printInvoiceBtn">
+            <i class="fa fa-print"></i> In Hóa Đơn
+          </button>
+          <button class="btn-primary" id="closeInvoiceBottomBtn">Đóng</button>
+        </div>
+      </div>
+    </div>
+
     <script src="../../js/constants/config.js"></script>
     <script src="../../js/utils/auth.js"></script>
     <script src="../../js/api/api.js"></script>
+    <script src="../../components/sidebar/sidebar.js"></script>
     <script src="bookings.js"></script>
   </body>
 </html>

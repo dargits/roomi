@@ -23,9 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // Hiển thị thông tin user
-  renderUserInfo();
-
   // Tải dữ liệu
   loadRoomTypes();
   loadRooms();
@@ -37,16 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ═══════════════════════════════════════════════════════════
 //  USER INFO
 // ═══════════════════════════════════════════════════════════
-function renderUserInfo() {
-  const userInfo = Auth.getUserInfo();
-  if (!userInfo) return;
 
-  const displayName = Auth.getDisplayName(userInfo);
-  document.getElementById("sidebarUsername").textContent = displayName;
-
-  const roleBadge = document.getElementById("sidebarRoleBadge");
-  roleBadge.textContent = getRoleLabel(userInfo.role);
-}
 
 function getRoleLabel(role) {
   const roles = {
@@ -64,11 +52,6 @@ function getRoleLabel(role) {
 //  EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════
 function attachEventListeners() {
-  // Logout
-  document.getElementById("logoutBtn").addEventListener("click", (e) => {
-    e.preventDefault();
-    handleLogout();
-  });
 
   // Refresh
   document.getElementById("refreshBtn").addEventListener("click", () => {
@@ -546,19 +529,7 @@ function closeConfirmModal() {
   console.log("Confirm modal closed successfully");
 }
 
-// ═══════════════════════════════════════════════════════════
-//  LOGOUT
-// ═══════════════════════════════════════════════════════════
-async function handleLogout() {
-  try {
-    await API.logout();
-  } catch (error) {
-    console.error("Logout error:", error);
-  } finally {
-    Auth.clearAuth();
-    window.location.href = "../auth/login.html";
-  }
-}
+
 
 // ═══════════════════════════════════════════════════════════
 //  UTILITIES

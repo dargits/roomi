@@ -16,19 +16,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Hiển thị ngày tháng
   renderDate();
 
-  // Hiển thị user sidebar
-  let userInfo = Auth.getUserInfo();
-  if (!userInfo || !userInfo.id || !userInfo.role) {
-    userInfo = await fetchUserProfile();
-  }
-  renderUserInfo(userInfo);
-
-  // Đăng xuất
-  document.getElementById("logoutBtn").addEventListener("click", (e) => {
-    e.preventDefault();
-    window.location.href = "../auth/logout.html";
-  });
-
   // Tải danh sách khách hàng ban đầu
   loadGuestList();
 
@@ -338,25 +325,7 @@ function renderDate() {
   el.textContent = now.toLocaleDateString("vi-VN", options);
 }
 
-function renderUserInfo(userInfo) {
-  const sidebarUsername = document.getElementById("sidebarUsername");
-  const roleBadge = document.getElementById("sidebarRoleBadge");
-  const navUsersMenuItem = document.getElementById("navUsersMenuItem");
 
-  if (!userInfo) return;
-
-  const displayName = Auth.getDisplayName(userInfo);
-  sidebarUsername.textContent = displayName;
-
-  if (roleBadge && userInfo.role && userInfo.role !== "NONE") {
-    roleBadge.textContent = ROLE_LABELS[userInfo.role] || userInfo.role;
-    roleBadge.style.display = "inline-block";
-  }
-
-  if (userInfo.role === "ADMIN" && navUsersMenuItem) {
-    navUsersMenuItem.style.display = "block";
-  }
-}
 
 async function fetchUserProfile() {
   try {
