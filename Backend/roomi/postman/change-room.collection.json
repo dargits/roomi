@@ -1,0 +1,591 @@
+{
+  "info": {
+    "name": "Roomi — Change Room Feature",
+    "_postman_id": "roomi-change-room-collection",
+    "description": "Collection test tính năng đổi phòng (change-room) cho Roomi Hotel Management System.\n\nLuồng test đầy đủ:\n1. Login để lấy token\n2. Tạo booking mới\n3. Gán phòng (assign-room)\n4. Confirm booking\n5. Đổi phòng khi CONFIRMED\n6. Check-in\n7. Đổi phòng khi CHECKED_IN\n8. Test các case lỗi",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "currentRoomId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "newRoomId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Login — lấy token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.token) {",
+                  "  pm.collectionVariables.set('token', res.token);",
+                  "  console.log('Token saved:', res.token);",
+                  "}",
+                  "pm.test('Login thành công', () => pm.response.to.have.status(200));",
+                  "pm.test('Có token trong response', () => pm.expect(res.token).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Chuẩn bị dữ liệu",
+      "item": [
+        {
+          "name": "Lấy danh sách loại phòng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Có danh sách loại phòng', () => pm.expect(res.data).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/room-types",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "room-types"]
+            }
+          }
+        },
+        {
+          "name": "Lấy danh sách phòng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Có danh sách phòng', () => pm.expect(res.data).to.be.an('array'));",
+                  "// Gợi ý: xem response để lấy roomId cho các test bên dưới",
+                  "if (res.data && res.data.length >= 2) {",
+                  "  pm.collectionVariables.set('currentRoomId', res.data[0].id);",
+                  "  pm.collectionVariables.set('newRoomId', res.data[1].id);",
+                  "  console.log('currentRoomId:', res.data[0].id, '| newRoomId:', res.data[1].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rooms",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rooms"]
+            }
+          }
+        },
+        {
+          "name": "Tạo booking mới",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Booking được tạo với status NEW', () => {",
+                  "  pm.expect(res.data.status).to.equal('NEW');",
+                  "});",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('bookingId', res.data.id);",
+                  "  console.log('bookingId saved:', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyễn Văn Test\",\n  \"phone\": \"0909999888\",\n  \"idNumber\": \"099988877766\",\n  \"email\": \"test@roomi.vn\",\n  \"roomTypeId\": 1,\n  \"checkInDate\": \"2026-08-10\",\n  \"checkOutDate\": \"2026-08-14\",\n  \"source\": \"WALK_IN\",\n  \"note\": \"Test đổi phòng\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings"]
+            }
+          }
+        },
+        {
+          "name": "Gán phòng (assign-room)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Booking đã có roomId', () => pm.expect(res.data.roomId).to.be.a('number'));",
+                  "pm.test('Message đúng', () => pm.expect(res.mess).to.equal('Gán phòng thành công'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/assign-room?roomId={{currentRoomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "assign-room"],
+              "query": [
+                { "key": "roomId", "value": "{{currentRoomId}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Đổi phòng khi CONFIRMED",
+      "item": [
+        {
+          "name": "Confirm booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Booking status = CONFIRMED', () => pm.expect(res.data.status).to.equal('CONFIRMED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "confirm"]
+            }
+          }
+        },
+        {
+          "name": "✅ Đổi phòng — CONFIRMED (happy path)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Message đúng', () => pm.expect(res.mess).to.equal('Đổi phòng thành công'));",
+                  "pm.test('roomId đã thay đổi', () => {",
+                  "  const newRoomId = parseInt(pm.collectionVariables.get('newRoomId'));",
+                  "  pm.expect(res.data.roomId).to.equal(newRoomId);",
+                  "});",
+                  "pm.test('Status booking vẫn CONFIRMED', () => pm.expect(res.data.status).to.equal('CONFIRMED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{newRoomId}},\n  \"reason\": \"Khách yêu cầu phòng tầng cao hơn\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "change-room"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Đổi phòng khi CHECKED_IN",
+      "item": [
+        {
+          "name": "Check-in booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Booking status = CHECKED_IN', () => pm.expect(res.data.status).to.equal('CHECKED_IN'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/check-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "check-in"]
+            }
+          }
+        },
+        {
+          "name": "✅ Đổi phòng — CHECKED_IN (happy path)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Message đúng', () => pm.expect(res.mess).to.equal('Đổi phòng thành công'));",
+                  "pm.test('Booking vẫn CHECKED_IN', () => pm.expect(res.data.status).to.equal('CHECKED_IN'));",
+                  "pm.test('roomNumber đã thay đổi', () => pm.expect(res.data.roomNumber).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{currentRoomId}},\n  \"reason\": \"Máy lạnh phòng cũ bị hỏng\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "change-room"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Test case lỗi",
+      "item": [
+        {
+          "name": "❌ Lỗi — Booking không tồn tại (ID = 999999)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error code BOOK_001', () => pm.expect(res.code).to.equal('BOOK_001'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/999999/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "999999", "change-room"]
+            }
+          }
+        },
+        {
+          "name": "❌ Lỗi — Booking ở trạng thái NEW (chưa confirm)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Tạo booking mới không confirm để test",
+                  "// Cần tạo thủ công một booking NEW và điền ID vào path",
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error code BOOK_005', () => pm.expect(res.code).to.equal('BOOK_005'));",
+                  "pm.test('Message chứa trạng thái không hợp lệ', () => pm.expect(res.mess).to.include('CONFIRMED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": 2,\n  \"reason\": \"Test lỗi trạng thái\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/:newBookingId/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", ":newBookingId", "change-room"],
+              "variable": [
+                {
+                  "key": "newBookingId",
+                  "value": "REPLACE_WITH_NEW_BOOKING_ID",
+                  "description": "ID của một booking đang ở trạng thái NEW"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "❌ Lỗi — Đổi sang chính phòng hiện tại",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error code BOOK_007', () => pm.expect(res.code).to.equal('BOOK_007'));",
+                  "pm.test('Message nhắc phòng phải khác', () => pm.expect(res.mess).to.include('khác phòng hiện tại'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{currentRoomId}},\n  \"reason\": \"Test đổi sang phòng hiện tại\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "change-room"]
+            }
+          }
+        },
+        {
+          "name": "❌ Lỗi — roomId bị thiếu (validation)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error code VAL_001', () => pm.expect(res.code).to.equal('VAL_001'));",
+                  "pm.test('Message nhắc roomId bắt buộc', () => pm.expect(res.mess).to.include('roomId'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Thiếu roomId\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "change-room"]
+            }
+          }
+        },
+        {
+          "name": "❌ Lỗi — Phòng không tồn tại",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error code VAL_001', () => pm.expect(res.code).to.equal('VAL_001'));",
+                  "pm.test('Message không tìm thấy phòng', () => pm.expect(res.mess).to.include('Không tìm thấy phòng'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": 999999,\n  \"reason\": \"Phòng không tồn tại\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "change-room"]
+            }
+          }
+        },
+        {
+          "name": "❌ Lỗi — Không có token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error liên quan đến session/token', () => {",
+                  "  pm.expect(['AUTH_004', 'AUTH_005', 'SESSION_INVALID']).to.include(res.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/change-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}", "change-room"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Kiểm tra kết quả",
+      "item": [
+        {
+          "name": "Lấy booking sau khi đổi phòng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Có roomId', () => pm.expect(res.data.roomId).to.be.a('number'));",
+                  "pm.test('Có roomNumber', () => pm.expect(res.data.roomNumber).to.be.a('string'));",
+                  "console.log('Booking hiện tại:', JSON.stringify(res.data, null, 2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{bookingId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import roomi.dev.dto.request.BookingRequest;
+import roomi.dev.dto.request.ChangeRoomRequest;
 import roomi.dev.dto.response.BookingResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
@@ -87,8 +88,7 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
-    public BookingResponse assignRoom(Long bookingId, Long roomId) {
-        Booking booking = findById(bookingId);
+    public BookingResponse assignRoom(Long bookingId, Long roomId) {        Booking booking = findById(bookingId);
 
         // Chỉ cho phép gán phòng khi trạng thái còn NEW hoặc CONFIRMED
         if (booking.getStatus() != Booking.Status.NEW
@@ -116,6 +116,65 @@ public class BookingServiceImpl implements BookingService {
             room.setStatus(Room.Status.OCCUPIED);
             roomRepository.save(room);
         }
+
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    // ================================================================== CHANGE ROOM
+
+    @Override
+    @Transactional
+    public BookingResponse changeRoom(Long bookingId, ChangeRoomRequest request) {
+        Booking booking = findById(bookingId);
+
+        // Chỉ cho phép đổi phòng khi đang CONFIRMED hoặc CHECKED_IN
+        if (booking.getStatus() != Booking.Status.CONFIRMED
+                && booking.getStatus() != Booking.Status.CHECKED_IN) {
+            throw new BusinessException(
+                    "Chỉ có thể đổi phòng khi booking ở trạng thái CONFIRMED hoặc CHECKED_IN"
+                    + " (hiện tại: " + booking.getStatus() + ")",
+                    ErrorCode.BOOKING_INVALID_STATUS);
+        }
+
+        // Booking phải đã được gán phòng
+        Room currentRoom = booking.getRoom();
+        if (currentRoom == null) {
+            throw new BusinessException(
+                    "Booking chưa được gán phòng, vui lòng dùng assign-room thay vì change-room",
+                    ErrorCode.BOOKING_NO_ROOM);
+        }
+
+        // Không cho đổi sang chính phòng hiện tại
+        if (currentRoom.getId().equals(request.getRoomId())) {
+            throw new BusinessException(
+                    "Phòng mới phải khác phòng hiện tại (phòng " + currentRoom.getRoomNumber() + ")",
+                    ErrorCode.ROOM_SAME_AS_CURRENT);
+        }
+
+        TimeSlot slot = TimeSlot.of(booking.getCheckInDate(), booking.getCheckOutDate());
+
+        // Validate phòng mới: tồn tại, đúng roomType, không trùng lịch (loại trừ chính booking này)
+        Room newRoom = conflictChecker.validateAndGetRoom(
+                request.getRoomId(), booking.getRoomType(), slot, bookingId);
+
+        // Cập nhật trạng thái phòng cũ
+        if (booking.getStatus() == Booking.Status.CHECKED_IN) {
+            // Đang ở trong phòng → phòng cũ cần dọn dẹp
+            currentRoom.setStatus(Room.Status.NEEDS_CLEANING);
+            // Phòng mới → OCCUPIED ngay
+            newRoom.setStatus(Room.Status.OCCUPIED);
+        } else {
+            // CONFIRMED nhưng chưa check-in → trả phòng cũ về AVAILABLE
+            currentRoom.setStatus(Room.Status.AVAILABLE);
+            // Phòng mới chưa check-in, giữ status hiện tại (AVAILABLE)
+        }
+
+        roomRepository.save(currentRoom);
+        roomRepository.save(newRoom);
+
+        booking.setRoom(newRoom);
+        // Tính lại expectedPrice (cùng roomType nên giá giống nhau, nhưng đảm bảo nhất quán)
+        booking.setExpectedPrice(calcExpectedPrice(booking.getRoomType(), slot));
 
         return toResponse(bookingRepository.save(booking));
     }

@@ -39,4 +39,6 @@ public class ErrorCode {
     public static final String BOOKING_ALREADY_ASSIGNED = "BOOK_004"; // booking đã được gán phòng rồi
     public static final String BOOKING_INVALID_STATUS = "BOOK_005";  // trạng thái không cho phép thao tác
     public static final String ROOM_TYPE_MISMATCH     = "BOOK_006";  // roomType của phòng không khớp booking
+    public static final String ROOM_SAME_AS_CURRENT   = "BOOK_007";  // phòng mới trùng phòng hiện tại
+    public static final String BOOKING_NO_ROOM        = "BOOK_008";  // booking chưa có phòng, không thể đổi
 }
