@@ -873,8 +873,8 @@ function Bookings({ user, showNotification }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {activeInvoice.usages && activeInvoice.usages.length > 0 ? (
-                      activeInvoice.usages.map(u => (
+                    {activeInvoice.serviceUsages && activeInvoice.serviceUsages.length > 0 ? (
+                      activeInvoice.serviceUsages.map(u => (
                         <tr key={u.id}>
                           <td>
                             <div><strong>{u.serviceName}</strong></div>
