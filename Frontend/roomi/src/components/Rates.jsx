@@ -147,7 +147,7 @@ function Rates({ user, showNotification }) {
     setModalMode('edit');
     setSelectedRate(rate);
     setFormData({
-      roomTypeId: rate.roomTypeId.toString(),
+      roomTypeId: rate.roomType?.id?.toString() || '',
       startDate: rate.startDate,
       endDate: rate.endDate,
       price: rate.price
@@ -297,7 +297,7 @@ function Rates({ user, showNotification }) {
                   {rates.length > 0 ? (
                     rates.map(rate => (
                       <tr key={rate.id}>
-                        <td><strong>{rate.roomTypeName}</strong></td>
+                        <td><strong>{rate.roomType?.name}</strong></td>
                         <td>{rate.startDate}</td>
                         <td>{rate.endDate}</td>
                         <td style={{ fontWeight: '700', color: 'var(--color-available)' }}>
