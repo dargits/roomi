@@ -29,11 +29,15 @@ function Login({ onLoginSuccess, showNotification }) {
 
     if (password.length < 6) {
       showNotification('Mật khẩu phải có độ dài ít nhất 6 ký tự', 'error');
+      setPassword('');
+      setConfirmPassword('');
       return;
     }
 
     if (!isLogin && password !== confirmPassword) {
       showNotification('Xác nhận mật khẩu không trùng khớp', 'error');
+      setPassword('');
+      setConfirmPassword('');
       return;
     }
 
@@ -46,6 +50,7 @@ function Login({ onLoginSuccess, showNotification }) {
           onLoginSuccess(response.data.token);
         } else {
           showNotification('Đăng nhập thất bại, không tìm thấy token', 'error');
+          setPassword('');
         }
       } else {
         // Register flow
@@ -64,6 +69,8 @@ function Login({ onLoginSuccess, showNotification }) {
       }
     } catch (err) {
       showNotification(err.message || 'Thao tác thất bại. Vui lòng kiểm tra lại.', 'error');
+      setPassword('');
+      setConfirmPassword('');
     } finally {
       setLoading(false);
     }

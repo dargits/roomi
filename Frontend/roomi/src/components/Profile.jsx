@@ -18,11 +18,15 @@ function Profile({ user, showNotification, onProfileUpdate }) {
 
     if (password.length < 6) {
       showNotification('Mật khẩu mới phải có ít nhất 6 ký tự', 'error');
+      setPassword('');
+      setConfirmPassword('');
       return;
     }
 
     if (password !== confirmPassword) {
       showNotification('Mật khẩu xác nhận không trùng khớp', 'error');
+      setPassword('');
+      setConfirmPassword('');
       return;
     }
 
@@ -34,6 +38,8 @@ function Profile({ user, showNotification, onProfileUpdate }) {
       setConfirmPassword('');
     } catch (err) {
       showNotification(err.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.', 'error');
+      setPassword('');
+      setConfirmPassword('');
     } finally {
       setLoading(false);
     }
