@@ -58,7 +58,7 @@ class BookingControllerTest {
             seasonalRateRepository,
             guestService,
             conflictChecker,
-            userRepository
+                        userRepository
         );
     }
 
@@ -118,7 +118,6 @@ class BookingControllerTest {
             when(bookingRepository.existsRoomConflict(5L,
                     LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4), 2L))
                     .thenReturn(true);
-            when(seasonalRateRepository.findByRoomTypeId(1L)).thenReturn(List.of());
 
             assertThatThrownBy(() -> bookingService.assignRoom(2L, 5L))
                     .isInstanceOf(BusinessException.class)
@@ -141,7 +140,6 @@ class BookingControllerTest {
             when(bookingRepository.existsRoomConflict(5L,
                     LocalDate.of(2027, 8, 3), LocalDate.of(2027, 8, 6), 3L))
                     .thenReturn(true);
-            when(seasonalRateRepository.findByRoomTypeId(1L)).thenReturn(List.of());
 
             assertThatThrownBy(() -> bookingService.assignRoom(3L, 5L))
                     .isInstanceOf(BusinessException.class)

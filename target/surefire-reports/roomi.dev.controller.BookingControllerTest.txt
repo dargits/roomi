@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: roomi.dev.controller.BookingControllerTest
+-------------------------------------------------------------------------------
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.898 s -- in roomi.dev.controller.BookingControllerTest
