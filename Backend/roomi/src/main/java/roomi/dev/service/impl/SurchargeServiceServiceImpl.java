@@ -74,6 +74,16 @@ public class SurchargeServiceServiceImpl implements SurchargeServiceService {
 
     @Override
     @Transactional
+    public SurchargeServiceResponse reactivate(Long id, User currentUser) {
+        requireOwner(currentUser);
+        SurchargeService service = findEntity(id);
+        service.setActive(true);
+        service.setUpdatedAt(LocalDateTime.now());
+        return toResponse(surchargeServiceRepository.save(service));
+    }
+
+    @Override
+    @Transactional
     public void delete(Long id, User currentUser) {
         requireOwner(currentUser);
         SurchargeService service = findEntity(id);

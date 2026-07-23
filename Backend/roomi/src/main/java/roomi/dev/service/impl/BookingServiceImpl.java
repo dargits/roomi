@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import roomi.dev.dto.request.BookingRequest;
+import roomi.dev.dto.request.BookingSurchargeUsageRequest;
 import roomi.dev.dto.response.BookingResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
@@ -36,6 +37,12 @@ public class BookingServiceImpl implements BookingService {
 
     @Autowired
     private InvoiceRepository invoiceRepository;
+
+    @Autowired
+    private BookingSurchargeUsageRepository bookingSurchargeUsageRepository;
+
+    @Autowired
+    private SurchargeServiceRepository surchargeServiceRepository;
 
     // ================================================================== CREATE
 
@@ -84,7 +91,9 @@ public class BookingServiceImpl implements BookingService {
                 .createdBy(createdBy)
                 .build();
 
-        return toResponse(bookingRepository.save(booking));
+        Booking savedBooking = bookingRepository.save(booking);
+        addInitialServiceUsages(savedBooking, request.getInitialServiceUsages(), createdBy);
+        return toResponse(savedBooking);
     }
 
     // ================================================================== ASSIGN ROOM
@@ -261,6 +270,49 @@ public class BookingServiceImpl implements BookingService {
         return total;
     }
 
+    private void addInitialServiceUsages(Booking booking,
+                                         List<BookingSurchargeUsageRequest> requests,
+                                         User recordedBy) {
+        if (requests == null || requests.isEmpty()) {
+            return;
+        }
+
+        BigDecimal serviceCharge = BigDecimal.ZERO;
+        for (BookingSurchargeUsageRequest request : requests) {
+            SurchargeService service = surchargeServiceRepository.findById(request.getSurchargeServiceId())
+                    .orElseThrow(() -> new BusinessException(
+                            "Không tìm thấy dịch vụ phụ thu", ErrorCode.SURCHARGE_SERVICE_NOT_FOUND));
+            if (!Boolean.TRUE.equals(service.getActive())) {
+                throw new BusinessException(
+                        "Dịch vụ phụ thu đã ngừng hoạt động", ErrorCode.SURCHARGE_SERVICE_INACTIVE);
+            }
+
+            BigDecimal lineTotal = service.getUnitPrice()
+                    .multiply(BigDecimal.valueOf(request.getQuantity().longValue()));
+            bookingSurchargeUsageRepository.save(BookingSurchargeUsage.builder()
+                    .booking(booking)
+                    .surchargeService(service)
+                    .serviceName(service.getName())
+                    .unitPrice(service.getUnitPrice())
+                    .quantity(request.getQuantity())
+                    .lineTotal(lineTotal)
+                    .note(normalizeOptional(request.getNote()))
+                    .recordedBy(recordedBy)
+                    .build());
+            serviceCharge = serviceCharge.add(lineTotal);
+        }
+
+        BigDecimal roomCharge = booking.getExpectedPrice() == null ? BigDecimal.ZERO : booking.getExpectedPrice();
+        invoiceRepository.save(Invoice.builder()
+                .booking(booking)
+                .roomCharge(roomCharge)
+                .serviceCharge(serviceCharge)
+                .discount(BigDecimal.ZERO)
+                .totalAmount(roomCharge.add(serviceCharge))
+                .status(Invoice.Status.PENDING)
+                .build());
+    }
+
     private void requireStatus(Booking booking, Booking.Status expected) {
         if (booking.getStatus() != expected) {
             throw new BusinessException(
@@ -283,6 +335,10 @@ public class BookingServiceImpl implements BookingService {
         } catch (IllegalArgumentException e) {
             throw new BusinessException("Source không hợp lệ: " + source, ErrorCode.INVALID_INPUT);
         }
+    }
+
+    private String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private BookingResponse toResponse(Booking b) {

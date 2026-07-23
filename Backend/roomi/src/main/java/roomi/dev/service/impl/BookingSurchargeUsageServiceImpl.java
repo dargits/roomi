@@ -35,9 +35,7 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     public BookingSurchargeUsageResponse create(Long bookingId, BookingSurchargeUsageRequest request, User currentUser) {
         requireUsageManager(currentUser);
         Booking booking = findBooking(bookingId);
-        if (booking.getStatus() != Booking.Status.CHECKED_IN) {
-            throw new BusinessException("Chỉ có thể ghi nhận dịch vụ khi khách đang lưu trú", ErrorCode.BOOKING_INVALID_STATUS);
-        }
+        requireBookingAllowsUsageCreation(booking);
 
         SurchargeService service = findActiveService(request.getSurchargeServiceId());
         BookingSurchargeUsage usage = BookingSurchargeUsage.builder()
@@ -151,6 +149,16 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     private void requireMutableBooking(Booking booking) {
         if (booking.getStatus() != Booking.Status.CHECKED_IN && booking.getStatus() != Booking.Status.CHECKED_OUT) {
             throw new BusinessException("Chỉ có thể điều chỉnh dịch vụ khi booking đang lưu trú hoặc đã trả phòng", ErrorCode.BOOKING_INVALID_STATUS);
+        }
+    }
+
+    private void requireBookingAllowsUsageCreation(Booking booking) {
+        if (booking.getStatus() != Booking.Status.NEW
+                && booking.getStatus() != Booking.Status.CONFIRMED
+                && booking.getStatus() != Booking.Status.CHECKED_IN) {
+            throw new BusinessException(
+                    "Chỉ có thể thêm dịch vụ cho booking mới, đã xác nhận hoặc đang lưu trú",
+                    ErrorCode.BOOKING_INVALID_STATUS);
         }
     }
 

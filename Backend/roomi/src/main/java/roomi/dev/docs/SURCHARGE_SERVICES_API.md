@@ -54,7 +54,7 @@ Lấy các lần khách sử dụng dịch vụ.
 
 ### `POST /api/v1/bookings/{bookingId}/service-usages`
 
-Chỉ `OWNER` hoặc `RECEPTIONIST`; booking phải ở trạng thái `CHECKED_IN`.
+Chỉ `OWNER` hoặc `RECEPTIONIST`; booking phải ở trạng thái `NEW`, `CONFIRMED` hoặc `CHECKED_IN`. Nhờ đó lễ tân có thể thêm dịch vụ ngay lúc đặt phòng để báo giá trước.
 
 ```json
 {

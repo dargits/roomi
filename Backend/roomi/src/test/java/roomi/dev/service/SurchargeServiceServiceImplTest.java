@@ -78,6 +78,19 @@ class SurchargeServiceServiceImplTest {
         verify(surchargeServiceRepository, never()).delete(any());
     }
 
+    @Test
+    void reactivate_asOwner_marksInactiveServiceActive() {
+        SurchargeService surchargeService = SurchargeService.builder().id(4L).name("Xe đưa đón")
+                .unitPrice(new BigDecimal("50000")).active(false).build();
+        when(surchargeServiceRepository.findById(4L)).thenReturn(Optional.of(surchargeService));
+        when(surchargeServiceRepository.save(surchargeService)).thenReturn(surchargeService);
+
+        var response = service.reactivate(4L, user(User.Role.OWNER));
+
+        assertThat(response.getActive()).isTrue();
+        verify(surchargeServiceRepository).save(surchargeService);
+    }
+
     private SurchargeServiceRequest request(String name, String description, String unitPrice) {
         SurchargeServiceRequest request = new SurchargeServiceRequest();
         request.setName(name);

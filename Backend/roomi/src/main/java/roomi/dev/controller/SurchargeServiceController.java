@@ -73,6 +73,17 @@ public class SurchargeServiceController {
                 .build());
     }
 
+        @PatchMapping("/{id}/reactivate")
+        public ResponseEntity<BaseResponse<SurchargeServiceResponse>> reactivate(
+                        @RequestHeader("Authorization") String token,
+                        @PathVariable Long id) {
+                User currentUser = authUtil.getUserFromToken(token);
+                return ResponseEntity.ok(BaseResponse.<SurchargeServiceResponse>builder()
+                                .mess("Kích hoạt lại dịch vụ phụ thu thành công")
+                                .data(surchargeServiceService.reactivate(id, currentUser))
+                                .build());
+        }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<BaseResponse<Void>> delete(
             @RequestHeader("Authorization") String token,
