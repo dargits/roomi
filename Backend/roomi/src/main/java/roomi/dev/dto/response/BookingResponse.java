@@ -37,6 +37,9 @@ public class BookingResponse {
     private String note;
 
     private BigDecimal expectedPrice;
+    private BigDecimal roomCharge;
+    private BigDecimal serviceCharge;
+    private BigDecimal totalAmount;
 
     private Long createdById;
     private String createdByName;

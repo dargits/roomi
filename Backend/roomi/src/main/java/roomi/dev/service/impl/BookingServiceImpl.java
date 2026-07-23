@@ -1,6 +1,7 @@
 package roomi.dev.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import roomi.dev.dto.request.BookingRequest;
@@ -32,6 +33,9 @@ public class BookingServiceImpl implements BookingService {
     private final GuestService           guestService;       // inject interface thay vì impl
     private final BookingConflictChecker conflictChecker;    // kiểm tra xung đột lịch
     private final UserRepository         userRepository;
+
+    @Autowired
+    private InvoiceRepository invoiceRepository;
 
     // ================================================================== CREATE
 
@@ -285,6 +289,15 @@ public class BookingServiceImpl implements BookingService {
         long nights = (b.getCheckInDate() != null && b.getCheckOutDate() != null)
                 ? ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate())
                 : 0;
+        Invoice invoice = invoiceRepository == null
+            ? null
+            : invoiceRepository.findByBookingId(b.getId()).orElse(null);
+        BigDecimal roomCharge = invoice != null && invoice.getRoomCharge() != null
+            ? invoice.getRoomCharge() : b.getExpectedPrice();
+        BigDecimal serviceCharge = invoice != null && invoice.getServiceCharge() != null
+            ? invoice.getServiceCharge() : BigDecimal.ZERO;
+        BigDecimal totalAmount = invoice != null && invoice.getTotalAmount() != null
+            ? invoice.getTotalAmount() : roomCharge != null ? roomCharge.add(serviceCharge) : serviceCharge;
 
         return BookingResponse.builder()
                 .id(b.getId())
@@ -305,6 +318,9 @@ public class BookingServiceImpl implements BookingService {
                 .source(b.getSource() != null ? b.getSource().name() : null)
                 .note(b.getGuest() != null ? b.getGuest().getNote() : null)
                 .expectedPrice(b.getExpectedPrice())
+                .roomCharge(roomCharge)
+                .serviceCharge(serviceCharge)
+                .totalAmount(totalAmount)
                 .createdById(b.getCreatedBy() != null ? b.getCreatedBy().getId() : null)
                 .createdByName(b.getCreatedBy() != null ? b.getCreatedBy().getFullName() : null)
                 .createdAt(b.getCreatedAt())
