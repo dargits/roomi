@@ -526,41 +526,70 @@ function Dashboard({ user, showNotification }) {
                       return day.dateStr >= b.checkInDate && day.dateStr < b.checkOutDate && b.status !== 'CANCELLED';
                     });
 
-                    let cellBg = 'transparent';
-                    let text = '';
-                    let title = '';
-
                     if (slot) {
                       const isCheckIn = day.dateStr === slot.checkInDate;
-                      if (slot.status === 'CHECKED_IN') {
-                        cellBg = isCheckIn ? 'linear-gradient(90deg, var(--bg-primary) 0%, rgba(99, 102, 241, 0.5) 100%)' : 'rgba(99, 102, 241, 0.3)';
-                      } else {
-                        cellBg = isCheckIn ? 'linear-gradient(90deg, var(--bg-primary) 0%, rgba(168, 85, 247, 0.5) 100%)' : 'rgba(168, 85, 247, 0.3)';
-                      }
-                      text = isCheckIn ? slot.guestName : '→';
-                      title = `${slot.guestName} (${slot.checkInDate} đến ${slot.checkOutDate})`;
-                    }
+                      
+                      // Calculate if next day is check-out
+                      const checkOutTime = new Date(slot.checkOutDate + 'T00:00:00').getTime();
+                      const nextDayTime = new Date(day.dateStr + 'T00:00:00').getTime() + 24 * 60 * 60 * 1000;
+                      const isCheckOutLastNight = nextDayTime >= checkOutTime;
 
-                    return (
-                      <td 
-                        key={day.dateStr} 
-                        title={title}
-                        style={{ 
-                          background: cellBg, 
-                          textAlign: 'center', 
-                          fontSize: '11px', 
-                          borderRight: '1px solid rgba(255,255,255,0.02)',
-                          padding: '8px 4px',
-                          color: 'white',
-                          maxWidth: '80px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {text}
-                      </td>
-                    );
+                      const cellBg = slot.status === 'CHECKED_IN' ? 'var(--primary)' : 'var(--color-new)';
+                      const text = isCheckIn ? slot.guestName : '→';
+                      const title = `${slot.guestName} (${slot.checkInDate} đến ${slot.checkOutDate})`;
+
+                      return (
+                        <td 
+                          key={day.dateStr} 
+                          title={title}
+                          style={{ 
+                            padding: '6px 0', 
+                            borderRight: '1px solid rgba(255,255,255,0.02)',
+                            borderBottom: '1px solid var(--border-color)',
+                            maxWidth: '85px',
+                            background: day.isToday ? 'rgba(99, 102, 241, 0.04)' : 'transparent'
+                          }}
+                        >
+                          <div style={{
+                            background: cellBg,
+                            color: '#ffffff',
+                            padding: '6px 4px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            textAlign: 'center',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderTopLeftRadius: isCheckIn ? '6px' : '0',
+                            borderBottomLeftRadius: isCheckIn ? '6px' : '0',
+                            borderTopRightRadius: isCheckOutLastNight ? '6px' : '0',
+                            borderBottomRightRadius: isCheckOutLastNight ? '6px' : '0',
+                            marginLeft: isCheckIn ? '4px' : '0',
+                            marginRight: isCheckOutLastNight ? '4px' : '0',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.15)'
+                          }}>
+                            {text}
+                          </div>
+                        </td>
+                      );
+                    } else {
+                      return (
+                        <td 
+                          key={day.dateStr} 
+                          style={{ 
+                            textAlign: 'center', 
+                            fontSize: '12px', 
+                            borderRight: '1px solid var(--border-color)',
+                            borderBottom: '1px solid var(--border-color)',
+                            padding: '12px 4px',
+                            color: 'var(--text-muted)',
+                            background: day.isToday ? 'rgba(99, 102, 241, 0.05)' : 'transparent'
+                          }}
+                        >
+                          -
+                        </td>
+                      );
+                    }
                   })}
                 </tr>
               ))}
