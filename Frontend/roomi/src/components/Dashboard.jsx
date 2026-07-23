@@ -42,6 +42,8 @@ function Dashboard({ user, showNotification }) {
   const [activeInvoice, setActiveInvoice] = useState(null);
   const [surchargeInput, setSurchargeInput] = useState({ surchargeServiceId: '', quantity: 1, note: '' });
   const [newStatus, setNewStatus] = useState('');
+  const [drawerUsages, setDrawerUsages] = useState([]);
+  const [loadingUsages, setLoadingUsages] = useState(false);
 
   // Assign Room States
   const [unassignedBookings, setUnassignedBookings] = useState([]);
@@ -134,6 +136,33 @@ function Dashboard({ user, showNotification }) {
     }
   };
 
+  const fetchDrawerUsages = async (bookingId) => {
+    try {
+      setLoadingUsages(true);
+      const res = await api.get(`/bookings/${bookingId}/service-usages`);
+      if (res.data && res.data.data) {
+        setDrawerUsages(res.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching usages for drawer:', err);
+    } finally {
+      setLoadingUsages(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedRoom) {
+      const activeBooking = getTodayBooking(selectedRoom);
+      if (activeBooking) {
+        fetchDrawerUsages(activeBooking.bookingId);
+      } else {
+        setDrawerUsages([]);
+      }
+    } else {
+      setDrawerUsages([]);
+    }
+  }, [selectedRoom]);
+
   // Get active booking in the room (for today)
   const getTodayBooking = (room) => {
     if (!room.bookings) return null;
@@ -200,6 +229,7 @@ function Dashboard({ user, showNotification }) {
       if (showInvoiceModal) {
         handleViewInvoice();
       }
+      fetchDrawerUsages(activeBooking.bookingId);
       fetchData();
     } catch (err) {
       showNotification(err.message, 'error');
@@ -248,7 +278,11 @@ function Dashboard({ user, showNotification }) {
     try {
       await api.delete(`/bookings/${activeBooking.bookingId}/service-usages/${usageId}`);
       showNotification('Đã xóa ghi nhận dịch vụ');
-      handleViewInvoice(); // refresh invoice details
+      if (showInvoiceModal) {
+        handleViewInvoice();
+      }
+      fetchDrawerUsages(activeBooking.bookingId);
+      fetchData();
     } catch (err) {
       showNotification(err.message, 'error');
     }
@@ -650,6 +684,44 @@ function Dashboard({ user, showNotification }) {
                         </p>
                       </div>
 
+                      {/* Surcharge services details list inside the drawer */}
+                      <div style={{ marginTop: '16px', borderTop: '1px dashed var(--border-color)', paddingTop: '16px', marginBottom: '18px' }}>
+                        <h5 style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>Dịch vụ & Phụ thu đã dùng</span>
+                          <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 'bold' }}>
+                            Tổng: {drawerUsages.reduce((sum, u) => sum + (u.lineTotal || 0), 0).toLocaleString('vi-VN')} đ
+                          </span>
+                        </h5>
+                        {loadingUsages ? (
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Đang tải...</div>
+                        ) : drawerUsages.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto' }}>
+                            {drawerUsages.map(u => (
+                              <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.01)', padding: '6px 8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                                <div>
+                                  <strong>{u.serviceName}</strong> <span style={{ color: 'var(--text-muted)' }}>x{u.quantity}</span>
+                                  {u.note && <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{u.note}</div>}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span>{(u.lineTotal || 0).toLocaleString('vi-VN')} đ</span>
+                                  {activeBooking.status !== 'CHECKED_OUT' && (
+                                    <button 
+                                      onClick={() => handleDeleteSurchargeUsage(u.id)}
+                                      style={{ background: 'none', border: 'none', color: 'var(--color-maintenance)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                                      title="Xóa phụ thu"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Chưa dùng dịch vụ phụ thu nào.</div>
+                        )}
+                      </div>
+
                       {/* Transition Actions */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         {activeBooking.status === 'CONFIRMED' && (
@@ -891,8 +963,8 @@ function Dashboard({ user, showNotification }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {activeInvoice.usages && activeInvoice.usages.length > 0 ? (
-                      activeInvoice.usages.map(u => (
+                    {activeInvoice.serviceUsages && activeInvoice.serviceUsages.length > 0 ? (
+                      activeInvoice.serviceUsages.map(u => (
                         <tr key={u.id}>
                           <td>
                             <div><strong>{u.serviceName}</strong></div>
