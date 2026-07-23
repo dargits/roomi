@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import roomi.dev.dto.request.BookingRequest;
+import roomi.dev.dto.request.ChangeRoomRequest;
 import roomi.dev.dto.response.BaseResponse;
 import roomi.dev.dto.response.BookingResponse;
 import roomi.dev.model.User;
@@ -116,6 +117,16 @@ public class BookingController {
         return ResponseEntity.ok(BaseResponse.<BookingResponse>builder()
                 .mess("Gán phòng thành công")
                 .data(bookingService.assignRoom(id, roomId))
+                .build());
+    }
+
+    @PatchMapping("/{id}/change-room")
+    public ResponseEntity<BaseResponse<BookingResponse>> changeRoom(
+            @PathVariable Long id,
+            @Valid @RequestBody ChangeRoomRequest request) {
+        return ResponseEntity.ok(BaseResponse.<BookingResponse>builder()
+                .mess("Đổi phòng thành công")
+                .data(bookingService.changeRoom(id, request))
                 .build());
     }
 

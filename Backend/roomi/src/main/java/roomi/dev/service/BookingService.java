@@ -1,6 +1,7 @@
 package roomi.dev.service;
 
 import roomi.dev.dto.request.BookingRequest;
+import roomi.dev.dto.request.ChangeRoomRequest;
 import roomi.dev.dto.response.BookingResponse;
 import roomi.dev.model.User;
 
@@ -16,6 +17,8 @@ public interface BookingService {
     void deleteBooking(Long id);
 
     BookingResponse assignRoom(Long bookingId, Long roomId);
+
+    BookingResponse changeRoom(Long bookingId, ChangeRoomRequest request);
 
     BookingResponse confirmBooking(Long bookingId);
 
