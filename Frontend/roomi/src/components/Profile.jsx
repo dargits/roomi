@@ -31,7 +31,7 @@ function Profile({ user, showNotification, onProfileUpdate }) {
       const res = await api.post('/auth/changepass', { password });
       showNotification(res.data?.mess || 'Đổi mật khẩu thành công!');
       setPassword('');
-      confirmPassword('');
+      setConfirmPassword('');
     } catch (err) {
       showNotification(err.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.', 'error');
     } finally {

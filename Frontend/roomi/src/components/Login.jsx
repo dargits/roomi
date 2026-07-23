@@ -202,6 +202,7 @@ function Login({ onLoginSuccess, showNotification }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{ paddingLeft: '38px' }}
+                autoComplete="username"
                 required
               />
               <Shield size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
@@ -218,6 +219,7 @@ function Login({ onLoginSuccess, showNotification }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ paddingLeft: '38px' }}
+                autoComplete={isLogin ? "current-password" : "new-password"}
                 required
               />
               <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
@@ -235,6 +237,7 @@ function Login({ onLoginSuccess, showNotification }) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   style={{ paddingLeft: '38px' }}
+                  autoComplete="new-password"
                   required
                 />
                 <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
