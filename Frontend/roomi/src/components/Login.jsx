@@ -9,6 +9,7 @@ function Login({ onLoginSuccess, showNotification }) {
   // Form State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -28,6 +29,11 @@ function Login({ onLoginSuccess, showNotification }) {
 
     if (password.length < 6) {
       showNotification('Mật khẩu phải có độ dài ít nhất 6 ký tự', 'error');
+      return;
+    }
+
+    if (!isLogin && password !== confirmPassword) {
+      showNotification('Xác nhận mật khẩu không trùng khớp', 'error');
       return;
     }
 
@@ -54,6 +60,7 @@ function Login({ onLoginSuccess, showNotification }) {
         // Automatically switch to login tab and prefill username
         setIsLogin(true);
         setPassword('');
+        setConfirmPassword('');
       }
     } catch (err) {
       showNotification(err.message || 'Thao tác thất bại. Vui lòng kiểm tra lại.', 'error');
@@ -216,6 +223,24 @@ function Login({ onLoginSuccess, showNotification }) {
               <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
             </div>
           </div>
+
+          {/* Confirm Password (Register only) */}
+          {!isLogin && (
+            <div>
+              <label>Nhập lại mật khẩu</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="password"
+                  placeholder="••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ paddingLeft: '38px' }}
+                  required
+                />
+                <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+              </div>
+            </div>
+          )}
 
           {/* Phone (Register only) */}
           {!isLogin && (
