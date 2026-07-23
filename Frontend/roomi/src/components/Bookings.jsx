@@ -442,10 +442,13 @@ function Bookings({ user, showNotification }) {
               {bookings.length > 0 ? (
                 bookings.map(b => (
                   <tr key={b.id}>
-                    <td><strong>#{b.id}</strong></td>
+                    <td><strong>{b.id}</strong></td>
                     <td>
                       <div><strong>{b.guestName}</strong></div>
                       <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{b.guestPhone}</div>
+                      {b.guestIdNumber && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CCCD: {b.guestIdNumber}</div>
+                      )}
                     </td>
                     <td>
                       <div><strong>{b.roomTypeName}</strong></div>
@@ -712,7 +715,7 @@ function Bookings({ user, showNotification }) {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '450px' }}>
             <div className="modal-header">
-              <h2 style={{ fontSize: '18px', margin: 0 }}>Gán phòng cho #{selectedBooking.id}</h2>
+              <h2 style={{ fontSize: '18px', margin: 0 }}>Gán phòng cho {selectedBooking.id}</h2>
               <button onClick={() => setShowAssignModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
             <form onSubmit={handleAssignRoom}>
@@ -760,7 +763,7 @@ function Bookings({ user, showNotification }) {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '450px' }}>
             <div className="modal-header">
-              <h2 style={{ fontSize: '18px', margin: 0 }}>Đổi phòng cho #{selectedBooking.id}</h2>
+              <h2 style={{ fontSize: '18px', margin: 0 }}>Đổi phòng cho {selectedBooking.id}</h2>
               <button onClick={() => setShowChangeRoomModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
             <form onSubmit={handleChangeRoomSubmit}>
@@ -828,6 +831,8 @@ function Bookings({ user, showNotification }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
                 <div>
                   <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking.guestName}</p>
+                  <p><strong>Số điện thoại:</strong> {selectedBooking.guestPhone || 'Không có'}</p>
+                  <p><strong>CCCD / ID:</strong> {selectedBooking.guestIdNumber || 'Không có'}</p>
                   <p><strong>Phòng đặt:</strong> {selectedBooking.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking.roomTypeName})</p>
                 </div>
                 <div>

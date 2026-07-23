@@ -146,6 +146,7 @@ public class CalendarServiceImpl implements CalendarService {
                 .bookingId(b.getId())
                 .guestName(b.getGuest().getFullName())
                 .guestPhone(b.getGuest().getPhone())
+                .guestIdNumber(b.getGuest().getIdNumber())
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .nights(nights)

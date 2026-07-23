@@ -272,6 +272,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public List<BookingResponse> getAllBookings() {
         return bookingRepository.findAll().stream()
+                .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -279,6 +280,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public List<BookingResponse> getBookingsByGuest(Long guestId) {
         return bookingRepository.findByGuestId(guestId).stream()
+                .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -292,6 +294,7 @@ public class BookingServiceImpl implements BookingService {
             throw new BusinessException("Trạng thái không hợp lệ: " + status, ErrorCode.INVALID_INPUT);
         }
         return bookingRepository.findByStatus(s).stream()
+                .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -557,7 +560,7 @@ public class BookingServiceImpl implements BookingService {
                     }
                     return true;
                 })
-                .sorted((b1, b2) -> Long.compare(b2.getId(), b1.getId()))
+                .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }

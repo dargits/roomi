@@ -674,6 +674,7 @@ function Dashboard({ user, showNotification }) {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px', marginBottom: '18px' }}>
                         <p><strong>Khách hàng:</strong> {activeBooking.guestName}</p>
                         <p><strong>Số điện thoại:</strong> {activeBooking.guestPhone || 'Không có'}</p>
+                        <p><strong>CCCD / ID:</strong> {activeBooking.guestIdNumber || 'Không có'}</p>
                         <p><strong>Khoảng thời gian:</strong> {activeBooking.checkInDate} → {activeBooking.checkOutDate}</p>
                         <p><strong>Số đêm:</strong> {activeBooking.nights} đêm</p>
                         <p>
@@ -924,6 +925,12 @@ function Dashboard({ user, showNotification }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
                 <div>
                   <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || activeInvoice.guestName || 'Khách vãng lai'}</p>
+                  {selectedRoom && getTodayBooking(selectedRoom) && (
+                    <>
+                      <p><strong>Số điện thoại:</strong> {getTodayBooking(selectedRoom).guestPhone || 'Không có'}</p>
+                      <p><strong>CCCD / ID:</strong> {getTodayBooking(selectedRoom).guestIdNumber || 'Không có'}</p>
+                    </>
+                  )}
                   <p><strong>Phòng đặt:</strong> {selectedRoom.roomNumber} ({selectedRoom.roomTypeName})</p>
                 </div>
                 <div>

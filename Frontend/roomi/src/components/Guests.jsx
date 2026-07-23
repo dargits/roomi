@@ -423,7 +423,7 @@ function Guests({ user, showNotification }) {
                     <tbody>
                       {guestHistory.map(b => (
                         <tr key={b.id}>
-                          <td><strong>#{b.id}</strong></td>
+                          <td><strong>{b.id}</strong></td>
                           <td>{b.roomTypeName}</td>
                           <td>{b.roomNumber ? <strong>Phòng {b.roomNumber}</strong> : <span style={{ color: 'var(--text-muted)' }}>Chưa gán</span>}</td>
                           <td>
