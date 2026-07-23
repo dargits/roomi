@@ -73,9 +73,31 @@ public class RoomServiceImpl implements RoomService {
         roomRepository.delete(room);
     }
 
+    private final roomi.dev.repository.BookingRepository bookingRepository;
+
     @Override
     public List<Room> getAllRooms() {
-        return roomRepository.findAll();
+        List<Room> rooms = roomRepository.findAll();
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        // Tự động kiểm tra booking thực tế trong ngày hôm nay cho từng phòng
+        for (Room room : rooms) {
+            // Nếu phòng đang bị bảo trì hoặc cần dọn dẹp thì giữ nguyên
+            if (room.getStatus() == Room.Status.MAINTENANCE || room.getStatus() == Room.Status.NEEDS_CLEANING) {
+                continue;
+            }
+
+            // Kiểm tra xem phòng có booking nào đang active hôm nay không
+            boolean isOccupiedToday = bookingRepository.isRoomOccupiedOnDate(room.getId(), today);
+
+            if (isOccupiedToday) {
+                room.setStatus(Room.Status.OCCUPIED);
+            } else if (room.getStatus() == Room.Status.OCCUPIED) {
+                room.setStatus(Room.Status.AVAILABLE);
+            }
+        }
+
+        return rooms;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package roomi.dev.controller;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,9 +20,11 @@ import roomi.dev.repository.BookingRepository;
 import roomi.dev.repository.RoomRepository;
 import roomi.dev.repository.RoomTypeRepository;
 import roomi.dev.repository.SeasonalRateRepository;
+import roomi.dev.repository.UserRepository;
 import roomi.dev.service.impl.BookingServiceImpl;
 import roomi.dev.service.impl.GuestServiceImpl;
 import roomi.dev.dto.request.BookingRequest;
+import roomi.dev.util.time.BookingConflictChecker;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -41,8 +44,23 @@ class BookingControllerTest {
     @Mock RoomTypeRepository     roomTypeRepository;
     @Mock SeasonalRateRepository seasonalRateRepository;
     @Mock GuestServiceImpl       guestService;
+    @Mock UserRepository         userRepository;
 
-    @InjectMocks BookingServiceImpl bookingService;
+    BookingServiceImpl bookingService;
+
+    @BeforeEach
+    void setUp() {
+        BookingConflictChecker conflictChecker = new BookingConflictChecker(bookingRepository, roomRepository);
+        bookingService = new BookingServiceImpl(
+            bookingRepository,
+            roomRepository,
+            roomTypeRepository,
+            seasonalRateRepository,
+            guestService,
+            conflictChecker,
+            userRepository
+        );
+    }
 
     // ------------------------------------------------------------------ fixtures
 

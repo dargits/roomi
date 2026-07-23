@@ -113,28 +113,36 @@
 
       <!-- Search Panel -->
       <div class="search-panel">
-        <h3 style="margin-bottom: 16px">
-          <i class="fa fa-search"></i> Tìm kiếm đặt phòng
-        </h3>
+        <div class="search-header">
+          <h3><i class="fa fa-search"></i> Tìm kiếm đặt phòng</h3>
+          <div class="search-actions">
+            <button class="btn-outline btn-compact" id="clearSearchBtn">
+              <i class="fa fa-eraser"></i> Xóa bộ lọc
+            </button>
+            <button class="btn-primary btn-compact" id="searchBtn">
+              <i class="fa fa-search"></i> Tìm kiếm
+            </button>
+          </div>
+        </div>
         <div class="search-grid">
           <div class="form-group">
             <label for="searchGuestName">Tên khách</label>
             <input
               type="text"
               id="searchGuestName"
-              placeholder="Nhập tên khách..."
+              placeholder="Tên khách..."
             />
           </div>
           <div class="form-group">
             <label for="searchPhone">Số điện thoại</label>
-            <input type="text" id="searchPhone" placeholder="Nhập SĐT..." />
+            <input type="text" id="searchPhone" placeholder="SĐT..." />
           </div>
           <div class="form-group">
             <label for="searchIdNumber">CMND/CCCD</label>
             <input
               type="text"
               id="searchIdNumber"
-              placeholder="Nhập số CMND..."
+              placeholder="CMND/CCCD..."
             />
           </div>
           <div class="form-group">
@@ -151,14 +159,6 @@
             <label for="searchToDate">Đến ngày</label>
             <input type="date" id="searchToDate" />
           </div>
-        </div>
-        <div class="search-actions">
-          <button class="btn-outline" id="clearSearchBtn">
-            <i class="fa fa-eraser"></i> Xóa bộ lọc
-          </button>
-          <button class="btn-primary" id="searchBtn">
-            <i class="fa fa-search"></i> Tìm kiếm
-          </button>
         </div>
       </div>
 

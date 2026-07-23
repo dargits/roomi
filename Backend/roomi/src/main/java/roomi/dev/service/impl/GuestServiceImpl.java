@@ -7,6 +7,7 @@ import roomi.dev.dto.response.GuestResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
 import roomi.dev.model.Guest;
+import roomi.dev.repository.BookingRepository;
 import roomi.dev.repository.GuestRepository;
 import roomi.dev.service.GuestService;
 
@@ -18,22 +19,28 @@ import java.util.stream.Collectors;
 public class GuestServiceImpl implements GuestService {
 
     private final GuestRepository guestRepository;
+    private final BookingRepository bookingRepository;
 
     // ------------------------------------------------------------------ CRUD
 
     @Override
     public GuestResponse createGuest(GuestRequest request) {
         if (request.getPhone() != null && !request.getPhone().isBlank()
-                && guestRepository.existsByPhone(request.getPhone())) {
+                && guestRepository.existsByPhone(request.getPhone().trim())) {
             throw new BusinessException("Số điện thoại đã được đăng ký cho khách khác", ErrorCode.INVALID_INPUT);
         }
 
+        if (request.getIdNumber() != null && !request.getIdNumber().isBlank()
+                && guestRepository.existsByIdNumber(request.getIdNumber().trim())) {
+            throw new BusinessException("Số CMND/CCCD đã được đăng ký cho khách khác", ErrorCode.INVALID_INPUT);
+        }
+
         Guest guest = Guest.builder()
-                .fullName(request.getFullName())
-                .phone(request.getPhone())
-                .email(request.getEmail())
-                .idNumber(request.getIdNumber())
-                .note(request.getNote())
+                .fullName(request.getFullName().trim())
+                .phone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null)
+                .email(request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail().trim() : null)
+                .idNumber(request.getIdNumber() != null && !request.getIdNumber().isBlank() ? request.getIdNumber().trim() : null)
+                .note(request.getNote() != null && !request.getNote().isBlank() ? request.getNote().trim() : null)
                 .build();
 
         return toResponse(guestRepository.save(guest));
@@ -43,27 +50,45 @@ public class GuestServiceImpl implements GuestService {
     public GuestResponse updateGuest(Long id, GuestRequest request) {
         Guest guest = findById(id);
 
-        // ĐÃ SỬA CÚ PHÁP: Thay .and(...) bằng toán tử &&
         boolean phoneChanged = request.getPhone() != null
                 && !request.getPhone().isBlank()
-                && !request.getPhone().equals(guest.getPhone());
+                && !request.getPhone().trim().equals(guest.getPhone());
 
-        if (phoneChanged && guestRepository.existsByPhone(request.getPhone())) {
+        if (phoneChanged && guestRepository.existsByPhone(request.getPhone().trim())) {
             throw new BusinessException("Số điện thoại đã được đăng ký cho khách khác", ErrorCode.INVALID_INPUT);
         }
 
-        guest.setFullName(request.getFullName());
-        guest.setPhone(request.getPhone());
-        guest.setEmail(request.getEmail());
-        guest.setIdNumber(request.getIdNumber());
-        guest.setNote(request.getNote());
+        boolean idNumberChanged = request.getIdNumber() != null
+                && !request.getIdNumber().isBlank()
+                && !request.getIdNumber().trim().equals(guest.getIdNumber());
+
+        if (idNumberChanged && guestRepository.existsByIdNumber(request.getIdNumber().trim())) {
+            throw new BusinessException("Số CMND/CCCD đã được đăng ký cho khách khác", ErrorCode.INVALID_INPUT);
+        }
+
+        guest.setFullName(request.getFullName().trim());
+        guest.setPhone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null);
+        guest.setEmail(request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail().trim() : null);
+        guest.setIdNumber(request.getIdNumber() != null && !request.getIdNumber().isBlank() ? request.getIdNumber().trim() : null);
+        guest.setNote(request.getNote() != null && !request.getNote().isBlank() ? request.getNote().trim() : null);
 
         return toResponse(guestRepository.save(guest));
     }
 
     @Override
     public void deleteGuest(Long id) {
-        guestRepository.delete(findById(id));
+        Guest guest = findById(id);
+
+        // Kiểm tra xem khách hàng này có đơn đặt phòng nào không
+        var bookings = bookingRepository.findByGuestId(id);
+        if (bookings != null && !bookings.isEmpty()) {
+            throw new BusinessException(
+                "Không thể xóa khách hàng này vì đang có lịch sử đặt phòng trong hệ thống.",
+                ErrorCode.INVALID_INPUT
+            );
+        }
+
+        guestRepository.delete(guest);
     }
 
     @Override
@@ -117,24 +142,47 @@ public class GuestServiceImpl implements GuestService {
      */
     @Override
     public Guest findOrCreateGuest(String idNumber, String fullName, String phone, String email, String note) {
-        // Tìm khách theo CCCD
-        return guestRepository.findByIdNumber(idNumber)
-                .orElseGet(() -> {
-                    // Kiểm tra trùng SĐT với khách khác
-                    if (phone != null && !phone.isBlank() && guestRepository.existsByPhone(phone)) {
-                        throw new BusinessException(
-                                "Số điện thoại đã được đăng ký cho khách khác", ErrorCode.INVALID_INPUT);
-                    }
-                    // Tạo khách mới
-                    Guest newGuest = Guest.builder()
-                            .fullName(fullName)
-                            .phone(phone)
-                            .email(email)
-                            .idNumber(idNumber)
-                            .note(note)
-                            .build();
-                    return guestRepository.save(newGuest);
-                });
+        String cleanIdNumber = (idNumber != null && !idNumber.isBlank()) ? idNumber.trim() : null;
+        String cleanPhone = (phone != null && !phone.isBlank()) ? phone.trim() : null;
+        String cleanFullName = (fullName != null && !fullName.isBlank()) ? fullName.trim() : null;
+        String cleanEmail = (email != null && !email.isBlank()) ? email.trim() : null;
+        String cleanNote = (note != null && !note.isBlank()) ? note.trim() : null;
+
+        // 1. Tìm theo CCCD/CMND nếu có
+        if (cleanIdNumber != null) {
+            var guestById = guestRepository.findByIdNumber(cleanIdNumber);
+            if (guestById.isPresent()) {
+                Guest g = guestById.get();
+                if (cleanFullName != null) g.setFullName(cleanFullName);
+                if (cleanPhone != null) g.setPhone(cleanPhone);
+                if (cleanEmail != null) g.setEmail(cleanEmail);
+                if (cleanNote != null) g.setNote(cleanNote);
+                return guestRepository.save(g);
+            }
+        }
+
+        // 2. Tìm theo SĐT nếu chưa tìm thấy theo CCCD
+        if (cleanPhone != null) {
+            var guestByPhone = guestRepository.findByPhone(cleanPhone);
+            if (guestByPhone.isPresent()) {
+                Guest g = guestByPhone.get();
+                if (cleanFullName != null) g.setFullName(cleanFullName);
+                if (cleanIdNumber != null) g.setIdNumber(cleanIdNumber);
+                if (cleanEmail != null) g.setEmail(cleanEmail);
+                if (cleanNote != null) g.setNote(cleanNote);
+                return guestRepository.save(g);
+            }
+        }
+
+        // 3. Tạo mới nếu chưa tồn tại
+        Guest newGuest = Guest.builder()
+                .fullName(cleanFullName)
+                .phone(cleanPhone)
+                .email(cleanEmail)
+                .idNumber(cleanIdNumber)
+                .note(cleanNote)
+                .build();
+        return guestRepository.save(newGuest);
     }
 
     private GuestResponse toResponse(Guest g) {
@@ -152,7 +200,6 @@ public class GuestServiceImpl implements GuestService {
 
     @Override
     public Guest findById1(Long id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findById1'");
+        return findById(id);
     }
 }

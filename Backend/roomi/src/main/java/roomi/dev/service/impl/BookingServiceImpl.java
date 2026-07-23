@@ -31,6 +31,7 @@ public class BookingServiceImpl implements BookingService {
     private final SeasonalRateRepository seasonalRateRepository;
     private final GuestService           guestService;       // inject interface thay vì impl
     private final BookingConflictChecker conflictChecker;    // kiểm tra xung đột lịch
+    private final UserRepository         userRepository;
 
     // ================================================================== CREATE
 
@@ -40,7 +41,11 @@ public class BookingServiceImpl implements BookingService {
         // Dùng TimeRangeValidator — kiểm tra đầy đủ: thứ tự ngày + không trong quá khứ
         TimeRangeValidator.validate(request.getCheckInDate(), request.getCheckOutDate());
 
-        // Tìm khách theo CCCD, nếu chưa có thì tạo mới
+        if (createdBy == null) {
+            createdBy = userRepository.findAll().stream().findFirst().orElse(null);
+        }
+
+        // Tìm khách theo CCCD/SĐT, nếu chưa có thì tạo mới
         Guest guest = guestService.findOrCreateGuest(
                 request.getIdNumber(),
                 request.getFullName(),
@@ -54,15 +59,14 @@ public class BookingServiceImpl implements BookingService {
                         "Không tìm thấy loại phòng", ErrorCode.INVALID_INPUT));
 
         Room room = null;
-        BigDecimal expectedPrice = BigDecimal.ZERO;
+        TimeSlot slot = TimeSlot.of(request.getCheckInDate(), request.getCheckOutDate());
 
         if (request.getRoomId() != null) {
-            TimeSlot slot = TimeSlot.of(request.getCheckInDate(), request.getCheckOutDate());
             // Dùng BookingConflictChecker — kiểm tra roomType khớp + không trùng lịch
             room = conflictChecker.validateAndGetRoom(
                     request.getRoomId(), roomType, slot, -1L);
-            expectedPrice = calcExpectedPrice(roomType, slot);
         }
+        BigDecimal expectedPrice = calcExpectedPrice(roomType, slot);
 
         Booking booking = Booking.builder()
                 .guest(guest)
@@ -71,6 +75,7 @@ public class BookingServiceImpl implements BookingService {
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .source(parseSource(request.getSource()))
+                .status(Booking.Status.NEW)
                 .expectedPrice(expectedPrice)
                 .createdBy(createdBy)
                 .build();
@@ -104,6 +109,13 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setRoom(room);
         booking.setExpectedPrice(calcExpectedPrice(booking.getRoomType(), slot));
+
+        // Nếu khoảng thời gian nhận-trả phòng bao gồm hôm nay, cập nhật trạng thái phòng sang OCCUPIED
+        LocalDate today = LocalDate.now();
+        if (!today.isBefore(booking.getCheckInDate()) && today.isBefore(booking.getCheckOutDate())) {
+            room.setStatus(Room.Status.OCCUPIED);
+            roomRepository.save(room);
+        }
 
         return toResponse(bookingRepository.save(booking));
     }
@@ -270,45 +282,152 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private BookingResponse toResponse(Booking b) {
-        long nights = ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate());
+        long nights = (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                ? ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate())
+                : 0;
+
         return BookingResponse.builder()
                 .id(b.getId())
-                .guestId(b.getGuest().getId())
-                .guestName(b.getGuest().getFullName())
-                .guestPhone(b.getGuest().getPhone())
-                .roomTypeId(b.getRoomType().getId())
-                .roomTypeName(b.getRoomType().getName())
+                .guestId(b.getGuest() != null ? b.getGuest().getId() : null)
+                .guestName(b.getGuest() != null ? b.getGuest().getFullName() : null)
+                .guestFullName(b.getGuest() != null ? b.getGuest().getFullName() : null)
+                .guestPhone(b.getGuest() != null ? b.getGuest().getPhone() : null)
+                .guestIdNumber(b.getGuest() != null ? b.getGuest().getIdNumber() : null)
+                .guestEmail(b.getGuest() != null ? b.getGuest().getEmail() : null)
+                .roomTypeId(b.getRoomType() != null ? b.getRoomType().getId() : null)
+                .roomTypeName(b.getRoomType() != null ? b.getRoomType().getName() : null)
                 .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
                 .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null)
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .nights((int) nights)
-                .status(b.getStatus().name())
-                .source(b.getSource().name())
+                .status(b.getStatus() != null ? b.getStatus().name() : null)
+                .source(b.getSource() != null ? b.getSource().name() : null)
+                .note(b.getGuest() != null ? b.getGuest().getNote() : null)
                 .expectedPrice(b.getExpectedPrice())
-                .createdById(b.getCreatedBy().getId())
-                .createdByName(b.getCreatedBy().getFullName())
+                .createdById(b.getCreatedBy() != null ? b.getCreatedBy().getId() : null)
+                .createdByName(b.getCreatedBy() != null ? b.getCreatedBy().getFullName() : null)
                 .createdAt(b.getCreatedAt())
                 .build();
     }
 
     @Override
+    @Transactional
     public BookingResponse updateBooking(Long id, BookingRequest request) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'updateBooking'");
+        Booking booking = findById(id);
+
+        // Dùng TimeRangeValidator - kiểm tra thứ tự ngày + không trong quá khứ khi update
+        TimeRangeValidator.validate(request.getCheckInDate(), request.getCheckOutDate());
+
+        // Tìm/cập nhật thông tin khách hàng
+        Guest guest = guestService.findOrCreateGuest(
+                request.getIdNumber(),
+                request.getFullName(),
+                request.getPhone(),
+                request.getEmail(),
+                request.getNote()
+        );
+
+        RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
+                .orElseThrow(() -> new BusinessException("Không tìm thấy loại phòng", ErrorCode.INVALID_INPUT));
+
+        // Nếu thay đổi loại phòng hoặc thay đổi ngày, và đã gán phòng, ta cần kiểm tra xung đột hoặc hủy gán
+        Room room = booking.getRoom();
+        if (room != null) {
+            if (!room.getRoomType().getId().equals(roomType.getId())) {
+                // Đổi loại phòng thì hủy gán phòng cũ
+                room = null;
+            } else {
+                // Cùng loại phòng nhưng đổi ngày, kiểm tra xem phòng cũ có bị trùng lịch mới không (loại trừ chính booking này)
+                TimeSlot slot = TimeSlot.of(request.getCheckInDate(), request.getCheckOutDate());
+                try {
+                    room = conflictChecker.validateAndGetRoom(room.getId(), roomType, slot, id);
+                } catch (BusinessException e) {
+                    // Nếu bị trùng lịch thì hủy gán phòng cũ
+                    room = null;
+                }
+            }
+        }
+
+        // Tính toán lại expectedPrice
+        TimeSlot slot = TimeSlot.of(request.getCheckInDate(), request.getCheckOutDate());
+        BigDecimal expectedPrice = calcExpectedPrice(roomType, slot);
+
+        booking.setGuest(guest);
+        booking.setRoomType(roomType);
+        booking.setRoom(room);
+        booking.setCheckInDate(request.getCheckInDate());
+        booking.setCheckOutDate(request.getCheckOutDate());
+        booking.setSource(parseSource(request.getSource()));
+        booking.setExpectedPrice(expectedPrice);
+
+        if (booking.getCreatedBy() == null) {
+            User fallbackUser = userRepository.findAll().stream().findFirst().orElse(null);
+            booking.setCreatedBy(fallbackUser);
+        }
+
+        return toResponse(bookingRepository.save(booking));
     }
 
     @Override
+    @Transactional
     public void deleteBooking(Long id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'deleteBooking'");
+        Booking booking = findById(id);
+
+        // Trả phòng về AVAILABLE nếu đã gán phòng và trạng thái không phải CHECKED_OUT hoặc CANCELLED
+        if (booking.getRoom() != null && booking.getStatus() != Booking.Status.CHECKED_OUT && booking.getStatus() != Booking.Status.CANCELLED) {
+            Room room = booking.getRoom();
+            room.setStatus(Room.Status.AVAILABLE);
+            roomRepository.save(room);
+        }
+
+        bookingRepository.delete(booking);
     }
 
     @Override
     public List<BookingResponse> searchBookings(String guestName, String phone, String idNumber, Long roomTypeId,
             LocalDate fromDate, LocalDate toDate) {
-        // TODO Auto-generated method stub
-        //throw new UnsupportedOperationException("Unimplemented method 'searchBookings'");
-        return new Arralist();
+        List<Booking> allBookings = bookingRepository.findAll();
+
+        return allBookings.stream()
+                .filter(b -> {
+                    if (guestName != null && !guestName.isBlank()) {
+                        if (b.getGuest() == null || b.getGuest().getFullName() == null ||
+                            !b.getGuest().getFullName().toLowerCase().contains(guestName.toLowerCase().trim())) {
+                            return false;
+                        }
+                    }
+                    if (phone != null && !phone.isBlank()) {
+                        if (b.getGuest() == null || b.getGuest().getPhone() == null ||
+                            !b.getGuest().getPhone().contains(phone.trim())) {
+                            return false;
+                        }
+                    }
+                    if (idNumber != null && !idNumber.isBlank()) {
+                        if (b.getGuest() == null || b.getGuest().getIdNumber() == null ||
+                            !b.getGuest().getIdNumber().contains(idNumber.trim())) {
+                            return false;
+                        }
+                    }
+                    if (roomTypeId != null) {
+                        if (b.getRoomType() == null || !b.getRoomType().getId().equals(roomTypeId)) {
+                            return false;
+                        }
+                    }
+                    if (fromDate != null) {
+                        if (b.getCheckInDate() == null || b.getCheckInDate().isBefore(fromDate)) {
+                            return false;
+                        }
+                    }
+                    if (toDate != null) {
+                        if (b.getCheckOutDate() == null || b.getCheckOutDate().isAfter(toDate)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .sorted((b1, b2) -> Long.compare(b2.getId(), b1.getId()))
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 }

@@ -461,8 +461,17 @@ const API = {
    * @param {number} roomId
    */
   assignRoom: (bookingId, roomId) =>
-    apiCall(`/bookings/${bookingId}/assign-room/${roomId}`, {
-      method: "PUT",
+    apiCall(`/bookings/${bookingId}/assign-room?roomId=${roomId}`, {
+      method: "PATCH",
+    }),
+
+  /**
+   * Xác nhận đặt phòng
+   * @param {number} bookingId
+   */
+  confirmBooking: (bookingId) =>
+    apiCall(`/bookings/${bookingId}/confirm`, {
+      method: "PATCH",
     }),
 
   /**
@@ -471,7 +480,7 @@ const API = {
    */
   checkIn: (bookingId) =>
     apiCall(`/bookings/${bookingId}/check-in`, {
-      method: "PUT",
+      method: "PATCH",
     }),
 
   /**
@@ -480,7 +489,7 @@ const API = {
    */
   checkOut: (bookingId) =>
     apiCall(`/bookings/${bookingId}/check-out`, {
-      method: "PUT",
+      method: "PATCH",
     }),
 
   /**
@@ -489,6 +498,30 @@ const API = {
    */
   cancelBooking: (bookingId) =>
     apiCall(`/bookings/${bookingId}/cancel`, {
-      method: "PUT",
+      method: "PATCH",
     }),
+
+  // ─── CALENDAR ────────────────────────────────────────────────────────────
+  getRoomCalendar: (roomId, checkIn, checkOut) =>
+    apiCall(`/calendar/rooms/${roomId}?checkIn=${checkIn}&checkOut=${checkOut}`, {
+      method: "GET",
+    }),
+
+  getAllRoomsCalendar: (checkIn, checkOut) =>
+    apiCall(`/calendar/rooms?checkIn=${checkIn}&checkOut=${checkOut}`, {
+      method: "GET",
+    }),
+
+  getRoomCalendarByType: (roomTypeId, checkIn, checkOut) =>
+    apiCall(`/calendar/room-types/${roomTypeId}?checkIn=${checkIn}&checkOut=${checkOut}`, {
+      method: "GET",
+    }),
+
+  getAvailableRooms: (roomTypeId, checkIn, checkOut) => {
+    let url = `/calendar/available-rooms?checkIn=${checkIn}&checkOut=${checkOut}`;
+    if (roomTypeId) {
+      url += `&roomTypeId=${roomTypeId}`;
+    }
+    return apiCall(url, { method: "GET" });
+  },
 };

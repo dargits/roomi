@@ -41,17 +41,21 @@ async function loadGuestList() {
   const tbody = document.getElementById("guestTableBody");
   tbody.innerHTML = `<tr><td colspan="8" class="text-center">Đang tải dữ liệu...</td></tr>`;
 
+  console.log("[Guests] Loading guest list...");
   try {
     // Gọi API lấy toàn bộ danh sách khách hàng
     const res = await API.getAllGuests();
+    console.log("[Guests] API getAllGuests Response:", res);
+
     if (res && res.ok && res.data) {
       const guests = res.data.data || res.data || [];
+      console.log("[Guests] Loaded guests count:", guests.length);
       renderGuestTable(guests);
     } else {
       tbody.innerHTML = `<tr><td colspan="8" class="text-center">Không thể lấy danh sách khách hàng.</td></tr>`;
     }
   } catch (err) {
-    console.error("Lỗi khi tải danh sách khách hàng:", err);
+    console.error("[Guests] Error loading guest list:", err);
     tbody.innerHTML = `<tr><td colspan="8" class="text-center">Đã có lỗi xảy ra.</td></tr>`;
   }
 }
@@ -65,9 +69,9 @@ function renderGuestTable(guests) {
 
   tbody.innerHTML = guests
     .map(
-      (guest) => `
+      (guest, index) => `
     <tr>
-      <td>${guest.id || ""}</td>
+      <td><strong>#${index + 1}</strong></td>
       <td><strong>${guest.fullName || ""}</strong></td>
       <td>${guest.phone || "—"}</td>
       <td>${guest.idNumber || "—"}</td>
@@ -79,7 +83,7 @@ function renderGuestTable(guests) {
           <button class="btn-action-icon btn-edit" title="Sửa" onclick="openEditModal(${guest.id})">
             <i class="fa fa-edit"></i>
           </button>
-          <button class="btn-action-icon btn-delete" title="Xóa" onclick="deleteGuest(${guest.id})">
+          <button class="btn-action-icon btn-delete" title="Xóa" onclick="openDeleteConfirm(${guest.id}, '${(guest.fullName || '').replace(/'/g, "\\'")}')">
             <i class="fa fa-trash"></i>
           </button>
         </div>
@@ -90,9 +94,32 @@ function renderGuestTable(guests) {
     .join("");
 }
 
-// ─── TÌM KIẾM ─────────────────────────────────────────────────────────────────
+// ─── TOAST NOTIFICATION HELPERS ─────────────────────────────────────────────
+function showToast(message, type = "success") {
+  const container = document.getElementById("toastContainer");
+  if (!container) {
+    alert(message);
+    return;
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  
+  const icon = type === "success" ? "fa-check-circle" : type === "error" ? "fa-exclamation-circle" : "fa-info-circle";
+  toast.innerHTML = `<i class="fa ${icon}"></i> <span>${message}</span>`;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 3200);
+}
+
+// ─── TÌM KIẾM & XỬ LÝ SỰ KIỆN ────────────────────────────────────────────────
+let deleteTargetId = null;
+
 function setupEventListeners() {
-  // Tìm kiếm theo Tên (Search by name - contains ignore case)
+  // Tìm kiếm theo Tên
   const searchNameInput = document.getElementById("searchNameInput");
   let debounceTimeout;
   searchNameInput.addEventListener("input", (e) => {
@@ -103,18 +130,20 @@ function setupEventListeners() {
         loadGuestList();
         return;
       }
+      console.log("[Guests] Searching by name:", query);
       try {
         const res = await API.searchGuestsByName(query);
+        console.log("[Guests] Search name response:", res);
         if (res && res.ok) {
           renderGuestTable(res.data?.data || res.data || []);
         }
       } catch (err) {
-        console.error("Lỗi tìm kiếm tên:", err);
+        console.error("[Guests] Error searching by name:", err);
       }
     }, 300);
   });
 
-  // Tìm nhanh theo SĐT (dành cho Lễ tân check-in)
+  // Tìm nhanh theo SĐT
   document
     .getElementById("btnQuickPhoneSearch")
     .addEventListener("click", async () => {
@@ -123,16 +152,18 @@ function setupEventListeners() {
         loadGuestList();
         return;
       }
+      console.log("[Guests] Searching by phone:", phone);
       try {
         const res = await API.getGuestByPhone(phone);
+        console.log("[Guests] Search phone response:", res);
         if (res && res.ok && res.data) {
           const guest = res.data.data || res.data;
           renderGuestTable(guest ? [guest] : []);
         } else {
-          alert("Không tìm thấy khách hàng với số điện thoại này!");
+          showToast("Không tìm thấy khách hàng với số điện thoại này!", "error");
         }
       } catch (err) {
-        alert("Không tìm thấy khách hàng với số điện thoại: " + phone);
+        showToast("Không tìm thấy khách hàng với số điện thoại: " + phone, "error");
       }
     });
 
@@ -153,50 +184,81 @@ function setupEventListeners() {
     .getElementById("btnCancelModal")
     .addEventListener("click", closeModal);
 
+  // Confirm delete modal handlers
+  const confirmModal = document.getElementById("confirmModal");
+  document
+    .getElementById("btnCloseConfirmModal")
+    ?.addEventListener("click", closeConfirmModal);
+  document
+    .getElementById("btnCancelConfirmModal")
+    ?.addEventListener("click", closeConfirmModal);
+  document
+    .getElementById("btnDoDelete")
+    ?.addEventListener("click", executeDeleteGuest);
+
   // Submit Form (Tạo mới hoặc Cập nhật)
   document.getElementById("guestForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const guestId = document.getElementById("guestId").value;
+    const phoneVal = document.getElementById("phone").value.trim();
+    const idNumberVal = document.getElementById("idNumber").value.trim();
+    const emailVal = document.getElementById("email").value.trim();
+    const noteVal = document.getElementById("note").value.trim();
+
     const requestData = {
       fullName: document.getElementById("fullName").value.trim(),
-      phone: document.getElementById("phone").value.trim(),
-      idNumber: document.getElementById("idNumber").value.trim(),
-      email: document.getElementById("email").value.trim(),
-      note: document.getElementById("note").value.trim(),
+      phone: phoneVal || null,
+      idNumber: idNumberVal || null,
+      email: emailVal || null,
+      note: noteVal || null,
     };
+
+    console.log(
+      "[Guests]",
+      guestId ? `Updating guest ID: ${guestId}` : "Creating new guest:",
+      requestData,
+    );
 
     try {
       let res;
       if (guestId) {
-        // Cập nhật khách hàng
         res = await API.updateGuest(guestId, requestData);
       } else {
-        // Tạo mới khách hàng
         res = await API.createGuest(requestData);
       }
 
+      console.log("[Guests] Save API Response:", res);
+
       if (res && res.ok) {
-        alert(
+        showToast(
           guestId
-            ? "Cập nhật khách hàng thành công!"
-            : "Tạo khách hàng thành công!",
+            ? "Cập nhật thông tin khách hàng thành công!"
+            : "Thêm mới khách hàng thành công!",
+          "success",
         );
         closeModal();
         loadGuestList();
       } else {
-        alert(res?.message || "Có lỗi xảy ra, vui lòng kiểm tra lại.");
+        const errorMsg =
+          res?.data?.mess ||
+          res?.data?.message ||
+          res?.data?.error ||
+          "Có lỗi xảy ra, vui lòng kiểm tra lại.";
+        showToast(errorMsg, "error");
       }
     } catch (err) {
-      console.error("Lỗi khi lưu dữ liệu:", err);
-      alert("Lưu thông tin thất bại!");
+      console.error("[Guests] Error saving guest:", err);
+      showToast("Lưu thông tin thất bại!", "error");
     }
   });
 }
 
 // ─── MỞ MODAL SỬA KHÁCH HÀNG ───────────────────────────────────────────────────
 window.openEditModal = async function (id) {
+  console.log("[Guests] Fetching details for guest ID:", id);
   try {
     const res = await API.getGuestById(id);
+    console.log("[Guests] GetById API Response:", res);
     if (res && res.ok && res.data) {
       const guest = res.data.data || res.data;
       document.getElementById("guestId").value = guest.id;
@@ -211,27 +273,47 @@ window.openEditModal = async function (id) {
       document.getElementById("guestModal").classList.add("active");
     }
   } catch (err) {
-    alert("Không thể lấy thông tin chi tiết khách hàng!");
+    console.error("[Guests] Error getting guest by ID:", err);
+    showToast("Không thể lấy thông tin chi tiết khách hàng!", "error");
   }
 };
 
 // ─── XÓA KHÁCH HÀNG ────────────────────────────────────────────────────────────
-window.deleteGuest = async function (id) {
-  if (!confirm("Bạn có chắc chắn muốn xóa khách hàng này không?")) return;
+window.openDeleteConfirm = function (id, name) {
+  deleteTargetId = id;
+  const textEl = document.getElementById("confirmDeleteText");
+  if (textEl) {
+    textEl.textContent = `Bạn có chắc chắn muốn xóa khách hàng "${name || "này"}" không?`;
+  }
+  document.getElementById("confirmModal").classList.add("active");
+};
 
+function closeConfirmModal() {
+  document.getElementById("confirmModal").classList.remove("active");
+  deleteTargetId = null;
+}
+
+async function executeDeleteGuest() {
+  if (!deleteTargetId) return;
+
+  console.log("[Guests] Deleting guest ID:", deleteTargetId);
   try {
-    const res = await API.deleteGuest(id);
+    const res = await API.deleteGuest(deleteTargetId);
+    console.log("[Guests] Delete API Response:", res);
     if (res && res.ok) {
-      alert("Xóa khách hàng thành công!");
+      showToast("Xóa khách hàng thành công!", "success");
+      closeConfirmModal();
       loadGuestList();
     } else {
-      alert("Không thể xóa khách hàng!");
+      showToast(res?.data?.mess || "Không thể xóa khách hàng!", "error");
+      closeConfirmModal();
     }
   } catch (err) {
-    console.error("Lỗi khi xóa khách hàng:", err);
-    alert("Xóa thất bại!");
+    console.error("[Guests] Error deleting guest:", err);
+    showToast("Xóa thất bại!", "error");
+    closeConfirmModal();
   }
-};
+}
 
 // ─── THỦ TỤC CHUNG (Đồng bộ dashboard) ─────────────────────────────────────────
 function closeModal() {

@@ -183,14 +183,14 @@
             <div class="message-box" id="infoMessage"></div>
             <div class="form-body">
               <div class="form-group">
-                <label for="editFullName"
-                  >Họ và tên <span class="required">*</span></label
-                >
+                <label for="editFullName">Họ và tên</label>
                 <input
                   type="text"
                   id="editFullName"
                   placeholder="Họ và tên"
                   maxlength="150"
+                  disabled
+                  class="input-disabled"
                 />
               </div>
               <div class="form-group">
@@ -210,9 +210,14 @@
                 <input
                   type="tel"
                   id="editPhone"
-                  placeholder="0901234567"
+                  placeholder="—"
                   maxlength="20"
+                  disabled
+                  class="input-disabled"
                 />
+                <span class="input-hint"
+                  >Thông tin cá nhân chỉ được xem và không thể thay đổi trực tiếp.</span
+                >
               </div>
               <div class="form-group">
                 <label>Vai trò hiện tại</label>
@@ -224,7 +229,7 @@
                 />
               </div>
             </div>
-            <div class="form-footer">
+            <div class="form-footer" style="display: none;">
               <button class="btn-primary" id="saveInfoBtn">
                 <i class="fa fa-save"></i> Lưu thay đổi
               </button>

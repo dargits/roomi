@@ -16,6 +16,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByStatus(Booking.Status status);
 
+    @Query("SELECT COUNT(b) > 0 FROM Booking b " +
+           "WHERE b.room.id = :roomId " +
+           "AND b.status NOT IN (roomi.dev.model.Booking.Status.CANCELLED, roomi.dev.model.Booking.Status.NO_SHOW, roomi.dev.model.Booking.Status.CHECKED_OUT) " +
+           "AND b.checkInDate <= :date " +
+           "AND b.checkOutDate > :date")
+    boolean isRoomOccupiedOnDate(@Param("roomId") Long roomId, @Param("date") LocalDate date);
+
     /**
      * Sửa lỗi: Đổi Booking$Status thành Booking.Status
      */
@@ -71,10 +78,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
      * Bổ sung Query Search phục vụ API Search từ Frontend
      */
     @Query("SELECT b FROM Booking b " +
-           "WHERE (:guestName IS NULL OR LOWER(b.guest.fullName) LIKE LOWER(CONCAT('%', :guestName, '%'))) " +
-           "AND (:phone IS NULL OR b.guest.phone LIKE CONCAT('%', :phone, '%')) " +
-           "AND (:idNumber IS NULL OR b.guest.idNumber LIKE CONCAT('%', :idNumber, '%')) " +
-           "AND (:roomTypeId IS NULL OR b.roomType.id = :roomTypeId) " +
+           "LEFT JOIN b.guest g " +
+           "LEFT JOIN b.roomType rt " +
+           "WHERE (:guestName IS NULL OR (g.fullName IS NOT NULL AND LOWER(g.fullName) LIKE LOWER(CONCAT('%', :guestName, '%')))) " +
+           "AND (:phone IS NULL OR (g.phone IS NOT NULL AND g.phone LIKE CONCAT('%', :phone, '%'))) " +
+           "AND (:idNumber IS NULL OR (g.idNumber IS NOT NULL AND g.idNumber LIKE CONCAT('%', :idNumber, '%'))) " +
+           "AND (:roomTypeId IS NULL OR rt.id = :roomTypeId) " +
            "AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
            "AND (:toDate IS NULL OR b.checkOutDate <= :toDate) " +
            "ORDER BY b.createdAt DESC")
