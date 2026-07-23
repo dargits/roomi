@@ -1,10 +1,11 @@
 package roomi.dev.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import roomi.dev.dto.request.BookingRequest;
-import roomi.dev.dto.request.ChangeRoomRequest;
+import roomi.dev.dto.request.BookingSurchargeUsageRequest;
 import roomi.dev.dto.response.BookingResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
@@ -33,6 +34,15 @@ public class BookingServiceImpl implements BookingService {
     private final GuestService           guestService;       // inject interface thay vì impl
     private final BookingConflictChecker conflictChecker;    // kiểm tra xung đột lịch
     private final UserRepository         userRepository;
+
+    @Autowired
+    private InvoiceRepository invoiceRepository;
+
+    @Autowired
+    private BookingSurchargeUsageRepository bookingSurchargeUsageRepository;
+
+    @Autowired
+    private SurchargeServiceRepository surchargeServiceRepository;
 
     // ================================================================== CREATE
 
@@ -81,14 +91,17 @@ public class BookingServiceImpl implements BookingService {
                 .createdBy(createdBy)
                 .build();
 
-        return toResponse(bookingRepository.save(booking));
+        Booking savedBooking = bookingRepository.save(booking);
+        addInitialServiceUsages(savedBooking, request.getInitialServiceUsages(), createdBy);
+        return toResponse(savedBooking);
     }
 
     // ================================================================== ASSIGN ROOM
 
     @Override
     @Transactional
-    public BookingResponse assignRoom(Long bookingId, Long roomId) {        Booking booking = findById(bookingId);
+    public BookingResponse assignRoom(Long bookingId, Long roomId) {
+        Booking booking = findById(bookingId);
 
         // Chỉ cho phép gán phòng khi trạng thái còn NEW hoặc CONFIRMED
         if (booking.getStatus() != Booking.Status.NEW
@@ -116,65 +129,6 @@ public class BookingServiceImpl implements BookingService {
             room.setStatus(Room.Status.OCCUPIED);
             roomRepository.save(room);
         }
-
-        return toResponse(bookingRepository.save(booking));
-    }
-
-    // ================================================================== CHANGE ROOM
-
-    @Override
-    @Transactional
-    public BookingResponse changeRoom(Long bookingId, ChangeRoomRequest request) {
-        Booking booking = findById(bookingId);
-
-        // Chỉ cho phép đổi phòng khi đang CONFIRMED hoặc CHECKED_IN
-        if (booking.getStatus() != Booking.Status.CONFIRMED
-                && booking.getStatus() != Booking.Status.CHECKED_IN) {
-            throw new BusinessException(
-                    "Chỉ có thể đổi phòng khi booking ở trạng thái CONFIRMED hoặc CHECKED_IN"
-                    + " (hiện tại: " + booking.getStatus() + ")",
-                    ErrorCode.BOOKING_INVALID_STATUS);
-        }
-
-        // Booking phải đã được gán phòng
-        Room currentRoom = booking.getRoom();
-        if (currentRoom == null) {
-            throw new BusinessException(
-                    "Booking chưa được gán phòng, vui lòng dùng assign-room thay vì change-room",
-                    ErrorCode.BOOKING_NO_ROOM);
-        }
-
-        // Không cho đổi sang chính phòng hiện tại
-        if (currentRoom.getId().equals(request.getRoomId())) {
-            throw new BusinessException(
-                    "Phòng mới phải khác phòng hiện tại (phòng " + currentRoom.getRoomNumber() + ")",
-                    ErrorCode.ROOM_SAME_AS_CURRENT);
-        }
-
-        TimeSlot slot = TimeSlot.of(booking.getCheckInDate(), booking.getCheckOutDate());
-
-        // Validate phòng mới: tồn tại, đúng roomType, không trùng lịch (loại trừ chính booking này)
-        Room newRoom = conflictChecker.validateAndGetRoom(
-                request.getRoomId(), booking.getRoomType(), slot, bookingId);
-
-        // Cập nhật trạng thái phòng cũ
-        if (booking.getStatus() == Booking.Status.CHECKED_IN) {
-            // Đang ở trong phòng → phòng cũ cần dọn dẹp
-            currentRoom.setStatus(Room.Status.NEEDS_CLEANING);
-            // Phòng mới → OCCUPIED ngay
-            newRoom.setStatus(Room.Status.OCCUPIED);
-        } else {
-            // CONFIRMED nhưng chưa check-in → trả phòng cũ về AVAILABLE
-            currentRoom.setStatus(Room.Status.AVAILABLE);
-            // Phòng mới chưa check-in, giữ status hiện tại (AVAILABLE)
-        }
-
-        roomRepository.save(currentRoom);
-        roomRepository.save(newRoom);
-
-        booking.setRoom(newRoom);
-        // Tính lại expectedPrice (cùng roomType nên giá giống nhau, nhưng đảm bảo nhất quán)
-        booking.setExpectedPrice(calcExpectedPrice(booking.getRoomType(), slot));
 
         return toResponse(bookingRepository.save(booking));
     }
@@ -316,6 +270,49 @@ public class BookingServiceImpl implements BookingService {
         return total;
     }
 
+    private void addInitialServiceUsages(Booking booking,
+                                         List<BookingSurchargeUsageRequest> requests,
+                                         User recordedBy) {
+        if (requests == null || requests.isEmpty()) {
+            return;
+        }
+
+        BigDecimal serviceCharge = BigDecimal.ZERO;
+        for (BookingSurchargeUsageRequest request : requests) {
+            SurchargeService service = surchargeServiceRepository.findById(request.getSurchargeServiceId())
+                    .orElseThrow(() -> new BusinessException(
+                            "Không tìm thấy dịch vụ phụ thu", ErrorCode.SURCHARGE_SERVICE_NOT_FOUND));
+            if (!Boolean.TRUE.equals(service.getActive())) {
+                throw new BusinessException(
+                        "Dịch vụ phụ thu đã ngừng hoạt động", ErrorCode.SURCHARGE_SERVICE_INACTIVE);
+            }
+
+            BigDecimal lineTotal = service.getUnitPrice()
+                    .multiply(BigDecimal.valueOf(request.getQuantity().longValue()));
+            bookingSurchargeUsageRepository.save(BookingSurchargeUsage.builder()
+                    .booking(booking)
+                    .surchargeService(service)
+                    .serviceName(service.getName())
+                    .unitPrice(service.getUnitPrice())
+                    .quantity(request.getQuantity())
+                    .lineTotal(lineTotal)
+                    .note(normalizeOptional(request.getNote()))
+                    .recordedBy(recordedBy)
+                    .build());
+            serviceCharge = serviceCharge.add(lineTotal);
+        }
+
+        BigDecimal roomCharge = booking.getExpectedPrice() == null ? BigDecimal.ZERO : booking.getExpectedPrice();
+        invoiceRepository.save(Invoice.builder()
+                .booking(booking)
+                .roomCharge(roomCharge)
+                .serviceCharge(serviceCharge)
+                .discount(BigDecimal.ZERO)
+                .totalAmount(roomCharge.add(serviceCharge))
+                .status(Invoice.Status.PENDING)
+                .build());
+    }
+
     private void requireStatus(Booking booking, Booking.Status expected) {
         if (booking.getStatus() != expected) {
             throw new BusinessException(
@@ -340,10 +337,23 @@ public class BookingServiceImpl implements BookingService {
         }
     }
 
+    private String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private BookingResponse toResponse(Booking b) {
         long nights = (b.getCheckInDate() != null && b.getCheckOutDate() != null)
                 ? ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate())
                 : 0;
+        Invoice invoice = invoiceRepository == null
+            ? null
+            : invoiceRepository.findByBookingId(b.getId()).orElse(null);
+        BigDecimal roomCharge = invoice != null && invoice.getRoomCharge() != null
+            ? invoice.getRoomCharge() : b.getExpectedPrice();
+        BigDecimal serviceCharge = invoice != null && invoice.getServiceCharge() != null
+            ? invoice.getServiceCharge() : BigDecimal.ZERO;
+        BigDecimal totalAmount = invoice != null && invoice.getTotalAmount() != null
+            ? invoice.getTotalAmount() : roomCharge != null ? roomCharge.add(serviceCharge) : serviceCharge;
 
         return BookingResponse.builder()
                 .id(b.getId())
@@ -364,6 +374,9 @@ public class BookingServiceImpl implements BookingService {
                 .source(b.getSource() != null ? b.getSource().name() : null)
                 .note(b.getGuest() != null ? b.getGuest().getNote() : null)
                 .expectedPrice(b.getExpectedPrice())
+                .roomCharge(roomCharge)
+                .serviceCharge(serviceCharge)
+                .totalAmount(totalAmount)
                 .createdById(b.getCreatedBy() != null ? b.getCreatedBy().getId() : null)
                 .createdByName(b.getCreatedBy() != null ? b.getCreatedBy().getFullName() : null)
                 .createdAt(b.getCreatedAt())
