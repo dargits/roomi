@@ -17,7 +17,8 @@ import {
   DollarSign,
   Coffee,
   Bookmark,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 
 function Bookings({ user, showNotification }) {
@@ -42,6 +43,12 @@ function Bookings({ user, showNotification }) {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    show: false,
+    bookingId: null,
+    guestName: ''
+  });
 
   // Create Booking Form State
   const [newBooking, setNewBooking] = useState({
@@ -302,11 +309,21 @@ function Bookings({ user, showNotification }) {
     }
   };
 
-  const handleDeleteBooking = async (bookingId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa đặt phòng này?')) return;
+  const openDeleteConfirm = (booking) => {
+    setDeleteConfirm({
+      show: true,
+      bookingId: booking.id,
+      guestName: booking.guestName
+    });
+  };
+
+  const handleDeleteConfirmSubmit = async () => {
+    const { bookingId } = deleteConfirm;
+    if (!bookingId) return;
     try {
       await api.delete(`/bookings/${bookingId}`);
       showNotification('Đã xóa đặt phòng thành công');
+      setDeleteConfirm({ show: false, bookingId: null, guestName: '' });
       fetchInitialData();
     } catch (err) {
       showNotification(err.message, 'error');
@@ -572,7 +589,7 @@ function Bookings({ user, showNotification }) {
 
                         {/* Admin delete action */}
                         {user.role === 'ADMIN' && (
-                          <button onClick={() => handleDeleteBooking(b.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)', padding: '6px 10px' }} title="Xóa vĩnh viễn">
+                          <button onClick={() => openDeleteConfirm(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)', padding: '6px 10px' }} title="Xóa vĩnh viễn">
                             Xóa
                           </button>
                         )}
@@ -1060,6 +1077,48 @@ function Bookings({ user, showNotification }) {
                 <button type="submit" className="btn btn-primary btn-sm">Ghi nhận</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirm.show && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
+                <Trash2 size={18} />
+                Xác nhận xóa đặt phòng
+              </h2>
+              <button 
+                onClick={() => setDeleteConfirm({ show: false, bookingId: null, guestName: '' })} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
+              <p>Bạn có chắc chắn muốn xóa đặt phòng mã số <strong>{deleteConfirm.bookingId}</strong> của khách hàng <strong>{deleteConfirm.guestName}</strong> không?</p>
+              <p style={{ color: 'var(--color-maintenance)', fontSize: '12px', fontWeight: '600', marginTop: '8px' }}>
+                LƯU Ý: Hành động này không thể hoàn tác và toàn bộ hóa đơn liên quan sẽ bị xóa!
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                type="button" 
+                onClick={() => setDeleteConfirm({ show: false, bookingId: null, guestName: '' })} 
+                className="btn btn-secondary btn-sm"
+              >
+                Hủy
+              </button>
+              <button 
+                type="button" 
+                onClick={handleDeleteConfirmSubmit} 
+                className="btn btn-danger btn-sm"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
           </div>
         </div>
       )}
