@@ -115,8 +115,15 @@ public class SurchargeServiceServiceImpl implements SurchargeServiceService {
     }
 
     private void requireOwner(User user) {
-        if (user == null || !Boolean.TRUE.equals(user.getActive()) || user.getRole() != User.Role.OWNER) {
-            throw new BusinessException("Bạn không có quyền quản lý dịch vụ phụ thu", ErrorCode.INSUFFICIENT_PRIVILEGES);
+        boolean canManageSurcharges = user != null
+                && Boolean.TRUE.equals(user.getActive())
+                && (user.getRole() == User.Role.OWNER
+                    || user.getRole() == User.Role.ADMIN);
+
+        if (!canManageSurcharges) {
+            throw new BusinessException(
+                    "Bạn không có quyền quản lý dịch vụ phụ thu",
+                    ErrorCode.INSUFFICIENT_PRIVILEGES);
         }
     }
 

@@ -164,7 +164,9 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
 
     private void requireUsageManager(User user) {
         if (user == null || !Boolean.TRUE.equals(user.getActive())
-                || (user.getRole() != User.Role.OWNER && user.getRole() != User.Role.RECEPTIONIST)) {
+                || (user.getRole() != User.Role.OWNER
+                && user.getRole() != User.Role.ADMIN
+                && user.getRole() != User.Role.RECEPTIONIST)) {
             throw new BusinessException("Bạn không có quyền ghi nhận dịch vụ phụ thu", ErrorCode.INSUFFICIENT_PRIVILEGES);
         }
     }

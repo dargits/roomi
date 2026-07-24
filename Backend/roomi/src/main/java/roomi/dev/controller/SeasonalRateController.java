@@ -10,6 +10,8 @@ import roomi.dev.dto.response.BaseResponse;
 import roomi.dev.model.SeasonalRate;
 import roomi.dev.service.SeasonalRateService;
 
+import roomi.dev.dto.response.PriceLookupResponse;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -67,6 +69,16 @@ public class SeasonalRateController {
         seasonalRateService.deleteSeasonalRate(id);
         return ResponseEntity.ok(BaseResponse.<Void>builder()
                 .mess("Xóa cấu hình giá theo mùa thành công")
+                .build());
+    }
+
+    @GetMapping("/price-lookup")
+    public ResponseEntity<BaseResponse<PriceLookupResponse>> getPriceLookup(
+            @RequestParam Long roomTypeId,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(BaseResponse.<PriceLookupResponse>builder()
+                .mess("Thành công")
+                .data(seasonalRateService.getPriceLookup(roomTypeId, date))
                 .build());
     }
 }
