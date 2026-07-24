@@ -29,7 +29,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("SELECT COUNT(b) > 0 FROM Booking b " +
            "WHERE b.room.id = :roomId " +
            "AND b.id <> :excludeId " +
-           "AND b.status NOT IN (roomi.dev.model.Booking.Status.CANCELLED, roomi.dev.model.Booking.Status.NO_SHOW) " +
+           "AND b.status NOT IN (roomi.dev.model.Booking.Status.CANCELLED, roomi.dev.model.Booking.Status.NO_SHOW, roomi.dev.model.Booking.Status.CHECKED_OUT) " +
            "AND b.checkInDate < :checkOut " +
            "AND b.checkOutDate > :checkIn")
     boolean existsRoomConflict(@Param("roomId") Long roomId,

@@ -87,7 +87,7 @@ public class BookingServiceImpl implements BookingService {
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .source(parseSource(request.getSource()))
-                .status(Booking.Status.NEW)
+                .status(room != null ? Booking.Status.CONFIRMED : Booking.Status.NEW)
                 .expectedPrice(expectedPrice)
                 .createdBy(createdBy)
                 .build();
@@ -122,6 +122,7 @@ public class BookingServiceImpl implements BookingService {
                 roomId, booking.getRoomType(), slot, bookingId);
 
         booking.setRoom(room);
+        booking.setStatus(Booking.Status.CONFIRMED);
         booking.setExpectedPrice(calcExpectedPrice(booking.getRoomType(), slot));
 
         // Nếu khoảng thời gian nhận-trả phòng bao gồm hôm nay, cập nhật trạng thái phòng sang OCCUPIED
@@ -207,7 +208,12 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponse checkIn(Long bookingId) {
         Booking booking = findById(bookingId);
-        requireStatus(booking, Booking.Status.CONFIRMED);
+        
+        if (booking.getStatus() != Booking.Status.CONFIRMED && booking.getStatus() != Booking.Status.NEW) {
+            throw new BusinessException(
+                    "Booking phải ở trạng thái CONFIRMED hoặc NEW (hiện tại: " + booking.getStatus() + ")",
+                    ErrorCode.BOOKING_INVALID_STATUS);
+        }
 
         if (booking.getRoom() == null) {
             throw new BusinessException(
@@ -490,6 +496,14 @@ public class BookingServiceImpl implements BookingService {
         booking.setGuest(guest);
         booking.setRoomType(roomType);
         booking.setRoom(room);
+
+        // Cập nhật trạng thái booking dựa trên việc gán phòng
+        if (room == null && (booking.getStatus() == Booking.Status.NEW || booking.getStatus() == Booking.Status.CONFIRMED)) {
+            booking.setStatus(Booking.Status.NEW);
+        } else if (room != null && booking.getStatus() == Booking.Status.NEW) {
+            booking.setStatus(Booking.Status.CONFIRMED);
+        }
+
         booking.setCheckInDate(request.getCheckInDate());
         booking.setCheckOutDate(request.getCheckOutDate());
         booking.setSource(parseSource(request.getSource()));
