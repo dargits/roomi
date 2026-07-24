@@ -61,6 +61,7 @@ function Bookings({ user, showNotification }) {
   const [availableRooms, setAvailableRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState('');
+  const [filterRoomTypeId, setFilterRoomTypeId] = useState('');
   const [changeReason, setChangeReason] = useState('');
 
   // Invoice & Surcharge states
@@ -132,12 +133,14 @@ function Bookings({ user, showNotification }) {
 
   // Fetch available rooms for checkin-checkout dates and type
   const fetchAvailableRooms = async (typeId, checkIn, checkOut) => {
-    if (!typeId || !checkIn || !checkOut) return;
+    if (!checkIn || !checkOut) return;
     try {
       setLoadingRooms(true);
-      const res = await api.get('/calendar/available-rooms', {
-        params: { roomTypeId: typeId, checkIn, checkOut }
-      });
+      const params = { checkIn, checkOut };
+      if (typeId) {
+        params.roomTypeId = typeId;
+      }
+      const res = await api.get('/calendar/available-rooms', { params });
       if (res.data && res.data.data) {
         setAvailableRooms(res.data.data);
       }
@@ -200,6 +203,7 @@ function Bookings({ user, showNotification }) {
   const openAssignModal = (booking) => {
     setSelectedBooking(booking);
     setSelectedRoomId('');
+    setFilterRoomTypeId(booking.roomTypeId || '');
     setShowAssignModal(true);
     fetchAvailableRooms(booking.roomTypeId, booking.checkInDate, booking.checkOutDate);
   };
@@ -208,6 +212,24 @@ function Bookings({ user, showNotification }) {
     e.preventDefault();
     if (!selectedRoomId) return;
     try {
+      const selectedRoom = availableRooms.find(r => r.roomId === parseInt(selectedRoomId));
+      if (selectedRoom && selectedRoom.roomTypeId !== selectedBooking.roomTypeId) {
+        // Cập nhật loại phòng trước khi gán
+        const updatePayload = {
+          fullName: selectedBooking.guestFullName || selectedBooking.guestName,
+          phone: selectedBooking.guestPhone,
+          idNumber: selectedBooking.guestIdNumber,
+          email: selectedBooking.guestEmail,
+          roomTypeId: selectedRoom.roomTypeId,
+          roomId: null,
+          checkInDate: selectedBooking.checkInDate,
+          checkOutDate: selectedBooking.checkOutDate,
+          source: selectedBooking.source,
+          note: selectedBooking.note
+        };
+        await api.put(`/bookings/${selectedBooking.id}`, updatePayload);
+      }
+
       await api.patch(`/bookings/${selectedBooking.id}/assign-room`, null, {
         params: { roomId: parseInt(selectedRoomId) }
       });
@@ -232,10 +254,35 @@ function Bookings({ user, showNotification }) {
     e.preventDefault();
     if (!selectedRoomId) return;
     try {
-      await api.patch(`/bookings/${selectedBooking.id}/change-room`, {
-        roomId: parseInt(selectedRoomId),
-        reason: changeReason
-      });
+      const selectedRoom = availableRooms.find(r => r.roomId === parseInt(selectedRoomId));
+      
+      if (selectedRoom && selectedRoom.roomTypeId !== selectedBooking.roomTypeId) {
+        // Cập nhật loại phòng trước. Khi đổi loại phòng ở Backend, phòng cũ sẽ được set = null.
+        const updatePayload = {
+          fullName: selectedBooking.guestFullName || selectedBooking.guestName,
+          phone: selectedBooking.guestPhone,
+          idNumber: selectedBooking.guestIdNumber,
+          email: selectedBooking.guestEmail,
+          roomTypeId: selectedRoom.roomTypeId,
+          roomId: selectedBooking.roomId,
+          checkInDate: selectedBooking.checkInDate,
+          checkOutDate: selectedBooking.checkOutDate,
+          source: selectedBooking.source,
+          note: selectedBooking.note
+        };
+        await api.put(`/bookings/${selectedBooking.id}`, updatePayload);
+        
+        // Vì phòng cũ bị chuyển về null, ta gọi assign-room thay vì change-room
+        await api.patch(`/bookings/${selectedBooking.id}/assign-room`, null, {
+          params: { roomId: parseInt(selectedRoomId) }
+        });
+      } else {
+        await api.patch(`/bookings/${selectedBooking.id}/change-room`, {
+          roomId: parseInt(selectedRoomId),
+          reason: changeReason
+        });
+      }
+
       showNotification('Đổi phòng thành công');
       setShowChangeRoomModal(false);
       fetchInitialData();
@@ -477,15 +524,21 @@ function Bookings({ user, showNotification }) {
                         
                         {/* Status transition actions */}
                         {b.status === 'NEW' && (
-                          <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" title="Gán phòng">
-                            Gán phòng
-                          </button>
+                          b.roomNumber ? (
+                            <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
+                              Nhận phòng
+                            </button>
+                          ) : (
+                            <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" title="Gán phòng">
+                              Gán phòng
+                            </button>
+                          )
                         )}
 
                         {b.status === 'CONFIRMED' && (
                           <>
-                            <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm">
-                              Check-in
+                            <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
+                              Nhận phòng
                             </button>
                             <button onClick={() => openChangeRoomModal(b)} className="btn btn-secondary btn-sm" title="Đổi phòng">
                               Đổi phòng
@@ -495,8 +548,8 @@ function Bookings({ user, showNotification }) {
 
                         {b.status === 'CHECKED_IN' && (
                           <>
-                            <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-available)' }}>
-                              Thanh toán
+                            <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-available)', fontWeight: '600' }} title="Thanh toán & Trả phòng (Check-out)">
+                              Trả phòng
                             </button>
                             <button onClick={() => openChangeRoomModal(b)} className="btn btn-secondary btn-sm" title="Đổi phòng">
                               Đổi phòng
@@ -727,6 +780,23 @@ function Bookings({ user, showNotification }) {
                 </p>
 
                 <div>
+                  <label>Lọc theo loại phòng</label>
+                  <select
+                    value={filterRoomTypeId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFilterRoomTypeId(val);
+                      fetchAvailableRooms(val ? parseInt(val) : null, selectedBooking.checkInDate, selectedBooking.checkOutDate);
+                    }}
+                  >
+                    <option value="">-- Tất cả loại phòng --</option>
+                    {roomTypes.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label>Chọn phòng trống phù hợp *</label>
                   <select
                     value={selectedRoomId}
@@ -740,7 +810,7 @@ function Bookings({ user, showNotification }) {
                       <>
                         <option value="">-- Chọn phòng --</option>
                         {availableRooms.map(r => (
-                          <option key={r.roomId} value={r.roomId}>Phòng {r.roomNumber} (Tầng {r.floor})</option>
+                          <option key={r.roomId} value={r.roomId}>Phòng {r.roomNumber} - {r.roomTypeName} (Tầng {r.floor})</option>
                         ))}
                       </>
                     ) : (
@@ -935,7 +1005,7 @@ function Bookings({ user, showNotification }) {
                   }} 
                   className="btn btn-primary btn-sm"
                 >
-                  <Check size={14} /> Xác nhận thanh toán & Check-out
+                  <Check size={14} /> Xác nhận thanh toán & Trả phòng (Check-out)
                 </button>
               )}
             </div>

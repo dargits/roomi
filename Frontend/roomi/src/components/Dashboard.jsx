@@ -49,12 +49,15 @@ function Dashboard({ user, showNotification }) {
   const [unassignedBookings, setUnassignedBookings] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState('');
 
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  // Helper to format date
+  // Helper to format date in local timezone (YYYY-MM-DD)
   const formatDateString = (date) => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
+
+  const todayStr = formatDateString(new Date());
 
   const getDatesArray = (start, days) => {
     const arr = [];
@@ -725,7 +728,7 @@ function Dashboard({ user, showNotification }) {
 
                       {/* Transition Actions */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {activeBooking.status === 'CONFIRMED' && (
+                        {(activeBooking.status === 'CONFIRMED' || activeBooking.status === 'NEW') && (
                           <button 
                             onClick={() => handleBookingTransition(activeBooking.bookingId, 'check-in')} 
                             className="btn btn-primary btn-sm"
@@ -812,18 +815,38 @@ function Dashboard({ user, showNotification }) {
                   Lịch đặt sắp tới
                 </h4>
                 {selectedRoom.bookings && selectedRoom.bookings.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {selectedRoom.bookings.filter(b => b.status !== 'CANCELLED').map(b => (
-                      <div key={b.bookingId} style={{ fontSize: '13px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <div>
-                          <strong>{b.guestName}</strong>
-                          <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                            {b.checkInDate} → {b.checkOutDate}
+                      <div key={b.bookingId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '13px' }}>
+                          <div>
+                            <strong>{b.guestName}</strong>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              {b.checkInDate} → {b.checkOutDate}
+                            </span>
+                          </div>
+                          <span className={`badge badge-${b.status.toLowerCase()}`} style={{ fontSize: '9px', height: 'fit-content' }}>
+                            {b.status}
                           </span>
                         </div>
-                        <span className={`badge badge-${b.status.toLowerCase()}`} style={{ fontSize: '9px', height: 'fit-content' }}>
-                          {b.status}
-                        </span>
+                        {(b.status === 'CONFIRMED' || b.status === 'NEW') && (
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                            <button 
+                              onClick={() => handleBookingTransition(b.bookingId, 'check-in')} 
+                              className="btn btn-primary btn-sm"
+                              style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Check size={10} /> Nhận phòng
+                            </button>
+                            <button 
+                              onClick={() => handleBookingTransition(b.bookingId, 'cancel')} 
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-maintenance)' }}
+                            >
+                              <X size={10} /> Hủy đặt
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
