@@ -44,6 +44,12 @@ function Rooms({ user, showNotification }) {
     basePrice: 500000
   });
 
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    show: false,
+    type: 'room', // 'room' | 'type'
+    target: null
+  });
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -117,15 +123,12 @@ function Rooms({ user, showNotification }) {
     setShowRoomModal(true);
   };
 
-  const handleDeleteRoom = async (roomId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa phòng này?')) return;
-    try {
-      await api.delete(`/rooms/${roomId}`);
-      showNotification('Đã xóa phòng thành công');
-      fetchData();
-    } catch (err) {
-      showNotification(err.message, 'error');
-    }
+  const openDeleteRoomConfirm = (room) => {
+    setDeleteConfirm({
+      show: true,
+      type: 'room',
+      target: room
+    });
   };
 
   // Room Type CRUD handlers
@@ -175,11 +178,26 @@ function Rooms({ user, showNotification }) {
     setShowTypeModal(true);
   };
 
-  const handleDeleteType = async (typeId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa loại phòng này? LƯU Ý: Xóa loại phòng sẽ xóa tất cả phòng thuộc loại này!')) return;
+  const openDeleteTypeConfirm = (type) => {
+    setDeleteConfirm({
+      show: true,
+      type: 'type',
+      target: type
+    });
+  };
+
+  const handleDeleteConfirmSubmit = async () => {
+    const { type, target } = deleteConfirm;
+    if (!target) return;
     try {
-      await api.delete(`/room-types/${typeId}`);
-      showNotification('Đã xóa loại phòng thành công');
+      if (type === 'room') {
+        await api.delete(`/rooms/${target.id}`);
+        showNotification('Đã xóa phòng thành công');
+      } else {
+        await api.delete(`/room-types/${target.id}`);
+        showNotification('Đã xóa loại phòng thành công');
+      }
+      setDeleteConfirm({ show: false, type: 'room', target: null });
       fetchData();
     } catch (err) {
       showNotification(err.message, 'error');
@@ -319,7 +337,7 @@ function Rooms({ user, showNotification }) {
                         <button onClick={() => openEditRoom(room)} className="btn btn-secondary btn-sm" title="Sửa thông tin">
                           <Edit size={14} />
                         </button>
-                        <button onClick={() => handleDeleteRoom(room.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Xóa phòng">
+                        <button onClick={() => openDeleteRoomConfirm(room)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Xóa phòng">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -371,7 +389,7 @@ function Rooms({ user, showNotification }) {
                         <button onClick={() => openEditType(type)} className="btn btn-secondary btn-sm" title="Sửa loại phòng">
                           <Edit size={14} />
                         </button>
-                        <button onClick={() => handleDeleteType(type.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Xóa loại phòng">
+                        <button onClick={() => openDeleteTypeConfirm(type)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Xóa loại phòng">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -532,6 +550,55 @@ function Rooms({ user, showNotification }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirm.show && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
+                <Trash2 size={18} />
+                {deleteConfirm.type === 'room' ? 'Xác nhận xóa phòng' : 'Xác nhận xóa loại phòng'}
+              </h2>
+              <button 
+                onClick={() => setDeleteConfirm({ show: false, type: 'room', target: null })} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
+              {deleteConfirm.type === 'room' ? (
+                <p>Bạn có chắc chắn muốn xóa phòng <strong>{deleteConfirm.target?.roomNumber}</strong> (Tầng {deleteConfirm.target?.floor}) không?</p>
+              ) : (
+                <p>
+                  Bạn có chắc chắn muốn xóa loại phòng <strong>{deleteConfirm.target?.name}</strong> không?
+                  <br />
+                  <span style={{ color: 'var(--color-maintenance)', fontSize: '12px', fontWeight: '600' }}>
+                    LƯU Ý: Xóa loại phòng sẽ xóa tất cả phòng thuộc loại này!
+                  </span>
+                </p>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                type="button" 
+                onClick={() => setDeleteConfirm({ show: false, type: 'room', target: null })} 
+                className="btn btn-secondary btn-sm"
+              >
+                Hủy
+              </button>
+              <button 
+                type="button" 
+                onClick={handleDeleteConfirmSubmit} 
+                className="btn btn-danger btn-sm"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
           </div>
         </div>
       )}

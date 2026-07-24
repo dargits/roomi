@@ -70,6 +70,12 @@ public class RoomServiceImpl implements RoomService {
     public void deleteRoom(Long id) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy phòng", ErrorCode.INVALID_INPUT));
+
+        List<roomi.dev.model.Booking> bookings = bookingRepository.findByRoomId(id);
+        if (!bookings.isEmpty()) {
+            throw new BusinessException("Không thể xóa phòng đã có lịch sử đặt phòng hoặc đang hoạt động. Hãy chuyển phòng hoặc hủy các đặt phòng liên quan trước.", ErrorCode.INVALID_INPUT);
+        }
+
         roomRepository.delete(room);
     }
 
@@ -77,7 +83,7 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public List<Room> getAllRooms() {
-        List<Room> rooms = roomRepository.findAll();
+        List<Room> rooms = roomRepository.findAllByOrderByFloorAscRoomNumberAsc();
         java.time.LocalDate today = java.time.LocalDate.now();
 
         // Tự động kiểm tra booking thực tế trong ngày hôm nay cho từng phòng

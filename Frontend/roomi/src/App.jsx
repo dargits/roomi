@@ -19,6 +19,7 @@ import {
   ShieldAlert, 
   User, 
   LogOut,
+  X,
   Moon,
   Sun,
   UserCheck
@@ -31,6 +32,7 @@ function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [notification, setNotification] = useState(null);
   const [darkMode, setDarkMode] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Toggle Dark/Light Mode
   useEffect(() => {
@@ -311,7 +313,7 @@ function App() {
               {darkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="btn btn-secondary"
               style={{ flex: 1, padding: '8px', color: 'var(--color-maintenance)' }}
               title="Đăng xuất"
@@ -326,6 +328,48 @@ function App() {
       <main className="main-content">
         {renderActiveView()}
       </main>
+
+      {/* LOGOUT CONFIRMATION MODAL */}
+      {showLogoutConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '400px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
+                <LogOut size={18} />
+                Xác nhận đăng xuất
+              </h2>
+              <button 
+                onClick={() => setShowLogoutConfirm(false)} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
+              <p>Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?</p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                type="button" 
+                onClick={() => setShowLogoutConfirm(false)} 
+                className="btn btn-secondary btn-sm"
+              >
+                Hủy
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }} 
+                className="btn btn-danger btn-sm"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notifications */}
       {notification && (

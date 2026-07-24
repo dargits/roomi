@@ -9,6 +9,12 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     boolean existsByRoomNumber(String roomNumber);
 
+    /** Lấy tất cả phòng và sắp xếp theo tầng và số phòng */
+    List<Room> findAllByOrderByFloorAscRoomNumberAsc();
+
+    /** Lấy tất cả phòng thuộc một loại phòng và sắp xếp theo tầng và số phòng */
+    List<Room> findByRoomTypeIdOrderByFloorAscRoomNumberAsc(Long roomTypeId);
+
     /** Lấy tất cả phòng thuộc một loại phòng */
     List<Room> findByRoomTypeId(Long roomTypeId);
 
