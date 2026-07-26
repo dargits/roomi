@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
+  color-scheme: dark;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   
   /* Color Palette (Sleek Dark Mode by default) */
@@ -52,6 +53,7 @@
 
 /* Light Theme Switch (if added later) */
 .light-theme {
+  color-scheme: light;
   --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
   --bg-card: rgba(241, 245, 249, 0.8);
@@ -114,6 +116,11 @@ input, select, textarea {
   font-size: 14px;
   transition: var(--transition-fast);
   outline: none;
+}
+
+select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 input:focus, select:focus, textarea:focus {
@@ -475,13 +482,64 @@ tr:hover td {
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
+  from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes slideLeft {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Top Loading Bar */
+.top-loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+  z-index: 9999;
+  width: 0;
+  opacity: 0;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5), 0 0 5px rgba(168, 85, 247, 0.5);
+  pointer-events: none;
+}
+
+.top-loading-bar.active {
+  opacity: 1;
+  width: 75%;
+  transition: width 0.4s ease-out, opacity 0.2s ease-in;
+  animation: loading-bar-pulse 2s infinite ease-in-out;
+}
+
+.top-loading-bar.finished {
+  opacity: 0;
+  width: 100%;
+  transition: width 0.3s ease-out, opacity 0.3s ease-in 0.2s;
+}
+
+@keyframes loading-bar-pulse {
+  0% { width: 35%; }
+  50% { width: 75%; }
+  100% { width: 85%; }
 }
 
 /* Extra premium touch: Glow cards */

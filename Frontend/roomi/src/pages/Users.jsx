@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
+import PageLoader from '../components/PageLoader';
 import { 
   Users as UsersIcon, 
   Lock, 
@@ -294,9 +295,7 @@ function Users({ user, showNotification }) {
 
       {/* Users table */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>
-          <div style={{ border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid var(--primary)', borderRadius: '50%', width: '30px', height: '30px', animation: 'spin 1s linear infinite' }} />
-        </div>
+        <PageLoader />
       ) : (
         <div className="table-container">
           <table>
