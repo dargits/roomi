@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import api from './utils/api';
-import Login from './components/Login';
-import Dashboard from './components/Dashboard';
-import Bookings from './components/Bookings';
-import Guests from './components/Guests';
-import Rooms from './components/Rooms';
-import Rates from './components/Rates';
-import Services from './components/Services';
-import Users from './components/Users';
-import Profile from './components/Profile';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Bookings from './pages/Bookings';
+import Guests from './pages/Guests';
+import Rooms from './pages/Rooms';
+import Rates from './pages/Rates';
+import Services from './pages/Services';
+import Users from './pages/Users';
+import Profile from './pages/Profile';
 import { 
   LayoutDashboard, 
   CalendarRange, 
@@ -33,6 +33,20 @@ function App() {
   const [notification, setNotification] = useState(null);
   const [darkMode, setDarkMode] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loadingBarStatus, setLoadingBarStatus] = useState('');
+
+  const handleViewChange = (viewId) => {
+    if (viewId === currentView) return;
+    setLoadingBarStatus('active');
+    
+    setTimeout(() => {
+      setCurrentView(viewId);
+      
+      setTimeout(() => {
+        setLoadingBarStatus('finished');
+      }, 300);
+    }, 150);
+  };
 
   // Toggle Dark/Light Mode
   useEffect(() => {
@@ -181,6 +195,7 @@ function App() {
 
   return (
     <div className="dashboard-container">
+      <div className={`top-loading-bar ${loadingBarStatus}`} />
       {/* Sidebar Navigation */}
       <aside style={{
         width: '260px',
@@ -229,7 +244,7 @@ function App() {
             return (
               <button
                 key={item.id}
-                onClick={() => setCurrentView(item.id)}
+                onClick={() => handleViewChange(item.id)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -264,7 +279,7 @@ function App() {
         }}>
           {/* User profile link */}
           <button 
-            onClick={() => setCurrentView('profile')}
+            onClick={() => handleViewChange('profile')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -327,7 +342,9 @@ function App() {
 
       {/* Main Content Area */}
       <main className="main-content">
-        {renderActiveView()}
+        <div key={currentView} className="animate-fade-in" style={{ width: '100%' }}>
+          {renderActiveView()}
+        </div>
       </main>
 
       {/* LOGOUT CONFIRMATION MODAL */}
