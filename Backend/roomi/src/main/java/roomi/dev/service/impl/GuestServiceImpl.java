@@ -186,6 +186,8 @@ public class GuestServiceImpl implements GuestService {
     }
 
     private GuestResponse toResponse(Guest g) {
+        String loyaltyTier = getLoyaltyTier(g.getLoyaltyPoints());
+
         return GuestResponse.builder()
                 .id(g.getId())
                 .fullName(g.getFullName())
@@ -194,8 +196,42 @@ public class GuestServiceImpl implements GuestService {
                 .idNumber(g.getIdNumber())
                 .note(g.getNote())
                 .loyaltyPoints(g.getLoyaltyPoints())
+                .loyaltyTier(loyaltyTier)
+                .loyaltyBenefits(getLoyaltyBenefits(loyaltyTier))
                 .createdAt(g.getCreatedAt())
                 .build();
+    }
+
+    private String getLoyaltyTier(Integer loyaltyPoints) {
+        int points = loyaltyPoints == null ? 0 : Math.max(loyaltyPoints, 0);
+
+        if (points >= 5000) {
+            return "DIAMOND";
+        }
+        if (points >= 4000) {
+            return "PLATINUM";
+        }
+        if (points >= 3000) {
+            return "GOLD";
+        }
+        if (points >= 2000) {
+            return "SILVER";
+        }
+        if (points >= 1000) {
+            return "BRONZE";
+        }
+        return "MEMBER";
+    }
+
+    private List<String> getLoyaltyBenefits(String loyaltyTier) {
+        return switch (loyaltyTier) {
+            case "BRONZE" -> List.of("Giảm 2% giá phòng");
+            case "SILVER" -> List.of("Giảm 5% giá phòng");
+            case "GOLD" -> List.of("Giảm 8% giá phòng");
+            case "PLATINUM" -> List.of("Giảm 10% giá phòng");
+            case "DIAMOND" -> List.of("Giảm 15% giá phòng");
+            default -> List.of();
+        };
     }
 
     @Override
