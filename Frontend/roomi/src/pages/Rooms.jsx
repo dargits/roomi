@@ -546,7 +546,6 @@ function Rooms({ user, showNotification }) {
                   <input
                     type="number"
                     min="0"
-                    step="5000"
                     value={typeForm.basePrice}
                     onChange={(e) => setTypeForm(prev => ({ ...prev, basePrice: e.target.value }))}
                     required
