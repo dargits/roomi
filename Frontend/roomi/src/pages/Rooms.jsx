@@ -11,7 +11,9 @@ import {
   DollarSign, 
   Info,
   Sliders,
-  Home
+  Home,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 
 function Rooms({ user, showNotification }) {
@@ -114,6 +116,31 @@ function Rooms({ user, showNotification }) {
         showNotification('Cập nhật thông tin phòng thành công');
       }
       setShowRoomModal(false);
+      fetchData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  const handleToggleRoomActive = async (room) => {
+    const isInactive = room.note && room.note.includes('[INACTIVE]');
+    let newNote = room.note || '';
+    if (isInactive) {
+      newNote = newNote.replace('[INACTIVE]', '').trim();
+    } else {
+      newNote = (newNote ? newNote + ' [INACTIVE]' : '[INACTIVE]').trim();
+    }
+
+    try {
+      const payload = {
+        roomTypeId: room.roomType.id,
+        roomNumber: room.roomNumber,
+        floor: room.floor,
+        status: room.status,
+        note: newNote
+      };
+      await api.put(`/rooms/${room.id}`, payload);
+      showNotification(isInactive ? `Đã mở hoạt động lại phòng ${room.roomNumber}` : `Đã tắt hoạt động phòng ${room.roomNumber}`);
       fetchData();
     } catch (err) {
       showNotification(err.message, 'error');
@@ -348,12 +375,23 @@ function Rooms({ user, showNotification }) {
                       </span>
                     </td>
                     <td>
+                      {room.note && room.note.includes('[INACTIVE]') && (
+                        <span className="badge badge-cancelled" style={{ marginRight: '6px', fontSize: '10px' }}>Tạm ngưng</span>
+                      )}
                       <span style={{ fontSize: '13px', color: room.note ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                        {room.note || 'Không có ghi chú'}
+                        {room.note ? room.note.replace('[INACTIVE]', '').trim() || 'Không có ghi chú' : 'Không có ghi chú'}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => handleToggleRoomActive(room)} 
+                          className="btn btn-secondary btn-sm" 
+                          style={{ color: room.note && room.note.includes('[INACTIVE]') ? 'var(--text-muted)' : 'var(--color-available)' }}
+                          title={room.note && room.note.includes('[INACTIVE]') ? "Mở hoạt động" : "Tắt hoạt động"}
+                        >
+                          {room.note && room.note.includes('[INACTIVE]') ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
+                        </button>
                         <button onClick={() => openEditRoom(room)} className="btn btn-secondary btn-sm" title="Sửa thông tin">
                           <Edit size={14} />
                         </button>

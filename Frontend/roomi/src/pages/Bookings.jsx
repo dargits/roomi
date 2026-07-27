@@ -189,7 +189,6 @@ function Bookings({ user, showNotification }) {
     });
     fetchInitialData();
   };
-
   // Fetch available rooms for checkin-checkout dates and type
   const fetchAvailableRooms = async (typeId, checkIn, checkOut) => {
     if (!checkIn || !checkOut) return;
@@ -199,9 +198,16 @@ function Bookings({ user, showNotification }) {
       if (typeId) {
         params.roomTypeId = typeId;
       }
-      const res = await api.get('/calendar/available-rooms', { params });
-      if (res.data && res.data.data) {
-        setAvailableRooms(res.data.data);
+      const [res, roomsRes] = await Promise.all([
+        api.get('/calendar/available-rooms', { params }),
+        api.get('/rooms')
+      ]);
+      if (res.data && res.data.data && roomsRes.data && roomsRes.data.data) {
+        const inactiveIds = roomsRes.data.data
+          .filter(r => r.note && r.note.includes('[INACTIVE]'))
+          .map(r => Number(r.id));
+        const activeRooms = res.data.data.filter(r => !inactiveIds.includes(Number(r.roomId)));
+        setAvailableRooms(activeRooms);
       }
     } catch (err) {
       showNotification(err.message, 'error');
@@ -209,7 +215,6 @@ function Bookings({ user, showNotification }) {
       setLoadingRooms(false);
     }
   };
-
   // Trigger loading available rooms when creating booking
   useEffect(() => {
     if (newBooking.roomTypeId && newBooking.checkInDate && newBooking.checkOutDate) {
@@ -713,8 +718,8 @@ function Bookings({ user, showNotification }) {
                           </button>
                         )}
 
-                        {/* Admin delete action */}
-                        {user.role === 'ADMIN' && (
+                        {/* Owner delete action */}
+                        {user.role === 'OWNER' && (
                           <button onClick={() => openDeleteConfirm(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)', padding: '6px 10px' }} title="Xóa vĩnh viễn">
                             Xóa
                           </button>
@@ -1183,7 +1188,7 @@ function Bookings({ user, showNotification }) {
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && selectedBooking.status === 'CHECKED_IN' && user.role !== 'ACCOUNTANT' && (
+              {activeInvoice.status !== 'PAID' && selectedBooking.status === 'CHECKED_IN' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT') && (
                 <button 
                   onClick={() => { 
                     handleTransition(selectedBooking.id, 'check-out');
