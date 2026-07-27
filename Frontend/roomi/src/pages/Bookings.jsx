@@ -23,6 +23,22 @@ import {
 } from 'lucide-react';
 
 function Bookings({ user, showNotification }) {
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -87,7 +103,8 @@ function Bookings({ user, showNotification }) {
       ]);
 
       if (bookingsRes.data && bookingsRes.data.data) {
-        setBookings(bookingsRes.data.data);
+        const sorted = bookingsRes.data.data.sort((a, b) => b.id - a.id);
+        setBookings(sorted);
       }
       if (typesRes.data && typesRes.data.data) {
         setRoomTypes(typesRes.data.data);
@@ -117,7 +134,8 @@ function Bookings({ user, showNotification }) {
 
       const res = await api.get('/bookings/search', { params });
       if (res.data && res.data.data) {
-        setBookings(res.data.data);
+        const sorted = res.data.data.sort((a, b) => b.id - a.id);
+        setBookings(sorted);
         showNotification('Tìm kiếm hoàn tất!');
       }
     } catch (err) {
@@ -511,6 +529,11 @@ function Bookings({ user, showNotification }) {
                       <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{b.guestPhone}</div>
                       {b.guestIdNumber && (
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CCCD: {b.guestIdNumber}</div>
+                      )}
+                      {b.createdAt && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          Thời gian đặt: {formatDateTime(b.createdAt)}
+                        </div>
                       )}
                     </td>
                     <td>

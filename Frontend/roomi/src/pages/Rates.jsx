@@ -382,7 +382,6 @@ function Rates({ user, showNotification }) {
                   <input
                     type="number"
                     min="1"
-                    step="10000"
                     value={formData.price}
                     onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                     required

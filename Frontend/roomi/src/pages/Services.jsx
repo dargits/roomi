@@ -278,7 +278,6 @@ function Services({ user, showNotification }) {
                   <input
                     type="number"
                     min="1"
-                    step="1000"
                     value={formData.unitPrice}
                     onChange={(e) => setFormData(prev => ({ ...prev, unitPrice: e.target.value }))}
                     required
