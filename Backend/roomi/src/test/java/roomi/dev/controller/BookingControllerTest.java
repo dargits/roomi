@@ -341,4 +341,49 @@ class BookingControllerTest {
                     .isEqualByComparingTo(new BigDecimal("2400000"));
         }
     }
+
+        // ================================================================== NO-SHOW
+
+        @Nested
+        @DisplayName("Kiểm thử đánh dấu khách không đến")
+        class MarkNoShow {
+
+                @Test
+                @DisplayName("Booking CONFIRMED chuyển sang NO_SHOW và giải phóng phòng")
+                void markNoShow_confirmedBooking_releasesRoom() {
+                        RoomType rt = roomType(1L, "Deluxe", new BigDecimal("800000"));
+                        Room r = room(5L, "101", rt);
+                        r.setStatus(Room.Status.OCCUPIED);
+                        Booking confirmed = booking(40L, r, rt, Booking.Status.CONFIRMED,
+                                        LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4));
+
+                        when(bookingRepository.findById(40L)).thenReturn(Optional.of(confirmed));
+                        when(bookingRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+                        BookingResponse result = bookingService.markNoShow(40L);
+
+                        assertThat(result.getStatus()).isEqualTo("NO_SHOW");
+                        assertThat(r.getStatus()).isEqualTo(Room.Status.AVAILABLE);
+                        verify(roomRepository).save(r);
+                }
+
+                @Test
+                @DisplayName("Không thể đánh dấu NO_SHOW cho booking đã check-in")
+                void markNoShow_checkedInBooking_throwsInvalidStatus() {
+                        RoomType rt = roomType(1L, "Deluxe", new BigDecimal("800000"));
+                        Room r = room(5L, "101", rt);
+                        Booking checkedIn = booking(41L, r, rt, Booking.Status.CHECKED_IN,
+                                        LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4));
+
+                        when(bookingRepository.findById(41L)).thenReturn(Optional.of(checkedIn));
+
+                        assertThatThrownBy(() -> bookingService.markNoShow(41L))
+                                        .isInstanceOf(BusinessException.class)
+                                        .extracting(error -> ((BusinessException) error).getErrorCode())
+                                        .isEqualTo(ErrorCode.BOOKING_INVALID_STATUS);
+
+                        verify(roomRepository, never()).save(any());
+                        verify(bookingRepository, never()).save(any());
+                }
+        }
 }

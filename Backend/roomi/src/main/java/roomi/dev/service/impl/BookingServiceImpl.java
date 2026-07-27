@@ -268,6 +268,22 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(bookingRepository.save(booking));
     }
 
+    @Override
+    @Transactional
+    public BookingResponse markNoShow(Long bookingId) {
+        Booking booking = findById(bookingId);
+        requireStatus(booking, Booking.Status.CONFIRMED);
+
+        if (booking.getRoom() != null) {
+            Room room = booking.getRoom();
+            room.setStatus(Room.Status.AVAILABLE);
+            roomRepository.save(room);
+        }
+
+        booking.setStatus(Booking.Status.NO_SHOW);
+        return toResponse(bookingRepository.save(booking));
+    }
+
     // ================================================================== QUERIES
 
     @Override
