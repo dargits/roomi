@@ -28,6 +28,14 @@ function Users({ user, showNotification }) {
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleConfirm, setRoleConfirm] = useState({
+    show: false,
+    userId: null,
+    targetRole: '',
+    userName: '',
+    currentRoleLabel: '',
+    targetRoleLabel: ''
+  });
 
   const fetchUsers = async () => {
     try {
@@ -51,14 +59,20 @@ function Users({ user, showNotification }) {
     }
   }, [user]);
 
-  const handleChangeRole = async (userId, targetRole) => {
-    try {
-      const res = await api.put(`/users/role/${userId}`, { role: targetRole });
-      showNotification(res.data.mess || 'Cập nhật phân quyền thành công');
-      fetchUsers();
-    } catch (err) {
-      showNotification(err.message, 'error');
-    }
+  const handleChangeRole = (userId, targetRole) => {
+    const targetUser = usersList.find(u => u.id === userId);
+    const targetUserName = targetUser ? targetUser.fullName : 'nhân viên';
+    const currentRoleLabel = targetUser ? (roleInfo[targetUser.role]?.label || targetUser.role) : '';
+    const targetRoleLabel = roleInfo[targetRole]?.label || targetRole;
+
+    setRoleConfirm({
+      show: true,
+      userId,
+      targetRole,
+      userName: targetUserName,
+      currentRoleLabel,
+      targetRoleLabel
+    });
   };
 
   const handleToggleLock = async (targetUser) => {
@@ -427,6 +441,66 @@ function Users({ user, showNotification }) {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ROLE CHANGE CONFIRMATION MODAL */}
+      {roleConfirm.show && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '420px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
+                <ShieldAlert size={18} />
+                Xác nhận thay đổi chức vụ
+              </h2>
+              <button 
+                onClick={() => {
+                  setRoleConfirm(prev => ({ ...prev, show: false }));
+                  fetchUsers(); // trigger re-render to revert select value
+                }} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
+              <p>Bạn có chắc chắn muốn thay đổi chức vụ của nhân viên <strong>{roleConfirm.userName}</strong>?</p>
+              <div style={{ marginTop: '12px', padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div>Chức vụ hiện tại: <span className="badge" style={{ fontSize: '12px', marginLeft: '6px', color: roleInfo[usersList.find(u => u.id === roleConfirm.userId)?.role]?.color, backgroundColor: roleInfo[usersList.find(u => u.id === roleConfirm.userId)?.role]?.bg }}>{roleConfirm.currentRoleLabel}</span></div>
+                <div style={{ marginTop: '4px' }}>Chức vụ mới: <span className="badge" style={{ fontSize: '12px', marginLeft: '6px', color: roleInfo[roleConfirm.targetRole]?.color, backgroundColor: roleInfo[roleConfirm.targetRole]?.bg }}>{roleConfirm.targetRoleLabel}</span></div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setRoleConfirm(prev => ({ ...prev, show: false }));
+                  fetchUsers(); // trigger re-render to revert select value
+                }} 
+                className="btn btn-secondary btn-sm"
+              >
+                Hủy
+              </button>
+              <button 
+                type="button" 
+                onClick={async () => {
+                  const { userId, targetRole } = roleConfirm;
+                  setRoleConfirm(prev => ({ ...prev, show: false }));
+                  try {
+                    const res = await api.put(`/users/role/${userId}`, { role: targetRole });
+                    showNotification(res.data.mess || 'Cập nhật phân quyền thành công');
+                    fetchUsers();
+                  } catch (err) {
+                    showNotification(err.message, 'error');
+                    fetchUsers();
+                  }
+                }} 
+                className="btn btn-primary btn-sm"
+              >
+                Xác nhận phân quyền
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

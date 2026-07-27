@@ -84,7 +84,14 @@ function Dashboard({ user, showNotification }) {
 
       const checkIn = formatDateString(start);
       const checkOut = formatDateString(end);
-      
+
+      // Fetch Calendar, unassigned bookings and actual rooms list with notes
+      const [calRes, bookingsRes, roomsRes] = await Promise.all([
+        api.get('/calendar/rooms', { params: { checkIn, checkOut } }),
+        api.get('/bookings/status/NEW'),
+        api.get('/rooms')
+      ]);
+
       setDateHeaders(getDatesArray(start, 14));
 
       // Fetch Room types
@@ -93,16 +100,21 @@ function Dashboard({ user, showNotification }) {
         setRoomTypes(typesRes.data.data);
       }
 
-      // Fetch Calendar containing rooms and their bookings
-      const calRes = await api.get('/calendar/rooms', {
-        params: { checkIn, checkOut }
-      });
-      if (calRes.data && calRes.data.data) {
-        setRoomsCalendar(calRes.data.data);
+      if (calRes.data && calRes.data.data && roomsRes.data && roomsRes.data.data) {
+        const roomsMap = {};
+        roomsRes.data.data.forEach(r => {
+          roomsMap[r.id] = r.note;
+        });
+        const enriched = calRes.data.data.map(r => ({
+          ...r,
+          note: roomsMap[r.roomId] || ''
+        }));
+
+        setRoomsCalendar(enriched);
         
         // Update selectedRoom detail if it was open
         if (selectedRoom) {
-          const updated = calRes.data.data.find(r => r.roomId === selectedRoom.roomId);
+          const updated = enriched.find(r => r.roomId === selectedRoom.roomId);
           if (updated) {
             setSelectedRoom(updated);
           }
@@ -110,7 +122,6 @@ function Dashboard({ user, showNotification }) {
       }
 
       // Fetch active unassigned bookings
-      const bookingsRes = await api.get('/bookings/status/NEW');
       if (bookingsRes.data && bookingsRes.data.data) {
         setUnassignedBookings(bookingsRes.data.data);
       }
@@ -396,11 +407,23 @@ function Dashboard({ user, showNotification }) {
 
         <div>
           <label style={{ marginBottom: '4px' }}>Trạng thái phòng</label>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: '180px', padding: '6px 12px' }}>
+          <select 
+            value={filterStatus} 
+            onChange={(e) => {
+              if (e.target.value === 'NEEDS_CLEANING' && user.role !== 'HOUSEKEEPER') {
+                showNotification('Từ chối truy cập: Chỉ nhân viên buồng phòng mới có quyền xem danh sách phòng cần dọn dẹp.', 'error');
+                return;
+              }
+              setFilterStatus(e.target.value);
+            }} 
+            style={{ width: '180px', padding: '6px 12px' }}
+          >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="AVAILABLE">Trống (Sẵn sàng)</option>
             <option value="OCCUPIED">Đang có khách</option>
-            <option value="NEEDS_CLEANING">Cần dọn dẹp</option>
+            {user.role === 'HOUSEKEEPER' && (
+              <option value="NEEDS_CLEANING">Cần dọn dẹp</option>
+            )}
             <option value="MAINTENANCE">Bảo trì</option>
           </select>
         </div>
@@ -449,11 +472,16 @@ function Dashboard({ user, showNotification }) {
                 }}>
                   {roomsOnFloor.map(room => {
                     const activeBooking = getTodayBooking(room);
+                    const isInactive = room.note && room.note.includes('[INACTIVE]');
                     let cardBorder = 'var(--border-color)';
                     let cardBg = 'rgba(255,255,255,0.02)';
                     let glowColor = 'transparent';
 
-                    if (room.status === 'AVAILABLE') {
+                    if (isInactive) {
+                      cardBorder = 'rgba(255,255,255,0.05)';
+                      cardBg = 'rgba(255,255,255,0.01)';
+                      glowColor = 'rgba(255,255,255,0.01)';
+                    } else if (room.status === 'AVAILABLE') {
                       cardBorder = 'rgba(16, 185, 129, 0.3)';
                       glowColor = 'rgba(16, 185, 129, 0.05)';
                     } else if (room.status === 'OCCUPIED') {
@@ -470,7 +498,17 @@ function Dashboard({ user, showNotification }) {
                     return (
                       <div
                         key={room.roomId}
-                        onClick={() => setSelectedRoom(room)}
+                        onClick={() => {
+                          if (isInactive) {
+                            showNotification('Phòng đang tạm ngưng hoạt động, không thể thực hiện giao dịch.', 'error');
+                            return;
+                          }
+                          if (room.status === 'NEEDS_CLEANING' && user.role !== 'HOUSEKEEPER') {
+                            showNotification('Từ chối truy cập: Chỉ nhân viên buồng phòng mới có quyền cập nhật phòng cần dọn.', 'error');
+                            return;
+                          }
+                          setSelectedRoom(room);
+                        }}
                         style={{
                           border: `1px solid ${cardBorder}`,
                           backgroundColor: cardBg,
@@ -492,8 +530,8 @@ function Dashboard({ user, showNotification }) {
                           {room.roomTypeName}
                         </span>
 
-                        <span className={`badge badge-${room.status.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
-                          {getStatusLabel(room.status)}
+                        <span className={isInactive ? "badge badge-cancelled" : `badge badge-${room.status.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
+                          {isInactive ? 'Tạm ngưng' : getStatusLabel(room.status)}
                         </span>
 
                         {activeBooking && user.role !== 'HOUSEKEEPER' && (
@@ -544,7 +582,19 @@ function Dashboard({ user, showNotification }) {
               {filteredRooms.map(room => (
                 <tr key={room.roomId}>
                   <td 
-                    onClick={() => setSelectedRoom(room)} 
+                    onClick={() => {
+                      const isInactive = room.note && room.note.includes('[INACTIVE]');
+                      if (isInactive) {
+                        showNotification('Phòng đang tạm ngưng hoạt động, không thể thực hiện giao dịch.', 'error');
+                        return;
+                      }
+                      if (room.status === 'NEEDS_CLEANING' && user.role !== 'HOUSEKEEPER') {
+                        showNotification('Từ chối truy cập: Chỉ nhân viên buồng phòng mới có quyền cập nhật phòng cần dọn.', 'error');
+                        return;
+                      }
+                      setSelectedRoom(room);
+                    }} 
+                    className={room.note && room.note.includes('[INACTIVE]') ? "inactive-row" : ""}
                     style={{ 
                       position: 'sticky', 
                       left: 0, 
@@ -556,7 +606,9 @@ function Dashboard({ user, showNotification }) {
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    <span style={{ fontSize: '15px' }}>{room.roomNumber}</span>
+                    <span style={{ fontSize: '15px', color: room.note && room.note.includes('[INACTIVE]') ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                      {room.roomNumber} {room.note && room.note.includes('[INACTIVE]') && '(Tạm ngưng)'}
+                    </span>
                     <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal' }}>
                       {room.roomTypeName}
                     </span>
@@ -614,6 +666,7 @@ function Dashboard({ user, showNotification }) {
                         </td>
                       );
                     } else {
+                      const isInactive = room.note && room.note.includes('[INACTIVE]');
                       return (
                         <td 
                           key={day.dateStr} 
@@ -624,10 +677,10 @@ function Dashboard({ user, showNotification }) {
                             borderBottom: '1px solid var(--border-color)',
                             padding: '12px 4px',
                             color: 'var(--text-muted)',
-                            background: day.isToday ? 'rgba(99, 102, 241, 0.05)' : 'transparent'
+                            background: isInactive ? 'rgba(255, 255, 255, 0.01)' : (day.isToday ? 'rgba(99, 102, 241, 0.05)' : 'transparent')
                           }}
                         >
-                          -
+                          {isInactive ? 'x' : '-'}
                         </td>
                       );
                     }
@@ -672,7 +725,7 @@ function Dashboard({ user, showNotification }) {
               {getTodayBooking(selectedRoom) && user.role !== 'HOUSEKEEPER' ? (
                 (() => {
                   const activeBooking = getTodayBooking(selectedRoom);
-                  const isManager = user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN';
+                  const isManager = user.role === 'OWNER' || user.role === 'RECEPTIONIST';
                   const isAccountant = user.role === 'ACCOUNTANT';
                   return (
                     <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
@@ -813,7 +866,7 @@ function Dashboard({ user, showNotification }) {
                 /* Room is vacant */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {/* Status checks */}
-                  {selectedRoom.status === 'NEEDS_CLEANING' && user.role !== 'ACCOUNTANT' && (
+                  {selectedRoom.status === 'NEEDS_CLEANING' && user.role === 'HOUSEKEEPER' && (
                     <button 
                       onClick={() => { setNewStatus('AVAILABLE'); handleUpdateRoomStatus(); }}
                       className="btn btn-primary"
@@ -821,24 +874,28 @@ function Dashboard({ user, showNotification }) {
                       <Sparkles size={16} /> Hoàn tất dọn phòng (Sẵn sàng đón khách)
                     </button>
                   )}
-                  {selectedRoom.status === 'AVAILABLE' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                  {selectedRoom.status === 'AVAILABLE' && (
                     <>
-                      <button 
-                        onClick={() => { setShowAssignModal(true); }}
-                        className="btn btn-primary"
-                      >
-                        <Plus size={16} /> Gán booking chưa có phòng
-                      </button>
-                      <button 
-                        onClick={() => { setNewStatus('MAINTENANCE'); setShowStatusModal(true); }}
-                        className="btn btn-secondary"
-                        style={{ color: 'var(--color-maintenance)' }}
-                      >
-                        <Wrench size={16} /> Đưa vào bảo trì
-                      </button>
+                      {(user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                        <button 
+                          onClick={() => { setShowAssignModal(true); }}
+                          className="btn btn-primary"
+                        >
+                          <Plus size={16} /> Gán booking chưa có phòng
+                        </button>
+                      )}
+                      {user.role === 'OWNER' && (
+                        <button 
+                          onClick={() => { setNewStatus('MAINTENANCE'); setShowStatusModal(true); }}
+                          className="btn btn-secondary"
+                          style={{ color: 'var(--color-maintenance)' }}
+                        >
+                          <Wrench size={16} /> Đưa vào bảo trì
+                        </button>
+                      )}
                     </>
                   )}
-                  {selectedRoom.status === 'MAINTENANCE' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                  {selectedRoom.status === 'MAINTENANCE' && user.role === 'OWNER' && (
                     <button 
                       onClick={() => { setNewStatus('AVAILABLE'); handleUpdateRoomStatus(); }}
                       className="btn btn-primary"
@@ -1104,7 +1161,7 @@ function Dashboard({ user, showNotification }) {
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT') && (
                 <button 
                   onClick={() => { 
                     const activeBooking = getTodayBooking(selectedRoom);
