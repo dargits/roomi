@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getRoleLabel } from './utils/role';
 import api from './utils/api';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -22,7 +23,8 @@ import {
   X,
   Moon,
   Sun,
-  UserCheck
+  UserCheck,
+  Menu
 } from 'lucide-react';
 
 function App() {
@@ -34,6 +36,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loadingBarStatus, setLoadingBarStatus] = useState('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleViewChange = (viewId) => {
     if (viewId === currentView) return;
@@ -88,6 +91,17 @@ function App() {
       setLoading(false);
     }
   }, [token]);
+
+  // Auto-redirect if currentView is not allowed for user role
+  useEffect(() => {
+    if (user) {
+      const allowedIds = menuItems.filter(item => item.roles.includes(user.role)).map(item => item.id);
+      if (allowedIds.length > 0 && !allowedIds.includes(currentView)) {
+        setCurrentView(allowedIds[0]);
+      }
+    }
+  }, [user, currentView]);
+
 
   const handleLogin = (newToken) => {
     localStorage.setItem('roomi_token', newToken);
@@ -159,11 +173,11 @@ function App() {
   // Navigation items based on roles
   const menuItems = [
     { id: 'dashboard', name: 'Sơ đồ phòng', icon: LayoutDashboard, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
-    { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT', 'ADMIN'] },
-    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-    { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER', 'ADMIN'] },
-    { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT', 'ADMIN'] },
-    { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+    { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
+    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['OWNER', 'RECEPTIONIST'] },
+    { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER'] },
+    { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
+    { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST'] },
     { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },
     { id: 'profile', name: 'Hồ sơ & Bảo mật', icon: User, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
   ];
@@ -196,48 +210,20 @@ function App() {
   return (
     <div className="dashboard-container">
       <div className={`top-loading-bar ${loadingBarStatus}`} />
-      {/* Sidebar Navigation */}
-      <aside style={{
-        width: '260px',
-        backgroundColor: 'var(--bg-secondary)',
-        borderRight: '1px solid var(--border-color)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '24px 16px',
-        height: '100vh',
-        position: 'sticky',
-        top: 0
-      }}>
+      
+      {/* Top Navbar */}
+      <header className="top-navbar">
         {/* Brand Logo */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '32px',
-          paddingLeft: '8px'
-        }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '18px'
-          }}>
-            R
-          </div>
-          <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>Roomi</h2>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hotel Management System</span>
+        <div className="navbar-brand">
+          <div className="brand-icon">R</div>
+          <div className="brand-info">
+            <h2 className="brand-name">Roomi</h2>
+            <span className="brand-sub">Hotel Management System</span>
           </div>
         </div>
 
-        {/* Navigation List */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+        {/* Navigation List (Desktop) */}
+        <nav className="navbar-menu">
           {allowedMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
@@ -245,100 +231,123 @@ function App() {
               <button
                 key={item.id}
                 onClick={() => handleViewChange(item.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: isActive ? 'var(--primary-glow)' : 'transparent',
-                  color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontWeight: isActive ? '600' : '500',
-                  fontSize: '14px',
-                  transition: 'var(--transition-fast)',
-                  outline: 'none'
-                }}
+                className={`navbar-item ${isActive ? 'active' : ''}`}
               >
-                <Icon size={18} color={isActive ? 'var(--primary)' : 'var(--text-secondary)'} />
+                <Icon size={16} />
                 <span>{item.name}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Sidebar Footer / User Section */}
-        <div style={{
-          borderTop: '1px solid var(--border-color)',
-          paddingTop: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          {/* User profile link */}
+        {/* User profile & actions */}
+        <div className="navbar-actions">
+          {/* User profile button */}
           <button 
             onClick={() => handleViewChange('profile')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              width: '100%',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px',
-              borderRadius: 'var(--radius-sm)',
-              textAlign: 'left',
-              transition: 'var(--transition-fast)'
-            }}
-            className="btn-secondary"
+            className={`navbar-user ${currentView === 'profile' ? 'active' : ''}`}
           >
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--primary)'
-            }}>
-              <User size={18} />
+            <div className="user-avatar">
+              <User size={16} />
             </div>
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                {user.fullName}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div className="user-meta">
+              <span className="user-name">{user.fullName}</span>
+              <span className="user-role">
                 <UserCheck size={10} />
-                <span>{user.role}</span>
-              </div>
+                <span>{getRoleLabel(user.role)}</span>
+              </span>
             </div>
           </button>
 
-          {/* Theme & Logout Buttons */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="btn btn-secondary"
-              style={{ flex: 1, padding: '8px' }}
-              title="Đổi giao diện"
-            >
-              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button
-              onClick={() => setShowLogoutConfirm(true)}
-              className="btn btn-secondary"
-              style={{ flex: 1, padding: '8px', color: 'var(--color-maintenance)' }}
-              title="Đăng xuất"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
+          {/* Theme switch */}
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="navbar-action-btn"
+            title="Đổi giao diện"
+          >
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
+          {/* Logout button */}
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="navbar-action-btn logout-btn"
+            title="Đăng xuất"
+          >
+            <LogOut size={16} />
+          </button>
+
+          {/* Mobile menu toggle */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="navbar-mobile-toggle"
+            aria-label="Toggle navigation"
+          >
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
-      </aside>
+      </header>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}>
+          <nav className="mobile-menu-content" onClick={(e) => e.stopPropagation()}>
+            {allowedMenuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    handleViewChange(item.id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`mobile-menu-item ${isActive ? 'active' : ''}`}
+                >
+                  <Icon size={18} />
+                  <span>{item.name}</span>
+                </button>
+              );
+            })}
+            
+            <div className="mobile-menu-divider" />
+            
+            {/* User Profile Mobile */}
+            <div className="mobile-menu-user">
+              <div className="user-avatar">
+                <User size={16} />
+              </div>
+              <div className="user-meta">
+                <span className="user-name">{user.fullName}</span>
+                <span className="user-role" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <UserCheck size={10} />
+                  <span>{getRoleLabel(user.role)}</span>
+                </span>
+              </div>
+            </div>
+            
+            <div className="mobile-menu-actions">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="btn btn-secondary mobile-action-btn"
+              >
+                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+                <span>Giao diện</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setShowLogoutConfirm(true);
+                }}
+                className="btn btn-danger mobile-action-btn"
+              >
+                <LogOut size={16} />
+                <span>Đăng xuất</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="main-content">

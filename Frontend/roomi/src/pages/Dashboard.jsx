@@ -496,10 +496,15 @@ function Dashboard({ user, showNotification }) {
                           {getStatusLabel(room.status)}
                         </span>
 
-                        {activeBooking && (
+                        {activeBooking && user.role !== 'HOUSEKEEPER' && (
                           <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             <User size={10} />
                             <span>{activeBooking.guestName}</span>
+                          </div>
+                        )}
+                        {activeBooking && user.role === 'HOUSEKEEPER' && (
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <span>Có khách</span>
                           </div>
                         )}
                       </div>
@@ -571,8 +576,8 @@ function Dashboard({ user, showNotification }) {
                       const isCheckOutLastNight = nextDayTime >= checkOutTime;
 
                       const cellBg = slot.status === 'CHECKED_IN' ? 'var(--primary)' : 'var(--color-new)';
-                      const text = isCheckIn ? slot.guestName : '→';
-                      const title = `${slot.guestName} (${slot.checkInDate} đến ${slot.checkOutDate})`;
+                      const text = user.role === 'HOUSEKEEPER' ? (isCheckIn ? 'Có khách' : '→') : (isCheckIn ? slot.guestName : '→');
+                      const title = user.role === 'HOUSEKEEPER' ? `Đang bận (${slot.checkInDate} đến ${slot.checkOutDate})` : `${slot.guestName} (${slot.checkInDate} đến ${slot.checkOutDate})`;
 
                       return (
                         <td 
@@ -664,9 +669,11 @@ function Dashboard({ user, showNotification }) {
               </div>
 
               {/* Booking status & control */}
-              {getTodayBooking(selectedRoom) ? (
+              {getTodayBooking(selectedRoom) && user.role !== 'HOUSEKEEPER' ? (
                 (() => {
                   const activeBooking = getTodayBooking(selectedRoom);
+                  const isManager = user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN';
+                  const isAccountant = user.role === 'ACCOUNTANT';
                   return (
                     <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
                       <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
@@ -707,7 +714,7 @@ function Dashboard({ user, showNotification }) {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <span>{(u.lineTotal || 0).toLocaleString('vi-VN')} đ</span>
-                                  {activeBooking.status !== 'CHECKED_OUT' && (
+                                  {activeBooking.status !== 'CHECKED_OUT' && isManager && (
                                     <button 
                                       onClick={() => handleDeleteSurchargeUsage(u.id)}
                                       style={{ background: 'none', border: 'none', color: 'var(--color-maintenance)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
@@ -727,34 +734,61 @@ function Dashboard({ user, showNotification }) {
 
                       {/* Transition Actions */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {(activeBooking.status === 'CONFIRMED' || activeBooking.status === 'NEW') && (
-                          <button 
-                            onClick={() => handleBookingTransition(activeBooking.bookingId, 'check-in')} 
-                            className="btn btn-primary btn-sm"
-                            style={{ flex: 1 }}
-                          >
-                            <Check size={14} /> Nhận phòng (Check-in)
-                          </button>
-                        )}
-                        {activeBooking.status === 'CHECKED_IN' && (
+                        {(activeBooking.status === 'CONFIRMED' || activeBooking.status === 'NEW') && isManager && (
                           <>
                             <button 
-                              onClick={handleViewInvoice} 
-                              className="btn btn-secondary btn-sm"
-                              style={{ flex: '1 0 100%' }}
-                            >
-                              <DollarSign size={14} /> Thanh toán & Trả phòng (Check-out)
-                            </button>
-                            <button 
-                              onClick={() => { fetchServicesCatalog(); setShowServiceModal(true); }}
+                              onClick={() => handleBookingTransition(activeBooking.bookingId, 'check-in')} 
                               className="btn btn-primary btn-sm"
                               style={{ flex: 1 }}
                             >
-                              <Coffee size={14} /> Ghi nhận Phụ thu
+                              <Check size={14} /> Nhận phòng (Check-in)
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm('Xác nhận khách không đến (No-show)? Trạng thái đặt phòng sẽ chuyển sang NO_SHOW và giải phóng phòng.')) {
+                                  handleBookingTransition(activeBooking.bookingId, 'no-show');
+                                  setSelectedRoom(null);
+                                }
+                              }} 
+                              className="btn btn-secondary btn-sm"
+                              style={{ flex: 1, color: 'var(--color-maintenance)' }}
+                            >
+                              <X size={14} /> No-show
                             </button>
                           </>
                         )}
-                        {activeBooking.status !== 'CHECKED_OUT' && activeBooking.status !== 'CANCELLED' && (
+                        {activeBooking.status === 'CHECKED_IN' && (
+                          <>
+                            {isManager && (
+                              <>
+                                <button 
+                                  onClick={handleViewInvoice} 
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ flex: '1 0 100%' }}
+                                >
+                                  <DollarSign size={14} /> Thanh toán & Trả phòng (Check-out)
+                                </button>
+                                <button 
+                                  onClick={() => { fetchServicesCatalog(); setShowServiceModal(true); }}
+                                  className="btn btn-primary btn-sm"
+                                  style={{ flex: 1 }}
+                                >
+                                  <Coffee size={14} /> Ghi nhận Phụ thu
+                                </button>
+                              </>
+                            )}
+                            {isAccountant && (
+                              <button 
+                                onClick={handleViewInvoice} 
+                                className="btn btn-secondary btn-sm"
+                                style={{ flex: '1 0 100%' }}
+                              >
+                                <DollarSign size={14} /> Xem hóa đơn thanh toán
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {activeBooking.status !== 'CHECKED_OUT' && activeBooking.status !== 'CANCELLED' && isManager && (
                           <button 
                             onClick={() => handleBookingTransition(activeBooking.bookingId, 'cancel')} 
                             className="btn btn-secondary btn-sm"
@@ -767,11 +801,19 @@ function Dashboard({ user, showNotification }) {
                     </div>
                   );
                 })()
+              ) : getTodayBooking(selectedRoom) && user.role === 'HOUSEKEEPER' ? (
+                <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+                    <User size={16} color="var(--primary)" />
+                    Trạng thái phòng
+                  </h4>
+                  <p style={{ fontSize: '14px' }}>Phòng hiện đang bận (Đang có khách lưu trú).</p>
+                </div>
               ) : (
                 /* Room is vacant */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {/* Status checks */}
-                  {selectedRoom.status === 'NEEDS_CLEANING' && (
+                  {selectedRoom.status === 'NEEDS_CLEANING' && user.role !== 'ACCOUNTANT' && (
                     <button 
                       onClick={() => { setNewStatus('AVAILABLE'); handleUpdateRoomStatus(); }}
                       className="btn btn-primary"
@@ -779,7 +821,7 @@ function Dashboard({ user, showNotification }) {
                       <Sparkles size={16} /> Hoàn tất dọn phòng (Sẵn sàng đón khách)
                     </button>
                   )}
-                  {selectedRoom.status === 'AVAILABLE' && (
+                  {selectedRoom.status === 'AVAILABLE' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
                     <>
                       <button 
                         onClick={() => { setShowAssignModal(true); }}
@@ -796,7 +838,7 @@ function Dashboard({ user, showNotification }) {
                       </button>
                     </>
                   )}
-                  {selectedRoom.status === 'MAINTENANCE' && (
+                  {selectedRoom.status === 'MAINTENANCE' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
                     <button 
                       onClick={() => { setNewStatus('AVAILABLE'); handleUpdateRoomStatus(); }}
                       className="btn btn-primary"
@@ -808,51 +850,65 @@ function Dashboard({ user, showNotification }) {
               )}
 
               {/* Room timeline booking schedule inside drawer */}
-              <div className="card" style={{ padding: '16px' }}>
-                <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock size={14} />
-                  Lịch đặt sắp tới
-                </h4>
-                {selectedRoom.bookings && selectedRoom.bookings.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {selectedRoom.bookings.filter(b => b.status !== 'CANCELLED').map(b => (
-                      <div key={b.bookingId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '13px' }}>
-                          <div>
-                            <strong>{b.guestName}</strong>
-                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                              {b.checkInDate} → {b.checkOutDate}
+              {user.role !== 'HOUSEKEEPER' && (
+                <div className="card" style={{ padding: '16px' }}>
+                  <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={14} />
+                    Lịch đặt sắp tới
+                  </h4>
+                  {selectedRoom.bookings && selectedRoom.bookings.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {selectedRoom.bookings.filter(b => b.status !== 'CANCELLED').map(b => (
+                        <div key={b.bookingId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '13px' }}>
+                            <div>
+                              <strong>{b.guestName}</strong>
+                              <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                {b.checkInDate} → {b.checkOutDate}
+                              </span>
+                            </div>
+                            <span className={`badge badge-${b.status.toLowerCase()}`} style={{ fontSize: '9px', height: 'fit-content' }}>
+                              {b.status}
                             </span>
                           </div>
-                          <span className={`badge badge-${b.status.toLowerCase()}`} style={{ fontSize: '9px', height: 'fit-content' }}>
-                            {b.status}
-                          </span>
+                          {(b.status === 'CONFIRMED' || b.status === 'NEW') && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                              <button 
+                                onClick={() => handleBookingTransition(b.bookingId, 'check-in')} 
+                                className="btn btn-primary btn-sm"
+                                style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Check size={10} /> Nhận phòng
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (window.confirm('Xác nhận khách không đến (No-show)? Trạng thái đặt phòng sẽ chuyển sang NO_SHOW và giải phóng phòng.')) {
+                                    handleBookingTransition(b.bookingId, 'no-show');
+                                    setSelectedRoom(null);
+                                  }
+                                }}
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-maintenance)' }}
+                              >
+                                <X size={10} /> No-show
+                              </button>
+                              <button 
+                                onClick={() => handleBookingTransition(b.bookingId, 'cancel')} 
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-maintenance)' }}
+                              >
+                                <X size={10} /> Hủy đặt
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        {(b.status === 'CONFIRMED' || b.status === 'NEW') && (
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                            <button 
-                              onClick={() => handleBookingTransition(b.bookingId, 'check-in')} 
-                              className="btn btn-primary btn-sm"
-                              style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <Check size={10} /> Nhận phòng
-                            </button>
-                            <button 
-                              onClick={() => handleBookingTransition(b.bookingId, 'cancel')} 
-                              className="btn btn-secondary btn-sm"
-                              style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-maintenance)' }}
-                            >
-                              <X size={10} /> Hủy đặt
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Chưa có lịch đặt phòng nào.</p>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Chưa có lịch đặt phòng nào.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </>
@@ -971,13 +1027,15 @@ function Dashboard({ user, showNotification }) {
               {/* Service usages */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Dịch vụ & Phụ thu</h3>
-                <button 
-                  onClick={() => { fetchServicesCatalog(); setShowServiceModal(true); }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ padding: '4px 10px', fontSize: '11px' }}
-                >
-                  <Plus size={10} /> Thêm phụ thu
-                </button>
+                {(user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                  <button 
+                    onClick={() => { fetchServicesCatalog(); setShowServiceModal(true); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '11px' }}
+                  >
+                    <Plus size={10} /> Thêm phụ thu
+                  </button>
+                )}
               </div>
 
               <div className="table-container" style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '20px' }}>
@@ -1003,7 +1061,7 @@ function Dashboard({ user, showNotification }) {
                           <td>{u.quantity}</td>
                           <td style={{ textAlign: 'right', fontWeight: '600' }}>{u.lineTotal?.toLocaleString('vi-VN')}</td>
                           <td>
-                            {activeInvoice.status !== 'PAID' && (
+                            {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
                               <button 
                                 onClick={() => handleDeleteSurchargeUsage(u.id)}
                                 style={{ background: 'none', border: 'none', color: 'var(--color-maintenance)', cursor: 'pointer' }}
@@ -1046,7 +1104,7 @@ function Dashboard({ user, showNotification }) {
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && (
+              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
                 <button 
                   onClick={() => { 
                     const activeBooking = getTodayBooking(selectedRoom);
