@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getRoleLabel } from '../utils/role';
 import api from '../utils/api';
 import { User, Shield, Phone, Calendar, Key, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
@@ -94,7 +95,7 @@ function Profile({ user, showNotification, onProfileUpdate }) {
             <div>
               <h2 style={{ margin: 0, fontSize: '20px' }}>{user.fullName}</h2>
               <span className="badge badge-confirmed" style={{ marginTop: '4px' }}>
-                {user.role}
+                {getRoleLabel(user.role)}
               </span>
             </div>
           </div>

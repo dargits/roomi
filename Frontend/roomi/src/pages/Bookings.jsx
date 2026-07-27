@@ -23,6 +23,38 @@ import {
 } from 'lucide-react';
 
 function Bookings({ user, showNotification }) {
+  const getTierLabel = (tier) => {
+    switch (tier) {
+      case 'DIAMOND': return 'Kim cương';
+      case 'PLATINUM': return 'Bạch kim';
+      case 'GOLD': return 'Vàng';
+      case 'SILVER': return 'Bạc';
+      case 'BRONZE': return 'Đồng';
+      default: return 'Thành viên';
+    }
+  };
+
+  // Guard Clause for Access Control
+  if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý đặt phòng.
+        </p>
+      </div>
+    );
+  }
+
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -71,6 +103,7 @@ function Bookings({ user, showNotification }) {
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [filterRoomTypeId, setFilterRoomTypeId] = useState('');
   const [changeReason, setChangeReason] = useState('');
+  const [selectedGuestLoyalty, setSelectedGuestLoyalty] = useState(null); // { tier, points, benefits }
 
   // Invoice & Surcharge states
   const [activeInvoice, setActiveInvoice] = useState(null);
@@ -168,6 +201,40 @@ function Bookings({ user, showNotification }) {
     }
   }, [newBooking.roomTypeId, newBooking.checkInDate, newBooking.checkOutDate]);
 
+  // Quick guest check by phone
+  const handleQuickGuestLookup = async () => {
+    const phone = newBooking.phone?.trim();
+    if (!phone) {
+      showNotification('Vui lòng nhập số điện thoại trước!', 'error');
+      return;
+    }
+    try {
+      showNotification('Đang tìm kiếm thông tin khách hàng...', 'info');
+      const res = await api.get(`/guests/phone/${phone}`);
+      if (res.data && res.data.data) {
+        const guest = res.data.data;
+        setNewBooking(prev => ({
+          ...prev,
+          fullName: guest.fullName || prev.fullName,
+          idNumber: guest.idNumber || prev.idNumber,
+          email: guest.email || prev.email
+        }));
+        setSelectedGuestLoyalty({
+          tier: guest.loyaltyTier || 'MEMBER',
+          points: guest.loyaltyPoints || 0,
+          benefits: guest.loyaltyBenefits || []
+        });
+        showNotification(`Tìm thấy khách hàng hạng ${getTierLabel(guest.loyaltyTier || 'MEMBER')}!`, 'success');
+      }
+    } catch (err) {
+      if (err.message?.includes('404')) {
+        showNotification('Không tìm thấy thông tin khách hàng với số điện thoại này. Vui lòng nhập mới.', 'info');
+      } else {
+        showNotification(err.message || 'Lỗi kiểm tra số điện thoại', 'error');
+      }
+    }
+  };
+
   // Create booking submit
   const handleCreateBooking = async (e) => {
     e.preventDefault();
@@ -188,6 +255,7 @@ function Bookings({ user, showNotification }) {
       await api.post('/bookings', payload);
       showNotification('Đặt phòng thành công!');
       setShowCreateModal(false);
+      setSelectedGuestLoyalty(null);
       // Reset form
       setNewBooking({
         fullName: '',
@@ -406,10 +474,12 @@ function Bookings({ user, showNotification }) {
           <h1 className="page-title">Quản lý đặt phòng</h1>
           <p className="page-subtitle">Quản lý đặt chỗ, gán phòng, nhận phòng và thanh toán hóa đơn</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
-          <Plus size={18} />
-          Đặt phòng mới
-        </button>
+        {user.role !== 'ACCOUNTANT' && (
+          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
+            <Plus size={18} />
+            Đặt phòng mới
+          </button>
+        )}
       </div>
 
       {/* Search Panel */}
@@ -539,37 +609,71 @@ function Bookings({ user, showNotification }) {
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         
                         {/* Status transition actions */}
-                        {b.status === 'NEW' && (
-                          b.roomNumber ? (
-                            <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
-                              Nhận phòng
+                        {b.status === 'NEW' && user.role !== 'ACCOUNTANT' && (
+                          <>
+                            {b.roomNumber ? (
+                              <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
+                                Nhận phòng
+                              </button>
+                            ) : (
+                              <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" title="Gán phòng">
+                                Gán phòng
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => {
+                                if (window.confirm('Xác nhận khách không đến (No-show)? Đặt phòng này sẽ chuyển thành NO_SHOW và giải phóng phòng.')) {
+                                  handleTransition(b.id, 'no-show');
+                                }
+                              }} 
+                              className="btn btn-secondary btn-sm" 
+                              style={{ color: 'var(--color-maintenance)' }}
+                              title="Khách không đến (No-show)"
+                            >
+                              No-show
                             </button>
-                          ) : (
-                            <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" title="Gán phòng">
-                              Gán phòng
-                            </button>
-                          )
+                          </>
                         )}
 
-                        {b.status === 'CONFIRMED' && (
+                        {b.status === 'CONFIRMED' && user.role !== 'ACCOUNTANT' && (
                           <>
                             <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
                               Nhận phòng
                             </button>
                             <button onClick={() => openChangeRoomModal(b)} className="btn btn-secondary btn-sm" title="Đổi phòng">
                               Đổi phòng
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm('Xác nhận khách không đến (No-show)? Đặt phòng này sẽ chuyển thành NO_SHOW và giải phóng phòng.')) {
+                                  handleTransition(b.id, 'no-show');
+                                }
+                              }} 
+                              className="btn btn-secondary btn-sm" 
+                              style={{ color: 'var(--color-maintenance)' }}
+                              title="Khách không đến (No-show)"
+                            >
+                              No-show
                             </button>
                           </>
                         )}
 
                         {b.status === 'CHECKED_IN' && (
                           <>
-                            <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-available)', fontWeight: '600' }} title="Thanh toán & Trả phòng (Check-out)">
-                              Trả phòng
-                            </button>
-                            <button onClick={() => openChangeRoomModal(b)} className="btn btn-secondary btn-sm" title="Đổi phòng">
-                              Đổi phòng
-                            </button>
+                            {user.role !== 'ACCOUNTANT' ? (
+                              <>
+                                <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-available)', fontWeight: '600' }} title="Thanh toán & Trả phòng (Check-out)">
+                                  Trả phòng
+                                </button>
+                                <button onClick={() => openChangeRoomModal(b)} className="btn btn-secondary btn-sm" title="Đổi phòng">
+                                  Đổi phòng
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" title="Xem hóa đơn">
+                                Hóa đơn
+                              </button>
+                            )}
                           </>
                         )}
 
@@ -580,7 +684,7 @@ function Bookings({ user, showNotification }) {
                         )}
 
                         {/* Admin/Owner cancel action */}
-                        {b.status !== 'CHECKED_OUT' && b.status !== 'CANCELLED' && (
+                        {b.status !== 'CHECKED_OUT' && b.status !== 'CANCELLED' && user.role !== 'ACCOUNTANT' && (
                           <button onClick={() => handleTransition(b.id, 'cancel')} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Hủy đặt phòng">
                             Hủy
                           </button>
@@ -613,13 +717,45 @@ function Bookings({ user, showNotification }) {
           <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0 }}>Tạo Đặt Phòng Mới</h2>
-              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+              <button onClick={() => { setShowCreateModal(false); setSelectedGuestLoyalty(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
             <form onSubmit={handleCreateBooking}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 
                 {/* Guest Info section */}
                 <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>Thông tin khách hàng</h3>
+                
+                {selectedGuestLoyalty && (
+                  <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '13px',
+                    margin: '4px 0',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)' }}>Hạng hội viên:</span>
+                      <span className={`badge badge-tier-${selectedGuestLoyalty.tier.toLowerCase()}`} style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 'bold' }}>
+                        {getTierLabel(selectedGuestLoyalty.tier)}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)' }}>Tích lũy:</span>
+                      <strong style={{ color: 'var(--primary)', marginLeft: '4px' }}>{selectedGuestLoyalty.points}</strong> điểm
+                    </div>
+                    {selectedGuestLoyalty.benefits && selectedGuestLoyalty.benefits.length > 0 && (
+                      <div style={{ color: 'var(--color-available)', fontWeight: '500' }}>
+                        Ưu đãi: {selectedGuestLoyalty.benefits.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="grid-2">
                   <div>
                     <label>Họ và tên *</label>
@@ -633,13 +769,24 @@ function Bookings({ user, showNotification }) {
                   </div>
                   <div>
                     <label>Số điện thoại *</label>
-                    <input 
-                      type="tel" 
-                      placeholder="0901234567" 
-                      value={newBooking.phone}
-                      onChange={(e) => setNewBooking(prev => ({ ...prev, phone: e.target.value }))}
-                      required 
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input 
+                        type="tel" 
+                        placeholder="0901234567" 
+                        value={newBooking.phone}
+                        onChange={(e) => setNewBooking(prev => ({ ...prev, phone: e.target.value }))}
+                        required 
+                      />
+                      <button
+                        type="button"
+                        onClick={handleQuickGuestLookup}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0 12px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Kiểm tra khách hàng cũ"
+                      >
+                        <Search size={14} /> Tìm
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -771,7 +918,7 @@ function Bookings({ user, showNotification }) {
 
               </div>
               <div className="modal-footer">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="button" onClick={() => { setShowCreateModal(false); setSelectedGuestLoyalty(null); }} className="btn btn-secondary btn-sm">Hủy</button>
                 <button type="submit" className="btn btn-primary btn-sm">Tạo booking</button>
               </div>
             </form>
@@ -936,7 +1083,7 @@ function Bookings({ user, showNotification }) {
               {/* Service usages list */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Dịch vụ phụ thu</h3>
-                {activeInvoice.status !== 'PAID' && (
+                {activeInvoice.status !== 'PAID' && user.role !== 'ACCOUNTANT' && (
                   <button 
                     onClick={() => { fetchServices(); setShowServiceModal(true); }}
                     className="btn btn-secondary btn-sm"
@@ -970,7 +1117,7 @@ function Bookings({ user, showNotification }) {
                           <td>{u.quantity}</td>
                           <td style={{ textAlign: 'right', fontWeight: '600' }}>{u.lineTotal?.toLocaleString('vi-VN')}</td>
                           <td>
-                            {activeInvoice.status !== 'PAID' && (
+                            {activeInvoice.status !== 'PAID' && user.role !== 'ACCOUNTANT' && (
                               <button 
                                 onClick={() => handleDeleteSurchargeUsage(u.id)}
                                 style={{ background: 'none', border: 'none', color: 'var(--color-maintenance)', cursor: 'pointer' }}
@@ -1013,7 +1160,7 @@ function Bookings({ user, showNotification }) {
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && selectedBooking.status === 'CHECKED_IN' && (
+              {activeInvoice.status !== 'PAID' && selectedBooking.status === 'CHECKED_IN' && user.role !== 'ACCOUNTANT' && (
                 <button 
                   onClick={() => { 
                     handleTransition(selectedBooking.id, 'check-out');

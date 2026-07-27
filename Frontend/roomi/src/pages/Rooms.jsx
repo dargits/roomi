@@ -15,6 +15,27 @@ import {
 } from 'lucide-react';
 
 function Rooms({ user, showNotification }) {
+  // Guard Clause for Access Control
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <Info size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý phòng.
+        </p>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'types'
   const [rooms, setRooms] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);

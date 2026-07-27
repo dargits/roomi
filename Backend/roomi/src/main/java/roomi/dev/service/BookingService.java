@@ -28,6 +28,8 @@ public interface BookingService {
 
     BookingResponse cancelBooking(Long bookingId);
 
+    BookingResponse markNoShow(Long bookingId);
+
     BookingResponse getBookingById(Long id);
 
     List<BookingResponse> getAllBookings();
