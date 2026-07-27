@@ -161,4 +161,12 @@ public class BookingController {
                 .data(bookingService.cancelBooking(id))
                 .build());
     }
+
+        @PatchMapping("/{id}/no-show")
+        public ResponseEntity<BaseResponse<BookingResponse>> markNoShow(@PathVariable Long id) {
+                return ResponseEntity.ok(BaseResponse.<BookingResponse>builder()
+                                .mess("Đã đánh dấu khách không đến và giải phóng phòng")
+                                .data(bookingService.markNoShow(id))
+                                .build());
+        }
 }

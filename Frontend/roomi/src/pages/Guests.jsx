@@ -16,9 +16,42 @@ import {
 } from 'lucide-react';
 
 function Guests({ user, showNotification }) {
+  const getTierLabel = (tier) => {
+    switch (tier) {
+      case 'DIAMOND': return 'Kim cương';
+      case 'PLATINUM': return 'Bạch kim';
+      case 'GOLD': return 'Vàng';
+      case 'SILVER': return 'Bạc';
+      case 'BRONZE': return 'Đồng';
+      default: return 'Thành viên';
+    }
+  };
+
+  // Guard Clause for Access Control
+  if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <User size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý khách hàng.
+        </p>
+      </div>
+    );
+  }
+
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchName, setSearchName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState('name'); // 'name' | 'phone'
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -57,20 +90,33 @@ function Guests({ user, showNotification }) {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchName.trim()) {
+    if (!searchQuery.trim()) {
       fetchGuests();
       return;
     }
     try {
       setLoading(true);
-      const res = await api.get(`/guests/search`, {
-        params: { name: searchName }
-      });
-      if (res.data && res.data.data) {
-        setGuests(res.data.data);
+      if (searchType === 'phone') {
+        const res = await api.get(`/guests/phone/${searchQuery.trim()}`);
+        if (res.data && res.data.data) {
+          setGuests([res.data.data]);
+        } else {
+          setGuests([]);
+        }
+      } else {
+        const res = await api.get(`/guests/search`, {
+          params: { name: searchQuery.trim() }
+        });
+        if (res.data && res.data.data) {
+          setGuests(res.data.data);
+        }
       }
     } catch (err) {
-      showNotification(err.message, 'error');
+      if (searchType === 'phone' && err.message?.includes('404')) {
+        setGuests([]);
+      } else {
+        showNotification(err.message || 'Lỗi tìm kiếm khách hàng', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -149,30 +195,46 @@ function Guests({ user, showNotification }) {
           <h1 className="page-title">Quản lý khách hàng</h1>
           <p className="page-subtitle">Xem thông tin chi tiết, hồ sơ lưu trú và lịch sử giao dịch của khách hàng</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
-          <Plus size={18} />
-          Thêm khách hàng
-        </button>
+        {(user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+          <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
+            <Plus size={18} />
+            Thêm khách hàng
+          </button>
+        )}
       </div>
 
       {/* Search Filter */}
       <div className="card" style={{ marginBottom: '24px', padding: '16px' }}>
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ width: '150px' }}>
+            <select
+              value={searchType}
+              onChange={(e) => {
+                setSearchType(e.target.value);
+                setSearchQuery('');
+                fetchGuests();
+              }}
+              style={{ height: '100%', padding: '10px' }}
+            >
+              <option value="name">Tìm theo Tên</option>
+              <option value="phone">Tìm theo SĐT</option>
+            </select>
+          </div>
           <div style={{ flex: 1, position: 'relative' }}>
             <input
               type="text"
-              placeholder="Nhập tên khách hàng cần tìm..."
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
+              placeholder={searchType === 'phone' ? "Nhập số điện thoại khách hàng..." : "Nhập tên khách hàng cần tìm..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{ paddingLeft: '38px' }}
             />
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
           </div>
           <button type="submit" className="btn btn-primary">Tìm kiếm</button>
-          {searchName && (
+          {searchQuery && (
             <button 
               type="button" 
-              onClick={() => { setSearchName(''); fetchGuests(); }} 
+              onClick={() => { setSearchQuery(''); fetchGuests(); }} 
               className="btn btn-secondary"
             >
               Xóa lọc
@@ -193,6 +255,8 @@ function Guests({ user, showNotification }) {
                 <th>Số điện thoại</th>
                 <th>Số CCCD / ID Card</th>
                 <th>Email</th>
+                <th>Hạng thành viên</th>
+                <th>Điểm tích lũy</th>
                 <th style={{ textAlign: 'right' }}>Hành động</th>
               </tr>
             </thead>
@@ -236,6 +300,14 @@ function Guests({ user, showNotification }) {
                         <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Chưa cập nhật</span>
                       )}
                     </td>
+                    <td>
+                      <span className={`badge badge-tier-${(g.loyaltyTier || 'MEMBER').toLowerCase()}`} style={{ fontWeight: 'bold' }}>
+                        {getTierLabel(g.loyaltyTier)}
+                      </span>
+                    </td>
+                    <td>
+                      <strong style={{ color: 'var(--primary)' }}>{g.loyaltyPoints || 0}</strong> Pts
+                    </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         <button 
@@ -247,28 +319,32 @@ function Guests({ user, showNotification }) {
                           <History size={14} />
                           Lịch sử đặt
                         </button>
-                        <button 
-                          onClick={() => openEditModal(g)} 
-                          className="btn btn-secondary btn-sm"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteGuest(g.id)} 
-                          className="btn btn-secondary btn-sm"
-                          style={{ color: 'var(--color-maintenance)' }}
-                          title="Xóa"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {(user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                          <>
+                            <button 
+                              onClick={() => openEditModal(g)} 
+                              className="btn btn-secondary btn-sm"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteGuest(g.id)} 
+                              className="btn btn-secondary btn-sm"
+                              style={{ color: 'var(--color-maintenance)' }}
+                              title="Xóa"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Không có thông tin khách hàng nào.</td>
+                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Không có thông tin khách hàng nào.</td>
                 </tr>
               )}
             </tbody>
@@ -401,7 +477,30 @@ function Guests({ user, showNotification }) {
               </h2>
               <button onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
-            <div className="modal-body" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <div className="modal-body" style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Membership Card details */}
+              <div className="card" style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.01)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', margin: 0 }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Hạng hội viên</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                    <span className={`badge badge-tier-${(selectedGuest.loyaltyTier || 'MEMBER').toLowerCase()}`} style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                      {getTierLabel(selectedGuest.loyaltyTier)}
+                    </span>
+                    {selectedGuest.loyaltyBenefits && selectedGuest.loyaltyBenefits.length > 0 && (
+                      <span style={{ fontSize: '12px', color: 'var(--color-available)', fontWeight: '500' }}>
+                        ({selectedGuest.loyaltyBenefits.join(', ')})
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Điểm tích lũy</span>
+                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--primary)', marginTop: '4px' }}>
+                    {selectedGuest.loyaltyPoints || 0} <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>điểm</span>
+                  </div>
+                </div>
+              </div>
+
               {loadingHistory ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '30px 0' }}>
                   <div style={{ border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid var(--primary)', borderRadius: '50%', width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />

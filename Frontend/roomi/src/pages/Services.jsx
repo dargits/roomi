@@ -15,6 +15,27 @@ import {
 } from 'lucide-react';
 
 function Services({ user, showNotification }) {
+  // Guard Clause for Access Control
+  if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang cấu hình dịch vụ phụ thu.
+        </p>
+      </div>
+    );
+  }
+
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -184,7 +205,7 @@ function Services({ user, showNotification }) {
                 <th>Mô tả / Đơn vị tính</th>
                 <th>Đơn giá dịch vụ</th>
                 <th>Trạng thái hoạt động</th>
-                <th style={{ textAlign: 'right' }}>Hành động</th>
+                {(user.role === 'OWNER' || user.role === 'ADMIN') && <th style={{ textAlign: 'right' }}>Hành động</th>}
               </tr>
             </thead>
             <tbody>
@@ -217,8 +238,8 @@ function Services({ user, showNotification }) {
                         {s.active ? 'Đang hoạt động' : 'Đã dừng bán'}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {(user.role === 'OWNER' || user.role === 'ADMIN') ? (
+                    {(user.role === 'OWNER' || user.role === 'ADMIN') && (
+                      <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                           <button 
                             onClick={() => handleToggleActive(s)} 
@@ -234,15 +255,13 @@ function Services({ user, showNotification }) {
                             <Trash2 size={14} />
                           </button>
                         </div>
-                      ) : (
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Chỉ đọc</span>
-                      )}
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Không tìm thấy dịch vụ nào.</td>
+                  <td colSpan={(user.role === 'OWNER' || user.role === 'ADMIN') ? 5 : 4} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Không tìm thấy dịch vụ nào.</td>
                 </tr>
               )}
             </tbody>

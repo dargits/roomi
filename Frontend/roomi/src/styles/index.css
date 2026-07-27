@@ -118,6 +118,12 @@ input, select, textarea {
   outline: none;
 }
 
+/* Hide browser default password reveal button */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 select option {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
@@ -205,6 +211,7 @@ label {
 /* Layout Utilities */
 .dashboard-container {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
 }
 
@@ -213,8 +220,327 @@ label {
   padding: 30px;
   background-color: var(--bg-primary);
   overflow-y: auto;
-  max-height: 100vh;
+  max-height: calc(100vh - 70px);
 }
+
+/* Top Navbar Styles */
+.top-navbar {
+  height: 70px;
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+}
+
+/* Brand Logo */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.brand-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.brand-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Navigation List (Desktop) */
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.navbar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: var(--transition-fast);
+  outline: none;
+  white-space: nowrap;
+}
+
+.navbar-item:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.navbar-item.active {
+  background-color: var(--primary-glow);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Right Section Actions */
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* User profile button in Navbar */
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-fast);
+  outline: none;
+}
+
+.navbar-user:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.navbar-user.active {
+  background-color: var(--primary-glow);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: capitalize;
+}
+
+/* Actions Button */
+.navbar-action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.navbar-action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.navbar-action-btn.logout-btn {
+  color: var(--color-maintenance);
+}
+
+.navbar-action-btn.logout-btn:hover {
+  background-color: var(--color-maintenance-bg);
+}
+
+/* Mobile Toggle Hamburger */
+.navbar-mobile-toggle {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--text-primary);
+  border: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Mobile Navigation Dropdown */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 70px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+}
+
+.mobile-menu-content {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: slideDownMobile 0.2s ease-out;
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 500;
+  font-size: 14px;
+  width: 100%;
+}
+
+.mobile-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.mobile-menu-item.active {
+  background-color: var(--primary-glow);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.mobile-menu-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 8px 0;
+}
+
+.mobile-menu-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background-color: rgba(255, 255, 255, 0.02);
+  border: none;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.mobile-menu-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.mobile-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 14px;
+}
+
+/* Animations */
+@keyframes slideDownMobile {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive Media Queries */
+@media (max-width: 1200px) {
+  .navbar-brand .brand-sub {
+    display: none;
+  }
+  .user-meta {
+    display: none;
+  }
+  .navbar-user {
+    padding: 6px;
+  }
+}
+
+@media (max-width: 992px) {
+  .navbar-menu {
+    display: none;
+  }
+  .navbar-actions .navbar-user,
+  .navbar-actions .navbar-action-btn {
+    display: none;
+  }
+  .navbar-mobile-toggle {
+    display: flex;
+  }
+}
+
 
 /* Header & Typography */
 .page-header {
@@ -337,6 +663,42 @@ tr:hover td {
   color: var(--color-cancelled);
 }
 
+.badge-no_show {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--color-maintenance);
+}
+
+/* Membership Tier Badges */
+.badge-tier-diamond {
+  background-color: rgba(6, 182, 212, 0.15);
+  color: #06b6d4;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+.badge-tier-platinum {
+  background-color: rgba(226, 232, 240, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(226, 232, 240, 0.3);
+}
+.badge-tier-gold {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.badge-tier-silver {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.badge-tier-bronze {
+  background-color: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+.badge-tier-member {
+  background-color: rgba(107, 114, 128, 0.1);
+  color: #9ca3af;
+}
+
 /* Modal Overlay & Card */
 .modal-overlay {
   position: fixed;
@@ -392,18 +754,18 @@ tr:hover td {
 /* Drawer Layout (Alternative for detail screens) */
 .drawer-overlay {
   position: fixed;
-  top: 0;
+  top: 70px;
   right: 0;
   bottom: 0;
   left: 0;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 999;
+  z-index: 94;
 }
 
 .drawer {
   position: fixed;
-  top: 0;
+  top: 70px;
   right: 0;
   bottom: 0;
   width: 100%;
@@ -411,7 +773,7 @@ tr:hover td {
   background: var(--bg-secondary);
   border-left: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
-  z-index: 1000;
+  z-index: 95;
   display: flex;
   flex-direction: column;
   animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
