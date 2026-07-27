@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getRoleLabel } from '../utils/role';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
 import { 
@@ -15,6 +16,27 @@ import {
 } from 'lucide-react';
 
 function Rates({ user, showNotification }) {
+  // Guard Clause for Access Control
+  if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang cấu hình giá theo mùa.
+        </p>
+      </div>
+    );
+  }
+
   const [rates, setRates] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -180,10 +202,12 @@ function Rates({ user, showNotification }) {
           <p className="page-subtitle">Thiết lập các khung giá ưu đãi hoặc phụ thu cao điểm theo thời gian</p>
         </div>
         
-        <button onClick={openCreateModal} className="btn btn-primary">
-          <Plus size={18} />
-          Cấu hình giá mùa mới
-        </button>
+        {(user.role === 'ADMIN' || user.role === 'OWNER') && (
+          <button onClick={openCreateModal} className="btn btn-primary">
+            <Plus size={18} />
+            Cấu hình giá mùa mới
+          </button>
+        )}
       </div>
 
       {/* Grid: 2 sections (Sandbox & Configuration list) */}
@@ -272,7 +296,7 @@ function Rates({ user, showNotification }) {
             <div className="card" style={{ padding: '12px 16px', borderLeft: '4px solid var(--color-cleaning)', display: 'flex', gap: '10px', alignItems: 'center' }}>
               <AlertCircle size={18} color="var(--color-cleaning)" />
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Tài khoản của bạn ({user.role}) có quyền đọc. Chỉ quản trị viên **ADMIN** hoặc chủ sở hữu **OWNER** mới có quyền thay đổi bảng phí này.
+                Tài khoản của bạn ({getRoleLabel(user.role)}) có quyền đọc. Chỉ quản trị viên **Quản trị viên (ADMIN)** hoặc chủ sở hữu **Chủ cơ sở (OWNER)** mới có quyền thay đổi bảng phí này.
               </span>
             </div>
           )}
@@ -289,7 +313,7 @@ function Rates({ user, showNotification }) {
                     <th>Ngày bắt đầu</th>
                     <th>Ngày kết thúc</th>
                     <th>Mức giá theo mùa</th>
-                    <th style={{ textAlign: 'right' }}>Hành động</th>
+                    {(user.role === 'ADMIN' || user.role === 'OWNER') && <th style={{ textAlign: 'right' }}>Hành động</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -302,8 +326,8 @@ function Rates({ user, showNotification }) {
                         <td style={{ fontWeight: '700', color: 'var(--color-available)' }}>
                           {rate.price?.toLocaleString('vi-VN')} đ
                         </td>
-                        <td style={{ textAlign: 'right' }}>
-                          {(user.role === 'ADMIN' || user.role === 'OWNER') ? (
+                        {(user.role === 'ADMIN' || user.role === 'OWNER') && (
+                          <td style={{ textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                               <button onClick={() => openEditModal(rate)} className="btn btn-secondary btn-sm" title="Sửa cấu hình">
                                 <Edit size={14} />
@@ -312,15 +336,13 @@ function Rates({ user, showNotification }) {
                                 <Trash2 size={14} />
                               </button>
                             </div>
-                          ) : (
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Không có quyền</span>
-                          )}
-                        </td>
+                          </td>
+                        )}
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Chưa có cấu hình giá theo mùa nào được thiết lập.</td>
+                      <td colSpan={(user.role === 'ADMIN' || user.role === 'OWNER') ? 5 : 4} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Chưa có cấu hình giá theo mùa nào được thiết lập.</td>
                     </tr>
                   )}
                 </tbody>
