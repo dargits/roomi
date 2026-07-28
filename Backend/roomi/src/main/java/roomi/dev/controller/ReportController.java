@@ -17,6 +17,8 @@ import roomi.dev.model.User;
 import roomi.dev.service.AuthService;
 import roomi.dev.service.ReportService;
 import roomi.dev.service.SessionService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api/v1/reports")
@@ -69,5 +71,44 @@ public class ReportController {
                 .mess("Lấy báo cáo doanh thu thành công")
                 .data(report)
                 .build());
+    }
+
+    @GetMapping("/revenue/excel")
+    public ResponseEntity<byte[]> exportRevenueExcel(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            RevenueRequest request) {
+
+        // 1. Check Token và Quyền (y hệt như API JSON cũ)
+        if (token == null || token.isBlank()) {
+            throw new BusinessException("Thiếu token xác thực", ErrorCode.ACCESS_DENIED);
+        }
+        String cleanToken = token.startsWith("Bearer ") ? token.substring(7) : token;
+        User currentUser = sessionService.getUserBySession(cleanToken)
+                .orElseThrow(() -> new BusinessException("Session không hợp lệ hoặc đã hết hạn", ErrorCode.ACCESS_DENIED));
+
+        boolean hasPermission = currentUser.getRole() == User.Role.ADMIN ||
+                                currentUser.getRole() == User.Role.OWNER ||
+                                currentUser.getRole() == User.Role.ACCOUNTANT;
+        if (!hasPermission) {
+            throw new BusinessException("Bạn không có quyền xuất báo cáo", ErrorCode.INSUFFICIENT_PRIVILEGES);
+        }
+
+        // 2. Validate dữ liệu
+        if (request.getStartDate() == null || request.getEndDate() == null) {
+            throw new BusinessException("Vui lòng cung cấp đầy đủ ngày bắt đầu và ngày kết thúc", ErrorCode.BAD_REQUEST);
+        }
+
+        // 3. Gọi Service để lấy mảng byte của file Excel
+        byte[] excelFile = reportService.exportRevenueReportExcel(request.getStartDate(), request.getEndDate());
+
+        // 4. Cấu hình Header để báo cho trình duyệt biết đây là file cần tải về
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "Bao_Cao_Doanh_Thu_" + request.getStartDate() + ".xlsx");
+        headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelFile);
     }
 }
