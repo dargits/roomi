@@ -10,6 +10,7 @@ import Rates from './pages/Rates';
 import Services from './pages/Services';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
+import Reports from './pages/Reports';
 import { 
   LayoutDashboard, 
   CalendarRange, 
@@ -24,7 +25,8 @@ import {
   Moon,
   Sun,
   UserCheck,
-  Menu
+  Menu,
+  BarChart3
 } from 'lucide-react';
 
 function App() {
@@ -178,6 +180,7 @@ function App() {
     { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER'] },
     { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
     { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST'] },
+    { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
     { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },
     { id: 'profile', name: 'Hồ sơ & Bảo mật', icon: User, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
   ];
@@ -198,6 +201,8 @@ function App() {
         return <Rates user={user} showNotification={showNotification} />;
       case 'services':
         return <Services user={user} showNotification={showNotification} />;
+      case 'reports':
+        return <Reports user={user} showNotification={showNotification} />;
       case 'users':
         return <Users user={user} showNotification={showNotification} />;
       case 'profile':
@@ -224,20 +229,22 @@ function App() {
 
         {/* Navigation List (Desktop) */}
         <nav className="navbar-menu">
-          {allowedMenuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentView === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleViewChange(item.id)}
-                className={`navbar-item ${isActive ? 'active' : ''}`}
-              >
-                <Icon size={16} />
-                <span>{item.name}</span>
-              </button>
-            );
-          })}
+          {allowedMenuItems
+            .filter(item => item.id !== 'profile')
+            .map((item) => {
+              const Icon = item.icon;
+              const isActive = currentView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleViewChange(item.id)}
+                  className={`navbar-item ${isActive ? 'active' : ''}`}
+                >
+                  <Icon size={16} />
+                  <span>{item.name}</span>
+                </button>
+              );
+            })}
         </nav>
 
         {/* User profile & actions */}

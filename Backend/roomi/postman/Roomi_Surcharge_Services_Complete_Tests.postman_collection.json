@@ -1,0 +1,1400 @@
+{
+    "info": {
+        "_postman_id": "roomi-surcharge-services-2024",
+        "name": "Roomi - Surcharge Services Complete Tests",
+        "description": "Collection test đầy đủ tính năng ghi nhận dịch vụ phụ thu\n\nThứ tự chạy:\n1. Setup Auth (register OWNER, RECEPTIONIST, GUEST)\n2. Quản lý danh mục dịch vụ\n3. Ghi nhận phát sinh theo booking\n4. Xem hóa đơn\n5. Test permissions và errors",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "owner_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "receptionist_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "guest_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "service_id_1",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "service_id_2",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "booking_id",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "usage_id",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "1. Setup - Authentication",
+            "item": [
+                {
+                    "name": "1.1 Register OWNER",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "  const res = pm.response.json();",
+                                    "  if (res.token) {",
+                                    "    pm.collectionVariables.set('owner_token', res.token);",
+                                    "    console.log('✅ Owner token saved');",
+                                    "  }",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"fullName\": \"Chủ Khách Sạn\",\n  \"username\": \"owner_surcharge\",\n  \"password\": \"owner123\",\n  \"phone\": \"0901111111\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.2 Change Role to OWNER",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"role\": \"OWNER\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/users/role/1",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "users",
+                                "role",
+                                "1"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.3 Login OWNER",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "if (res.token) {",
+                                    "  pm.collectionVariables.set('owner_token', res.token);",
+                                    "  console.log('✅ Owner logged in, role:', res.role);",
+                                    "}",
+                                    "pm.test('Role = OWNER', () => pm.expect(res.role).to.eql('OWNER'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"username\": \"owner_surcharge\",\n  \"password\": \"owner123\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.4 Register RECEPTIONIST",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "  const res = pm.response.json();",
+                                    "  pm.collectionVariables.set('receptionist_token', res.token);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"fullName\": \"Lễ Tân A\",\n  \"username\": \"receptionist_surcharge\",\n  \"password\": \"recept123\",\n  \"phone\": \"0902222222\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.5 Change Role to RECEPTIONIST",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"role\": \"RECEPTIONIST\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/users/role/2",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "users",
+                                "role",
+                                "2"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.6 Login RECEPTIONIST",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "if (res.token) {",
+                                    "  pm.collectionVariables.set('receptionist_token', res.token);",
+                                    "}",
+                                    "pm.test('Role = RECEPTIONIST', () => pm.expect(res.role).to.eql('RECEPTIONIST'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"username\": \"receptionist_surcharge\",\n  \"password\": \"recept123\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.7 Register GUEST (for negative test)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "  const res = pm.response.json();",
+                                    "  pm.collectionVariables.set('guest_token', res.token);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"fullName\": \"Khách Thường\",\n  \"username\": \"guest_surcharge\",\n  \"password\": \"guest123\",\n  \"phone\": \"0903333333\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2. Quản lý Danh mục Dịch vụ Phụ thu",
+            "item": [
+                {
+                    "name": "2.1 Create Service - Giặt ủi (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Message correct', () => pm.expect(res.mess).to.eql('Tạo dịch vụ phụ thu thành công'));",
+                                    "pm.test('Service name', () => pm.expect(res.data.name).to.eql('Giặt ủi'));",
+                                    "pm.test('Unit price', () => pm.expect(res.data.unitPrice).to.eql(30000));",
+                                    "if (res.data && res.data.id) {",
+                                    "  pm.collectionVariables.set('service_id_1', res.data.id);",
+                                    "  console.log('✅ Service ID 1:', res.data.id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Giặt ủi\",\n  \"description\": \"Dịch vụ giặt ủi, tính theo kg\",\n  \"unitPrice\": 30000,\n  \"active\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.2 Create Service - Minibar (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                                    "const res = pm.response.json();",
+                                    "if (res.data && res.data.id) {",
+                                    "  pm.collectionVariables.set('service_id_2', res.data.id);",
+                                    "  console.log('✅ Service ID 2:', res.data.id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Minibar\",\n  \"description\": \"Đồ uống và snack\",\n  \"unitPrice\": 50000,\n  \"active\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.3 Get All Services (activeOnly=true)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Message = Thành công', () => pm.expect(res.mess).to.eql('Thành công'));",
+                                    "pm.test('Data is array', () => pm.expect(res.data).to.be.an('array'));",
+                                    "pm.test('At least 2 services', () => pm.expect(res.data.length).to.be.at.least(2));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services?activeOnly=true",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ],
+                            "query": [
+                                {
+                                    "key": "activeOnly",
+                                    "value": "true"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.4 Get All Services (activeOnly=false)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services?activeOnly=false",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ],
+                            "query": [
+                                {
+                                    "key": "activeOnly",
+                                    "value": "false"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.5 Get Service By ID",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('ID matches', () => pm.expect(String(res.data.id)).to.eql(pm.collectionVariables.get('service_id_1')));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services/{{service_id_1}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services",
+                                "{{service_id_1}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.6 Update Service (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Message correct', () => pm.expect(res.mess).to.eql('Cập nhật dịch vụ phụ thu thành công'));",
+                                    "pm.test('Price updated', () => pm.expect(res.data.unitPrice).to.eql(35000));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Giặt ủi\",\n  \"description\": \"Dịch vụ giặt ủi cao cấp\",\n  \"unitPrice\": 35000,\n  \"active\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services/{{service_id_1}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services",
+                                "{{service_id_1}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.7 Deactivate Service (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Active = false', () => pm.expect(res.data.active).to.be.false);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services/{{service_id_2}}/deactivate",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services",
+                                "{{service_id_2}}",
+                                "deactivate"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.8 Reactivate Service (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Active = true', () => pm.expect(res.data.active).to.be.true);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services/{{service_id_2}}/reactivate",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services",
+                                "{{service_id_2}}",
+                                "reactivate"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "3. Ghi nhận Phát sinh theo Booking",
+            "item": [
+                {
+                    "name": "3.1 Get Service Usages (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Data is array', () => pm.expect(res.data).to.be.an('array'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.2 Create Service Usage - Giặt ủi (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Message correct', () => pm.expect(res.mess).to.eql('Ghi nhận sử dụng dịch vụ thành công'));",
+                                    "pm.test('Service name saved', () => pm.expect(res.data.serviceName).to.eql('Giặt ủi'));",
+                                    "pm.test('Quantity correct', () => pm.expect(res.data.quantity).to.eql(2));",
+                                    "pm.test('Line total calculated', () => pm.expect(res.data.lineTotal).to.eql(70000));",
+                                    "if (res.data && res.data.id) {",
+                                    "  pm.collectionVariables.set('usage_id', res.data.id);",
+                                    "  console.log('✅ Usage ID:', res.data.id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"surchargeServiceId\": {{service_id_1}},\n  \"quantity\": 2,\n  \"note\": \"Giặt 2 kg quần áo\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.3 Create Service Usage - Minibar (RECEPTIONIST)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Service name saved', () => pm.expect(res.data.serviceName).to.eql('Minibar'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{receptionist_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"surchargeServiceId\": {{service_id_2}},\n  \"quantity\": 3,\n  \"note\": \"3 lon nước ngọt\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.4 Get All Service Usages",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Has usages', () => pm.expect(res.data.length).to.be.at.least(2));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.5 Update Service Usage (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Message correct', () => pm.expect(res.mess).to.eql('Cập nhật phát sinh dịch vụ thành công'));",
+                                    "pm.test('Quantity updated', () => pm.expect(res.data.quantity).to.eql(3));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"surchargeServiceId\": {{service_id_1}},\n  \"quantity\": 3,\n  \"note\": \"Cập nhật: 3 kg quần áo\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages/{{usage_id}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages",
+                                "{{usage_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.6 Delete Service Usage (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Message correct', () => pm.expect(res.mess).to.eql('Xóa phát sinh dịch vụ thành công'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages/{{usage_id}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages",
+                                "{{usage_id}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "4. Hóa đơn (Invoice)",
+            "item": [
+                {
+                    "name": "4.1 Get Invoice (OWNER)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Message = Thành công', () => pm.expect(res.mess).to.eql('Thành công'));",
+                                    "pm.test('Has invoice data', () => pm.expect(res.data).to.be.an('object'));",
+                                    "pm.test('Has roomCharge', () => pm.expect(res.data.roomCharge).to.exist);",
+                                    "pm.test('Has serviceCharge', () => pm.expect(res.data.serviceCharge).to.exist);",
+                                    "pm.test('Has totalAmount', () => pm.expect(res.data.totalAmount).to.exist);",
+                                    "pm.test('Has serviceUsages array', () => pm.expect(res.data.serviceUsages).to.be.an('array'));",
+                                    "console.log('Invoice:', JSON.stringify(res.data, null, 2));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/invoice",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "invoice"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "4.2 Get Invoice (RECEPTIONIST)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{receptionist_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/invoice",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "invoice"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "5. Test Permissions & Errors",
+            "item": [
+                {
+                    "name": "5.1 ❌ Create Service (RECEPTIONIST - should fail)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400 or 403', () => {",
+                                    "  pm.expect([400, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Error code PERM_002', () => pm.expect(res.code).to.eql('PERM_002'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{receptionist_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Spa\",\n  \"unitPrice\": 100000\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.2 ❌ Create Service (GUEST - should fail)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400 or 403', () => {",
+                                    "  pm.expect([400, 403]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{guest_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Spa\",\n  \"unitPrice\": 100000\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.3 ❌ Create Usage (GUEST - should fail)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400 or 403', () => {",
+                                    "  pm.expect([400, 403]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{guest_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"surchargeServiceId\": 1,\n  \"quantity\": 1\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.4 ❌ Create Service - Missing name",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Validation error', () => pm.expect(res.mess).to.include('name'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"description\": \"Test\",\n  \"unitPrice\": 10000\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.5 ❌ Create Service - Invalid unitPrice",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Validation error', () => pm.expect(res.mess).to.include('unitPrice'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Test Service\",\n  \"unitPrice\": -1000\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.6 ❌ Create Usage - Missing quantity",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Validation error', () => pm.expect(res.mess).to.include('quantity'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"surchargeServiceId\": {{service_id_1}}\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.7 ❌ Get Service - Non-existent ID",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400 or 404', () => {",
+                                    "  pm.expect([400, 404]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services/999999",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services",
+                                "999999"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.8 ❌ Delete Service (with usage - should fail)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                                    "const res = pm.response.json();",
+                                    "pm.test('Error code SUR_003', () => pm.expect(res.code).to.eql('SUR_003'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "{{owner_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/surcharge-services/{{service_id_2}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "surcharge-services",
+                                "{{service_id_2}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.9 ❌ Access without token",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status 400 or 401', () => {",
+                                    "  pm.expect([400, 401]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/bookings/{{booking_id}}/service-usages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "bookings",
+                                "{{booking_id}}",
+                                "service-usages"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

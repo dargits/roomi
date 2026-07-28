@@ -48,4 +48,5 @@ public class ErrorCode {
     public static final String SURCHARGE_SERVICE_IN_USE = "SUR_003";
     public static final String SURCHARGE_USAGE_NOT_FOUND = "SUR_004";
     public static final String INVOICE_PAID = "INV_001";
+    public static final String BAD_REQUEST = null;
 }
