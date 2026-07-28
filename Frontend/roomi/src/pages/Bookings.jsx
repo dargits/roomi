@@ -34,6 +34,22 @@ function Bookings({ user, showNotification }) {
     }
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   // Guard Clause for Access Control
   if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
     return (
@@ -120,7 +136,8 @@ function Bookings({ user, showNotification }) {
       ]);
 
       if (bookingsRes.data && bookingsRes.data.data) {
-        setBookings(bookingsRes.data.data);
+        const sorted = bookingsRes.data.data.sort((a, b) => b.id - a.id);
+        setBookings(sorted);
       }
       if (typesRes.data && typesRes.data.data) {
         setRoomTypes(typesRes.data.data);
@@ -150,7 +167,8 @@ function Bookings({ user, showNotification }) {
 
       const res = await api.get('/bookings/search', { params });
       if (res.data && res.data.data) {
-        setBookings(res.data.data);
+        const sorted = res.data.data.sort((a, b) => b.id - a.id);
+        setBookings(sorted);
         showNotification('Tìm kiếm hoàn tất!');
       }
     } catch (err) {
@@ -171,7 +189,6 @@ function Bookings({ user, showNotification }) {
     });
     fetchInitialData();
   };
-
   // Fetch available rooms for checkin-checkout dates and type
   const fetchAvailableRooms = async (typeId, checkIn, checkOut) => {
     if (!checkIn || !checkOut) return;
@@ -181,9 +198,16 @@ function Bookings({ user, showNotification }) {
       if (typeId) {
         params.roomTypeId = typeId;
       }
-      const res = await api.get('/calendar/available-rooms', { params });
-      if (res.data && res.data.data) {
-        setAvailableRooms(res.data.data);
+      const [res, roomsRes] = await Promise.all([
+        api.get('/calendar/available-rooms', { params }),
+        api.get('/rooms')
+      ]);
+      if (res.data && res.data.data && roomsRes.data && roomsRes.data.data) {
+        const inactiveIds = roomsRes.data.data
+          .filter(r => r.note && r.note.includes('[INACTIVE]'))
+          .map(r => Number(r.id));
+        const activeRooms = res.data.data.filter(r => !inactiveIds.includes(Number(r.roomId)));
+        setAvailableRooms(activeRooms);
       }
     } catch (err) {
       showNotification(err.message, 'error');
@@ -191,7 +215,6 @@ function Bookings({ user, showNotification }) {
       setLoadingRooms(false);
     }
   };
-
   // Trigger loading available rooms when creating booking
   useEffect(() => {
     if (newBooking.roomTypeId && newBooking.checkInDate && newBooking.checkOutDate) {
@@ -582,6 +605,11 @@ function Bookings({ user, showNotification }) {
                       {b.guestIdNumber && (
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CCCD: {b.guestIdNumber}</div>
                       )}
+                      {b.createdAt && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          Thời gian đặt: {formatDateTime(b.createdAt)}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div><strong>{b.roomTypeName}</strong></div>
@@ -690,8 +718,8 @@ function Bookings({ user, showNotification }) {
                           </button>
                         )}
 
-                        {/* Admin delete action */}
-                        {user.role === 'ADMIN' && (
+                        {/* Owner delete action */}
+                        {user.role === 'OWNER' && (
                           <button onClick={() => openDeleteConfirm(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)', padding: '6px 10px' }} title="Xóa vĩnh viễn">
                             Xóa
                           </button>
@@ -1160,7 +1188,7 @@ function Bookings({ user, showNotification }) {
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && selectedBooking.status === 'CHECKED_IN' && user.role !== 'ACCOUNTANT' && (
+              {activeInvoice.status !== 'PAID' && selectedBooking.status === 'CHECKED_IN' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT') && (
                 <button 
                   onClick={() => { 
                     handleTransition(selectedBooking.id, 'check-out');
