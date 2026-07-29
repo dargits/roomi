@@ -7,11 +7,16 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SurchargeServiceRepository extends JpaRepository<SurchargeService, Long> {
-    List<SurchargeService> findAllByOrderByNameAsc();
 
-    List<SurchargeService> findByActiveTrueOrderByNameAsc();
+    boolean existsByName(String name);
+
+    boolean existsByNameIgnoreCase(String name);
 
     Optional<SurchargeService> findByNameIgnoreCase(String name);
 
-    boolean existsByNameIgnoreCase(String name);
+    List<SurchargeService> findByActiveTrue();
+
+    List<SurchargeService> findByActiveTrueOrderByNameAsc();
+
+    List<SurchargeService> findAllByOrderByNameAsc();
 }

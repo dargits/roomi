@@ -104,6 +104,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Long countOccupiedRoomsByDate(@Param("startOfDay") LocalDate startOfDay, 
                                   @Param("endOfDay") LocalDate endOfDay,
                                   @Param("statuses") List<Booking.Status> statuses);
+
+
+@Query("SELECT b FROM Booking b " +
+       "WHERE b.checkInDate <= :endDate AND b.checkOutDate >= :startDate " +
+       "AND b.status IN :statuses")
+List<Booking> findOverlappingBookings(@Param("startDate") LocalDate startDate,
+                                      @Param("endDate") LocalDate endDate,
+                                      @Param("statuses") List<Booking.Status> statuses);
     
     
 }
