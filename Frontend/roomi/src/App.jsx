@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getRoleLabel } from './utils/role';
 import api from './utils/api';
 import Login from './pages/Login';
+import BookingPortal from './pages/BookingPortal';
 import Dashboard from './pages/Dashboard';
 import Bookings from './pages/Bookings';
 import Guests from './pages/Guests';
@@ -32,10 +33,11 @@ import {
 function App() {
   const [token, setToken] = useState(localStorage.getItem('roomi_token') || null);
   const [user, setUser] = useState(null);
+  const [showPortal, setShowPortal] = useState(!localStorage.getItem('roomi_token'));
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
   const [notification, setNotification] = useState(null);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loadingBarStatus, setLoadingBarStatus] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -108,6 +110,7 @@ function App() {
   const handleLogin = (newToken) => {
     localStorage.setItem('roomi_token', newToken);
     setToken(newToken);
+    setShowPortal(false);
     showNotification('Đăng nhập thành công!');
   };
 
@@ -122,6 +125,7 @@ function App() {
     localStorage.removeItem('roomi_token');
     setToken(null);
     setUser(null);
+    setShowPortal(true);
     setCurrentView('dashboard');
     showNotification('Đã đăng xuất tài khoản.');
   };
@@ -158,11 +162,24 @@ function App() {
     );
   }
 
+  if (showPortal) {
+    return (
+      <>
+        <BookingPortal onBackToLogin={() => setShowPortal(false)} showNotification={showNotification} />
+        {notification && (
+          <div className={`notification notification-${notification.type}`}>
+            <span>{notification.message}</span>
+          </div>
+        )}
+      </>
+    );
+  }
+
   // If user is not authenticated, render Login/Register
   if (!token || !user) {
     return (
       <>
-        <Login onLoginSuccess={handleLogin} showNotification={showNotification} />
+        <Login onLoginSuccess={handleLogin} showNotification={showNotification} onGoToPortal={() => setShowPortal(true)} />
         {notification && (
           <div className={`notification notification-${notification.type}`}>
             <span>{notification.message}</span>

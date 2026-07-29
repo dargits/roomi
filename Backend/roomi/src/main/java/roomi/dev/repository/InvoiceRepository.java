@@ -26,4 +26,17 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     List<RevenueReportResponse.RoomTypeRevenueDetail> findRevenueByRoomType(
             @Param("startDateTime") LocalDateTime startDateTime, 
             @Param("endDateTime") LocalDateTime endDateTime);
+
+    /**
+     * Doanh thu tổng (phòng + dịch vụ) từng ngày — dùng cho chart "Xu Hướng Doanh Thu Theo Ngày".
+     * Group by YYYY-MM-DD của createdAt, trả về mỗi ngày 1 row gồm: dateStr, totalRevenue.
+     */
+    @Query("SELECT FUNCTION('DATE', i.createdAt), SUM(i.roomCharge + i.serviceCharge) " +
+           "FROM Invoice i " +
+           "WHERE i.status = roomi.dev.model.Invoice.Status.PENDING " +
+           "AND i.createdAt >= :startDateTime AND i.createdAt <= :endDateTime " +
+           "GROUP BY FUNCTION('DATE', i.createdAt) " +
+           "ORDER BY FUNCTION('DATE', i.createdAt)")
+    List<Object[]> findDailyRevenue(@Param("startDateTime") LocalDateTime startDateTime,
+                                    @Param("endDateTime") LocalDateTime endDateTime);
 }

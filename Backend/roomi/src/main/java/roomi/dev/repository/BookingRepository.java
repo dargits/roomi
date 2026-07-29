@@ -26,6 +26,17 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     boolean isRoomOccupiedOnDate(@Param("roomId") Long roomId, @Param("date") LocalDate date);
 
     /**
+     * Kiểm tra phòng có booking ở trạng thái CHECKED_IN đang hoạt động hôm nay không.
+     * Dùng cho sync trạng thái phòng: chỉ CHECKED_IN mới đủ điều kiện đánh dấu phòng OCCUPIED.
+     */
+    @Query("SELECT COUNT(b) > 0 FROM Booking b " +
+           "WHERE b.room.id = :roomId " +
+           "AND b.status = roomi.dev.model.Booking.Status.CHECKED_IN " +
+           "AND b.checkInDate <= :today " +
+           "AND b.checkOutDate > :today")
+    boolean existsCheckedInBookingForRoomToday(@Param("roomId") Long roomId, @Param("today") LocalDate today);
+
+    /**
      * Sửa lỗi: Đổi Booking$Status thành Booking.Status
      */
     @Query("SELECT COUNT(b) > 0 FROM Booking b " +

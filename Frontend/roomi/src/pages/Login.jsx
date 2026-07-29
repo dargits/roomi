@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../utils/api';
 import { LogIn, UserPlus, Shield, Phone, Key, User, Eye, EyeOff } from 'lucide-react';
 
-function Login({ onLoginSuccess, showNotification }) {
+function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -84,7 +84,7 @@ function Login({ onLoginSuccess, showNotification }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.15) 0%, rgba(10, 11, 16, 1) 60%)',
+      background: 'var(--bg-gradient)',
       padding: '20px'
     }}>
       <div className="card glow-card" style={{
@@ -330,6 +330,33 @@ function Login({ onLoginSuccess, showNotification }) {
             )}
           </button>
         </form>
+
+        {/* Guest Booking Portal Link */}
+        <div style={{
+          marginTop: '24px',
+          textAlign: 'center',
+          borderTop: '1px solid var(--border-color)',
+          paddingTop: '16px'
+        }}>
+          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Bạn là khách hàng? </span>
+          <button
+            type="button"
+            onClick={onGoToPortal}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--primary)',
+              fontWeight: '600',
+              fontSize: '13px',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              padding: '0 4px',
+              transition: 'var(--transition-fast)'
+            }}
+          >
+            Đặt phòng trực tiếp
+          </button>
+        </div>
       </div>
     </div>
   );

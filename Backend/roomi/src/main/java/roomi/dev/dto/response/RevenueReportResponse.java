@@ -22,6 +22,19 @@ private BigDecimal totalRevenue;
     private List<RoomTypeRevenueDetail> roomTypeRevenues; 
     private List<ServiceRevenueDetail> serviceRevenues;   
 
+    /** Doanh thu thực tế từng ngày trong khoảng thời gian báo cáo */
+    private List<DailyRevenue> dailyRevenues;
+
+    @Getter
+    @Setter
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class DailyRevenue {
+        private String date;           // "2026-07-01"
+        private BigDecimal revenue;    // Tổng doanh thu ngày đó
+    }
+
     @Getter
     @Setter
     @AllArgsConstructor

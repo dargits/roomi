@@ -11,4 +11,13 @@ public interface RoomService {
     void deleteRoom(Long id);
     List<Room> getAllRooms();
     Room getRoomById(Long id);
+
+    /**
+     * Đồng bộ trạng thái phòng theo booking CHECKED_IN đang hoạt động hôm nay.
+     * - Phòng có CHECKED_IN booking → OCCUPIED
+     * - Phòng đang OCCUPIED nhưng không có CHECKED_IN booking → AVAILABLE
+     * - Phòng MAINTENANCE / NEEDS_CLEANING → giữ nguyên
+     * Trả về số phòng đã được cập nhật.
+     */
+    int syncRoomStatuses();
 }

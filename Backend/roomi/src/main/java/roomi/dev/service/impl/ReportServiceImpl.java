@@ -62,10 +62,30 @@ public class ReportServiceImpl implements ReportService {
         List<RevenueReportResponse.ServiceRevenueDetail> serviceDetails = 
                 surchargeUsageRepository.findRevenueByService(startDateTime, endDateTime);
 
-   
         BigDecimal totalRevenue = roomRevenue.add(serviceRevenue);
 
-        
+        // Build daily revenue: lấy từ DB rồi fill đủ từng ngày (ngày không có invoice → 0)
+        List<Object[]> rawDaily = invoiceRepository.findDailyRevenue(startDateTime, endDateTime);
+        Map<String, BigDecimal> dailyMap = new java.util.HashMap<>();
+        for (Object[] row : rawDaily) {
+            if (row[0] != null && row[1] != null) {
+                String dateKey = row[0].toString(); // "2026-07-01" hoặc java.sql.Date
+                if (dateKey.length() > 10) dateKey = dateKey.substring(0, 10); // trim time nếu có
+                dailyMap.put(dateKey, (BigDecimal) row[1]);
+            }
+        }
+
+        List<RevenueReportResponse.DailyRevenue> dailyRevenues = new ArrayList<>();
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            String key = current.toString(); // "2026-07-01"
+            dailyRevenues.add(RevenueReportResponse.DailyRevenue.builder()
+                    .date(key)
+                    .revenue(dailyMap.getOrDefault(key, BigDecimal.ZERO))
+                    .build());
+            current = current.plusDays(1);
+        }
+
         return RevenueReportResponse.builder()
                 .totalRevenue(totalRevenue)
                 .totalRoomRevenue(roomRevenue)
@@ -73,8 +93,10 @@ public class ReportServiceImpl implements ReportService {
                 .totalInvoices(totalInvoices)
                 .roomTypeRevenues(roomTypeDetails)
                 .serviceRevenues(serviceDetails)
+                .dailyRevenues(dailyRevenues)
                 .build();
     }
+
 
     @Override
     public byte[] exportRevenueReportExcel(LocalDate startDate, LocalDate endDate) {

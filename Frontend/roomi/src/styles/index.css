@@ -11,6 +11,7 @@
   --bg-glass: rgba(18, 19, 26, 0.75);
   --border-color: rgba(255, 255, 255, 0.08);
   --border-focus: rgba(99, 102, 241, 0.5);
+  --bg-gradient: radial-gradient(circle at top right, rgba(99, 102, 241, 0.15) 0%, rgba(10, 11, 16, 1) 60%);
 
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
@@ -73,6 +74,7 @@
   --primary: #4f46e5;
   --primary-hover: #4338ca;
   --primary-glow: rgba(79, 70, 229, 0.15);
+  --bg-gradient: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08) 0%, rgba(248, 250, 252, 1) 60%);
 }
 
 * {
