@@ -19,7 +19,8 @@ import roomi.dev.service.ReportService;
 import roomi.dev.service.SessionService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-
+import roomi.dev.dto.request.DateRangeRequest;
+import roomi.dev.dto.response.OccupancyReportResponse;
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
@@ -35,19 +36,17 @@ public class ReportController {
             @RequestHeader(value = "Authorization", required = false) String token,
             RevenueRequest request) { 
 
-        // 1. Kiểm tra token có tồn tại không
+       
         if (token == null || token.isBlank()) {
             throw new BusinessException("Thiếu token xác thực", ErrorCode.ACCESS_DENIED);
         }
 
         String cleanToken = token.startsWith("Bearer ") ? token.substring(7) : token;
 
-        // 2. Lấy thông tin User từ Session đang hoạt động
+        
         User currentUser = sessionService.getUserBySession(cleanToken)
                 .orElseThrow(() -> new BusinessException("Session không hợp lệ hoặc đã hết hạn", ErrorCode.ACCESS_DENIED));
 
-        // 3. Kiểm tra phân quyền: Chỉ cho phép ADMIN, OWNER hoặc ACCOUNTANT xem báo cáo
-        // (Giả sử enum Role trong model của bạn có các giá trị: ADMIN, OWNER, ACCOUNTANT)
         boolean hasPermission = currentUser.getRole() == User.Role.ADMIN ||
                                 currentUser.getRole() == User.Role.OWNER ||
                                 currentUser.getRole() == User.Role.ACCOUNTANT;
@@ -56,7 +55,7 @@ public class ReportController {
             throw new BusinessException("Bạn không có quyền xem báo cáo doanh thu", ErrorCode.INSUFFICIENT_PRIVILEGES);
         }
 
-        // 4. Validate tính hợp lệ của ngày tháng đầu vào
+      
         if (request.getStartDate() == null || request.getEndDate() == null) {
             throw new BusinessException("Vui lòng cung cấp đầy đủ ngày bắt đầu và ngày kết thúc", ErrorCode.BAD_REQUEST);
         }
@@ -64,7 +63,7 @@ public class ReportController {
             throw new BusinessException("Ngày bắt đầu không được lớn hơn ngày kết thúc", ErrorCode.BAD_REQUEST);
         }
 
-        // 5. Gọi Service tính toán và trả về kết quả
+        
         RevenueReportResponse report = reportService.getRevenueReport(request.getStartDate(), request.getEndDate());
 
         return ResponseEntity.ok(BaseResponse.<RevenueReportResponse>builder()
@@ -78,7 +77,7 @@ public class ReportController {
             @RequestHeader(value = "Authorization", required = false) String token,
             RevenueRequest request) {
 
-        // 1. Check Token và Quyền (y hệt như API JSON cũ)
+        
         if (token == null || token.isBlank()) {
             throw new BusinessException("Thiếu token xác thực", ErrorCode.ACCESS_DENIED);
         }
@@ -93,15 +92,15 @@ public class ReportController {
             throw new BusinessException("Bạn không có quyền xuất báo cáo", ErrorCode.INSUFFICIENT_PRIVILEGES);
         }
 
-        // 2. Validate dữ liệu
+       
         if (request.getStartDate() == null || request.getEndDate() == null) {
             throw new BusinessException("Vui lòng cung cấp đầy đủ ngày bắt đầu và ngày kết thúc", ErrorCode.BAD_REQUEST);
         }
 
-        // 3. Gọi Service để lấy mảng byte của file Excel
+       
         byte[] excelFile = reportService.exportRevenueReportExcel(request.getStartDate(), request.getEndDate());
 
-        // 4. Cấu hình Header để báo cho trình duyệt biết đây là file cần tải về
+        
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         headers.setContentDispositionFormData("attachment", "Bao_Cao_Doanh_Thu_" + request.getStartDate() + ".xlsx");
@@ -110,5 +109,44 @@ public class ReportController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(excelFile);
+    }
+
+    @GetMapping("/occupancy")
+    public ResponseEntity<BaseResponse<OccupancyReportResponse>> getOccupancyReport(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            DateRangeRequest request) {
+
+       
+        if (token == null || token.isBlank()) {
+            throw new BusinessException("Thiếu token xác thực", ErrorCode.ACCESS_DENIED);
+        }
+        String cleanToken = token.startsWith("Bearer ") ? token.substring(7) : token;
+
+        
+        User currentUser = sessionService.getUserBySession(cleanToken)
+                .orElseThrow(() -> new BusinessException("Session không hợp lệ hoặc đã hết hạn", ErrorCode.ACCESS_DENIED));
+
+        boolean hasPermission = currentUser.getRole() == User.Role.ADMIN || 
+                                currentUser.getRole() == User.Role.OWNER;
+        
+        if (!hasPermission) {
+            throw new BusinessException("Bạn không có quyền xem báo cáo công suất phòng", ErrorCode.INSUFFICIENT_PRIVILEGES);
+        }
+
+      
+        if (request.getStartDate() == null || request.getEndDate() == null) {
+            throw new BusinessException("Vui lòng cung cấp đầy đủ ngày bắt đầu và ngày kết thúc", ErrorCode.BAD_REQUEST);
+        }
+        if (request.getStartDate().isAfter(request.getEndDate())) {
+            throw new BusinessException("Ngày bắt đầu không được lớn hơn ngày kết thúc", ErrorCode.BAD_REQUEST);
+        }
+
+     
+        OccupancyReportResponse report = reportService.getOccupancyReport(request.getStartDate(), request.getEndDate());
+
+        return ResponseEntity.ok(BaseResponse.<OccupancyReportResponse>builder()
+                .mess("Lấy báo cáo công suất thành công")
+                .data(report)
+                .build());
     }
 }

@@ -93,4 +93,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                                  @Param("roomTypeId") Long roomTypeId,
                                  @Param("fromDate") LocalDate fromDate,
                                  @Param("toDate") LocalDate toDate);
+
+
+    @Query("SELECT COUNT(b.id) FROM Booking b " +
+           "WHERE b.checkInDate <= :date AND b.checkOutDate > :date " +
+           "AND b.status IN :statuses")
+    Long countOccupiedRoomsByDate(@Param("date") LocalDate date,
+                                  @Param("statuses") List<Booking.Status> statuses);
 }
