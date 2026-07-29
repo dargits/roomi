@@ -478,7 +478,7 @@ Authorization: Bearer your-token-here
 - `occupancyRate`: Công suất của ngày, đơn vị phần trăm, làm tròn đến hai chữ số thập phân.
 
 **Quy tắc tính:**
-- Mỗi ngày, hệ thống đếm booking có trạng thái `CONFIRMED` hoặc `CHECKED_IN` đang chiếm phòng trong ngày đó.
+- Mỗi ngày, hệ thống chỉ đếm booking có phòng ở trạng thái `OCCUPIED` và có khoảng lưu trú bao gồm ngày đó.
 - Công suất ngày = `số phòng đang được sử dụng / tổng số phòng * 100`.
 - Công suất trung bình là trung bình cộng của công suất từng ngày trong khoảng được yêu cầu.
 

@@ -61,7 +61,7 @@ public class Booking {
     private LocalDateTime createdAt = LocalDateTime.now();
     
     public enum Status {
-        NEW, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW
+        NEW, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW, OCCUPIED
     }
     
     public enum Source {

@@ -139,29 +139,36 @@ public class ReportServiceImpl implements ReportService {
     public OccupancyReportResponse getOccupancyReport(LocalDate startDate, LocalDate endDate) {
         List<OccupancyReportResponse.DailyOccupancy> dailyList = new ArrayList<>();
         
-        // Cần tổng số phòng để tính % (Giả sử bạn có roomRepository.count(), nếu không hãy đổi lại logic)
+        // Lấy tổng số phòng
         long totalRooms = roomRepository.count(); 
         if (totalRooms == 0) totalRooms = 1; // Tránh lỗi chia cho 0
 
         double totalOccupancyRate = 0;
         long totalDays = 0;
 
-        // Trạng thái hợp lệ
-        List<Booking.Status> validStatuses = Arrays.asList(Booking.Status.CONFIRMED, Booking.Status.CHECKED_IN);
+        // CHỈ LẤY TRẠNG THÁI OCCUPIED THEO YÊU CẦU CỦA BẠN
+        List<Booking.Status> validStatuses = Arrays.asList(Booking.Status.OCCUPIED);
+        
         LocalDate currentDate = startDate;
 
         // Lặp qua từng ngày từ startDate đến endDate
         while (!currentDate.isAfter(endDate)) {
-            Long occupiedCount = bookingRepository.countOccupiedRoomsByDate(currentDate, validStatuses);
+            LocalDateTime startOfDay = currentDate.atStartOfDay();
+            LocalDateTime endOfDay = currentDate.atTime(23, 59, 59);
+
+            // 1. Đếm số phòng OCCUPIED trong ngày
+            Long occupiedCount = bookingRepository.countOccupiedRoomsByDate(startOfDay.toLocalDate(), endOfDay.toLocalDate(), validStatuses);
             if (occupiedCount == null) occupiedCount = 0L;
 
+            // 2. Tính tỷ lệ %
             double occupancyRate = ((double) occupiedCount / totalRooms) * 100.0;
             totalOccupancyRate += occupancyRate;
             totalDays++;
 
+            // 3. Sử dụng builder tạo DailyOccupancy
             OccupancyReportResponse.DailyOccupancy daily = OccupancyReportResponse.DailyOccupancy.builder()
                     .date(currentDate.toString())
-                .occupancyRate(Math.round(occupancyRate * 100.0) / 100.0)
+                    .occupancyRate(Math.round(occupancyRate * 100.0) / 100.0) // Làm tròn 2 chữ số
                     .build();
             
             dailyList.add(daily);
@@ -170,11 +177,13 @@ public class ReportServiceImpl implements ReportService {
             currentDate = currentDate.plusDays(1);
         }
 
+        // 4. Tính trung bình
         double averageOccupancy = (totalDays > 0) ? (totalOccupancyRate / totalDays) : 0;
 
+        // 5. Trả về Response
         return OccupancyReportResponse.builder()
                 .averageOccupancy(Math.round(averageOccupancy * 100.0) / 100.0)
                 .dailyOccupancies(dailyList)
                 .build();
-    }
+}
 }

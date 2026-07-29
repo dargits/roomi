@@ -4,8 +4,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import roomi.dev.model.Booking;
-
+import roomi.dev.model.Booking.Status;
+import org.springframework.data.jpa.repository.Query;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -95,9 +97,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                                  @Param("toDate") LocalDate toDate);
 
 
-    @Query("SELECT COUNT(b.id) FROM Booking b " +
-           "WHERE b.checkInDate <= :date AND b.checkOutDate > :date " +
+    // Hàm tính công suất phòng đã được tách riêng bằng 1 @Query độc lập
+   @Query("SELECT COUNT(b.id) FROM Booking b " +
+           "WHERE b.checkInDate <= :endOfDay AND b.checkOutDate >= :startOfDay " +
            "AND b.status IN :statuses")
-    Long countOccupiedRoomsByDate(@Param("date") LocalDate date,
+    Long countOccupiedRoomsByDate(@Param("startOfDay") LocalDate startOfDay, 
+                                  @Param("endOfDay") LocalDate endOfDay,
                                   @Param("statuses") List<Booking.Status> statuses);
+    
+    
 }
