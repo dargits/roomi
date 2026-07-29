@@ -306,6 +306,189 @@ Authorization: admin-token-here
 
 ---
 
+## 📊 Reports Controller (`/api/v1/reports`)
+
+Tất cả API báo cáo sử dụng tham số query `startDate` và `endDate` theo định dạng ISO `YYYY-MM-DD`. Khoảng ngày được tính bao gồm cả ngày bắt đầu và ngày kết thúc.
+
+### 1. Lấy báo cáo doanh thu
+**GET** `/api/v1/reports/revenue`
+
+**Quyền truy cập:** `ADMIN`, `OWNER`, `ACCOUNTANT`
+
+**Headers:**
+```
+Authorization: Bearer your-token-here
+```
+
+Header cũng chấp nhận token không có tiền tố `Bearer `.
+
+**Query Parameters:**
+
+| Parameter | Required | Format | Description |
+|-----------|----------|--------|-------------|
+| `startDate` | Yes | `YYYY-MM-DD` | Ngày bắt đầu kỳ báo cáo |
+| `endDate` | Yes | `YYYY-MM-DD` | Ngày kết thúc kỳ báo cáo |
+
+**Example Request:**
+```http
+GET /api/v1/reports/revenue?startDate=2026-07-01&endDate=2026-07-31
+Authorization: Bearer your-token-here
+```
+
+**Response Success (200):**
+```json
+{
+  "mess": "Lấy báo cáo doanh thu thành công",
+  "data": {
+    "totalRevenue": 18500000,
+    "totalRoomRevenue": 15000000,
+    "totalServiceRevenue": 3500000,
+    "totalInvoices": 24,
+    "roomTypeRevenues": [
+      {
+        "roomTypeName": "Deluxe",
+        "revenue": 9500000,
+        "invoiceCount": 12
+      },
+      {
+        "roomTypeName": "Standard",
+        "revenue": 5500000,
+        "invoiceCount": 12
+      }
+    ],
+    "serviceRevenues": [
+      {
+        "serviceName": "Giặt là",
+        "revenue": 2000000,
+        "usageCount": 40
+      },
+      {
+        "serviceName": "Ăn sáng",
+        "revenue": 1500000,
+        "usageCount": 30
+      }
+    ]
+  }
+}
+```
+
+**Ý nghĩa dữ liệu:**
+- `totalRevenue`: Tổng tiền phòng và tiền dịch vụ phụ thu.
+- `totalRoomRevenue`: Tổng tiền phòng.
+- `totalServiceRevenue`: Tổng tiền dịch vụ phụ thu.
+- `totalInvoices`: Số hóa đơn được tính trong kỳ.
+- `roomTypeRevenues`: Doanh thu và số hóa đơn nhóm theo loại phòng.
+- `serviceRevenues`: Doanh thu và tổng số lượng sử dụng nhóm theo dịch vụ phụ thu.
+
+**Quy tắc tính:**
+- Báo cáo lấy các hóa đơn có trạng thái `PENDING`, theo thời điểm tạo hóa đơn trong khoảng từ đầu `startDate` đến hết `endDate`.
+- Doanh thu tổng bằng `totalRoomRevenue + totalServiceRevenue`.
+
+**Possible Errors:**
+- `ACCESS_DENIED`: Thiếu token, session không hợp lệ hoặc đã hết hạn.
+- `INSUFFICIENT_PRIVILEGES`: Vai trò không có quyền xem báo cáo doanh thu.
+- `BAD_REQUEST`: Thiếu ngày bắt đầu/kết thúc hoặc `startDate` lớn hơn `endDate`.
+
+---
+
+### 2. Xuất báo cáo doanh thu Excel
+**GET** `/api/v1/reports/revenue/excel`
+
+**Quyền truy cập:** `ADMIN`, `OWNER`, `ACCOUNTANT`
+
+**Headers:**
+```
+Authorization: Bearer your-token-here
+```
+
+**Query Parameters:**
+
+| Parameter | Required | Format | Description |
+|-----------|----------|--------|-------------|
+| `startDate` | Yes | `YYYY-MM-DD` | Ngày bắt đầu kỳ báo cáo |
+| `endDate` | Yes | `YYYY-MM-DD` | Ngày kết thúc kỳ báo cáo |
+
+**Example Request:**
+```http
+GET /api/v1/reports/revenue/excel?startDate=2026-07-01&endDate=2026-07-31
+Authorization: Bearer your-token-here
+```
+
+**Response Success (200):**
+- Response body là dữ liệu tệp Excel `.xlsx`.
+- `Content-Type`: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+- `Content-Disposition`: `attachment; filename="Bao_Cao_Doanh_Thu_{startDate}.xlsx"`
+
+Tệp Excel chứa tổng doanh thu, tổng tiền phòng, tổng tiền dịch vụ và bảng chi tiết doanh thu theo loại phòng.
+
+**Possible Errors:**
+- `ACCESS_DENIED`: Thiếu token, session không hợp lệ hoặc đã hết hạn.
+- `INSUFFICIENT_PRIVILEGES`: Vai trò không có quyền xuất báo cáo.
+- `BAD_REQUEST`: Thiếu `startDate` hoặc `endDate`.
+
+---
+
+### 3. Lấy báo cáo công suất phòng
+**GET** `/api/v1/reports/occupancy`
+
+**Quyền truy cập:** `ADMIN`, `OWNER`
+
+**Headers:**
+```
+Authorization: Bearer your-token-here
+```
+
+**Query Parameters:**
+
+| Parameter | Required | Format | Description |
+|-----------|----------|--------|-------------|
+| `startDate` | Yes | `YYYY-MM-DD` | Ngày bắt đầu kỳ báo cáo |
+| `endDate` | Yes | `YYYY-MM-DD` | Ngày kết thúc kỳ báo cáo |
+
+**Example Request:**
+```http
+GET /api/v1/reports/occupancy?startDate=2026-07-01&endDate=2026-07-07
+Authorization: Bearer your-token-here
+```
+
+**Response Success (200):**
+```json
+{
+  "mess": "Lấy báo cáo công suất thành công",
+  "data": {
+    "averageOccupancy": 67.86,
+    "dailyOccupancies": [
+      {
+        "date": "2026-07-01",
+        "occupancyRate": 60.0
+      },
+      {
+        "date": "2026-07-02",
+        "occupancyRate": 75.71
+      }
+    ]
+  }
+}
+```
+
+**Ý nghĩa dữ liệu:**
+- `averageOccupancy`: Công suất phòng trung bình của toàn bộ ngày trong kỳ, đơn vị phần trăm, làm tròn đến hai chữ số thập phân.
+- `dailyOccupancies`: Danh sách công suất của từng ngày trong kỳ.
+- `date`: Ngày báo cáo theo định dạng `YYYY-MM-DD`.
+- `occupancyRate`: Công suất của ngày, đơn vị phần trăm, làm tròn đến hai chữ số thập phân.
+
+**Quy tắc tính:**
+- Mỗi ngày, hệ thống đếm booking có trạng thái `CONFIRMED` hoặc `CHECKED_IN` đang chiếm phòng trong ngày đó.
+- Công suất ngày = `số phòng đang được sử dụng / tổng số phòng * 100`.
+- Công suất trung bình là trung bình cộng của công suất từng ngày trong khoảng được yêu cầu.
+
+**Possible Errors:**
+- `ACCESS_DENIED`: Thiếu token, session không hợp lệ hoặc đã hết hạn.
+- `INSUFFICIENT_PRIVILEGES`: Vai trò không có quyền xem báo cáo công suất phòng.
+- `BAD_REQUEST`: Thiếu ngày bắt đầu/kết thúc hoặc `startDate` lớn hơn `endDate`.
+
+---
+
 ## 🔑 Error Codes Reference
 
 | Code | Description |
