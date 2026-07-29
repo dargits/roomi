@@ -90,6 +90,20 @@ public class BookingController {
                         .build());
     }
 
+    /**
+     * Endpoint public — khách tự đặt phòng từ trang web, không cần đăng nhập.
+     * createdBy sẽ được set null, BookingServiceImpl tự fallback về user đầu tiên trong DB.
+     */
+    @PostMapping("/public")
+    public ResponseEntity<BaseResponse<BookingResponse>> createPublicBooking(
+            @Valid @RequestBody BookingRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                BaseResponse.<BookingResponse>builder()
+                        .mess("Đặt phòng thành công")
+                        .data(bookingService.createBooking(request, null))
+                        .build());
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<BaseResponse<BookingResponse>> updateBooking(
             @PathVariable Long id,
