@@ -712,7 +712,7 @@ function Bookings({ user, showNotification }) {
                         )}
 
                         {/* Admin/Owner cancel action */}
-                        {b.status !== 'CHECKED_OUT' && b.status !== 'CANCELLED' && user.role !== 'ACCOUNTANT' && (
+                        {b.status !== 'CHECKED_OUT' && b.status !== 'CANCELLED' && b.status !== 'CHECKED_IN' && user.role !== 'ACCOUNTANT' && (
                           <button onClick={() => handleTransition(b.id, 'cancel')} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Hủy đặt phòng">
                             Hủy
                           </button>

@@ -2,15 +2,20 @@ package roomi.dev.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import roomi.dev.dto.request.RoomRequest;
+import roomi.dev.dto.response.OccupancyReportResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
+import roomi.dev.model.Booking;
 import roomi.dev.model.Room;
 import roomi.dev.model.RoomType;
+import roomi.dev.repository.BookingRepository;
 import roomi.dev.repository.RoomRepository;
 import roomi.dev.repository.RoomTypeRepository;
 import roomi.dev.service.RoomService;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -19,6 +24,7 @@ public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
     private final RoomTypeRepository roomTypeRepository;
+    private final BookingRepository bookingRepository;
 
     @Override
     public Room createRoom(RoomRequest request) {
@@ -71,7 +77,7 @@ public class RoomServiceImpl implements RoomService {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy phòng", ErrorCode.INVALID_INPUT));
 
-        List<roomi.dev.model.Booking> bookings = bookingRepository.findByRoomId(id);
+        List<Booking> bookings = bookingRepository.findByRoomId(id);
         if (!bookings.isEmpty()) {
             throw new BusinessException("Không thể xóa phòng đã có lịch sử đặt phòng hoặc đang hoạt động. Hãy chuyển phòng hoặc hủy các đặt phòng liên quan trước.", ErrorCode.INVALID_INPUT);
         }
@@ -79,36 +85,85 @@ public class RoomServiceImpl implements RoomService {
         roomRepository.delete(room);
     }
 
-    private final roomi.dev.repository.BookingRepository bookingRepository;
-
     @Override
+    @Transactional
     public List<Room> getAllRooms() {
         List<Room> rooms = roomRepository.findAllByOrderByFloorAscRoomNumberAsc();
-        java.time.LocalDate today = java.time.LocalDate.now();
+        LocalDate today = LocalDate.now();
 
-        // Tự động kiểm tra booking thực tế trong ngày hôm nay cho từng phòng
         for (Room room : rooms) {
-            // Nếu phòng đang bị bảo trì hoặc cần dọn dẹp thì giữ nguyên
             if (room.getStatus() == Room.Status.MAINTENANCE || room.getStatus() == Room.Status.NEEDS_CLEANING) {
                 continue;
             }
 
-            // Kiểm tra xem phòng có booking nào đang active hôm nay không
-            boolean isOccupiedToday = bookingRepository.isRoomOccupiedOnDate(room.getId(), today);
+            boolean hasCheckedIn = bookingRepository.existsCheckedInBookingForRoomToday(room.getId(), today);
 
-            if (isOccupiedToday) {
+            if (hasCheckedIn && room.getStatus() != Room.Status.OCCUPIED) {
                 room.setStatus(Room.Status.OCCUPIED);
-            } else if (room.getStatus() == Room.Status.OCCUPIED) {
+                roomRepository.save(room);
+            } else if (!hasCheckedIn && room.getStatus() == Room.Status.OCCUPIED) {
                 room.setStatus(Room.Status.AVAILABLE);
+                roomRepository.save(room);
             }
         }
 
         return rooms;
     }
 
+    /**
+     * Đồng bộ trạng thái tất cả phòng theo booking CHECKED_IN đang hoạt động hôm nay.
+     * Trả về số phòng đã được cập nhật.
+     */
+    @Override
+    @Transactional
+    public int syncRoomStatuses() {
+        List<Room> allRooms = roomRepository.findAll();
+        LocalDate today = LocalDate.now();
+        int updated = 0;
+
+        for (Room room : allRooms) {
+            // Bỏ qua phòng đang bảo trì hoặc cần dọn dẹp
+            if (room.getStatus() == Room.Status.MAINTENANCE
+                    || room.getStatus() == Room.Status.NEEDS_CLEANING) {
+                continue;
+            }
+
+            boolean hasCheckedIn = bookingRepository.existsCheckedInBookingForRoomToday(room.getId(), today);
+
+            if (hasCheckedIn && room.getStatus() != Room.Status.OCCUPIED) {
+                room.setStatus(Room.Status.OCCUPIED);
+                roomRepository.save(room);
+                updated++;
+            } else if (!hasCheckedIn && room.getStatus() == Room.Status.OCCUPIED) {
+                room.setStatus(Room.Status.AVAILABLE);
+                roomRepository.save(room);
+                updated++;
+            }
+        }
+
+        return updated;
+    }
+
     @Override
     public Room getRoomById(Long id) {
         return roomRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy phòng", ErrorCode.INVALID_INPUT));
+    }
+
+    public OccupancyReportResponse getCurrentOccupancyReport() {
+        long totalRooms = roomRepository.count();
+        long occupiedRooms = roomRepository.countByStatus(Room.Status.OCCUPIED);
+
+        double occupancyRate = totalRooms > 0 
+                ? ((double) occupiedRooms / totalRooms) * 100.0 
+                : 0.0;
+
+        occupancyRate = Math.round(occupancyRate * 100.0) / 100.0;
+
+        return OccupancyReportResponse.builder()
+                .totalRooms(totalRooms)
+                .occupiedRooms(occupiedRooms)
+                .occupancyRate(occupancyRate)
+                .build();
     }
 }

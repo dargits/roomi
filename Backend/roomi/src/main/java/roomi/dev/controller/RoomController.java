@@ -59,4 +59,17 @@ public class RoomController {
                 .mess("Xóa phòng thành công")
                 .build());
     }
+
+    /**
+     * Đồng bộ trạng thái tất cả phòng theo booking CHECKED_IN đang hoạt động hôm nay.
+     * Gọi endpoint này sau mỗi lần load sơ đồ phòng hoặc khi nghi ngờ dữ liệu lệch.
+     */
+    @PostMapping("/sync-status")
+    public ResponseEntity<BaseResponse<String>> syncRoomStatuses() {
+        int updated = roomService.syncRoomStatuses();
+        return ResponseEntity.ok(BaseResponse.<String>builder()
+                .mess("Đồng bộ trạng thái phòng thành công")
+                .data("Đã cập nhật " + updated + " phòng")
+                .build());
+    }
 }

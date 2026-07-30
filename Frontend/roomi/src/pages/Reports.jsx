@@ -17,19 +17,25 @@ import {
 } from 'lucide-react';
 
 // Simplified SVG Line Chart Component for Reports Page
-const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => {
+const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey, isPercent, showValueLabel }) => {
   if (!data || data.length === 0) return null;
 
-  const width = 500;
-  const height = 220;
-  const padding = 35;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
+  const width = 1000;
+  const height = 260;
+  const paddingTop = 40;   // thêm khoảng trên để chứa label giá trị
+  const paddingBottom = 35;
+  const paddingX = 35;
+  const chartWidth = width - paddingX * 2;
+  const chartHeight = height - paddingTop - paddingBottom;
 
   const maxVal = Math.max(...data.map(d => d[yKey]), 1);
+  const hasNonZero = data.some(d => d[yKey] > 0);
 
-  // Helper for compact currency formatting (e.g. 1.2 Tr)
+  // Helper for compact formatting
   const formatCompact = (val) => {
+    if (isPercent) {
+      return val.toFixed(1).replace('.0', '') + '%';
+    }
     if (val >= 1000000) {
       return (val / 1000000).toFixed(1).replace('.0', '') + ' Tr';
     }
@@ -42,8 +48,8 @@ const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => 
   const points = data.map((d, index) => {
     const divisor = data.length > 1 ? data.length - 1 : 2;
     const offset = data.length > 1 ? index : 1;
-    const x = padding + (offset / divisor) * chartWidth;
-    const y = padding + chartHeight - (d[yKey] / maxVal) * (chartHeight - 20); // Leave space for values on top
+    const x = paddingX + (offset / divisor) * chartWidth;
+    const y = paddingTop + chartHeight - (d[yKey] / maxVal) * chartHeight;
     return { x, y, label: d[xLabelKey], val: d[yKey] };
   });
 
@@ -57,11 +63,24 @@ const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => 
 
   let fillD = '';
   if (points.length > 0) {
-    fillD = `${pathD} L ${points[points.length - 1].x} ${padding + chartHeight} L ${points[0].x} ${padding + chartHeight} Z`;
+    fillD = `${pathD} L ${points[points.length - 1].x} ${paddingTop + chartHeight} L ${points[0].x} ${paddingTop + chartHeight} Z`;
   }
 
+  // Xác định những điểm nào sẽ hiện label
+  // Nếu có điểm > 0: chỉ hiện label cho điểm > 0
+  // Nếu tất cả = 0: không hiện gì
+  const shouldShowLabel = (pt, i) => {
+    if (!hasNonZero) return false;
+    if (showValueLabel === false) return false;
+    // Luôn hiện nếu val > 0
+    if (pt.val > 0) return true;
+    // Nếu showValueLabel === true, hiện tất cả (kể cả 0)
+    if (showValueLabel === true) return true;
+    return false;
+  };
+
   return (
-    <div style={{ width: '100%', height: '220px', position: 'relative' }}>
+    <div style={{ width: '100%', height: '260px', position: 'relative' }}>
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%" style={{ overflow: 'visible' }}>
         <defs>
           <linearGradient id={`gradient-${xKey}`} x1="0" y1="0" x2="0" y2="1">
@@ -76,13 +95,13 @@ const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => 
 
         {/* Horizontal grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-          const y = padding + ratio * chartHeight;
+          const y = paddingTop + ratio * chartHeight;
           return (
             <line
               key={i}
-              x1={padding}
+              x1={paddingX}
               y1={y}
-              x2={padding + chartWidth}
+              x2={paddingX + chartWidth}
               y2={y}
               stroke="var(--border-color)"
               strokeDasharray="4 4"
@@ -107,56 +126,85 @@ const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => 
         )}
 
         {/* Point dots & Labels */}
-        {points.map((pt, i) => (
-          <g key={i}>
-            {/* Dot glow */}
-            <circle
-              cx={pt.x}
-              cy={pt.y}
-              r="7"
-              fill={colorStart}
-              fillOpacity="0.15"
-            />
-            {/* Main Dot */}
-            <circle
-              cx={pt.x}
-              cy={pt.y}
-              r="4"
-              fill="var(--bg-secondary)"
-              stroke={colorStart}
-              strokeWidth="2"
-            />
-            {/* Label on X axis */}
-            <text
-              x={pt.x}
-              y={padding + chartHeight + 18}
-              fill="var(--text-secondary)"
-              fontSize="10"
-              fontWeight="600"
-              textAnchor="middle"
-            >
-              {pt.label && pt.label.length > 14 ? pt.label.substring(0, 12) + '..' : pt.label}
-            </text>
-            {/* Value on top of point */}
-            <text
-              x={pt.x}
-              y={pt.y - 10}
-              fill="var(--text-primary)"
-              fontSize="10"
-              fontWeight="700"
-              textAnchor="middle"
-            >
-              {formatCompact(pt.val)}
-            </text>
-          </g>
-        ))}
+        {points.map((pt, i) => {
+          const showLabel = shouldShowLabel(pt, i);
+          const labelText = formatCompact(pt.val);
+          // Ước lượng chiều rộng text để vẽ background
+          const textWidth = labelText.length * 6.5 + 8;
+          const textHeight = 14;
+          const labelY = pt.y - 14;
+          const rectY = labelY - textHeight + 3;
+          const rectX = pt.x - textWidth / 2;
+
+          return (
+            <g key={i}>
+              {/* Dot glow */}
+              <circle
+                cx={pt.x}
+                cy={pt.y}
+                r={pt.val > 0 ? '8' : '5'}
+                fill={colorStart}
+                fillOpacity={pt.val > 0 ? '0.2' : '0.08'}
+              />
+              {/* Main Dot */}
+              <circle
+                cx={pt.x}
+                cy={pt.y}
+                r={pt.val > 0 ? '5' : '3'}
+                fill="var(--bg-secondary)"
+                stroke={colorStart}
+                strokeWidth={pt.val > 0 ? '2.5' : '1.5'}
+                strokeOpacity={pt.val > 0 ? '1' : '0.5'}
+              />
+              {/* Label on X axis */}
+              <text
+                x={pt.x}
+                y={paddingTop + chartHeight + 18}
+                fill="var(--text-secondary)"
+                fontSize="10"
+                fontWeight="600"
+                textAnchor="middle"
+              >
+                {pt.label && pt.label.length > 14 ? pt.label.substring(0, 12) + '..' : pt.label}
+              </text>
+              {/* Value label trên đỉnh điểm — chỉ hiện khi val > 0 */}
+              {showLabel && (
+                <g>
+                  {/* Nền mờ phía sau text */}
+                  <rect
+                    x={rectX}
+                    y={rectY}
+                    width={textWidth}
+                    height={textHeight}
+                    rx="3"
+                    fill="var(--bg-card)"
+                    fillOpacity="0.85"
+                    stroke={colorStart}
+                    strokeOpacity="0.3"
+                    strokeWidth="0.5"
+                  />
+                  <text
+                    x={pt.x}
+                    y={labelY}
+                    fill={colorStart}
+                    fontSize="10"
+                    fontWeight="800"
+                    textAnchor="middle"
+                  >
+                    {labelText}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
 };
 
 // Simplified SVG Bar Chart Component for Reports Page
-const SVGBarChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => {
+const SVGBarChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey, isPercent }) => {
   if (!data || data.length === 0) return null;
 
   const width = 500;
@@ -168,6 +216,9 @@ const SVGBarChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => {
   const maxVal = Math.max(...data.map(d => d[yKey]), 1);
 
   const formatCompact = (val) => {
+    if (isPercent) {
+      return val.toFixed(1).replace('.0', '') + '%';
+    }
     if (val >= 1000000) {
       return (val / 1000000).toFixed(1).replace('.0', '') + ' Tr';
     }
@@ -260,22 +311,12 @@ const SVGBarChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey }) => {
 };
 
 // Helper to generate a daily trend series based on total revenue and date range
+// Fallback khi backend chưa trả về dailyRevenues — tạo 1 điểm/ngày cho toàn bộ khoảng thời gian
 const generateDailyTrend = (totalRev, startStr, endStr) => {
-  const start = new Date(startStr);
-  const end = new Date(endStr);
-  const diffTime = Math.abs(end - start);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-  // We want to limit the points on the chart (max 10 points for a readable chart)
-  let pointsCount = diffDays;
-  let step = 1;
-  if (diffDays > 12) {
-    pointsCount = 10;
-    step = Math.ceil(diffDays / 10);
-  }
-
-  const trendData = [];
-  let remainingRevenue = totalRev;
+  const start = new Date(startStr + 'T00:00:00');
+  const end = new Date(endStr + 'T00:00:00');
+  const diffTime = end - start;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
   // Stable pseudo-random seed based on dates so that it doesn't bounce on hover state updates!
   let seed = start.getTime() + end.getTime() + totalRev;
@@ -284,13 +325,17 @@ const generateDailyTrend = (totalRev, startStr, endStr) => {
     return x - Math.floor(x);
   };
 
+  const trendData = [];
+  let remainingRevenue = totalRev;
+  const pointsCount = diffDays;
+
   for (let i = 0; i < pointsCount; i++) {
     const currentDate = new Date(start);
-    currentDate.setDate(start.getDate() + i * step);
+    currentDate.setDate(start.getDate() + i);
 
     let dayRevenue = 0;
     if (i === pointsCount - 1) {
-      dayRevenue = remainingRevenue;
+      dayRevenue = Math.max(0, remainingRevenue);
     } else {
       const average = totalRev / pointsCount;
       const factor = 0.4 + pseudoRandom() * 1.2; // 40% to 160% of average
@@ -298,9 +343,10 @@ const generateDailyTrend = (totalRev, startStr, endStr) => {
       remainingRevenue -= dayRevenue;
     }
 
-    const dateLabel = currentDate.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric' });
+    const day = currentDate.getDate();
+    const month = currentDate.getMonth() + 1;
     trendData.push({
-      date: dateLabel,
+      date: `${day}/${month}`,
       revenue: dayRevenue
     });
   }
@@ -380,6 +426,12 @@ function Reports({ user, showNotification }) {
   const [hoveredDonutSegment, setHoveredDonutSegment] = useState(null); // 'room' | 'service' | null
   const [exportingExcel, setExportingExcel] = useState(false);
 
+  // Occupancy Report states
+  const [activeTab, setActiveTab] = useState('revenue');
+  const [occupancyData, setOccupancyData] = useState(null);
+  const [loadingOccupancy, setLoadingOccupancy] = useState(false);
+  const [selectedOccupancyDate, setSelectedOccupancyDate] = useState('');
+
   const fetchRevenueReport = async () => {
     if (!startDate || !endDate) {
       showNotification('Vui lòng nhập đầy đủ ngày bắt đầu và ngày kết thúc', 'error');
@@ -405,9 +457,47 @@ function Reports({ user, showNotification }) {
     }
   };
 
+  const fetchOccupancyReport = async () => {
+    if (!startDate || !endDate) {
+      showNotification('Vui lòng nhập đầy đủ ngày bắt đầu và ngày kết thúc', 'error');
+      return;
+    }
+    if (startDate > endDate) {
+      showNotification('Ngày bắt đầu không được lớn hơn ngày kết thúc', 'error');
+      return;
+    }
+
+    try {
+      setLoadingOccupancy(true);
+      const res = await api.get('/reports/occupancy', {
+        params: { startDate, endDate }
+      });
+      if (res.data && res.data.data) {
+        const data = res.data.data;
+        setOccupancyData(data);
+        if (data.dailyOccupancies && data.dailyOccupancies.length > 0) {
+          const dateExists = data.dailyOccupancies.some(d => d.date === selectedOccupancyDate);
+          if (!dateExists) {
+            setSelectedOccupancyDate(data.dailyOccupancies[0].date);
+          }
+        } else {
+          setSelectedOccupancyDate('');
+        }
+      }
+    } catch (err) {
+      showNotification(err.message || 'Không thể lấy báo cáo công suất phòng', 'error');
+    } finally {
+      setLoadingOccupancy(false);
+    }
+  };
+
   useEffect(() => {
-    fetchRevenueReport();
-  }, [startDate, endDate]);
+    if (activeTab === 'revenue') {
+      fetchRevenueReport();
+    } else if (activeTab === 'occupancy') {
+      fetchOccupancyReport();
+    }
+  }, [startDate, endDate, activeTab]);
 
   const handlePresetClick = (preset) => {
     setDatePreset(preset);
@@ -493,32 +583,66 @@ function Reports({ user, showNotification }) {
         gap: '16px' 
       }}>
         <div>
-          <h1 className="page-title">Báo cáo doanh thu</h1>
-          <p className="page-subtitle">Xem thống kê doanh số bán phòng và dịch vụ phụ thu của khách sạn</p>
+          <h1 className="page-title">
+            {activeTab === 'revenue' ? 'Báo cáo doanh thu' : 'Báo cáo công suất phòng'}
+          </h1>
+          <p className="page-subtitle">
+            {activeTab === 'revenue' 
+              ? 'Xem thống kê doanh số bán phòng và dịch vụ phụ thu của khách sạn' 
+              : 'Xem thống kê hiệu suất sử dụng phòng nghỉ của khách sạn'}
+          </p>
         </div>
         
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button 
-            onClick={handleExportExcel} 
-            className="btn btn-success" 
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            disabled={loading || !reportData || exportingExcel}
-          >
-            <Download size={16} />
-            {exportingExcel ? 'Đang xuất...' : 'Xuất Excel'}
-          </button>
+          {activeTab === 'revenue' && (
+            <button 
+              onClick={handleExportExcel} 
+              className="btn btn-success" 
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled={loading || !reportData || exportingExcel}
+            >
+              <Download size={16} />
+              {exportingExcel ? 'Đang xuất...' : 'Xuất Excel'}
+            </button>
+          )}
 
           <button 
             onClick={handlePrint} 
             className="btn btn-secondary" 
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            disabled={loading || !reportData}
+            disabled={activeTab === 'revenue' ? (loading || !reportData) : (loadingOccupancy || !occupancyData)}
           >
             <FileText size={16} />
             In báo cáo (PDF)
           </button>
         </div>
       </div>
+
+      {/* Tab selection bar (only visible if admin or owner) */}
+      {(user.role === 'OWNER' || user.role === 'ADMIN') && (
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          borderBottom: '1px solid var(--border-color)',
+          paddingBottom: '8px',
+          marginBottom: '10px'
+        }}>
+          <button
+            onClick={() => setActiveTab('revenue')}
+            className={`btn ${activeTab === 'revenue' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', fontWeight: '600' }}
+          >
+            Báo cáo Doanh thu
+          </button>
+          <button
+            onClick={() => setActiveTab('occupancy')}
+            className={`btn ${activeTab === 'occupancy' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', fontWeight: '600' }}
+          >
+            Công suất phòng
+          </button>
+        </div>
+      )}
 
       {/* Date Filter & Preset Controls */}
       <div className="card" style={{ 
@@ -622,15 +746,16 @@ function Reports({ user, showNotification }) {
         </div>
       </div>
 
-      {loading ? (
-        <PageLoader message="Đang kết xuất báo cáo doanh thu..." />
-      ) : !reportData ? (
-        <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          <AlertCircle size={32} style={{ marginBottom: '12px', color: 'var(--text-muted)' }} />
-          <p>Không có dữ liệu báo cáo nào được tải.</p>
-        </div>
-      ) : (
-        <>
+      {activeTab === 'revenue' ? (
+        loading ? (
+          <PageLoader message="Đang kết xuất báo cáo doanh thu..." />
+        ) : !reportData ? (
+          <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <AlertCircle size={32} style={{ marginBottom: '12px', color: 'var(--text-muted)' }} />
+            <p>Không có dữ liệu báo cáo doanh thu nào được tải.</p>
+          </div>
+        ) : (
+          <>
           {/* KPI Dashboard Cards */}
           <div style={{ 
             display: 'grid', 
@@ -832,13 +957,29 @@ function Reports({ user, showNotification }) {
               </div>
             ) : (
               <div style={{ padding: '10px 0' }}>
-                <SVGLineChart 
-                  data={generateDailyTrend(totalRevenue, startDate, endDate)} 
-                  xKey="date" 
-                  yKey="revenue" 
-                  xLabelKey="date" 
-                  colorStart="var(--primary)" 
-                  colorEnd="#3b82f6" 
+                <SVGLineChart
+                  data={(() => {
+                    const dailies = reportData?.dailyRevenues;
+                    if (dailies && dailies.length > 0) {
+                      // Dữ liệu thực tế từ backend: chuyển "2026-07-01" → "1/7"
+                      return dailies.map(d => ({
+                        date: (() => {
+                          const parts = d.date.split('-');
+                          return parts.length === 3
+                            ? `${parseInt(parts[2])}/${parseInt(parts[1])}`
+                            : d.date;
+                        })(),
+                        revenue: d.revenue || 0
+                      }));
+                    }
+                    // Fallback: doanh thu ước tính khi backend chưa trả về daily data
+                    return generateDailyTrend(totalRevenue, startDate, endDate);
+                  })()}
+                  xKey="date"
+                  yKey="revenue"
+                  xLabelKey="date"
+                  colorStart="var(--primary)"
+                  colorEnd="#3b82f6"
                 />
               </div>
             )}
@@ -1230,6 +1371,617 @@ function Reports({ user, showNotification }) {
 
           </div>
         </>
+      ) ) : (
+        loadingOccupancy ? (
+          <PageLoader message="Đang kết xuất báo cáo công suất phòng..." />
+        ) : !occupancyData ? (
+          <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <AlertCircle size={32} style={{ marginBottom: '12px', color: 'var(--text-muted)' }} />
+            <p>Không có dữ liệu báo cáo công suất phòng nào được tải.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
+            {/* KPI Cards */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+              gap: '20px' 
+            }}>
+              {/* Avg Occupancy Rate */}
+              <div className="card kpi-card" style={{
+                position: 'relative',
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, var(--bg-card) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                transition: 'var(--transition-normal)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Công suất trung bình
+                  </span>
+                  <div style={{ 
+                    padding: '8px', 
+                    borderRadius: '10px', 
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)', 
+                    color: '#34d399' 
+                  }}>
+                    <TrendingUp size={20} />
+                  </div>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                    {occupancyData.averageOccupancy}%
+                  </h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Của cả đợt báo cáo</span>
+                </div>
+                <div style={{ 
+                  position: 'absolute', 
+                  bottom: '-20px', 
+                  right: '-20px', 
+                  opacity: 0.05, 
+                  color: 'var(--color-available)' 
+                }}>
+                  <TrendingUp size={100} />
+                </div>
+              </div>
+
+              {/* Peak Occupancy Rate */}
+              <div className="card kpi-card" style={{
+                position: 'relative',
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, var(--bg-card) 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                transition: 'var(--transition-normal)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Công suất cao nhất
+                  </span>
+                  <div style={{ 
+                    padding: '8px', 
+                    borderRadius: '10px', 
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)', 
+                    color: '#60a5fa' 
+                  }}>
+                    <TrendingUp size={20} />
+                  </div>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                    {(() => {
+                      let maxRate = 0;
+                      if (occupancyData.dailyOccupancies) {
+                        occupancyData.dailyOccupancies.forEach(d => {
+                          if (d.occupancyRate > maxRate) maxRate = d.occupancyRate;
+                        });
+                      }
+                      return maxRate;
+                    })()}%
+                  </h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Ngày: {(() => {
+                      let maxRate = -1;
+                      let mDate = 'N/A';
+                      if (occupancyData.dailyOccupancies) {
+                        occupancyData.dailyOccupancies.forEach(d => {
+                          if (d.occupancyRate > maxRate) {
+                            maxRate = d.occupancyRate;
+                            mDate = d.date;
+                          }
+                        });
+                      }
+                      try {
+                        const parts = mDate.split('-');
+                        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                      } catch (e) {
+                        return mDate;
+                      }
+                    })()}
+                  </span>
+                </div>
+                <div style={{ 
+                  position: 'absolute', 
+                  bottom: '-20px', 
+                  right: '-20px', 
+                  opacity: 0.05, 
+                  color: '#3b82f6' 
+                }}>
+                  <TrendingUp size={100} />
+                </div>
+              </div>
+
+              {/* Low Occupancy Rate */}
+              <div className="card kpi-card" style={{
+                position: 'relative',
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, var(--bg-card) 100%)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                transition: 'var(--transition-normal)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Công suất thấp nhất
+                  </span>
+                  <div style={{ 
+                    padding: '8px', 
+                    borderRadius: '10px', 
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)', 
+                    color: '#f87171' 
+                  }}>
+                    <TrendingUp size={20} />
+                  </div>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                    {(() => {
+                      let minRate = 100;
+                      if (occupancyData.dailyOccupancies && occupancyData.dailyOccupancies.length > 0) {
+                        occupancyData.dailyOccupancies.forEach(d => {
+                          if (d.occupancyRate < minRate) minRate = d.occupancyRate;
+                        });
+                      } else {
+                        minRate = 0;
+                      }
+                      return minRate;
+                    })()}%
+                  </h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Ngày: {(() => {
+                      let minRate = 101;
+                      let mDate = 'N/A';
+                      if (occupancyData.dailyOccupancies && occupancyData.dailyOccupancies.length > 0) {
+                        occupancyData.dailyOccupancies.forEach(d => {
+                          if (d.occupancyRate < minRate) {
+                            minRate = d.occupancyRate;
+                            mDate = d.date;
+                          }
+                        });
+                      }
+                      try {
+                        const parts = mDate.split('-');
+                        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                      } catch (e) {
+                        return mDate;
+                      }
+                    })()}
+                  </span>
+                </div>
+                <div style={{ 
+                  position: 'absolute', 
+                  bottom: '-20px', 
+                  right: '-20px', 
+                  opacity: 0.05, 
+                  color: '#ef4444' 
+                }}>
+                  <TrendingUp size={100} />
+                </div>
+              </div>
+
+              {/* Total Reporting Days */}
+              <div className="card kpi-card" style={{
+                position: 'relative',
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, var(--bg-card) 100%)',
+                border: '1px solid rgba(168, 85, 247, 0.2)',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                transition: 'var(--transition-normal)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Số ngày thống kê
+                  </span>
+                  <div style={{ 
+                    padding: '8px', 
+                    borderRadius: '10px', 
+                    backgroundColor: 'rgba(168, 85, 247, 0.2)', 
+                    color: '#c084fc' 
+                  }}>
+                    <Calendar size={20} />
+                  </div>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                    {occupancyData.dailyOccupancies ? occupancyData.dailyOccupancies.length : 0}
+                  </h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ngày hoạt động</span>
+                </div>
+                <div style={{ 
+                  position: 'absolute', 
+                  bottom: '-20px', 
+                  right: '-20px', 
+                  opacity: 0.05, 
+                  color: '#a855f7' 
+                }}>
+                  <Calendar size={100} />
+                </div>
+              </div>
+            </div>
+
+            {/* Line Chart */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '24px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <TrendingUp size={18} color="var(--primary)" />
+                Xu hướng công suất phòng (%)
+              </h2>
+              {(!occupancyData.dailyOccupancies || occupancyData.dailyOccupancies.length === 0) ? (
+                <div style={{ 
+                  height: '180px', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  color: 'var(--text-muted)' 
+                }}>
+                  <Info size={24} style={{ marginBottom: '8px' }} />
+                  <span>Không có dữ liệu trong khoảng thời gian này</span>
+                </div>
+              ) : (
+                <div style={{ padding: '10px 0' }}>
+                  <SVGLineChart 
+                    data={occupancyData.dailyOccupancies.map(d => ({
+                      ...d,
+                      dateLabel: (() => {
+                        try {
+                          const parts = d.date.split('-');
+                          return `${parseInt(parts[2])}/${parseInt(parts[1])}`;
+                        } catch (e) {
+                          return d.date;
+                        }
+                      })()
+                    }))} 
+                    xKey="date" 
+                    yKey="occupancyRate" 
+                    xLabelKey="dateLabel" 
+                    colorStart="#10b981" 
+                    colorEnd="#059669" 
+                    isPercent={true}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Room Type breakdown & Quick Stats */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+              gap: '24px' 
+            }}>
+              
+              {/* Room type breakdown chart */}
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '24px' }}>
+                <h2 style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <BarChart3 size={18} color="var(--primary)" />
+                  Hiệu suất sử dụng theo loại phòng (%)
+                </h2>
+
+                {(!occupancyData.dailyOccupancies || occupancyData.dailyOccupancies.length === 0) ? (
+                  <div style={{ 
+                    height: '240px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    color: 'var(--text-muted)' 
+                  }}>
+                    <Info size={24} style={{ marginBottom: '8px' }} />
+                    <span>Không có dữ liệu loại phòng</span>
+                  </div>
+                ) : (
+                  <div style={{ padding: '10px 0' }}>
+                    <SVGBarChart 
+                      data={(() => {
+                        const summary = {};
+                        occupancyData.dailyOccupancies.forEach(day => {
+                          if (day.roomTypeOccupancies) {
+                            day.roomTypeOccupancies.forEach(rt => {
+                              if (!summary[rt.roomTypeId]) {
+                                summary[rt.roomTypeId] = {
+                                  roomTypeName: rt.roomTypeName,
+                                  totalRoomsSum: 0,
+                                  occupiedRoomsSum: 0,
+                                  daysCount: 0
+                                };
+                              }
+                              summary[rt.roomTypeId].totalRoomsSum += rt.totalRooms;
+                              summary[rt.roomTypeId].occupiedRoomsSum += rt.occupiedRooms;
+                              summary[rt.roomTypeId].daysCount += 1;
+                            });
+                          }
+                        });
+
+                        return Object.keys(summary).map(key => {
+                          const item = summary[key];
+                          const avgTotal = item.daysCount > 0 ? (item.totalRoomsSum / item.daysCount) : 0;
+                          const avgOccupied = item.daysCount > 0 ? (item.occupiedRoomsSum / item.daysCount) : 0;
+                          const avgRate = avgTotal > 0 ? (avgOccupied / avgTotal) * 100.0 : 0.0;
+                          return {
+                            roomTypeName: item.roomTypeName,
+                            occupancyRate: Math.round(avgRate * 100) / 100
+                          };
+                        }).sort((a, b) => b.occupancyRate - a.occupancyRate).slice(0, 5);
+                      })()} 
+                      xKey="roomTypeName" 
+                      yKey="occupancyRate" 
+                      xLabelKey="roomTypeName" 
+                      colorStart="#10b981" 
+                      colorEnd="#34d399" 
+                      isPercent={true}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Table of room type efficiency */}
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '24px' }}>
+                <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>Bảng hiệu suất loại phòng nghỉ</h2>
+                <div className="table-container" style={{ border: 'none', background: 'transparent', margin: 0, overflowX: 'auto' }}>
+                  <table style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Loại phòng</th>
+                        <th style={{ textAlign: 'center' }}>Số phòng TB/ngày</th>
+                        <th style={{ textAlign: 'center' }}>Số phòng thuê TB/ngày</th>
+                        <th style={{ textAlign: 'right' }}>Hiệu suất trung bình</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const summary = {};
+                        occupancyData.dailyOccupancies.forEach(day => {
+                          if (day.roomTypeOccupancies) {
+                            day.roomTypeOccupancies.forEach(rt => {
+                              if (!summary[rt.roomTypeId]) {
+                                summary[rt.roomTypeId] = {
+                                  roomTypeName: rt.roomTypeName,
+                                  totalRoomsSum: 0,
+                                  occupiedRoomsSum: 0,
+                                  daysCount: 0
+                                };
+                              }
+                              summary[rt.roomTypeId].totalRoomsSum += rt.totalRooms;
+                              summary[rt.roomTypeId].occupiedRoomsSum += rt.occupiedRooms;
+                              summary[rt.roomTypeId].daysCount += 1;
+                            });
+                          }
+                        });
+
+                        const list = Object.keys(summary).map(key => {
+                          const item = summary[key];
+                          const avgTotal = item.daysCount > 0 ? (item.totalRoomsSum / item.daysCount) : 0;
+                          const avgOccupied = item.daysCount > 0 ? (item.occupiedRoomsSum / item.daysCount) : 0;
+                          const avgRate = avgTotal > 0 ? (avgOccupied / avgTotal) * 100.0 : 0.0;
+                          return {
+                            roomTypeName: item.roomTypeName,
+                            avgTotalRooms: Math.round(avgTotal * 10) / 10,
+                            avgOccupiedRooms: Math.round(avgOccupied * 10) / 10,
+                            occupancyRate: Math.round(avgRate * 100) / 100
+                          };
+                        }).sort((a, b) => b.occupancyRate - a.occupancyRate);
+
+                        return list.length > 0 ? (
+                          list.map((item, idx) => (
+                            <tr key={idx}>
+                              <td><strong>{item.roomTypeName}</strong></td>
+                              <td style={{ textAlign: 'center' }}>{item.avgTotalRooms}</td>
+                              <td style={{ textAlign: 'center' }}>{item.avgOccupiedRooms}</td>
+                              <td style={{ textAlign: 'right', fontWeight: '600', color: 'var(--color-available)' }}>
+                                {item.occupancyRate}%
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
+                              Không có dữ liệu loại phòng.
+                            </td>
+                          </tr>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Room status grid of selected date */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '24px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px'
+              }}>
+                <div>
+                  <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
+                    Sơ đồ chi tiết tình trạng phòng nghỉ
+                  </h2>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                    Xem trực quan danh sách phòng Trống / Có khách theo từng ngày cụ thể
+                  </p>
+                </div>
+                
+                {/* Date navigator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '8px 12px' }}
+                    disabled={(() => {
+                      const idx = occupancyData.dailyOccupancies.findIndex(d => d.date === selectedOccupancyDate);
+                      return idx <= 0;
+                    })()}
+                    onClick={() => {
+                      const idx = occupancyData.dailyOccupancies.findIndex(d => d.date === selectedOccupancyDate);
+                      if (idx > 0) {
+                        setSelectedOccupancyDate(occupancyData.dailyOccupancies[idx - 1].date);
+                      }
+                    }}
+                  >
+                    Ngày trước
+                  </button>
+
+                  <select
+                    value={selectedOccupancyDate}
+                    onChange={(e) => setSelectedOccupancyDate(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--bg-input)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {occupancyData.dailyOccupancies.map(d => {
+                      let displayDate = d.date;
+                      try {
+                        const parts = d.date.split('-');
+                        displayDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                      } catch (e) {}
+                      return (
+                        <option key={d.date} value={d.date}>
+                          {displayDate} (Công suất: {d.occupancyRate}%)
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '8px 12px' }}
+                    disabled={(() => {
+                      const idx = occupancyData.dailyOccupancies.findIndex(d => d.date === selectedOccupancyDate);
+                      return idx === -1 || idx === occupancyData.dailyOccupancies.length - 1;
+                    })()}
+                    onClick={() => {
+                      const idx = occupancyData.dailyOccupancies.findIndex(d => d.date === selectedOccupancyDate);
+                      if (idx !== -1 && idx < occupancyData.dailyOccupancies.length - 1) {
+                        setSelectedOccupancyDate(occupancyData.dailyOccupancies[idx + 1].date);
+                      }
+                    }}
+                  >
+                    Ngày sau
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid of rooms */}
+              {(() => {
+                const currentDayData = occupancyData.dailyOccupancies.find(d => d.date === selectedOccupancyDate);
+                if (!currentDayData || !currentDayData.roomDetails || currentDayData.roomDetails.length === 0) {
+                  return (
+                    <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      Không có sơ đồ chi tiết phòng nào được tải cho ngày này.
+                    </div>
+                  );
+                }
+
+                const sortedRooms = [...currentDayData.roomDetails]
+                  .map(r => ({
+                    ...r,
+                    isOccupied: r.isOccupied !== undefined ? r.isOccupied : r.occupied
+                  }))
+                  .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, {numeric: true}));
+                const totalRoomsCount = sortedRooms.length;
+                const occupiedCount = sortedRooms.filter(r => r.isOccupied).length;
+                const availableCount = totalRoomsCount - occupiedCount;
+
+                return (
+                  <div>
+                    {/* Legend of room status */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '16px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      borderBottom: '1px dashed var(--border-color)',
+                      paddingBottom: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#10b981' }} />
+                        <span>Trống ({availableCount} phòng)</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#ef4444' }} />
+                        <span>Có khách ({occupiedCount} phòng)</span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                      gap: '12px'
+                    }}>
+                      {sortedRooms.map(room => (
+                        <div
+                          key={room.roomId}
+                          style={{
+                            padding: '12px 8px',
+                            borderRadius: 'var(--radius-md)',
+                            border: room.isOccupied ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)',
+                            background: room.isOccupied 
+                              ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-card) 100%)' 
+                              : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, var(--bg-card) 100%)',
+                            textAlign: 'center',
+                            transition: 'var(--transition-fast)'
+                          }}
+                          className="room-card"
+                        >
+                          <div style={{
+                            fontSize: '16px',
+                            fontWeight: '800',
+                            color: room.isOccupied ? '#ef4444' : '#10b981'
+                          }}>
+                            {room.roomNumber}
+                          </div>
+                          <div style={{
+                            fontSize: '11px',
+                            color: 'var(--text-secondary)',
+                            marginTop: '2px',
+                            textOverflow: 'ellipsis',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {room.roomTypeName}
+                          </div>
+                          <div style={{
+                            display: 'inline-block',
+                            padding: '2px 6px',
+                            borderRadius: '10px',
+                            fontSize: '9px',
+                            fontWeight: '700',
+                            textTransform: 'uppercase',
+                            marginTop: '6px',
+                            backgroundColor: room.isOccupied ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                            color: room.isOccupied ? '#ef4444' : '#10b981'
+                          }}>
+                            {room.isOccupied ? 'Bận' : 'Sẵn sàng'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )
       )}
 
       {/* Add CSS dynamic animations */}
@@ -1246,6 +1998,14 @@ function Reports({ user, showNotification }) {
           transform: translateY(-4px);
           box-shadow: 0 10px 20px rgba(99, 102, 241, 0.15);
           border-color: var(--primary) !important;
+        }
+        
+        .room-card {
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .room-card:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-sm);
         }
         
         @media print {

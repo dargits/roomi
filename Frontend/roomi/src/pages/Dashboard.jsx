@@ -78,6 +78,11 @@ function Dashboard({ user, showNotification }) {
   const fetchData = async () => {
     try {
       setLoading(true);
+
+      // Đồng bộ trạng thái phòng trước khi lấy dữ liệu
+      // (xử lý trường hợp phòng có CHECKED_IN booking nhưng status vẫn AVAILABLE)
+      await api.post('/rooms/sync-status').catch(() => { /* không chặn nếu sync lỗi */ });
+
       const start = new Date();
       const end = new Date();
       end.setDate(start.getDate() + 14);
@@ -473,6 +478,16 @@ function Dashboard({ user, showNotification }) {
                   {roomsOnFloor.map(room => {
                     const activeBooking = getTodayBooking(room);
                     const isInactive = room.note && room.note.includes('[INACTIVE]');
+
+                    // Tính trạng thái hiển thị: nếu có booking CHECKED_IN hôm nay
+                    // thì luôn hiện OCCUPIED dù room.status trong DB có thể bị lệch
+                    const hasCheckedInToday = room.bookings?.some(b =>
+                      todayStr >= b.checkInDate &&
+                      todayStr < b.checkOutDate &&
+                      b.status === 'CHECKED_IN'
+                    );
+                    const displayStatus = hasCheckedInToday ? 'OCCUPIED' : room.status;
+
                     let cardBorder = 'var(--border-color)';
                     let cardBg = 'rgba(255,255,255,0.02)';
                     let glowColor = 'transparent';
@@ -481,16 +496,16 @@ function Dashboard({ user, showNotification }) {
                       cardBorder = 'rgba(255,255,255,0.05)';
                       cardBg = 'rgba(255,255,255,0.01)';
                       glowColor = 'rgba(255,255,255,0.01)';
-                    } else if (room.status === 'AVAILABLE') {
+                    } else if (displayStatus === 'AVAILABLE') {
                       cardBorder = 'rgba(16, 185, 129, 0.3)';
                       glowColor = 'rgba(16, 185, 129, 0.05)';
-                    } else if (room.status === 'OCCUPIED') {
+                    } else if (displayStatus === 'OCCUPIED') {
                       cardBorder = 'rgba(99, 102, 241, 0.3)';
                       glowColor = 'rgba(99, 102, 241, 0.05)';
-                    } else if (room.status === 'NEEDS_CLEANING') {
+                    } else if (displayStatus === 'NEEDS_CLEANING') {
                       cardBorder = 'rgba(245, 158, 11, 0.3)';
                       glowColor = 'rgba(245, 158, 11, 0.05)';
-                    } else if (room.status === 'MAINTENANCE') {
+                    } else if (displayStatus === 'MAINTENANCE') {
                       cardBorder = 'rgba(239, 68, 68, 0.3)';
                       glowColor = 'rgba(239, 68, 68, 0.05)';
                     }
@@ -530,8 +545,8 @@ function Dashboard({ user, showNotification }) {
                           {room.roomTypeName}
                         </span>
 
-                        <span className={isInactive ? "badge badge-cancelled" : `badge badge-${room.status.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
-                          {isInactive ? 'Tạm ngưng' : getStatusLabel(room.status)}
+                        <span className={isInactive ? "badge badge-cancelled" : `badge badge-${displayStatus.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
+                          {isInactive ? 'Tạm ngưng' : getStatusLabel(displayStatus)}
                         </span>
 
                         {activeBooking && user.role !== 'HOUSEKEEPER' && (
@@ -841,7 +856,7 @@ function Dashboard({ user, showNotification }) {
                             )}
                           </>
                         )}
-                        {activeBooking.status !== 'CHECKED_OUT' && activeBooking.status !== 'CANCELLED' && isManager && (
+                        {activeBooking.status !== 'CHECKED_OUT' && activeBooking.status !== 'CANCELLED' && activeBooking.status !== 'CHECKED_IN' && isManager && (
                           <button 
                             onClick={() => handleBookingTransition(activeBooking.bookingId, 'cancel')} 
                             className="btn btn-secondary btn-sm"

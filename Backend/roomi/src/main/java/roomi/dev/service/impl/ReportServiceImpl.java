@@ -1,5 +1,7 @@
 package roomi.dev.service.impl;
-
+import java.util.Set;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,10 +62,30 @@ public class ReportServiceImpl implements ReportService {
         List<RevenueReportResponse.ServiceRevenueDetail> serviceDetails = 
                 surchargeUsageRepository.findRevenueByService(startDateTime, endDateTime);
 
-   
         BigDecimal totalRevenue = roomRevenue.add(serviceRevenue);
 
-        
+        // Build daily revenue: lấy từ DB rồi fill đủ từng ngày (ngày không có invoice → 0)
+        List<Object[]> rawDaily = invoiceRepository.findDailyRevenue(startDateTime, endDateTime);
+        Map<String, BigDecimal> dailyMap = new java.util.HashMap<>();
+        for (Object[] row : rawDaily) {
+            if (row[0] != null && row[1] != null) {
+                String dateKey = row[0].toString(); // "2026-07-01" hoặc java.sql.Date
+                if (dateKey.length() > 10) dateKey = dateKey.substring(0, 10); // trim time nếu có
+                dailyMap.put(dateKey, (BigDecimal) row[1]);
+            }
+        }
+
+        List<RevenueReportResponse.DailyRevenue> dailyRevenues = new ArrayList<>();
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            String key = current.toString(); // "2026-07-01"
+            dailyRevenues.add(RevenueReportResponse.DailyRevenue.builder()
+                    .date(key)
+                    .revenue(dailyMap.getOrDefault(key, BigDecimal.ZERO))
+                    .build());
+            current = current.plusDays(1);
+        }
+
         return RevenueReportResponse.builder()
                 .totalRevenue(totalRevenue)
                 .totalRoomRevenue(roomRevenue)
@@ -71,8 +93,10 @@ public class ReportServiceImpl implements ReportService {
                 .totalInvoices(totalInvoices)
                 .roomTypeRevenues(roomTypeDetails)
                 .serviceRevenues(serviceDetails)
+                .dailyRevenues(dailyRevenues)
                 .build();
     }
+
 
     @Override
     public byte[] exportRevenueReportExcel(LocalDate startDate, LocalDate endDate) {
@@ -135,46 +159,157 @@ public class ReportServiceImpl implements ReportService {
         }
     }
 
-  @Override
-    public OccupancyReportResponse getOccupancyReport(LocalDate startDate, LocalDate endDate) {
-        List<OccupancyReportResponse.DailyOccupancy> dailyList = new ArrayList<>();
+//   @Override
+//     public OccupancyReportResponse getOccupancyReport(LocalDate startDate, LocalDate endDate) {
+//         List<OccupancyReportResponse.DailyOccupancy> dailyList = new ArrayList<>();
         
-        // Cần tổng số phòng để tính % (Giả sử bạn có roomRepository.count(), nếu không hãy đổi lại logic)
-        long totalRooms = roomRepository.count(); 
-        if (totalRooms == 0) totalRooms = 1; // Tránh lỗi chia cho 0
+//         // Lấy tổng số phòng
+//         long totalRooms = roomRepository.count(); 
+//         if (totalRooms == 0) totalRooms = 1; // Tránh lỗi chia cho 0
 
-        double totalOccupancyRate = 0;
-        long totalDays = 0;
+//         double totalOccupancyRate = 0;
+//         long totalDays = 0;
 
-        // Trạng thái hợp lệ
-        List<Booking.Status> validStatuses = Arrays.asList(Booking.Status.CONFIRMED, Booking.Status.CHECKED_IN);
-        LocalDate currentDate = startDate;
+//         // CHỈ LẤY TRẠNG THÁI OCCUPIED THEO YÊU CẦU CỦA BẠN
+//         List<Booking.Status> validStatuses = Arrays.asList(Booking.Status.OCCUPIED);
+        
+//         LocalDate currentDate = startDate;
 
-        // Lặp qua từng ngày từ startDate đến endDate
-        while (!currentDate.isAfter(endDate)) {
-            Long occupiedCount = bookingRepository.countOccupiedRoomsByDate(currentDate, validStatuses);
-            if (occupiedCount == null) occupiedCount = 0L;
+//         // Lặp qua từng ngày từ startDate đến endDate
+//         while (!currentDate.isAfter(endDate)) {
+//             LocalDateTime startOfDay = currentDate.atStartOfDay();
+//             LocalDateTime endOfDay = currentDate.atTime(23, 59, 59);
 
-            double occupancyRate = ((double) occupiedCount / totalRooms) * 100.0;
-            totalOccupancyRate += occupancyRate;
-            totalDays++;
+//             // 1. Đếm số phòng OCCUPIED trong ngày
+//             Long occupiedCount = bookingRepository.countOccupiedRoomsByDate(startOfDay.toLocalDate(), endOfDay.toLocalDate(), validStatuses);
+//             if (occupiedCount == null) occupiedCount = 0L;
 
-            OccupancyReportResponse.DailyOccupancy daily = OccupancyReportResponse.DailyOccupancy.builder()
-                    .date(currentDate.toString())
-                .occupancyRate(Math.round(occupancyRate * 100.0) / 100.0)
-                    .build();
+//             // 2. Tính tỷ lệ %
+//             double occupancyRate = ((double) occupiedCount / totalRooms) * 100.0;
+//             totalOccupancyRate += occupancyRate;
+//             totalDays++;
+
+//             // 3. Sử dụng builder tạo DailyOccupancy
+//             OccupancyReportResponse.DailyOccupancy daily = OccupancyReportResponse.DailyOccupancy.builder()
+//                     .date(currentDate.toString())
+//                     .occupancyRate(Math.round(occupancyRate * 100.0) / 100.0) // Làm tròn 2 chữ số
+//                     .build();
             
-            dailyList.add(daily);
+//             dailyList.add(daily);
 
-            // Chuyển sang ngày tiếp theo
-            currentDate = currentDate.plusDays(1);
-        }
+//             // Chuyển sang ngày tiếp theo
+//             currentDate = currentDate.plusDays(1);
+//         }
 
-        double averageOccupancy = (totalDays > 0) ? (totalOccupancyRate / totalDays) : 0;
+//         // 4. Tính trung bình
+//         double averageOccupancy = (totalDays > 0) ? (totalOccupancyRate / totalDays) : 0;
 
+//         // 5. Trả về Response
+//         return OccupancyReportResponse.builder()
+//                 .averageOccupancy(Math.round(averageOccupancy * 100.0) / 100.0)
+//                 .dailyOccupancies(dailyList)
+//                 .build();
+// }
+
+@Override
+public OccupancyReportResponse getOccupancyReport(LocalDate startDate, LocalDate endDate) {
+    // 1. Lấy tất cả phòng trong hệ thống
+    List<roomi.dev.model.Room> allRooms = roomRepository.findAll();
+    if (allRooms.isEmpty()) {
         return OccupancyReportResponse.builder()
-                .averageOccupancy(Math.round(averageOccupancy * 100.0) / 100.0)
-                .dailyOccupancies(dailyList)
+                .averageOccupancy(0.0)
+                .dailyOccupancies(new ArrayList<>())
                 .build();
     }
+
+    // Nhóm danh sách phòng theo Loại phòng (RoomType)
+    Map<Long, List<roomi.dev.model.Room>> roomsByRoomType = allRooms.stream()
+            .collect(Collectors.groupingBy(room -> room.getRoomType().getId()));
+
+    // 2. Lấy tất cả Booking trùng khoảng thời gian báo cáo trong 1 câu truy vấn SQL
+    List<Booking.Status> validStatuses = List.of(Booking.Status.OCCUPIED, Booking.Status.CHECKED_IN);
+    List<Booking> activeBookings = bookingRepository.findOverlappingBookings(startDate, endDate, validStatuses);
+
+    List<OccupancyReportResponse.DailyOccupancy> dailyList = new ArrayList<>();
+    double totalOccupancySum = 0;
+    long totalDays = 0;
+
+    LocalDate currentDate = startDate;
+
+    // 3. Vòng lặp từng ngày từ startDate đến endDate
+    while (!currentDate.isAfter(endDate)) {
+        final LocalDate date = currentDate;
+
+        // Lọc danh sách booking có khách ở trong ngày date
+        List<Booking> bookingsOnDate = activeBookings.stream()
+                .filter(b -> !b.getCheckInDate().isAfter(date) && !b.getCheckOutDate().isBefore(date))
+                .collect(Collectors.toList());
+
+        // Lấy tập hợp ID các phòng đã được thuê trong ngày date
+        Set<Long> occupiedRoomIds = bookingsOnDate.stream()
+                .map(b -> b.getRoom().getId())
+                .collect(Collectors.toSet());
+
+        // A. Trạng thái chi tiết từng phòng cụ thể
+        List<OccupancyReportResponse.RoomOccupancyDetail> roomDetails = allRooms.stream()
+                .map(room -> OccupancyReportResponse.RoomOccupancyDetail.builder()
+                        .roomId(room.getId())
+                        .roomNumber(room.getRoomNumber())
+                        .roomTypeName(room.getRoomType() != null ? room.getRoomType().getName() : "N/A")
+                        .isOccupied(occupiedRoomIds.contains(room.getId()))
+                        .build())
+                .collect(Collectors.toList());
+
+        // B. Báo cáo công suất cho từng Loại phòng
+        List<OccupancyReportResponse.RoomTypeOccupancy> roomTypeOccupancies = new ArrayList<>();
+        for (Map.Entry<Long, List<roomi.dev.model.Room>> entry : roomsByRoomType.entrySet()) {
+            List<roomi.dev.model.Room> roomsInType = entry.getValue();
+            String typeName = roomsInType.get(0).getRoomType().getName();
+            long totalInType = roomsInType.size();
+
+            long occupiedInType = roomsInType.stream()
+                    .filter(r -> occupiedRoomIds.contains(r.getId()))
+            .count();
+
+            double typeRate = totalInType > 0 ? ((double) occupiedInType / totalInType) * 100.0 : 0.0;
+
+            roomTypeOccupancies.add(OccupancyReportResponse.RoomTypeOccupancy.builder()
+                    .roomTypeId(entry.getKey())
+                    .roomTypeName(typeName)
+                    .totalRooms(totalInType)
+                    .occupiedRooms(occupiedInType)
+                    .occupancyRate(Math.round(typeRate * 100.0) / 100.0)
+                    .build());
+        }
+
+        // C. Tính công suất tổng thể ngày hôm đó
+        long totalRooms = allRooms.size();
+        long totalOccupied = occupiedRoomIds.size();
+        double dailyRate = totalRooms > 0 ? ((double) totalOccupied / totalRooms) * 100.0 : 0.0;
+
+        totalOccupancySum += dailyRate;
+        totalDays++;
+
+        // D. Đưa vào danh sách báo cáo ngày
+        dailyList.add(OccupancyReportResponse.DailyOccupancy.builder()
+                .date(currentDate.toString())
+                .totalRooms(totalRooms)
+                .occupiedRooms(totalOccupied)
+                .occupancyRate(Math.round(dailyRate * 100.0) / 100.0)
+                .roomTypeOccupancies(roomTypeOccupancies)
+                .roomDetails(roomDetails)
+                .build());
+
+        currentDate = currentDate.plusDays(1);
+    }
+
+    // 4. Tính trung bình công suất của cả đợt
+    double averageOccupancy = totalDays > 0 ? (totalOccupancySum / totalDays) : 0.0;
+
+    return OccupancyReportResponse.builder()
+            .averageOccupancy(Math.round(averageOccupancy * 100.0) / 100.0)
+            .dailyOccupancies(dailyList)
+            .build();
+}
+
 }
