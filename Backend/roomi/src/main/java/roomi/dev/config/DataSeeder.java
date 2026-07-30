@@ -30,6 +30,7 @@ public class DataSeeder implements CommandLineRunner {
     private final SurchargeServiceRepository surchargeServiceRepository;
     private final BookingSurchargeUsageRepository bookingSurchargeUsageRepository;
     private final PropertySettingsRepository propertySettingsRepository;
+    private final ActivityLogRepository activityLogRepository;
 
     @Override
     @Transactional
@@ -47,6 +48,7 @@ public class DataSeeder implements CommandLineRunner {
         seedSurchargeServices();
         seedGuests();
         seedBookings();
+        seedActivityLogs();
         log.info("=== Hoàn thành seed dữ liệu mẫu ===");
     }
 
@@ -404,6 +406,60 @@ public class DataSeeder implements CommandLineRunner {
                 .expectedPrice(new BigDecimal("8000000")).createdBy(receptionist).build());
 
         log.info("✓ 11 bookings với đầy đủ trạng thái (CHECKED_OUT/CHECKED_IN/CONFIRMED/NEW/CANCELLED/NO_SHOW)");
+    }
+
+    // ================================================================== ACTIVITY LOGS
+    private void seedActivityLogs() {
+        log.info("Seed ActivityLogs...");
+        User admin = userRepository.findByUsername("admin").orElse(null);
+        User letan = userRepository.findByUsername("letana").orElse(null);
+        User owner = userRepository.findByUsername("owner").orElse(null);
+        User housekeeper = userRepository.findByUsername("housekeepera").orElse(null);
+
+        if (admin != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(admin)
+                    .action("TẠO TÀI KHOẢN")
+                    .entityName("USER")
+                    .entityId(2L)
+                    .detail("Tạo tài khoản nhân viên Lễ tân Nguyễn Thị Lễ Tân")
+                    .build());
+        }
+        if (letan != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(letan)
+                    .action("CHECK_IN")
+                    .entityName("BOOKING")
+                    .entityId(1L)
+                    .detail("Làm thủ tục Check-in cho khách Nguyễn Văn An vào phòng 101")
+                    .build());
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(letan)
+                    .action("THÊM DỊCH VỤ")
+                    .entityName("BOOKING")
+                    .entityId(1L)
+                    .detail("Ghi nhận phụ thu Nước suối chai 500ml x2 cho phòng 101")
+                    .build());
+        }
+        if (housekeeper != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(housekeeper)
+                    .action("DỌN PHÒNG")
+                    .entityName("ROOM")
+                    .entityId(2L)
+                    .detail("Đã dọn dẹp và làm vệ sinh xong phòng 102 (Đánh dấu Sẵn sàng)")
+                    .build());
+        }
+        if (owner != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(owner)
+                    .action("BẢO TRÌ PHÒNG")
+                    .entityName("ROOM")
+                    .entityId(6L)
+                    .detail("Đưa phòng 202 vào trạng thái bảo trì điều hòa")
+                    .build());
+        }
+        log.info("✓ ActivityLogs");
     }
 
     // ================================================================== HELPER

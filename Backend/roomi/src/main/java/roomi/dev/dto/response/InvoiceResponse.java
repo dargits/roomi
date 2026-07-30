@@ -16,7 +16,10 @@ public class InvoiceResponse {
     private BigDecimal serviceCharge;
     private BigDecimal discount;
     private BigDecimal totalAmount;
+    private BigDecimal totalPaid;
+    private BigDecimal remainingAmount;
     private String status;
     private LocalDateTime createdAt;
     private List<BookingSurchargeUsageResponse> serviceUsages;
+    private List<PaymentResponse> payments;
 }

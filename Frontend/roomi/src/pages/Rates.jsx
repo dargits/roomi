@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 function Rates({ user, showNotification }) {
-  // Guard Clause for Access Control
+  // Guard Clause for Access Control (OWNER, RECEPTIONIST, ACCOUNTANT, ADMIN)
   if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
     return (
       <div className="card" style={{

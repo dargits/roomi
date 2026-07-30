@@ -140,6 +140,10 @@ public class GuestServiceImpl implements GuestService {
      * Tìm khách theo CCCD, nếu chưa có thì tạo mới.
      * Dùng khi tạo booking để tự động tạo khách mới nếu chưa tồn tại.
      */
+    /**
+     * Tìm khách theo SĐT hoặc CCCD/CMND; nếu chưa có thì tạo mới.
+     * Kiểm tra đối soát chặt chẽ tránh xung đột dữ liệu giữa các khách hàng khác nhau.
+     */
     @Override
     public Guest findOrCreateGuest(String idNumber, String fullName, String phone, String email, String note) {
         String cleanIdNumber = (idNumber != null && !idNumber.isBlank()) ? idNumber.trim() : null;
@@ -148,33 +152,69 @@ public class GuestServiceImpl implements GuestService {
         String cleanEmail = (email != null && !email.isBlank()) ? email.trim() : null;
         String cleanNote = (note != null && !note.isBlank()) ? note.trim() : null;
 
-        // 1. Tìm theo CCCD/CMND nếu có
-        if (cleanIdNumber != null) {
-            var guestById = guestRepository.findByIdNumber(cleanIdNumber);
-            if (guestById.isPresent()) {
-                Guest g = guestById.get();
-                if (cleanFullName != null) g.setFullName(cleanFullName);
-                if (cleanPhone != null) g.setPhone(cleanPhone);
-                if (cleanEmail != null) g.setEmail(cleanEmail);
-                if (cleanNote != null) g.setNote(cleanNote);
-                return guestRepository.save(g);
+        // Tìm kiếm theo SĐT và CCCD
+        var guestByPhone = (cleanPhone != null) ? guestRepository.findByPhone(cleanPhone) : java.util.Optional.<Guest>empty();
+        var guestByIdNumber = (cleanIdNumber != null) ? guestRepository.findByIdNumber(cleanIdNumber) : java.util.Optional.<Guest>empty();
+
+        // TH1: Cả SĐT và CCCD đều đã tồn tại nhưng thuộc 2 khách hàng khác nhau
+        if (guestByPhone.isPresent() && guestByIdNumber.isPresent()) {
+            Guest g1 = guestByPhone.get();
+            Guest g2 = guestByIdNumber.get();
+            if (!g1.getId().equals(g2.getId())) {
+                throw new BusinessException(
+                        "Số điện thoại (" + cleanPhone + ") và số CMND/CCCD (" + cleanIdNumber + ") thuộc về 2 khách hàng khác nhau trong hệ thống.",
+                        ErrorCode.INVALID_INPUT);
             }
         }
 
-        // 2. Tìm theo SĐT nếu chưa tìm thấy theo CCCD
-        if (cleanPhone != null) {
-            var guestByPhone = guestRepository.findByPhone(cleanPhone);
-            if (guestByPhone.isPresent()) {
-                Guest g = guestByPhone.get();
-                if (cleanFullName != null) g.setFullName(cleanFullName);
-                if (cleanIdNumber != null) g.setIdNumber(cleanIdNumber);
-                if (cleanEmail != null) g.setEmail(cleanEmail);
-                if (cleanNote != null) g.setNote(cleanNote);
-                return guestRepository.save(g);
+        // TH2: Tìm thấy khách theo CCCD/CMND
+        if (guestByIdNumber.isPresent()) {
+            Guest g = guestByIdNumber.get();
+            if (cleanPhone != null && !cleanPhone.equals(g.getPhone())) {
+                if (g.getPhone() == null || g.getPhone().isBlank()) {
+                    // Kiểm tra xem SĐT mới có bị trùng với người khác không
+                    if (guestRepository.existsByPhone(cleanPhone)) {
+                        throw new BusinessException(
+                                "Số điện thoại " + cleanPhone + " đã được đăng ký cho một khách hàng khác.",
+                                ErrorCode.INVALID_INPUT);
+                    }
+                    g.setPhone(cleanPhone);
+                }
             }
+            if (cleanFullName != null && (g.getFullName() == null || g.getFullName().isBlank())) g.setFullName(cleanFullName);
+            if (cleanEmail != null && (g.getEmail() == null || g.getEmail().isBlank())) g.setEmail(cleanEmail);
+            if (cleanNote != null && (g.getNote() == null || g.getNote().isBlank())) g.setNote(cleanNote);
+            return guestRepository.save(g);
         }
 
-        // 3. Tạo mới nếu chưa tồn tại
+        // TH3: Tìm thấy khách theo SĐT
+        if (guestByPhone.isPresent()) {
+            Guest g = guestByPhone.get();
+            if (cleanIdNumber != null && !cleanIdNumber.equals(g.getIdNumber())) {
+                if (g.getIdNumber() == null || g.getIdNumber().isBlank()) {
+                    // Kiểm tra xem CCCD mới có bị trùng với người khác không
+                    if (guestRepository.existsByIdNumber(cleanIdNumber)) {
+                        throw new BusinessException(
+                                "Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký cho một khách hàng khác.",
+                                ErrorCode.INVALID_INPUT);
+                    }
+                    g.setIdNumber(cleanIdNumber);
+                }
+            }
+            if (cleanFullName != null && (g.getFullName() == null || g.getFullName().isBlank())) g.setFullName(cleanFullName);
+            if (cleanEmail != null && (g.getEmail() == null || g.getEmail().isBlank())) g.setEmail(cleanEmail);
+            if (cleanNote != null && (g.getNote() == null || g.getNote().isBlank())) g.setNote(cleanNote);
+            return guestRepository.save(g);
+        }
+
+        // TH4: Khách hoàn toàn mới — kiểm tra lại tính duy nhất trước khi lưu
+        if (cleanPhone != null && guestRepository.existsByPhone(cleanPhone)) {
+            throw new BusinessException("Số điện thoại " + cleanPhone + " đã được đăng ký trong hệ thống", ErrorCode.INVALID_INPUT);
+        }
+        if (cleanIdNumber != null && guestRepository.existsByIdNumber(cleanIdNumber)) {
+            throw new BusinessException("Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký trong hệ thống", ErrorCode.INVALID_INPUT);
+        }
+
         Guest newGuest = Guest.builder()
                 .fullName(cleanFullName)
                 .phone(cleanPhone)

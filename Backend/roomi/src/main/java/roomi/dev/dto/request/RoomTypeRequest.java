@@ -20,4 +20,6 @@ public class RoomTypeRequest {
 
     @NotNull(message = "basePrice không được để trống")
     private BigDecimal basePrice;
+
+    private String roomTypeImg;
 }

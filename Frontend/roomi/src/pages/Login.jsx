@@ -1,19 +1,12 @@
 import React, { useState } from 'react';
 import api from '../utils/api';
-import { LogIn, UserPlus, Shield, Phone, Key, User, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Shield, Key, Eye, EyeOff } from 'lucide-react';
 
 function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
-  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-
-  // Form State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,55 +17,18 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
       return;
     }
 
-    if (!isLogin && !fullName.trim()) {
-      showNotification('Vui lòng nhập Họ và tên để đăng ký', 'error');
-      return;
-    }
-
-    if (password.length < 6) {
-      showNotification('Mật khẩu phải có độ dài ít nhất 6 ký tự', 'error');
-      setPassword('');
-      setConfirmPassword('');
-      return;
-    }
-
-    if (!isLogin && password !== confirmPassword) {
-      showNotification('Xác nhận mật khẩu không trùng khớp', 'error');
-      setPassword('');
-      setConfirmPassword('');
-      return;
-    }
-
     try {
       setLoading(true);
-      if (isLogin) {
-        // Login flow
-        const response = await api.post('/auth/login', { username, password });
-        if (response.data && response.data.token) {
-          onLoginSuccess(response.data.token);
-        } else {
-          showNotification('Đăng nhập thất bại, không tìm thấy token', 'error');
-          setPassword('');
-        }
+      const response = await api.post('/auth/login', { username, password });
+      if (response.data && response.data.token) {
+        onLoginSuccess(response.data.token);
       } else {
-        // Register flow
-        const payload = {
-          fullName,
-          username,
-          password,
-          phone: phone.trim() ? phone : undefined
-        };
-        const response = await api.post('/auth/register', payload);
-        showNotification(response.data.mess || 'Đăng ký tài khoản thành công!');
-        // Automatically switch to login tab and prefill username
-        setIsLogin(true);
+        showNotification('Đăng nhập thất bại, không tìm thấy token', 'error');
         setPassword('');
-        setConfirmPassword('');
       }
     } catch (err) {
-      showNotification(err.message || 'Thao tác thất bại. Vui lòng kiểm tra lại.', 'error');
+      showNotification(err.message || 'Tên đăng nhập hoặc mật khẩu không chính xác.', 'error');
       setPassword('');
-      setConfirmPassword('');
     } finally {
       setLoading(false);
     }
@@ -84,130 +40,42 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'var(--bg-gradient)',
+      backgroundColor: 'var(--bg-primary)',
       padding: '20px'
     }}>
-      <div className="card glow-card" style={{
+      <div className="card" style={{
         width: '100%',
-        maxWidth: '440px',
-        padding: '40px 32px',
-        backgroundColor: 'var(--bg-glass)',
+        maxWidth: '420px',
+        padding: '36px 32px',
+        backgroundColor: 'var(--bg-card)',
         boxShadow: 'var(--shadow-lg)'
       }}>
-        {/* Header Logo */}
+        {/* Header Title */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '12px',
-          marginBottom: '32px'
+          gap: '8px',
+          marginBottom: '32px',
+          textAlign: 'center'
         }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '24px',
-            boxShadow: '0 8px 16px rgba(99, 102, 241, 0.3)'
-          }}>
-            R
-          </div>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
-            {isLogin ? 'Chào mừng trở lại' : 'Tạo tài khoản Roomi'}
+            Roomi Hotel System
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            {isLogin ? 'Hệ thống Quản lý Khách sạn Thông minh' : 'Đăng ký tài khoản nhân viên mới'}
+            Hệ thống Quản lý Khách sạn & Homestay
           </p>
         </div>
 
-        {/* Tab Selection */}
-        <div style={{
-          display: 'flex',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '4px',
-          marginBottom: '24px'
-        }}>
-          <button
-            onClick={() => { setIsLogin(true); }}
-            style={{
-              flex: 1,
-              padding: '8px',
-              borderRadius: 'calc(var(--radius-sm) - 2px)',
-              backgroundColor: isLogin ? 'var(--primary)' : 'transparent',
-              color: isLogin ? '#fff' : 'var(--text-secondary)',
-              border: 'none',
-              fontWeight: '600',
-              fontSize: '13px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'var(--transition-fast)'
-            }}
-          >
-            <LogIn size={14} />
-            Đăng nhập
-          </button>
-          <button
-            onClick={() => { setIsLogin(false); }}
-            style={{
-              flex: 1,
-              padding: '8px',
-              borderRadius: 'calc(var(--radius-sm) - 2px)',
-              backgroundColor: !isLogin ? 'var(--primary)' : 'transparent',
-              color: !isLogin ? '#fff' : 'var(--text-secondary)',
-              border: 'none',
-              fontWeight: '600',
-              fontSize: '13px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'var(--transition-fast)'
-            }}
-          >
-            <UserPlus size={14} />
-            Đăng ký
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* Full Name (Register only) */}
-          {!isLogin && (
-            <div>
-              <label>Họ và tên</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  placeholder="Nguyễn Văn A"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  style={{ paddingLeft: '38px' }}
-                  required
-                />
-                <User size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-              </div>
-            </div>
-          )}
-
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {/* Username */}
           <div>
-            <label>Tên đăng nhập</label>
+            <label style={{ fontWeight: '600', marginBottom: '6px' }}>Tên đăng nhập</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
-                placeholder="username123"
+                placeholder="Nhập tên đăng nhập..."
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{ paddingLeft: '38px' }}
@@ -220,7 +88,7 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
 
           {/* Password */}
           <div>
-            <label>Mật khẩu</label>
+            <label style={{ fontWeight: '600', marginBottom: '6px' }}>Mật khẩu</label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? "text" : "password"}
@@ -228,7 +96,7 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ paddingLeft: '38px', paddingRight: '38px' }}
-                autoComplete={isLogin ? "current-password" : "new-password"}
+                autoComplete="current-password"
                 required
               />
               <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
@@ -253,65 +121,11 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
             </div>
           </div>
 
-          {/* Confirm Password (Register only) */}
-          {!isLogin && (
-            <div>
-              <label>Nhập lại mật khẩu</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  style={{ paddingLeft: '38px', paddingRight: '38px' }}
-                  autoComplete="new-password"
-                  required
-                />
-                <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '10px',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
-                >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Phone (Register only) */}
-          {!isLogin && (
-            <div>
-              <label>Số điện thoại (tùy chọn)</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="tel"
-                  placeholder="0123456789"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  style={{ paddingLeft: '38px' }}
-                />
-                <Phone size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-              </div>
-            </div>
-          )}
-
           {/* Submit Button */}
           <button
             type="submit"
             className="btn btn-primary"
-            style={{ width: '100%', padding: '12px', marginTop: '8px' }}
+            style={{ width: '100%', padding: '12px', marginTop: '8px', fontSize: '15px', fontWeight: '700' }}
             disabled={loading}
           >
             {loading ? (
@@ -323,22 +137,22 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
                 height: '18px',
                 animation: 'spin 1s linear infinite'
               }} />
-            ) : isLogin ? (
-              'Đăng nhập ngay'
             ) : (
-              'Tạo tài khoản'
+              <>
+                <LogIn size={16} /> Đăng nhập hệ thống
+              </>
             )}
           </button>
         </form>
 
         {/* Guest Booking Portal Link */}
         <div style={{
-          marginTop: '24px',
+          marginTop: '28px',
           textAlign: 'center',
           borderTop: '1px solid var(--border-color)',
           paddingTop: '16px'
         }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Bạn là khách hàng? </span>
+          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Dành cho khách hàng: </span>
           <button
             type="button"
             onClick={onGoToPortal}
@@ -350,11 +164,10 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
               fontSize: '13px',
               cursor: 'pointer',
               textDecoration: 'underline',
-              padding: '0 4px',
-              transition: 'var(--transition-fast)'
+              padding: '0 4px'
             }}
           >
-            Đặt phòng trực tiếp
+            Cổng đặt phòng trực tiếp
           </button>
         </div>
       </div>

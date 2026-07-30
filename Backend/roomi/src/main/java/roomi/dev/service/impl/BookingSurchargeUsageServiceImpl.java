@@ -18,6 +18,9 @@ import roomi.dev.repository.BookingSurchargeUsageRepository;
 import roomi.dev.repository.InvoiceRepository;
 import roomi.dev.repository.SurchargeServiceRepository;
 import roomi.dev.service.BookingSurchargeUsageService;
+import roomi.dev.dto.response.PaymentResponse;
+import roomi.dev.model.Payment;
+import roomi.dev.repository.PaymentRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,11 +32,12 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     private final BookingSurchargeUsageRepository usageRepository;
     private final SurchargeServiceRepository surchargeServiceRepository;
     private final InvoiceRepository invoiceRepository;
+    private final PaymentRepository paymentRepository;
 
     @Override
     @Transactional
     public BookingSurchargeUsageResponse create(Long bookingId, BookingSurchargeUsageRequest request, User currentUser) {
-        requireUsageManager(currentUser);
+        requireUsageWriter(currentUser);
         Booking booking = findBooking(bookingId);
         requireBookingAllowsUsageCreation(booking);
 
@@ -57,7 +61,7 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     @Transactional
     public BookingSurchargeUsageResponse update(Long bookingId, Long usageId,
                                                  BookingSurchargeUsageRequest request, User currentUser) {
-        requireUsageManager(currentUser);
+        requireUsageWriter(currentUser);
         Booking booking = findBooking(bookingId);
         requireMutableBooking(booking);
         BookingSurchargeUsage usage = findUsage(usageId);
@@ -81,7 +85,7 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     @Override
     @Transactional
     public void delete(Long bookingId, Long usageId, User currentUser) {
-        requireUsageManager(currentUser);
+        requireUsageWriter(currentUser);
         Booking booking = findBooking(bookingId);
         requireMutableBooking(booking);
         requireUnpaidInvoice(bookingId);
@@ -93,7 +97,7 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
 
     @Override
     public List<BookingSurchargeUsageResponse> getByBookingId(Long bookingId, User currentUser) {
-        requireUsageManager(currentUser);
+        requireUsageWriter(currentUser);
         findBooking(bookingId);
         return usageRepository.findByBookingIdOrderByRecordedAtAscIdAsc(bookingId).stream()
                 .map(this::toResponse)
@@ -103,7 +107,8 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     @Override
     @Transactional
     public InvoiceResponse getInvoice(Long bookingId, User currentUser) {
-        requireUsageManager(currentUser);
+        // ACCOUNTANT được phép xem hóa đơn để đối soát (VT-04)
+        requireInvoiceViewer(currentUser);
         Booking booking = findBooking(bookingId);
         Invoice invoice = recalculateInvoice(booking);
         List<BookingSurchargeUsageResponse> usages = usageRepository
@@ -112,6 +117,40 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
                 .map(this::toResponse)
                 .toList();
         return toInvoiceResponse(invoice, usages);
+    }
+
+    @Override
+    @Transactional
+    public InvoiceResponse createAdjustmentInvoice(Long bookingId, roomi.dev.dto.request.InvoiceAdjustmentRequest request, User currentUser) {
+        requireUsageWriter(currentUser);
+        Booking booking = findBooking(bookingId);
+        Invoice originalInvoice = invoiceRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new BusinessException("Chưa có hóa đơn cho booking này", ErrorCode.INVOICE_NOT_FOUND));
+
+        BigDecimal roomAdj = request.getRoomChargeAdjustment() != null ? request.getRoomChargeAdjustment() : BigDecimal.ZERO;
+        BigDecimal serviceAdj = request.getServiceChargeAdjustment() != null ? request.getServiceChargeAdjustment() : BigDecimal.ZERO;
+        BigDecimal discountAdj = request.getDiscountAdjustment() != null ? request.getDiscountAdjustment() : BigDecimal.ZERO;
+        BigDecimal totalAdj = roomAdj.add(serviceAdj).subtract(discountAdj);
+
+        Invoice adjustmentInvoice = Invoice.builder()
+                .booking(booking)
+                .originalInvoice(originalInvoice)
+                .adjustmentReason(request.getAdjustmentReason().trim())
+                .roomCharge(roomAdj)
+                .serviceCharge(serviceAdj)
+                .discount(discountAdj)
+                .totalAmount(totalAdj)
+                .status(Invoice.Status.PENDING)
+                .build();
+
+        Invoice saved = invoiceRepository.save(adjustmentInvoice);
+        List<BookingSurchargeUsageResponse> usages = usageRepository
+                .findByBookingIdOrderByRecordedAtAscIdAsc(bookingId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return toInvoiceResponse(saved, usages);
     }
 
     private Invoice recalculateInvoice(Booking booking) {
@@ -162,12 +201,30 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
         }
     }
 
-    private void requireUsageManager(User user) {
+    /**
+     * Kiểm tra quyền ghi nhận / sửa / xóa dịch vụ phụ thu.
+     * Roles được phép: OWNER, ADMIN, RECEPTIONIST.
+     */
+    private void requireUsageWriter(User user) {
         if (user == null || !Boolean.TRUE.equals(user.getActive())
                 || (user.getRole() != User.Role.OWNER
                 && user.getRole() != User.Role.ADMIN
                 && user.getRole() != User.Role.RECEPTIONIST)) {
             throw new BusinessException("Bạn không có quyền ghi nhận dịch vụ phụ thu", ErrorCode.INSUFFICIENT_PRIVILEGES);
+        }
+    }
+
+    /**
+     * Kiểm tra quyền xem hóa đơn.
+     * Roles được phép: OWNER, ADMIN, RECEPTIONIST, ACCOUNTANT (VT-04 — kế toán đối soát).
+     */
+    private void requireInvoiceViewer(User user) {
+        if (user == null || !Boolean.TRUE.equals(user.getActive())
+                || (user.getRole() != User.Role.OWNER
+                && user.getRole() != User.Role.ADMIN
+                && user.getRole() != User.Role.RECEPTIONIST
+                && user.getRole() != User.Role.ACCOUNTANT)) {
+            throw new BusinessException("Bạn không có quyền xem hóa đơn", ErrorCode.INSUFFICIENT_PRIVILEGES);
         }
     }
 
@@ -225,6 +282,28 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     }
 
     private InvoiceResponse toInvoiceResponse(Invoice invoice, List<BookingSurchargeUsageResponse> usages) {
+        List<Payment> payments = paymentRepository.findByInvoiceId(invoice.getId());
+        List<PaymentResponse> paymentResponses = payments.stream()
+                .map(p -> PaymentResponse.builder()
+                        .id(p.getId())
+                        .invoiceId(p.getInvoice().getId())
+                        .amount(p.getAmount())
+                        .method(p.getMethod().name())
+                        .receivedById(p.getReceivedBy() != null ? p.getReceivedBy().getId() : null)
+                        .receivedByName(p.getReceivedBy() != null ? p.getReceivedBy().getFullName() : null)
+                        .paidAt(p.getPaidAt())
+                        .build())
+                .toList();
+
+        BigDecimal totalPaid = payments.stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal remainingAmount = invoice.getTotalAmount().subtract(totalPaid);
+        if (remainingAmount.compareTo(BigDecimal.ZERO) < 0) {
+            remainingAmount = BigDecimal.ZERO;
+        }
+
         return InvoiceResponse.builder()
                 .id(invoice.getId())
                 .bookingId(invoice.getBooking().getId())
@@ -232,9 +311,12 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
                 .serviceCharge(invoice.getServiceCharge())
                 .discount(invoice.getDiscount())
                 .totalAmount(invoice.getTotalAmount())
+                .totalPaid(totalPaid)
+                .remainingAmount(remainingAmount)
                 .status(invoice.getStatus().name())
                 .createdAt(invoice.getCreatedAt())
                 .serviceUsages(usages)
+                .payments(paymentResponses)
                 .build();
     }
 }

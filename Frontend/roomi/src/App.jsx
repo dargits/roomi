@@ -12,6 +12,8 @@ import Services from './pages/Services';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
 import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+import ActivityLogs from './pages/ActivityLogs';
 import { 
   LayoutDashboard, 
   CalendarRange, 
@@ -27,7 +29,10 @@ import {
   Sun,
   UserCheck,
   Menu,
-  BarChart3
+  BarChart3,
+  Building2,
+  Sparkles,
+  ClipboardList
 } from 'lucide-react';
 
 function App() {
@@ -58,9 +63,9 @@ function App() {
   // Toggle Dark/Light Mode
   useEffect(() => {
     if (darkMode) {
-      document.body.classList.remove('light-theme');
+      document.body.classList.add('dark-theme');
     } else {
-      document.body.classList.add('light-theme');
+      document.body.classList.remove('dark-theme');
     }
   }, [darkMode]);
 
@@ -189,16 +194,18 @@ function App() {
     );
   }
 
-  // Navigation items based on roles
+  // Navigation items based on roles (Exact matrix matching)
   const menuItems = [
     { id: 'dashboard', name: 'Sơ đồ phòng', icon: LayoutDashboard, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
-    { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
-    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['OWNER', 'RECEPTIONIST'] },
+    { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['RECEPTIONIST', 'ACCOUNTANT'] },
+    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['RECEPTIONIST'] },
     { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER'] },
     { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
     { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST'] },
     { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
+    { id: 'settings', name: 'Cài đặt cơ sở', icon: Building2, roles: ['OWNER', 'ADMIN'] },
     { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },
+    { id: 'activity-logs', name: 'Nhật ký hoạt động', icon: ClipboardList, roles: ['ADMIN', 'OWNER'] },
     { id: 'profile', name: 'Hồ sơ & Bảo mật', icon: User, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
   ];
 
@@ -220,8 +227,12 @@ function App() {
         return <Services user={user} showNotification={showNotification} />;
       case 'reports':
         return <Reports user={user} showNotification={showNotification} />;
+      case 'settings':
+        return <Settings user={user} showNotification={showNotification} />;
       case 'users':
         return <Users user={user} showNotification={showNotification} />;
+      case 'activity-logs':
+        return <ActivityLogs user={user} showNotification={showNotification} />;
       case 'profile':
         return <Profile user={user} showNotification={showNotification} onProfileUpdate={() => fetchProfile(token)} />;
       default:
@@ -235,12 +246,24 @@ function App() {
       
       {/* Top Navbar */}
       <header className="top-navbar">
-        {/* Brand Logo */}
-        <div className="navbar-brand">
-          <div className="brand-icon">R</div>
+        {/* Brand */}
+        <div className="navbar-brand" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }} onClick={() => handleViewChange('dashboard')}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #0066cc 0%, #0284c7 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            boxShadow: '0 4px 10px rgba(0, 102, 204, 0.25)'
+          }}>
+            <Sparkles size={18} />
+          </div>
           <div className="brand-info">
             <h2 className="brand-name">Roomi</h2>
-            <span className="brand-sub">Hotel Management System</span>
+            <span className="brand-sub">Hệ thống quản lý khách sạn</span>
           </div>
         </div>
 
@@ -383,29 +406,28 @@ function App() {
       {/* LOGOUT CONFIRMATION MODAL */}
       {showLogoutConfirm && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '400px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <div className="modal-content" style={{ maxWidth: '400px' }}>
             <div className="modal-header">
-              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
+              <h2 style={{ fontSize: '17px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
                 <LogOut size={18} />
                 Xác nhận đăng xuất
               </h2>
               <button 
                 onClick={() => setShowLogoutConfirm(false)} 
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
               >
                 <X size={16} />
               </button>
             </div>
-            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
-              <p>Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?</p>
+            <div className="modal-body">
+              <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-primary)' }}>Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?</p>
             </div>
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div className="modal-footer">
               <button 
                 type="button" 
                 onClick={() => setShowLogoutConfirm(false)} 
                 className="btn btn-secondary btn-sm"
               >
-                Hủy
+                Hủy bỏ
               </button>
               <button 
                 type="button" 

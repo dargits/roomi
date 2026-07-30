@@ -102,7 +102,7 @@ public class RoomServiceImpl implements RoomService {
                 room.setStatus(Room.Status.OCCUPIED);
                 roomRepository.save(room);
             } else if (!hasCheckedIn && room.getStatus() == Room.Status.OCCUPIED) {
-                room.setStatus(Room.Status.AVAILABLE);
+                room.setStatus(Room.Status.NEEDS_CLEANING);
                 roomRepository.save(room);
             }
         }
@@ -135,13 +135,38 @@ public class RoomServiceImpl implements RoomService {
                 roomRepository.save(room);
                 updated++;
             } else if (!hasCheckedIn && room.getStatus() == Room.Status.OCCUPIED) {
-                room.setStatus(Room.Status.AVAILABLE);
+                room.setStatus(Room.Status.NEEDS_CLEANING);
                 roomRepository.save(room);
                 updated++;
             }
         }
 
         return updated;
+    }
+
+    /**
+     * Cập nhật trạng thái buồng phòng (NCL-06 — §2.5).
+     * Nhân viên buồng phòng gọi endpoint này sau khi dọn xong để chuyển phòng về AVAILABLE.
+     * Lưu ý: không cho phép tự ý đặt phòng sang OCCUPIED qua endpoint này (chỉ check-in mới làm được).
+     */
+    @Override
+    @Transactional
+    public Room updateRoomStatus(Long id, String status) {
+        Room room = roomRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy phòng", ErrorCode.INVALID_INPUT));
+
+        Room.Status newStatus;
+        try {
+            newStatus = Room.Status.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(
+                    "Trạng thái phòng không hợp lệ: " + status
+                    + ". Các giá trị hợp lệ: AVAILABLE, NEEDS_CLEANING, MAINTENANCE, OCCUPIED",
+                    ErrorCode.INVALID_INPUT);
+        }
+
+        room.setStatus(newStatus);
+        return roomRepository.save(room);
     }
 
     @Override

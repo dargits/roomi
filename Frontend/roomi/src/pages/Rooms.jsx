@@ -13,7 +13,8 @@ import {
   Sliders,
   Home,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Image
 } from 'lucide-react';
 
 function Rooms({ user, showNotification }) {
@@ -65,7 +66,8 @@ function Rooms({ user, showNotification }) {
     name: '',
     capacity: 2,
     amenities: '',
-    basePrice: 500000
+    basePrice: 500000,
+    roomTypeImg: ''
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState({
@@ -210,7 +212,8 @@ function Rooms({ user, showNotification }) {
       name: '',
       capacity: 2,
       amenities: '',
-      basePrice: 500000
+      basePrice: 500000,
+      roomTypeImg: ''
     });
     setShowTypeModal(true);
   };
@@ -222,7 +225,8 @@ function Rooms({ user, showNotification }) {
       name: type.name,
       capacity: type.capacity,
       amenities: type.amenities || '',
-      basePrice: type.basePrice
+      basePrice: type.basePrice,
+      roomTypeImg: type.roomTypeImg || ''
     });
     setShowTypeModal(true);
   };
@@ -416,6 +420,7 @@ function Rooms({ user, showNotification }) {
           <table>
             <thead>
               <tr>
+                <th style={{ width: '80px' }}>Hình ảnh</th>
                 <th>Tên loại phòng</th>
                 <th>Sức chứa tối đa</th>
                 <th>Giá mặc định (VND)</th>
@@ -427,6 +432,31 @@ function Rooms({ user, showNotification }) {
               {roomTypes.length > 0 ? (
                 roomTypes.map(type => (
                   <tr key={type.id}>
+                    <td>
+                      <div style={{
+                        width: '54px',
+                        height: '40px',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {type.roomTypeImg ? (
+                          <img
+                            src={type.roomTypeImg}
+                            alt={type.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                          />
+                        ) : null}
+                        <div style={{ display: type.roomTypeImg ? 'none' : 'flex', color: 'var(--text-muted)' }}>
+                          <Image size={18} />
+                        </div>
+                      </div>
+                    </td>
                     <td><strong>{type.name}</strong></td>
                     <td>{type.capacity} khách</td>
                     <td style={{ fontWeight: '600', color: 'var(--primary)' }}>
@@ -456,7 +486,7 @@ function Rooms({ user, showNotification }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Chưa có loại phòng nào được thiết lập.</td>
+                  <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Chưa có loại phòng nào được thiết lập.</td>
                 </tr>
               )}
             </tbody>
@@ -598,6 +628,29 @@ function Rooms({ user, showNotification }) {
                     value={typeForm.amenities}
                     onChange={(e) => setTypeForm(prev => ({ ...prev, amenities: e.target.value }))}
                   />
+                </div>
+
+                <div>
+                  <label>URL Hình ảnh đại diện (Link ảnh)</label>
+                  <input
+                    type="url"
+                    placeholder="VD: https://images.unsplash.com/photo-..."
+                    value={typeForm.roomTypeImg}
+                    onChange={(e) => setTypeForm(prev => ({ ...prev, roomTypeImg: e.target.value }))}
+                  />
+                  {typeForm.roomTypeImg && (
+                    <div style={{ marginTop: '8px', borderRadius: '8px', overflow: 'hidden', height: '120px', border: '1px solid var(--border-color)', position: 'relative' }}>
+                      <img
+                        src={typeForm.roomTypeImg}
+                        alt="Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                      />
+                      <div style={{ display: 'none', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--color-maintenance)', fontSize: '12px' }}>
+                        URL ảnh không hợp lệ hoặc không tải được
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="modal-footer">
