@@ -74,12 +74,17 @@ function Users({ user, showNotification }) {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    if (!createForm.fullName.trim() || !createForm.username.trim() || !createForm.password.trim()) {
-      showNotification('Vui lòng điền các thông tin bắt buộc', 'error');
+    if (!createForm.fullName.trim() || !createForm.username.trim() || !createForm.password.trim() || !createForm.phone.trim()) {
+      showNotification('Vui lòng điền đầy đủ các thông tin bắt buộc', 'error');
       return;
     }
     if (createForm.password.length < 6) {
       showNotification('Mật khẩu phải có ít nhất 6 ký tự', 'error');
+      return;
+    }
+    const phoneRegex = /^[0-9]{9,11}$/;
+    if (!phoneRegex.test(createForm.phone.trim())) {
+      showNotification('Số điện thoại không hợp lệ (phải từ 9 - 11 chữ số)', 'error');
       return;
     }
     try {
@@ -88,16 +93,9 @@ function Users({ user, showNotification }) {
         fullName: createForm.fullName.trim(),
         username: createForm.username.trim(),
         password: createForm.password,
-        phone: createForm.phone.trim() ? createForm.phone.trim() : undefined
+        phone: createForm.phone.trim() ? createForm.phone.trim() : undefined,
+        role: createForm.role
       });
-
-      if (createForm.role !== 'RECEPTIONIST') {
-        const createdUserList = await api.get('/users/');
-        const created = createdUserList.data?.data?.find(u => u.username === createForm.username.trim());
-        if (created) {
-          await api.put(`/users/role/${created.id}?role=${createForm.role}`);
-        }
-      }
 
       showNotification(`Tạo tài khoản nhân viên ${createForm.fullName} thành công!`);
       setShowCreateModal(false);
@@ -660,13 +658,14 @@ function Users({ user, showNotification }) {
 
                 <div>
                   <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
-                    Số điện thoại <span style={{ fontSize: '12px', fontWeight: '400', color: 'var(--text-muted)' }}>(tùy chọn)</span>
+                    Số điện thoại <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="tel"
-                    placeholder="0901234567"
+                    placeholder="Ví dụ: 0901234567"
                     value={createForm.phone}
                     onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
+                    required
                   />
                 </div>
 

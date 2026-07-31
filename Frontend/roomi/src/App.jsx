@@ -194,14 +194,14 @@ function App() {
     );
   }
 
-  // Navigation items based on roles (Exact matrix matching)
+  // Navigation items based on roles (Exact matrix matching VT-01 to VT-05)
   const menuItems = [
     { id: 'dashboard', name: 'Sơ đồ phòng', icon: LayoutDashboard, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
     { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['RECEPTIONIST', 'ACCOUNTANT'] },
-    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['RECEPTIONIST'] },
-    { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER'] },
-    { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
-    { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST'] },
+    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['RECEPTIONIST', 'ACCOUNTANT', 'ADMIN'] },
+    { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER', 'ADMIN'] },
+    { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
+    { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
     { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
     { id: 'settings', name: 'Cài đặt cơ sở', icon: Building2, roles: ['OWNER', 'ADMIN'] },
     { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },

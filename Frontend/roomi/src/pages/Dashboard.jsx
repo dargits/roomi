@@ -1036,7 +1036,7 @@ function Dashboard({ user, showNotification }) {
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                     Phòng vừa làm thủ tục Check-out hoặc đang chờ làm vệ sinh trước khi đón khách tiếp theo.
                   </p>
-                  {(user.role === 'HOUSEKEEPER' || user.role === 'RECEPTIONIST' || user.role === 'OWNER' || user.role === 'ADMIN') && (
+                  {user.role === 'HOUSEKEEPER' && (
                     <button 
                       onClick={() => handleUpdateRoomStatus('AVAILABLE')}
                       className="btn btn-primary"

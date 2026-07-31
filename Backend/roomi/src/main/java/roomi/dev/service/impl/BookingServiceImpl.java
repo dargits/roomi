@@ -128,6 +128,11 @@ public class BookingServiceImpl implements BookingService {
 
         User systemUser = userRepository.findAll().stream().findFirst().orElse(null);
 
+        Room preferredRoom = null;
+        if (request.getRoomId() != null) {
+            preferredRoom = roomRepository.findById(request.getRoomId()).orElse(null);
+        }
+
         Booking booking = Booking.builder()
                 .guest(guest)
                 .guestName(request.getFullName())
@@ -135,11 +140,11 @@ public class BookingServiceImpl implements BookingService {
                 .guestIdNumber(request.getIdNumber())
                 .guestEmail(request.getEmail())
                 .roomType(roomType)
-                .room(null) // Chưa gán phòng cụ thể — Lễ tân sẽ gán khi duyệt
+                .room(preferredRoom) // Lưu lại phòng cụ thể khách đã chọn trên Web!
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .source(Booking.Source.BOOKING_PORTAL)
-                .status(Booking.Status.NEW) // Trạng thái MỚI TẠO (Chờ lễ tân duyệt)
+                .status(preferredRoom != null ? Booking.Status.CONFIRMED : Booking.Status.NEW)
                 .expectedPrice(expectedPrice)
                 .createdBy(systemUser)
                 .build();
@@ -171,6 +176,15 @@ public class BookingServiceImpl implements BookingService {
         //   3. Không bị chồng lấn thời gian với booking khác (loại trừ chính booking này)
         Room room = conflictChecker.validateAndGetRoom(
                 roomId, booking.getRoomType(), slot, bookingId);
+
+        // Kiểm tra phòng phải ở trạng thái SAN_SANG (AVAILABLE)
+        if (room.getStatus() != Room.Status.AVAILABLE) {
+            String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP" :
+                                room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
+            throw new BusinessException(
+                    "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName + "). Vui lòng cho buồng phòng dọn dẹp xong trước khi gán!",
+                    ErrorCode.ROOM_NOT_AVAILABLE);
+        }
 
         booking.setRoom(room);
         booking.setStatus(Booking.Status.CONFIRMED);

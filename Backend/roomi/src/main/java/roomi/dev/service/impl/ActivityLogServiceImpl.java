@@ -1,36 +1,46 @@
 package roomi.dev.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import roomi.dev.dto.response.ActivityLogResponse;
 import roomi.dev.model.ActivityLog;
 import roomi.dev.model.User;
 import roomi.dev.repository.ActivityLogRepository;
+import roomi.dev.repository.UserRepository;
 import roomi.dev.service.ActivityLogService;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ActivityLogServiceImpl implements ActivityLogService {
 
     private final ActivityLogRepository activityLogRepository;
+    private final UserRepository userRepository;
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(User user, String action, String entityName, Long entityId, String detail) {
-        if (user == null) return;
+        try {
+            if (user == null || user.getId() == null) return;
+            User managedUser = userRepository.findById(user.getId()).orElse(user);
 
-        ActivityLog activityLog = ActivityLog.builder()
-                .user(user)
-                .action(action)
-                .entityName(entityName)
-                .entityId(entityId)
-                .detail(detail)
-                .build();
+            ActivityLog activityLog = ActivityLog.builder()
+                    .user(managedUser)
+                    .action(action)
+                    .entityName(entityName)
+                    .entityId(entityId != null ? entityId : 0L)
+                    .detail(detail)
+                    .build();
 
-        activityLogRepository.save(activityLog);
+            activityLogRepository.save(activityLog);
+        } catch (Exception e) {
+            log.error("Lỗi khi lưu ActivityLog (bỏ qua để tránh ảnh hưởng luồng chính): {}", e.getMessage());
+        }
     }
 
     @Override

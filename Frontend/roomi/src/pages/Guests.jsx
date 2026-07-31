@@ -27,8 +27,8 @@ function Guests({ user, showNotification }) {
     }
   };
 
-  // Guard Clause for Access Control (RECEPTIONIST, ADMIN)
-  if (user.role !== 'RECEPTIONIST' && user.role !== 'ADMIN') {
+  // Guard Clause for Access Control (RECEPTIONIST, ACCOUNTANT, ADMIN)
+  if (user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
     return (
       <div className="card" style={{
         padding: '40px',

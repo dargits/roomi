@@ -166,11 +166,17 @@ public class RoomController {
             @PathVariable Long id,
             @RequestParam String status) {
 
-        authUtil.requireRoles(token,
-                User.Role.HOUSEKEEPER, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ADMIN);
-        User currentUser = authUtil.getUserFromToken(token);
+        String uppercaseStatus = status.trim().toUpperCase();
+        if ("MAINTENANCE".equals(uppercaseStatus)) {
+            // Khóa bảo trì -> Chỉ Chủ cơ sở (OWNER) và Admin
+            authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        } else {
+            // Hoàn tất dọn dẹp phòng -> Duy nhất Nhân viên Buồng phòng (HOUSEKEEPER)
+            authUtil.requireRoles(token, User.Role.HOUSEKEEPER);
+        }
 
-        Room room = roomService.updateRoomStatus(id, status);
+        User currentUser = authUtil.getUserFromToken(token);
+        Room room = roomService.updateRoomStatus(id, uppercaseStatus);
 
         activityLogService.log(currentUser, "ĐỔI TRẠNG THÁI PHÒNG", "ROOM", id,
                 "Cập nhật trạng thái phòng " + (room != null ? room.getRoomNumber() : id) + " sang " + status);

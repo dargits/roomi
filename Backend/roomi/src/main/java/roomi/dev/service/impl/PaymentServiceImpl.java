@@ -9,13 +9,16 @@ import roomi.dev.dto.response.PaymentResponse;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.exception.ErrorCode;
 import roomi.dev.model.Booking;
+import roomi.dev.model.Guest;
 import roomi.dev.model.Invoice;
 import roomi.dev.model.Payment;
 import roomi.dev.model.User;
 import roomi.dev.repository.BookingRepository;
 import roomi.dev.repository.BookingSurchargeUsageRepository;
+import roomi.dev.repository.GuestRepository;
 import roomi.dev.repository.InvoiceRepository;
 import roomi.dev.repository.PaymentRepository;
+import roomi.dev.service.ActivityLogService;
 import roomi.dev.service.BookingSurchargeUsageService;
 import roomi.dev.service.PaymentService;
 
@@ -29,7 +32,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final BookingRepository bookingRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
+    private final GuestRepository   guestRepository;
     private final BookingSurchargeUsageService bookingSurchargeUsageService;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
@@ -80,6 +85,21 @@ public class PaymentServiceImpl implements PaymentService {
         if (newTotalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
             invoice.setStatus(Invoice.Status.PAID);
             invoiceRepository.save(invoice);
+        }
+
+        // Tích điểm thân thiết cho khách hàng (Mỗi 10.000 VNĐ thanh toán = 1 điểm)
+        if (booking.getGuest() != null) {
+            Guest guest = booking.getGuest();
+            int pointsEarned = request.getAmount().divide(new java.math.BigDecimal("10000"), 0, java.math.RoundingMode.FLOOR).intValue();
+            if (pointsEarned > 0) {
+                int currentPoints = (guest.getLoyaltyPoints() != null) ? guest.getLoyaltyPoints() : 0;
+                guest.setLoyaltyPoints(currentPoints + pointsEarned);
+                guestRepository.save(guest);
+
+                activityLogService.log(currentUser, "TÍCH ĐIỂM THÂN THIẾT", "GUEST", guest.getId(),
+                        "Tích lũy +" + pointsEarned + " điểm thân thiết cho khách hàng " + guest.getFullName() + 
+                        " (Thanh toán đơn #" + booking.getId() + " số tiền " + String.format("%,d", request.getAmount().longValue()) + "đ)");
+            }
         }
 
         return toPaymentResponse(savedPayment);
