@@ -60,7 +60,7 @@ public class GuestController {
 
         authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<List<GuestResponse>>builder()
                 .mess("Thành công")
@@ -81,7 +81,7 @@ public class GuestController {
 
         authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<GuestResponse>builder()
                 .mess("Thành công")
@@ -103,7 +103,7 @@ public class GuestController {
 
         authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<GuestResponse>builder()
                 .mess("Thành công")
@@ -124,7 +124,7 @@ public class GuestController {
 
         authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<List<GuestResponse>>builder()
                 .mess("Thành công")
@@ -189,7 +189,7 @@ public class GuestController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         guestService.deleteGuest(id);
         return ResponseEntity.ok(BaseResponse.<Void>builder()

@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import roomi.dev.dto.request.BookingSurchargeUsageRequest;
+import roomi.dev.dto.request.UpdateInvoiceRequest;
 import roomi.dev.dto.response.BaseResponse;
 import roomi.dev.dto.response.BookingSurchargeUsageResponse;
 import roomi.dev.dto.response.InvoiceResponse;
@@ -63,7 +64,7 @@ public class BookingSurchargeUsageController {
             @PathVariable Long bookingId) {
 
         User currentUser = authUtil.requireRoles(token,
-                User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ADMIN);
+                User.Role.OWNER, User.Role.RECEPTIONIST);
 
         return ResponseEntity.ok(BaseResponse.<List<BookingSurchargeUsageResponse>>builder()
                 .mess("Thành công")
@@ -165,7 +166,7 @@ public class BookingSurchargeUsageController {
         // ACCOUNTANT được phép xem hóa đơn để đối soát (VT-04)
         User currentUser = authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<InvoiceResponse>builder()
                 .mess("Thành công")
@@ -185,12 +186,31 @@ public class BookingSurchargeUsageController {
             @Valid @RequestBody roomi.dev.dto.request.InvoiceAdjustmentRequest request) {
 
         User currentUser = authUtil.requireRoles(token,
-                User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ADMIN);
+                User.Role.OWNER, User.Role.ACCOUNTANT);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 BaseResponse.<InvoiceResponse>builder()
                         .mess("Tạo hóa đơn điều chỉnh thành công")
                         .data(bookingSurchargeUsageService.createAdjustmentInvoice(bookingId, request, currentUser))
                         .build());
+    }
+
+    /**
+     * Cập nhật thông tin hóa đơn (sửa chiết khấu trực tiếp) cho hóa đơn chưa thanh toán.
+     * Quyền: OWNER, RECEPTIONIST, ACCOUNTANT
+     */
+    @PutMapping("/invoice")
+    public ResponseEntity<BaseResponse<InvoiceResponse>> updateInvoice(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long bookingId,
+            @Valid @RequestBody roomi.dev.dto.request.UpdateInvoiceRequest request) {
+
+        User currentUser = authUtil.requireRoles(token,
+                User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT);
+
+        return ResponseEntity.ok(BaseResponse.<InvoiceResponse>builder()
+                .mess("Cập nhật hóa đơn thành công")
+                .data(bookingSurchargeUsageService.updateInvoice(bookingId, request, currentUser))
+                .build());
     }
 }

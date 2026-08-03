@@ -144,59 +144,63 @@ function Settings({ user, showNotification }) {
               </div>
             </div>
 
-            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
-              <Clock size={20} color="var(--primary)" />
-              <h3 style={{ fontSize: '16px', margin: 0 }}>Quy định Giờ giấc & Chính sách Hủy</h3>
-            </div>
+            {user.role !== 'ADMIN' && (
+              <>
+                <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
+                  <Clock size={20} color="var(--primary)" />
+                  <h3 style={{ fontSize: '16px', margin: 0 }}>Quy định Giờ giấc & Chính sách Hủy</h3>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ marginBottom: '6px', fontWeight: '600' }}>Giờ nhận phòng mặc định (Check-in)</label>
-                <input
-                  type="text"
-                  value={settings.defaultCheckinTime}
-                  onChange={(e) => setSettings(prev => ({ ...prev, defaultCheckinTime: e.target.value }))}
-                  disabled={!isEditable}
-                  placeholder="14:00"
-                />
-              </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{ marginBottom: '6px', fontWeight: '600' }}>Giờ nhận phòng mặc định (Check-in)</label>
+                    <input
+                      type="text"
+                      value={settings.defaultCheckinTime}
+                      onChange={(e) => setSettings(prev => ({ ...prev, defaultCheckinTime: e.target.value }))}
+                      disabled={!isEditable}
+                      placeholder="14:00"
+                    />
+                  </div>
 
-              <div>
-                <label style={{ marginBottom: '6px', fontWeight: '600' }}>Giờ trả phòng mặc định (Check-out)</label>
-                <input
-                  type="text"
-                  value={settings.defaultCheckoutTime}
-                  onChange={(e) => setSettings(prev => ({ ...prev, defaultCheckoutTime: e.target.value }))}
-                  disabled={!isEditable}
-                  placeholder="12:00"
-                />
-              </div>
-            </div>
+                  <div>
+                    <label style={{ marginBottom: '6px', fontWeight: '600' }}>Giờ trả phòng mặc định (Check-out)</label>
+                    <input
+                      type="text"
+                      value={settings.defaultCheckoutTime}
+                      onChange={(e) => setSettings(prev => ({ ...prev, defaultCheckoutTime: e.target.value }))}
+                      disabled={!isEditable}
+                      placeholder="12:00"
+                    />
+                  </div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ marginBottom: '6px', fontWeight: '600' }}>Hạn hủy phòng miễn phí (Giờ trước check-in)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={settings.freeCancelHours}
-                  onChange={(e) => setSettings(prev => ({ ...prev, freeCancelHours: parseInt(e.target.value) || 0 }))}
-                  disabled={!isEditable}
-                />
-              </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{ marginBottom: '6px', fontWeight: '600' }}>Hạn hủy phòng miễn phí (Giờ trước check-in)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={settings.freeCancelHours}
+                      onChange={(e) => setSettings(prev => ({ ...prev, freeCancelHours: parseInt(e.target.value) || 0 }))}
+                      disabled={!isEditable}
+                    />
+                  </div>
 
-              <div>
-                <label style={{ marginBottom: '6px', fontWeight: '600' }}>Phí hủy trễ (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={settings.cancelFeePercent}
-                  onChange={(e) => setSettings(prev => ({ ...prev, cancelFeePercent: parseFloat(e.target.value) || 0 }))}
-                  disabled={!isEditable}
-                />
-              </div>
-            </div>
+                  <div>
+                    <label style={{ marginBottom: '6px', fontWeight: '600' }}>Phí hủy trễ (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={settings.cancelFeePercent}
+                      onChange={(e) => setSettings(prev => ({ ...prev, cancelFeePercent: parseFloat(e.target.value) || 0 }))}
+                      disabled={!isEditable}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             {isEditable ? (
               <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>

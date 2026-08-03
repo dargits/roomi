@@ -60,34 +60,6 @@
   --transition-normal: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dark Theme Toggle */
-.dark-theme {
-  color-scheme: dark;
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-card: #1e293b;
-  --bg-glass: rgba(30, 41, 59, 0.95);
-  --border-color: #334155;
-  --border-focus: #3b82f6;
-
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-glow: rgba(59, 130, 246, 0.15);
-
-  --color-available: #22c55e;
-  --color-available-bg: rgba(34, 197, 94, 0.15);
-  --color-occupied: #3b82f6;
-  --color-occupied-bg: rgba(59, 130, 246, 0.15);
-  --color-cleaning: #f59e0b;
-  --color-cleaning-bg: rgba(245, 158, 11, 0.15);
-  --color-maintenance: #ef4444;
-  --color-maintenance-bg: rgba(239, 68, 68, 0.15);
-}
-
 * {
   box-sizing: border-box;
   margin: 0;

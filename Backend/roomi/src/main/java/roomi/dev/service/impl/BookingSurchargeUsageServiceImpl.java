@@ -110,6 +110,7 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
         // ACCOUNTANT được phép xem hóa đơn để đối soát (VT-04)
         requireInvoiceViewer(currentUser);
         Booking booking = findBooking(bookingId);
+        requireReceptionistShift(booking, currentUser);
         Invoice invoice = recalculateInvoice(booking);
         List<BookingSurchargeUsageResponse> usages = usageRepository
                 .findByBookingIdOrderByRecordedAtAscIdAsc(bookingId)
@@ -122,7 +123,7 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     @Override
     @Transactional
     public InvoiceResponse createAdjustmentInvoice(Long bookingId, roomi.dev.dto.request.InvoiceAdjustmentRequest request, User currentUser) {
-        requireUsageWriter(currentUser);
+        requireAdjustmentInvoiceCreator(currentUser);
         Booking booking = findBooking(bookingId);
         Invoice originalInvoice = invoiceRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new BusinessException("Chưa có hóa đơn cho booking này", ErrorCode.INVOICE_NOT_FOUND));
@@ -144,6 +145,36 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
                 .build();
 
         Invoice saved = invoiceRepository.save(adjustmentInvoice);
+        List<BookingSurchargeUsageResponse> usages = usageRepository
+                .findByBookingIdOrderByRecordedAtAscIdAsc(bookingId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return toInvoiceResponse(saved, usages);
+    }
+
+    @Override
+    @Transactional
+    public InvoiceResponse updateInvoice(Long bookingId, roomi.dev.dto.request.UpdateInvoiceRequest request, User currentUser) {
+        requireInvoiceViewer(currentUser);
+        Booking booking = findBooking(bookingId);
+        requireReceptionistShift(booking, currentUser);
+        Invoice invoice = invoiceRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new BusinessException("Chưa có hóa đơn cho booking này", ErrorCode.INVOICE_NOT_FOUND));
+
+        if (invoice.getStatus() == Invoice.Status.PAID) {
+            throw new BusinessException("Hóa đơn đã thanh toán, không thể chỉnh sửa trực tiếp", ErrorCode.INVOICE_PAID);
+        }
+
+        invoice.setDiscount(request.getDiscount());
+        BigDecimal roomCharge = defaultValue(booking.getExpectedPrice());
+        BigDecimal serviceCharge = defaultValue(usageRepository.sumLineTotalByBookingId(booking.getId()));
+        invoice.setRoomCharge(roomCharge);
+        invoice.setServiceCharge(serviceCharge);
+        invoice.setTotalAmount(roomCharge.add(serviceCharge).subtract(request.getDiscount()));
+
+        Invoice saved = invoiceRepository.save(invoice);
         List<BookingSurchargeUsageResponse> usages = usageRepository
                 .findByBookingIdOrderByRecordedAtAscIdAsc(bookingId)
                 .stream()
@@ -211,6 +242,32 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
                 && user.getRole() != User.Role.ADMIN
                 && user.getRole() != User.Role.RECEPTIONIST)) {
             throw new BusinessException("Bạn không có quyền ghi nhận dịch vụ phụ thu", ErrorCode.INSUFFICIENT_PRIVILEGES);
+        }
+    }
+
+    /**
+     * Kiểm tra quyền lập hóa đơn điều chỉnh.
+     * Roles được phép: OWNER, ADMIN, ACCOUNTANT.
+     */
+    private void requireAdjustmentInvoiceCreator(User user) {
+        if (user == null || !Boolean.TRUE.equals(user.getActive())
+                || (user.getRole() != User.Role.OWNER
+                && user.getRole() != User.Role.ADMIN
+                && user.getRole() != User.Role.ACCOUNTANT)) {
+            throw new BusinessException("Bạn không có quyền lập hóa đơn điều chỉnh", ErrorCode.INSUFFICIENT_PRIVILEGES);
+        }
+    }
+
+    private void requireReceptionistShift(Booking booking, User user) {
+        if (user.getRole() == User.Role.RECEPTIONIST) {
+            java.time.LocalDate today = java.time.LocalDate.now();
+            boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
+                    && booking.getCreatedAt().toLocalDate().equals(today);
+            boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
+            boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
+            if (!createdByMeToday && !checkInToday && !checkOutToday) {
+                throw new BusinessException("Không có quyền thao tác ngoài ca làm việc", ErrorCode.INSUFFICIENT_PRIVILEGES);
+            }
         }
     }
 

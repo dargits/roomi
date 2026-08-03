@@ -91,7 +91,7 @@ public class RoomTypeController {
             @RequestHeader("Authorization") String token,
             @Valid @RequestBody RoomTypeRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.<RoomType>builder()
                 .mess("Tạo loại phòng thành công")
@@ -111,7 +111,7 @@ public class RoomTypeController {
             @PathVariable Long id,
             @Valid @RequestBody RoomTypeRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.ok(BaseResponse.<RoomType>builder()
                 .mess("Cập nhật loại phòng thành công")
@@ -131,7 +131,7 @@ public class RoomTypeController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         roomTypeService.deleteRoomType(id);
         return ResponseEntity.ok(BaseResponse.<Void>builder()

@@ -50,12 +50,24 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (userRepository.count() > 0) {
-            log.info("=== Database đã có dữ liệu, bỏ qua seeding ===");
+        if (roomRepository.count() > 0) {
+            log.info("=== Database đã được seed đầy đủ, bỏ qua seeding ===");
             return;
         }
+        log.info("=== Phát hiện database trống hoặc chưa được seed đầy đủ ===");
+        log.info("=== Làm sạch database trước khi seed ===");
+        clearDatabase();
+
         log.info("=== Bắt đầu seed dữ liệu mẫu ===");
+        seedPropertySettings();
         seedUsers();
+        seedRoomTypes();
+        seedRooms();
+        seedSeasonalRates();
+        seedSurchargeServices();
+        seedGuests();
+        seedBookings();
+        seedActivityLogs();
         log.info("=== Hoàn thành seed dữ liệu mẫu ===");
     }
 
@@ -79,16 +91,16 @@ public class DataSeeder implements CommandLineRunner {
         userRepository.save(User.builder().fullName("Admin Hệ Thống").username("admin")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.ADMIN)
                 .phone("0900000000").active(true).build());
-        userRepository.save(User.builder().fullName("Nguyễn Thị Lễ Tân").username("letan")
+        userRepository.save(User.builder().fullName("Nguyễn Thị Lễ Tân").username("letan1")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.RECEPTIONIST)
                 .phone("0900000001").active(true).build());
         userRepository.save(User.builder().fullName("Trần Văn Lễ Tân").username("letan2")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.RECEPTIONIST)
                 .phone("0900000002").active(true).build());
-        userRepository.save(User.builder().fullName("Lê Thị Buồng Phòng").username("buongphong")
+        userRepository.save(User.builder().fullName("Lê Thị Buồng Phòng").username("buongphong1")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.HOUSEKEEPER)
                 .phone("0900000003").active(true).build());
-        userRepository.save(User.builder().fullName("Phạm Kế Toán").username("ketoan")
+        userRepository.save(User.builder().fullName("Phạm Kế Toán").username("ketoan1")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.ACCOUNTANT)
                 .phone("0900000004").active(true).build());
         userRepository.save(User.builder().fullName("Chủ Khách Sạn").username("chusohuu")
@@ -496,6 +508,23 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     // ================================================================== HELPER
+    private void clearDatabase() {
+        log.info("Xóa dữ liệu cũ...");
+        activityLogRepository.deleteAll();
+        bookingSurchargeUsageRepository.deleteAll();
+        paymentRepository.deleteAll();
+        invoiceRepository.deleteAll();
+        bookingRepository.deleteAll();
+        guestRepository.deleteAll();
+        surchargeServiceRepository.deleteAll();
+        seasonalRateRepository.deleteAll();
+        roomRepository.deleteAll();
+        roomTypeRepository.deleteAll();
+        userRepository.deleteAll();
+        propertySettingsRepository.deleteAll();
+        log.info("✓ Đã xóa sạch dữ liệu cũ");
+    }
+
     private Room findRoom(List<Room> rooms, String number) {
         return rooms.stream().filter(r -> r.getRoomNumber().equals(number)).findFirst().orElse(null);
     }

@@ -14,6 +14,7 @@ import Profile from './pages/Profile';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import ActivityLogs from './pages/ActivityLogs';
+import Invoices from './pages/Invoices';
 import { 
   LayoutDashboard, 
   CalendarRange, 
@@ -23,10 +24,9 @@ import {
   ConciergeBell, 
   ShieldAlert, 
   User, 
+  Receipt, 
   LogOut,
   X,
-  Moon,
-  Sun,
   UserCheck,
   Menu,
   BarChart3,
@@ -42,7 +42,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
   const [notification, setNotification] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loadingBarStatus, setLoadingBarStatus] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -60,14 +59,6 @@ function App() {
     }, 150);
   };
 
-  // Toggle Dark/Light Mode
-  useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add('dark-theme');
-    } else {
-      document.body.classList.remove('dark-theme');
-    }
-  }, [darkMode]);
 
   // Toast notification helper
   const showNotification = (message, type = 'success') => {
@@ -196,13 +187,14 @@ function App() {
 
   // Navigation items based on roles (Exact matrix matching VT-01 to VT-05)
   const menuItems = [
-    { id: 'dashboard', name: 'Sơ đồ phòng', icon: LayoutDashboard, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
-    { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['RECEPTIONIST', 'ACCOUNTANT'] },
-    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['RECEPTIONIST', 'ACCOUNTANT', 'ADMIN'] },
-    { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER', 'ADMIN'] },
-    { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
-    { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-    { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
+    { id: 'dashboard', name: 'Sơ đồ phòng', icon: LayoutDashboard, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT'] },
+    { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['RECEPTIONIST'] },
+    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['RECEPTIONIST'] },
+    { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER'] },
+    { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER'] },
+    { id: 'invoices', name: 'Hóa đơn & Thanh toán', icon: Receipt, roles: ['ACCOUNTANT', 'OWNER', 'RECEPTIONIST'] },
+    { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST'] },
+    { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT'] },
     { id: 'settings', name: 'Cài đặt cơ sở', icon: Building2, roles: ['OWNER', 'ADMIN'] },
     { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },
     { id: 'activity-logs', name: 'Nhật ký hoạt động', icon: ClipboardList, roles: ['ADMIN', 'OWNER'] },
@@ -214,7 +206,7 @@ function App() {
   const renderActiveView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard user={user} showNotification={showNotification} />;
+        return <Dashboard user={user} showNotification={showNotification} readOnly={user.role === 'ACCOUNTANT'} />;
       case 'bookings':
         return <Bookings user={user} showNotification={showNotification} />;
       case 'guests':
@@ -223,6 +215,8 @@ function App() {
         return <Rooms user={user} showNotification={showNotification} />;
       case 'rates':
         return <Rates user={user} showNotification={showNotification} />;
+      case 'invoices':
+        return <Invoices user={user} showNotification={showNotification} />;
       case 'services':
         return <Services user={user} showNotification={showNotification} />;
       case 'reports':
@@ -236,7 +230,7 @@ function App() {
       case 'profile':
         return <Profile user={user} showNotification={showNotification} onProfileUpdate={() => fetchProfile(token)} />;
       default:
-        return <Dashboard user={user} showNotification={showNotification} />;
+        return <Dashboard user={user} showNotification={showNotification} readOnly={user.role === 'ACCOUNTANT'} />;
     }
   };
 
@@ -306,14 +300,6 @@ function App() {
             </div>
           </button>
 
-          {/* Theme switch */}
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="navbar-action-btn"
-            title="Đổi giao diện"
-          >
-            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
 
           {/* Logout button */}
           <button
@@ -374,13 +360,6 @@ function App() {
             </div>
             
             <div className="mobile-menu-actions">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="btn btn-secondary mobile-action-btn"
-              >
-                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-                <span>Giao diện</span>
-              </button>
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);

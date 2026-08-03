@@ -81,13 +81,13 @@ public class BookingController {
     public ResponseEntity<BaseResponse<List<BookingResponse>>> getAllBookings(
             @RequestHeader("Authorization") String token) {
 
-        authUtil.requireRoles(token,
+        User currentUser = authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<List<BookingResponse>>builder()
                 .mess("Thành công")
-                .data(bookingService.getAllBookings())
+                .data(bookingService.getAllBookings(currentUser))
                 .build());
     }
 
@@ -108,12 +108,12 @@ public class BookingController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
 
-        authUtil.requireRoles(token,
+        User currentUser = authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         List<BookingResponse> results = bookingService.searchBookings(
-                guestName, phone, idNumber, roomTypeId, fromDate, toDate);
+                guestName, phone, idNumber, roomTypeId, fromDate, toDate, currentUser);
 
         return ResponseEntity.ok(BaseResponse.<List<BookingResponse>>builder()
                 .mess("Tìm kiếm thành công")
@@ -132,13 +132,13 @@ public class BookingController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        authUtil.requireRoles(token,
+        User currentUser = authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<BookingResponse>builder()
                 .mess("Thành công")
-                .data(bookingService.getBookingById(id))
+                .data(bookingService.getBookingById(id, currentUser))
                 .build());
     }
 
@@ -153,13 +153,13 @@ public class BookingController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long guestId) {
 
-        authUtil.requireRoles(token,
+        User currentUser = authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<List<BookingResponse>>builder()
                 .mess("Thành công")
-                .data(bookingService.getBookingsByGuest(guestId))
+                .data(bookingService.getBookingsByGuest(guestId, currentUser))
                 .build());
     }
 
@@ -175,13 +175,13 @@ public class BookingController {
             @RequestHeader("Authorization") String token,
             @PathVariable String status) {
 
-        authUtil.requireRoles(token,
+        User currentUser = authUtil.requireRoles(token,
                 User.Role.OWNER, User.Role.RECEPTIONIST,
-                User.Role.ACCOUNTANT, User.Role.ADMIN, User.Role.HOUSEKEEPER);
+                User.Role.ACCOUNTANT, User.Role.HOUSEKEEPER);
 
         return ResponseEntity.ok(BaseResponse.<List<BookingResponse>>builder()
                 .mess("Thành công")
-                .data(bookingService.getBookingsByStatus(status))
+                .data(bookingService.getBookingsByStatus(status, currentUser))
                 .build());
     }
 
@@ -262,7 +262,7 @@ public class BookingController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         bookingService.deleteBooking(id);
         return ResponseEntity.ok(BaseResponse.<Void>builder()

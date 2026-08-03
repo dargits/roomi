@@ -36,10 +36,10 @@ function Bookings({ user, showNotification }) {
 
   const getSourceLabel = (source) => {
     switch (source) {
-      case 'BOOKING_PORTAL': return '🌐 Đặt từ Web';
-      case 'WALK_IN': return '🚶 Khách vãng lai';
-      case 'PHONE': return '📞 Điện thoại';
-      case 'EXTERNAL_CHANNEL': return '🏨 Kênh ngoài';
+      case 'BOOKING_PORTAL': return 'Đặt từ Web';
+      case 'WALK_IN': return 'Khách vãng lai';
+      case 'PHONE': return 'Điện thoại';
+      case 'EXTERNAL_CHANNEL': return 'Kênh ngoài';
       default: return source || 'Trực tiếp';
     }
   };
@@ -703,12 +703,14 @@ function Bookings({ user, showNotification }) {
               }}
             >
               <span>{tab.label}</span>
-              {tab.count > 0 && (
+              {tab.count !== undefined && (
                 <span style={{
                   backgroundColor: isActive 
                     ? 'rgba(255,255,255,0.25)' 
-                    : (isNewPending ? '#ef4444' : 'rgba(255,255,255,0.1)'),
-                  color: 'white',
+                    : (isNewPending ? '#ef4444' : 'var(--border-color)'),
+                  color: (isActive || isNewPending)
+                    ? 'white' 
+                    : 'var(--text-secondary)',
                   padding: '1px 7px',
                   borderRadius: '10px',
                   fontSize: '11px',
@@ -1423,7 +1425,7 @@ function Bookings({ user, showNotification }) {
                 </button>
               )}
 
-              {selectedBooking.status === 'CHECKED_IN' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT') && (
+              {selectedBooking.status === 'CHECKED_IN' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
                 <button 
                   onClick={() => { 
                     handleTransition(selectedBooking.id, 'check-out');

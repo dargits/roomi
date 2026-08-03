@@ -10,6 +10,8 @@ import roomi.dev.model.Room;
 import roomi.dev.model.RoomType;
 import roomi.dev.repository.RoomRepository;
 import roomi.dev.repository.RoomTypeRepository;
+import roomi.dev.repository.BookingRepository;
+import roomi.dev.exception.BusinessException;
 import roomi.dev.service.impl.RoomServiceImpl;
 
 import java.math.BigDecimal;
@@ -28,6 +30,9 @@ class RoomServiceImplTest {
 
     @Mock
     private RoomTypeRepository roomTypeRepository;
+
+    @Mock
+    private BookingRepository bookingRepository;
 
     @InjectMocks
     private RoomServiceImpl roomService;
@@ -55,5 +60,39 @@ class RoomServiceImplTest {
 
         assertNotNull(result);
         verify(roomRepository).save(any(Room.class));
+    }
+
+    @Test
+    void updateRoomStatus_shouldThrowException_whenSettingToOccupied() {
+        Room room = Room.builder().id(1L).roomNumber("101").status(Room.Status.AVAILABLE).build();
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class,
+                () -> roomService.updateRoomStatus(1L, "OCCUPIED")
+        );
+    }
+
+    @Test
+    void updateRoomStatus_shouldThrowException_whenRoomIsOccupied() {
+        Room room = Room.builder().id(1L).roomNumber("101").status(Room.Status.OCCUPIED).build();
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class,
+                () -> roomService.updateRoomStatus(1L, "MAINTENANCE")
+        );
+    }
+
+    @Test
+    void updateRoomStatus_shouldSaveStatus_whenValid() {
+        Room room = Room.builder().id(1L).roomNumber("101").status(Room.Status.AVAILABLE).build();
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+        when(roomRepository.save(any(Room.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Room result = roomService.updateRoomStatus(1L, "MAINTENANCE");
+
+        org.junit.jupiter.api.Assertions.assertEquals(Room.Status.MAINTENANCE, result.getStatus());
+        verify(roomRepository).save(room);
     }
 }

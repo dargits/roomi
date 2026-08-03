@@ -63,7 +63,7 @@ public class ReportController {
             @RequestHeader("Authorization") String token,
             RevenueRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ACCOUNTANT, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ACCOUNTANT);
 
         if (request.getStartDate() == null || request.getEndDate() == null) {
             throw new roomi.dev.exception.BusinessException(
@@ -103,7 +103,7 @@ public class ReportController {
             @RequestHeader("Authorization") String token,
             RevenueRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ACCOUNTANT, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ACCOUNTANT);
 
         if (request.getStartDate() == null || request.getEndDate() == null) {
             throw new roomi.dev.exception.BusinessException(
@@ -150,7 +150,7 @@ public class ReportController {
             @RequestHeader("Authorization") String token,
             DateRangeRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         if (request.getStartDate() == null || request.getEndDate() == null) {
             throw new roomi.dev.exception.BusinessException(

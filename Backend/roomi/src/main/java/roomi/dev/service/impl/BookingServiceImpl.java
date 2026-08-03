@@ -370,28 +370,32 @@ public class BookingServiceImpl implements BookingService {
     // ================================================================== QUERIES
 
     @Override
-    public BookingResponse getBookingById(Long id) {
-        return toResponse(findById(id));
+    public BookingResponse getBookingById(Long id, User currentUser) {
+        Booking booking = findById(id);
+        requireReceptionistShift(booking, currentUser);
+        return toResponse(booking);
     }
 
     @Override
-    public List<BookingResponse> getAllBookings() {
+    public List<BookingResponse> getAllBookings(User currentUser) {
         return bookingRepository.findAll().stream()
+                .filter(b -> isBookingInReceptionistShift(b, currentUser))
                 .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<BookingResponse> getBookingsByGuest(Long guestId) {
+    public List<BookingResponse> getBookingsByGuest(Long guestId, User currentUser) {
         return bookingRepository.findByGuestId(guestId).stream()
+                .filter(b -> isBookingInReceptionistShift(b, currentUser))
                 .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<BookingResponse> getBookingsByStatus(String status) {
+    public List<BookingResponse> getBookingsByStatus(String status, User currentUser) {
         Booking.Status s;
         try {
             s = Booking.Status.valueOf(status.toUpperCase());
@@ -399,6 +403,7 @@ public class BookingServiceImpl implements BookingService {
             throw new BusinessException("Trạng thái không hợp lệ: " + status, ErrorCode.INVALID_INPUT);
         }
         return bookingRepository.findByStatus(s).stream()
+                .filter(b -> isBookingInReceptionistShift(b, currentUser))
                 .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -661,10 +666,11 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<BookingResponse> searchBookings(String guestName, String phone, String idNumber, Long roomTypeId,
-            LocalDate fromDate, LocalDate toDate) {
+            LocalDate fromDate, LocalDate toDate, User currentUser) {
         List<Booking> allBookings = bookingRepository.findAll();
 
         return allBookings.stream()
+                .filter(b -> isBookingInReceptionistShift(b, currentUser))
                 .filter(b -> {
                     String name = b.getGuestName() != null && !b.getGuestName().isBlank()
                             ? b.getGuestName()
@@ -710,5 +716,30 @@ public class BookingServiceImpl implements BookingService {
                 .sorted((b1, b2) -> Long.compare(b1.getId(), b2.getId()))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    private void requireReceptionistShift(Booking booking, User user) {
+        if (user.getRole() == User.Role.RECEPTIONIST) {
+            LocalDate today = LocalDate.now();
+            boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
+                    && booking.getCreatedAt().toLocalDate().equals(today);
+            boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
+            boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
+            if (!createdByMeToday && !checkInToday && !checkOutToday) {
+                throw new BusinessException("Không có quyền thao tác ngoài ca làm việc", ErrorCode.INSUFFICIENT_PRIVILEGES);
+            }
+        }
+    }
+
+    private boolean isBookingInReceptionistShift(Booking booking, User user) {
+        if (user.getRole() != User.Role.RECEPTIONIST) {
+            return true;
+        }
+        LocalDate today = LocalDate.now();
+        boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
+                && booking.getCreatedAt().toLocalDate().equals(today);
+        boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
+        boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
+        return createdByMeToday || checkInToday || checkOutToday;
     }
 }

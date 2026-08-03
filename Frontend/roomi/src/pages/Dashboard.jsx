@@ -17,10 +17,11 @@ import {
   Coffee,
   Check,
   CheckCircle,
-  X
+  X,
+  Bell
 } from 'lucide-react';
 
-function Dashboard({ user, showNotification }) {
+function Dashboard({ user, showNotification, readOnly = false }) {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'calendar'
   const [roomsCalendar, setRoomsCalendar] = useState([]);
@@ -29,9 +30,49 @@ function Dashboard({ user, showNotification }) {
   const [filterType, setFilterType] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState(user?.role === 'HOUSEKEEPER' ? 'NEEDS_CLEANING' : 'ALL');
   
+  // States and refs for housekeeping notifications
+  const [cleaningNotifications, setCleaningNotifications] = useState([]);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const roomsListRef = React.useRef([]);
+
   // Date range for calendar (14 days starting from today)
   const [startDate, setStartDate] = useState(new Date());
   const [dateHeaders, setDateHeaders] = useState([]);
+
+  // Play programmatic notification beep chimes
+  const playNotificationSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Beep 1 (D5)
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.12);
+      
+      // Beep 2 (A5)
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880.00, audioCtx.currentTime);
+        gain2.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.22);
+      }, 120);
+    } catch (e) {
+      console.warn("Could not play notification sound:", e);
+    }
+  };
 
   // Modal States
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -116,7 +157,67 @@ function Dashboard({ user, showNotification }) {
           note: roomsMap[r.roomId] || ''
         }));
 
+        // Detect room state changes to NEEDS_CLEANING for Housekeeper
+        if (user?.role === 'HOUSEKEEPER') {
+          if (roomsListRef.current.length === 0) {
+            // First load: initialize notifications with all current NEEDS_CLEANING rooms
+            const initialCleaningRooms = enriched.filter(r => r.status === 'NEEDS_CLEANING');
+            if (initialCleaningRooms.length > 0) {
+              const initialNotifs = initialCleaningRooms.map(r => ({
+                id: Date.now() + Math.random(),
+                roomNumber: r.roomNumber,
+                roomId: r.roomId,
+                message: `Phòng ${r.roomNumber} đang cần dọn dẹp!`
+              }));
+              setCleaningNotifications(initialNotifs);
+            }
+          } else {
+            // Subsequent loads: detect transitions to NEEDS_CLEANING
+            const newCleaningRooms = [];
+            enriched.forEach(newRoom => {
+              const oldRoom = roomsListRef.current.find(o => o.roomId === newRoom.roomId);
+              if (oldRoom) {
+                if (oldRoom.status !== 'NEEDS_CLEANING' && newRoom.status === 'NEEDS_CLEANING') {
+                  newCleaningRooms.push(newRoom);
+                }
+              }
+            });
+
+            // Find rooms that were cleaned (no longer NEEDS_CLEANING)
+            const cleanRoomIds = enriched
+              .filter(r => r.status !== 'NEEDS_CLEANING')
+              .map(r => r.roomId);
+
+            setCleaningNotifications(prev => {
+              // 1. Filter out rooms that are already clean
+              let updated = prev.filter(notif => !cleanRoomIds.includes(notif.roomId));
+              
+              // 2. Append new notifications
+              if (newCleaningRooms.length > 0) {
+                const newNotifs = newCleaningRooms.map(r => ({
+                  id: Date.now() + Math.random(),
+                  roomNumber: r.roomNumber,
+                  roomId: r.roomId,
+                  message: `Phòng ${r.roomNumber} vừa chuyển sang trạng thái cần dọn dẹp!`
+                }));
+                // Check for duplicates
+                const filteredNew = newNotifs.filter(nn => !updated.some(u => u.roomId === nn.roomId));
+                updated = [...filteredNew, ...updated];
+              }
+              return updated;
+            });
+
+            if (newCleaningRooms.length > 0) {
+              playNotificationSound();
+              newCleaningRooms.forEach(r => {
+                showNotification(`Phòng ${r.roomNumber} đang cần dọn dẹp!`, 'warning');
+              });
+            }
+          }
+        }
+
         setRoomsCalendar(enriched);
+        roomsListRef.current = enriched;
         
         // Update selectedRoom detail if it was open
         if (selectedRoom) {
@@ -141,6 +242,21 @@ function Dashboard({ user, showNotification }) {
   useEffect(() => {
     fetchData();
   }, [viewMode]);
+
+  // Keep reference to latest fetchData to prevent stale closure in interval
+  const fetchDataRef = React.useRef(fetchData);
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  });
+
+  // Polling mechanism every 10 seconds for real-time notifications (Housekeeper only)
+  useEffect(() => {
+    if (user?.role !== 'HOUSEKEEPER') return;
+    const intervalId = setInterval(() => {
+      fetchDataRef.current();
+    }, 10000);
+    return () => clearInterval(intervalId);
+  }, [user]);
 
   // Fetch surcharge services catalog
   const fetchServicesCatalog = async () => {
@@ -366,7 +482,145 @@ function Dashboard({ user, showNotification }) {
         </div>
         
         {/* Actions bar */}
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {user?.role === 'HOUSEKEEPER' && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: showNotifDropdown ? 'var(--primary-glow)' : 'var(--bg-secondary)',
+                  color: cleaningNotifications.length > 0 ? '#b45309' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'var(--transition-fast)'
+                }}
+                title="Chuông thông báo phòng cần dọn"
+              >
+                <Bell size={18} className={cleaningNotifications.length > 0 ? "animate-bounce" : ""} />
+                {cleaningNotifications.length > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    borderRadius: '50%',
+                    width: '16px',
+                    height: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid var(--bg-secondary)'
+                  }}>
+                    {cleaningNotifications.length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '46px',
+                  right: '0',
+                  width: '320px',
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 1000,
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid var(--border-color)',
+                    paddingBottom: '8px',
+                    marginBottom: '4px'
+                  }}>
+                    <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>
+                      Thông báo dọn phòng ({cleaningNotifications.length})
+                    </span>
+                    {cleaningNotifications.length > 0 && (
+                      <button 
+                        onClick={() => setCleaningNotifications([])}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Xóa tất cả
+                      </button>
+                    )}
+                  </div>
+                  
+                  {cleaningNotifications.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      Không có thông báo mới nào
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      maxHeight: '240px', 
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      {cleaningNotifications.map(notif => (
+                        <div 
+                          key={notif.id}
+                          style={{
+                            padding: '8px 10px',
+                            backgroundColor: '#fffbeb',
+                            borderLeft: '3px solid var(--color-cleaning)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <span style={{ color: '#b45309', fontWeight: '500' }}>{notif.message}</span>
+                          <button
+                            onClick={() => setCleaningNotifications(prev => prev.filter(n => n.id !== notif.id))}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#b45309',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{
             display: 'flex',
             backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -562,6 +816,52 @@ function Dashboard({ user, showNotification }) {
             <strong>Giao diện Buồng phòng:</strong> Tự động hiển thị danh sách phòng <strong>Cần dọn dẹp</strong>. 
             Các phòng có khách sắp nhận trong ngày được tự động ưu tiên xếp lên đầu.
           </div>
+        </div>
+      )}
+
+      {user.role === 'HOUSEKEEPER' && cleaningNotifications.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          {cleaningNotifications.map(notif => (
+            <div 
+              key={notif.id} 
+              className="card" 
+              style={{ 
+                padding: '12px 20px', 
+                backgroundColor: '#fffbeb', 
+                border: '1px solid #fde68a',
+                borderLeft: '4px solid var(--color-cleaning)', 
+                borderRadius: '8px',
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                gap: '12px', 
+                fontSize: '13px',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309' }}>
+                <AlertCircle size={18} />
+                <span><strong>Thông báo mới:</strong> {notif.message}</span>
+              </div>
+              <button 
+                onClick={() => {
+                  setCleaningNotifications(prev => prev.filter(n => n.id !== notif.id));
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#b45309',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title="Đóng thông báo"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -887,8 +1187,8 @@ function Dashboard({ user, showNotification }) {
               {getTodayBooking(selectedRoom) && user.role !== 'HOUSEKEEPER' ? (
                 (() => {
                   const activeBooking = getTodayBooking(selectedRoom);
-                  const isReceptionist = user.role === 'RECEPTIONIST' || user.role === 'ADMIN';
-                  const isAccountant = user.role === 'ACCOUNTANT';
+                  const isReceptionist = (user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && !readOnly;
+                  const isAccountant = user.role === 'ACCOUNTANT' || readOnly;
                   return (
                     <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
                       <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
@@ -1036,7 +1336,7 @@ function Dashboard({ user, showNotification }) {
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                     Phòng vừa làm thủ tục Check-out hoặc đang chờ làm vệ sinh trước khi đón khách tiếp theo.
                   </p>
-                  {user.role === 'HOUSEKEEPER' && (
+                  {user.role === 'HOUSEKEEPER' && !readOnly && (
                     <button 
                       onClick={() => handleUpdateRoomStatus('AVAILABLE')}
                       className="btn btn-primary"
@@ -1055,7 +1355,7 @@ function Dashboard({ user, showNotification }) {
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                     Phòng đang tạm ngưng đón khách để sửa chữa thiết bị hoặc bảo trì phòng.
                   </p>
-                  {(user.role === 'OWNER' || user.role === 'ADMIN') && (
+                  {(user.role === 'OWNER' || user.role === 'ADMIN') && !readOnly && (
                     <button 
                       onClick={() => handleUpdateRoomStatus('AVAILABLE')}
                       className="btn btn-primary"
@@ -1086,7 +1386,7 @@ function Dashboard({ user, showNotification }) {
                     Phòng đã được làm vệ sinh sạch sẽ và sẵn sàng đón lượt khách mới.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {(user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                    {(user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && !readOnly && (
                       <button 
                         onClick={() => { setShowAssignModal(true); }}
                         className="btn btn-primary"
@@ -1095,7 +1395,7 @@ function Dashboard({ user, showNotification }) {
                         <Plus size={16} /> Gán booking chưa có phòng
                       </button>
                     )}
-                    {(user.role === 'OWNER' || user.role === 'ADMIN') && (
+                    {(user.role === 'OWNER' || user.role === 'ADMIN') && !readOnly && (
                       <button 
                         onClick={() => { setNewStatus('MAINTENANCE'); setShowStatusModal(true); }}
                         className="btn btn-secondary"
@@ -1130,7 +1430,7 @@ function Dashboard({ user, showNotification }) {
                               {b.status}
                             </span>
                           </div>
-                          {(b.status === 'CONFIRMED' || b.status === 'NEW') && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                          {(b.status === 'CONFIRMED' || b.status === 'NEW') && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && !readOnly && (
                             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                               <button 
                                 onClick={() => handleBookingTransition(b.bookingId, 'check-in')} 
@@ -1363,7 +1663,7 @@ function Dashboard({ user, showNotification }) {
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT') && (
+              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
                 <button 
                   onClick={() => { 
                     const activeBooking = getTodayBooking(selectedRoom);

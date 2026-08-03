@@ -50,7 +50,26 @@ public class PropertySettingsController {
             @RequestHeader("Authorization") String token,
             @Valid @RequestBody PropertySettingsRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        User currentUser = authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+
+        if (currentUser.getRole() == User.Role.ADMIN) {
+            PropertySettingsResponse current = propertySettingsService.getSettings();
+            
+            boolean checkinChanged = request.getDefaultCheckinTime() != null &&
+                    !request.getDefaultCheckinTime().equals(current.getDefaultCheckinTime());
+            boolean checkoutChanged = request.getDefaultCheckoutTime() != null &&
+                    !request.getDefaultCheckoutTime().equals(current.getDefaultCheckoutTime());
+            boolean freeCancelHoursChanged = request.getFreeCancelHours() != null &&
+                    !request.getFreeCancelHours().equals(current.getFreeCancelHours());
+            boolean cancelFeeChanged = request.getCancelFeePercent() != null &&
+                    (current.getCancelFeePercent() == null || request.getCancelFeePercent().compareTo(current.getCancelFeePercent()) != 0);
+
+            if (checkinChanged || checkoutChanged || freeCancelHoursChanged || cancelFeeChanged) {
+                throw new roomi.dev.exception.BusinessException(
+                        "Quản trị viên không có quyền thay đổi cấu hình nghiệp vụ (giờ giấc, chính sách hủy phòng)",
+                        roomi.dev.exception.ErrorCode.INSUFFICIENT_PRIVILEGES);
+            }
+        }
 
         return ResponseEntity.ok(BaseResponse.<PropertySettingsResponse>builder()
                 .mess("Cập nhật thiết lập thành công")

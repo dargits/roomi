@@ -6,6 +6,7 @@ import roomi.dev.dto.response.InvoiceResponse;
 import roomi.dev.model.User;
 
 import roomi.dev.dto.request.InvoiceAdjustmentRequest;
+import roomi.dev.dto.request.UpdateInvoiceRequest;
 
 import java.util.List;
 
@@ -16,4 +17,5 @@ public interface BookingSurchargeUsageService {
     List<BookingSurchargeUsageResponse> getByBookingId(Long bookingId, User currentUser);
     InvoiceResponse getInvoice(Long bookingId, User currentUser);
     InvoiceResponse createAdjustmentInvoice(Long bookingId, InvoiceAdjustmentRequest request, User currentUser);
+    InvoiceResponse updateInvoice(Long bookingId, UpdateInvoiceRequest request, User currentUser);
 }

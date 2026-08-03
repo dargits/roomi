@@ -61,7 +61,7 @@ public class SeasonalRateController {
     public ResponseEntity<BaseResponse<List<SeasonalRate>>> getAllSeasonalRates(
             @RequestHeader("Authorization") String token) {
 
-        authUtil.requireAuth(token);
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT, User.Role.HOUSEKEEPER);
 
         return ResponseEntity.ok(BaseResponse.<List<SeasonalRate>>builder()
                 .mess("Thành công")
@@ -80,7 +80,7 @@ public class SeasonalRateController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        authUtil.requireAuth(token);
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT, User.Role.HOUSEKEEPER);
 
         return ResponseEntity.ok(BaseResponse.<SeasonalRate>builder()
                 .mess("Thành công")
@@ -100,7 +100,7 @@ public class SeasonalRateController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long roomTypeId) {
 
-        authUtil.requireAuth(token);
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT, User.Role.HOUSEKEEPER);
 
         return ResponseEntity.ok(BaseResponse.<List<SeasonalRate>>builder()
                 .mess("Thành công")
@@ -125,7 +125,7 @@ public class SeasonalRateController {
             @RequestParam Long roomTypeId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
-        authUtil.requireAuth(token);
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT, User.Role.HOUSEKEEPER);
 
         return ResponseEntity.ok(BaseResponse.<PriceLookupResponse>builder()
                 .mess("Thành công")

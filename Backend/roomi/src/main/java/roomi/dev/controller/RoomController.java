@@ -101,7 +101,7 @@ public class RoomController {
             @RequestHeader("Authorization") String token,
             @Valid @RequestBody RoomRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.<Room>builder()
                 .mess("Tạo phòng thành công")
@@ -121,7 +121,7 @@ public class RoomController {
             @PathVariable Long id,
             @Valid @RequestBody RoomRequest request) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.ok(BaseResponse.<Room>builder()
                 .mess("Cập nhật phòng thành công")
@@ -142,7 +142,7 @@ public class RoomController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.OWNER);
 
         roomService.deleteRoom(id);
         return ResponseEntity.ok(BaseResponse.<Void>builder()
@@ -168,8 +168,8 @@ public class RoomController {
 
         String uppercaseStatus = status.trim().toUpperCase();
         if ("MAINTENANCE".equals(uppercaseStatus)) {
-            // Khóa bảo trì -> Chỉ Chủ cơ sở (OWNER) và Admin
-            authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+            // Khóa bảo trì -> Chỉ Chủ cơ sở (OWNER)
+            authUtil.requireRoles(token, User.Role.OWNER);
         } else {
             // Hoàn tất dọn dẹp phòng -> Duy nhất Nhân viên Buồng phòng (HOUSEKEEPER)
             authUtil.requireRoles(token, User.Role.HOUSEKEEPER);
@@ -198,7 +198,7 @@ public class RoomController {
     public ResponseEntity<BaseResponse<String>> syncRoomStatuses(
             @RequestHeader("Authorization") String token) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN, User.Role.RECEPTIONIST, User.Role.HOUSEKEEPER);
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.HOUSEKEEPER, User.Role.ACCOUNTANT);
 
         int updated = roomService.syncRoomStatuses();
         return ResponseEntity.ok(BaseResponse.<String>builder()

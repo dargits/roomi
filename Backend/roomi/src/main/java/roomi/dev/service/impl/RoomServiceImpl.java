@@ -165,6 +165,20 @@ public class RoomServiceImpl implements RoomService {
                     ErrorCode.INVALID_INPUT);
         }
 
+        // 1. Không cho phép tự ý chuyển phòng sang OCCUPIED (chỉ thông qua check-in)
+        if (newStatus == Room.Status.OCCUPIED) {
+            throw new BusinessException(
+                    "Không thể cập nhật trạng thái phòng thành OCCUPIED thủ công. Vui lòng thực hiện Check-in cho booking để chuyển trạng thái phòng.",
+                    ErrorCode.INVALID_INPUT);
+        }
+
+        // 2. Không cho phép thay đổi trạng thái của phòng đang có khách (OCCUPIED)
+        if (room.getStatus() == Room.Status.OCCUPIED) {
+            throw new BusinessException(
+                    "Phòng đang có khách (OCCUPIED), không thể thay đổi trạng thái trực tiếp.",
+                    ErrorCode.INVALID_INPUT);
+        }
+
         room.setStatus(newStatus);
         return roomRepository.save(room);
     }

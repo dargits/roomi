@@ -44,6 +44,8 @@ public class PaymentServiceImpl implements PaymentService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy booking", ErrorCode.BOOKING_NOT_FOUND));
 
+        requireReceptionistShift(booking, currentUser);
+
         Invoice invoice = invoiceRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new BusinessException("Chưa có hóa đơn cho booking này", ErrorCode.INVOICE_NOT_FOUND));
 
@@ -112,6 +114,8 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = invoiceRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new BusinessException("Chưa có hóa đơn cho booking này", ErrorCode.INVOICE_NOT_FOUND));
 
+        requireReceptionistShift(invoice.getBooking(), currentUser);
+
         return paymentRepository.findByInvoiceId(invoice.getId()).stream()
                 .map(this::toPaymentResponse)
                 .toList();
@@ -151,5 +155,18 @@ public class PaymentServiceImpl implements PaymentService {
                 .receivedByName(payment.getReceivedBy() != null ? payment.getReceivedBy().getFullName() : null)
                 .paidAt(payment.getPaidAt())
                 .build();
+    }
+
+    private void requireReceptionistShift(Booking booking, User user) {
+        if (user.getRole() == User.Role.RECEPTIONIST) {
+            java.time.LocalDate today = java.time.LocalDate.now();
+            boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
+                    && booking.getCreatedAt().toLocalDate().equals(today);
+            boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
+            boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
+            if (!createdByMeToday && !checkInToday && !checkOutToday) {
+                throw new BusinessException("Không có quyền thao tác ngoài ca làm việc", ErrorCode.INSUFFICIENT_PRIVILEGES);
+            }
+        }
     }
 }

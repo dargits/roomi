@@ -62,7 +62,7 @@ public class PaymentController {
             @PathVariable Long bookingId) {
 
         User currentUser = authUtil.requireRoles(token,
-                User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT, User.Role.ADMIN);
+                User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<List<PaymentResponse>>builder()
                 .mess("Thành công")

@@ -116,7 +116,7 @@ public class SurchargeServiceController {
             @RequestHeader("Authorization") String token,
             @Valid @RequestBody SurchargeServiceRequest request) {
 
-        User currentUser = authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        User currentUser = authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 BaseResponse.<SurchargeServiceResponse>builder()
@@ -138,7 +138,7 @@ public class SurchargeServiceController {
             @PathVariable Long id,
             @Valid @RequestBody SurchargeServiceRequest request) {
 
-        User currentUser = authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        User currentUser = authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.ok(BaseResponse.<SurchargeServiceResponse>builder()
                 .mess("Cập nhật dịch vụ phụ thu thành công")
@@ -159,7 +159,7 @@ public class SurchargeServiceController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        User currentUser = authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        User currentUser = authUtil.requireRoles(token, User.Role.OWNER);
 
         surchargeServiceService.delete(id, currentUser);
         return ResponseEntity.ok(BaseResponse.<Void>builder()
@@ -182,7 +182,7 @@ public class SurchargeServiceController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        User currentUser = authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        User currentUser = authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.ok(BaseResponse.<SurchargeServiceResponse>builder()
                 .mess("Ngừng hoạt động dịch vụ phụ thu thành công")
@@ -202,7 +202,7 @@ public class SurchargeServiceController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
 
-        User currentUser = authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        User currentUser = authUtil.requireRoles(token, User.Role.OWNER);
 
         return ResponseEntity.ok(BaseResponse.<SurchargeServiceResponse>builder()
                 .mess("Kích hoạt lại dịch vụ phụ thu thành công")
