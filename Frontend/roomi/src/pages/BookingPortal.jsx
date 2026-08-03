@@ -47,6 +47,7 @@ function BookingPortal({ onBackToLogin, showNotification }) {
 
   // Selection
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [propertySettings, setPropertySettings] = useState(null);
 
   // Guest Details
   const [guestDetails, setGuestDetails] = useState({
@@ -64,19 +65,27 @@ function BookingPortal({ onBackToLogin, showNotification }) {
   const roomsSectionRef = useRef(null);
   const amenitiesSectionRef = useRef(null);
 
-  // Fetch Room Types on mount
+  // Fetch Room Types and Property Settings on mount
   useEffect(() => {
-    const fetchRoomTypes = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await api.get("/room-types");
-        if (res.data && res.data.data) {
-          setRoomTypes(res.data.data);
+        const [typesRes, settingsRes] = await Promise.all([
+          api.get("/room-types"),
+          api.get("/settings/public").catch(() => null)
+        ]);
+
+        if (typesRes?.data && typesRes.data.data) {
+          // Lọc bỏ danh mục đang bị ẩn ([HIDDEN]) — không hiện với khách
+          setRoomTypes(typesRes.data.data.filter(t => !t.amenities?.includes('[HIDDEN]')));
+        }
+        if (settingsRes?.data && settingsRes.data.data) {
+          setPropertySettings(settingsRes.data.data);
         }
       } catch (err) {
         showNotification(err.message, "error");
       }
     };
-    fetchRoomTypes();
+    fetchInitialData();
 
     // Set default dates: checkin = today, checkout = tomorrow
     const today = new Date();
@@ -1411,25 +1420,22 @@ function BookingPortal({ onBackToLogin, showNotification }) {
                       color: "var(--text-secondary)",
                     }}
                   >
-                    <p style={{ display: "flex", gap: "8px", margin: 0 }}>
-                      <MapPin
-                        size={16}
-                        color="var(--primary)"
-                        style={{ flexShrink: 0 }}
-                      />
-                      <span>
-                        Khu du lịch Bãi Dài, Phường Cam Nghĩa, Thành phố Cam
-                        Ranh, Tỉnh Khánh Hòa, Việt Nam
-                      </span>
-                    </p>
-                    <p style={{ display: "flex", gap: "8px", margin: 0 }}>
-                      <Phone size={16} color="var(--primary)" />
-                      <span>(+84) 901 234 567 / (+84) 258 765 4321</span>
-                    </p>
-                    <p style={{ display: "flex", gap: "8px", margin: 0 }}>
-                      <Mail size={16} color="var(--primary)" />
-                      <span>booking@roomiresort.com</span>
-                    </p>
+                    {propertySettings?.address && (
+                      <p style={{ display: "flex", gap: "8px", margin: 0 }}>
+                        <MapPin
+                          size={16}
+                          color="var(--primary)"
+                          style={{ flexShrink: 0 }}
+                        />
+                        <span>{propertySettings.address}</span>
+                      </p>
+                    )}
+                    {propertySettings?.phone && (
+                      <p style={{ display: "flex", gap: "8px", margin: 0 }}>
+                        <Phone size={16} color="var(--primary)" />
+                        <span>{propertySettings.phone}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1453,41 +1459,48 @@ function BookingPortal({ onBackToLogin, showNotification }) {
                       color: "var(--text-secondary)",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Clock size={14} color="var(--color-available)" />
-                      <span>
-                        Nhận phòng (Check-in): <strong>14:00</strong> hằng ngày
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Clock size={14} color="var(--color-maintenance)" />
-                      <span>
-                        Trả phòng (Check-out): <strong>12:00</strong> trưa hằng
-                        ngày
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                      }}
-                    >
-                      {/* <Shield size={14} color="var(--primary)" />
-                      <span>Hủy đặt phòng miễn phí trước 24 giờ kể từ ngày nhận phòng</span> */}
-                    </div>
+                    {propertySettings?.defaultCheckinTime && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Clock size={14} color="var(--color-available)" />
+                        <span>
+                          Nhận phòng (Check-in): <strong>{propertySettings.defaultCheckinTime.substring(0, 5)}</strong> hằng ngày
+                        </span>
+                      </div>
+                    )}
+                    {propertySettings?.defaultCheckoutTime && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Clock size={14} color="var(--color-maintenance)" />
+                        <span>
+                          Trả phòng (Check-out): <strong>{propertySettings.defaultCheckoutTime.substring(0, 5)}</strong> trưa hằng ngày
+                        </span>
+                      </div>
+                    )}
+                    {propertySettings?.freeCancelHours != null && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Shield size={14} color="var(--primary)" />
+                        <span>
+                          Hủy phòng miễn phí trước <strong>{propertySettings.freeCancelHours} giờ</strong> so với thời gian nhận phòng
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

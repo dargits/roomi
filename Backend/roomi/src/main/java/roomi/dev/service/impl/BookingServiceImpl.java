@@ -19,7 +19,9 @@ import roomi.dev.util.time.TimeRangeValidator;
 import roomi.dev.util.time.TimeSlot;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,6 +46,9 @@ public class BookingServiceImpl implements BookingService {
 
     @Autowired
     private SurchargeServiceRepository surchargeServiceRepository;
+
+    @Autowired
+    private PropertySettingsRepository propertySettingsRepository;
 
     // ================================================================== CREATE
 
@@ -77,6 +82,13 @@ public class BookingServiceImpl implements BookingService {
             // Dùng BookingConflictChecker — kiểm tra roomType khớp + không trùng lịch
             room = conflictChecker.validateAndGetRoom(
                     request.getRoomId(), roomType, slot, -1L);
+            if (room.getStatus() != Room.Status.AVAILABLE) {
+                String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP" :
+                                    room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
+                throw new BusinessException(
+                        "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName + "). Vui lòng cho buồng phòng dọn dẹp xong trước khi đặt/gán phòng!",
+                        ErrorCode.ROOM_NOT_AVAILABLE);
+            }
         }
         BigDecimal expectedPrice = calcExpectedPrice(roomType, slot);
 
@@ -131,6 +143,9 @@ public class BookingServiceImpl implements BookingService {
         Room preferredRoom = null;
         if (request.getRoomId() != null) {
             preferredRoom = roomRepository.findById(request.getRoomId()).orElse(null);
+            if (preferredRoom != null && preferredRoom.getStatus() != Room.Status.AVAILABLE) {
+                preferredRoom = null;
+            }
         }
 
         Booking booking = Booking.builder()
@@ -297,6 +312,13 @@ public class BookingServiceImpl implements BookingService {
                     ErrorCode.ROOM_NOT_AVAILABLE);
         }
 
+        LocalDate today = LocalDate.now();
+        // Nếu nhận phòng sớm trước lịch dự kiến (ví dụ lịch 05/08 nhưng nhận hôm nay 03/08)
+        // Cập nhật checkInDate về today để Sơ đồ phòng và Lịch ở khớp 100%
+        if (booking.getCheckInDate() != null && booking.getCheckInDate().isAfter(today)) {
+            booking.setCheckInDate(today);
+        }
+
         // Đổi trạng thái phòng SAN_SANG → CO_KHACH (OCCUPIED)
         room.setStatus(Room.Status.OCCUPIED);
         roomRepository.save(room);
@@ -340,6 +362,9 @@ public class BookingServiceImpl implements BookingService {
                     ErrorCode.BOOKING_INVALID_STATUS);
         }
 
+        // RISK-05: Tính phí hủy theo cấu hình PropertySettings
+        BigDecimal cancelFee = calcCancelFee(booking);
+
         // Trả phòng về AVAILABLE nếu đã gán
         if (booking.getRoom() != null) {
             Room room = booking.getRoom();
@@ -348,7 +373,35 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(Booking.Status.CANCELLED);
-        return toResponse(bookingRepository.save(booking));
+        BookingResponse response = toResponse(bookingRepository.save(booking));
+        response.setCancelFeeAmount(cancelFee);
+        return response;
+    }
+
+    /**
+     * Tính phí hủy theo chính sách: nếu hủy trong vòng freeCancelHours trước check-in
+     * thì áp cancelFeePercent trên tiền phòng dự kiến.
+     * Trả về ZERO nếu còn trong thời hạn miễn phí hoặc chưa cấu hình.
+     */
+    private BigDecimal calcCancelFee(Booking booking) {
+        PropertySettings settings = propertySettingsRepository.findById(1L).orElse(null);
+        if (settings == null || booking.getCheckInDate() == null) return BigDecimal.ZERO;
+
+        BigDecimal feePercent = settings.getCancelFeePercent();
+        if (feePercent == null || feePercent.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+
+        int freeCancelHours = settings.getFreeCancelHours() != null ? settings.getFreeCancelHours() : 24;
+        LocalDateTime checkInDateTime = booking.getCheckInDate().atTime(
+                settings.getDefaultCheckinTime() != null ? settings.getDefaultCheckinTime() : java.time.LocalTime.of(14, 0));
+        long hoursUntilCheckIn = ChronoUnit.HOURS.between(LocalDateTime.now(), checkInDateTime);
+
+        if (hoursUntilCheckIn >= freeCancelHours) {
+            return BigDecimal.ZERO; // Còn trong thời hạn miễn phí
+        }
+
+        BigDecimal baseAmount = booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO;
+        return baseAmount.multiply(feePercent)
+                .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
     }
 
     @Override
@@ -356,6 +409,21 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponse markNoShow(Long bookingId) {
         Booking booking = findById(bookingId);
         requireStatus(booking, Booking.Status.CONFIRMED);
+
+        // RISK-04: Chỉ cho phép đánh dấu No-Show khi đã qua giờ nhận phòng mặc định
+        if (booking.getCheckInDate() != null) {
+            PropertySettings settings = propertySettingsRepository.findById(1L).orElse(null);
+            java.time.LocalTime defaultCheckinTime = (settings != null && settings.getDefaultCheckinTime() != null)
+                    ? settings.getDefaultCheckinTime()
+                    : java.time.LocalTime.of(14, 0);
+            LocalDateTime holdDeadline = booking.getCheckInDate().atTime(defaultCheckinTime);
+            if (LocalDateTime.now().isBefore(holdDeadline)) {
+                throw new BusinessException(
+                        "Chưa tới giờ giữ phòng (" + defaultCheckinTime + " ngày "
+                        + booking.getCheckInDate() + "). Không thể đánh dấu khách không đến trước giờ giữ phòng.",
+                        ErrorCode.BOOKING_INVALID_STATUS);
+            }
+        }
 
         if (booking.getRoom() != null) {
             Room room = booking.getRoom();
@@ -720,26 +788,19 @@ public class BookingServiceImpl implements BookingService {
 
     private void requireReceptionistShift(Booking booking, User user) {
         if (user.getRole() == User.Role.RECEPTIONIST) {
-            LocalDate today = LocalDate.now();
-            boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
-                    && booking.getCreatedAt().toLocalDate().equals(today);
-            boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
-            boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
-            if (!createdByMeToday && !checkInToday && !checkOutToday) {
+            if (!isBookingInReceptionistShift(booking, user)) {
                 throw new BusinessException("Không có quyền thao tác ngoài ca làm việc", ErrorCode.INSUFFICIENT_PRIVILEGES);
             }
         }
     }
 
+    /**
+     * Lễ tân có quyền truy cập và xử lý toàn bộ đơn đặt phòng của khách sạn.
+     * Không lọc theo user.getId() để tất cả các Lễ tân ở các ca làm việc khác nhau
+     * đều thấy dữ liệu đồng nhất.
+     */
     private boolean isBookingInReceptionistShift(Booking booking, User user) {
-        if (user.getRole() != User.Role.RECEPTIONIST) {
-            return true;
-        }
-        LocalDate today = LocalDate.now();
-        boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
-                && booking.getCreatedAt().toLocalDate().equals(today);
-        boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
-        boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
-        return createdByMeToday || checkInToday || checkOutToday;
+        return true;
     }
+
 }

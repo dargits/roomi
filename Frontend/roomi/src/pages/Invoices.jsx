@@ -356,8 +356,8 @@ function Invoices({ user, showNotification }) {
 
       {/* BILLING / INVOICE VIEW MODAL */}
       {showInvoiceModal && activeInvoice && (
-        <div className="modal-overlay" style={{ zIndex: 1000 }}>
-          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: 'calc(100vh - 110px)' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Clipboard size={18} color="var(--primary)" />
@@ -369,13 +369,13 @@ function Invoices({ user, showNotification }) {
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
                 <div>
-                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking.guestName}</p>
-                  <p><strong>Số điện thoại:</strong> {selectedBooking.guestPhone || 'Không có'}</p>
-                  <p><strong>CCCD / ID:</strong> {selectedBooking.guestIdNumber || 'Không có'}</p>
-                  <p><strong>Phòng đặt:</strong> {selectedBooking.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking.roomTypeName})</p>
+                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking?.guestName}</p>
+                  <p><strong>Số điện thoại:</strong> {selectedBooking?.guestPhone || 'Không có'}</p>
+                  <p><strong>CCCD / ID:</strong> {selectedBooking?.guestIdNumber || 'Không có'}</p>
+                  <p><strong>Phòng đặt:</strong> {selectedBooking?.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking?.roomTypeName || ''})</p>
                 </div>
                 <div>
-                  <p><strong>Số đêm:</strong> {activeInvoice.nights} đêm</p>
+                  <p><strong>Số đêm:</strong> {activeInvoice.nights || selectedBooking?.nights || 1} đêm</p>
                   <p><strong>Trạng thái hóa đơn:</strong> <span className={`badge badge-${activeInvoice.status?.toLowerCase() || 'pending'}`}>{activeInvoice.status || 'PENDING'}</span></p>
                 </div>
               </div>
@@ -455,7 +455,7 @@ function Invoices({ user, showNotification }) {
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Lịch sử thanh toán</h3>
-                  {activeInvoice.status !== 'PAID' && (activeInvoice.remainingAmount === undefined || activeInvoice.remainingAmount > 0) && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                  {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (activeInvoice.remainingAmount === undefined || activeInvoice.remainingAmount > 0) && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN') && (
                     <button
                       onClick={() => {
                         setPaymentInput({ amount: activeInvoice.remainingAmount, method: 'CASH' });
@@ -501,7 +501,7 @@ function Invoices({ user, showNotification }) {
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
               
               {/* Nếu hóa đơn CHƯA thanh toán: Cho phép sửa trực tiếp */}
-              {activeInvoice.status !== 'PAID' && (
+              {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (
                 <button
                   onClick={() => {
                     setDiscountInput({ discount: activeInvoice.discount || '0' });
@@ -515,7 +515,7 @@ function Invoices({ user, showNotification }) {
               )}
 
               {/* Nếu hóa đơn ĐÃ thanh toán: KHÔNG cho sửa trực tiếp, chỉ cho lập hóa đơn điều chỉnh */}
-              {activeInvoice.status === 'PAID' && user.role !== 'RECEPTIONIST' && (
+              {activeInvoice.status === 'PAID' && selectedBooking?.status !== 'CANCELLED' && user.role !== 'RECEPTIONIST' && (
                 <button
                   onClick={() => {
                     setShowAdjustModal(true);
@@ -534,7 +534,7 @@ function Invoices({ user, showNotification }) {
 
       {/* RECORD PAYMENT SUB-MODAL */}
       {showPaymentModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
           <div className="modal-content" style={{ maxWidth: '400px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -578,7 +578,7 @@ function Invoices({ user, showNotification }) {
 
       {/* EDIT DISCOUNT SUB-MODAL */}
       {showDiscountModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
           <div className="modal-content" style={{ maxWidth: '400px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -616,7 +616,7 @@ function Invoices({ user, showNotification }) {
 
       {/* CREATE ADJUSTMENT INVOICE SUB-MODAL */}
       {showAdjustModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
           <div className="modal-content" style={{ maxWidth: '450px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>

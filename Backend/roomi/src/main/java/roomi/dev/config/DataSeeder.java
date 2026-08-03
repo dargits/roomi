@@ -81,6 +81,7 @@ public class DataSeeder implements CommandLineRunner {
                 .phone("0281234567")
                 .freeCancelHours(24)
                 .cancelFeePercent(new BigDecimal("10.00"))
+                .loyaltyPointsPerAmount(10000) // 10.000 VNĐ/điểm — Chủ cơ sở có thể thay đổi qua Settings
                 .build());
         log.info("✓ PropertySettings");
     }

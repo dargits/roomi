@@ -152,69 +152,72 @@ public class GuestServiceImpl implements GuestService {
         String cleanEmail = (email != null && !email.isBlank()) ? email.trim() : null;
         String cleanNote = (note != null && !note.isBlank()) ? note.trim() : null;
 
-        // Tìm kiếm theo SĐT và CCCD
-        var guestByPhone = (cleanPhone != null) ? guestRepository.findByPhone(cleanPhone) : java.util.Optional.<Guest>empty();
-        var guestByIdNumber = (cleanIdNumber != null) ? guestRepository.findByIdNumber(cleanIdNumber) : java.util.Optional.<Guest>empty();
+        // 1. Kiểm tra theo CCCD/CMND trước (Quy tắc bắt buộc: 1 CCCD <-> 1 Họ và tên duy nhất)
+        if (cleanIdNumber != null) {
+            var guestByIdOpt = guestRepository.findByIdNumber(cleanIdNumber);
+            if (guestByIdOpt.isPresent()) {
+                Guest g = guestByIdOpt.get();
 
-        // TH1: Cả SĐT và CCCD đều đã tồn tại nhưng thuộc 2 khách hàng khác nhau
-        if (guestByPhone.isPresent() && guestByIdNumber.isPresent()) {
-            Guest g1 = guestByPhone.get();
-            Guest g2 = guestByIdNumber.get();
-            if (!g1.getId().equals(g2.getId())) {
-                throw new BusinessException(
-                        "Số điện thoại (" + cleanPhone + ") và số CMND/CCCD (" + cleanIdNumber + ") thuộc về 2 khách hàng khác nhau trong hệ thống.",
-                        ErrorCode.INVALID_INPUT);
-            }
-        }
+                // Kiểm tra sự đồng nhất giữa Họ tên nhập vào và Họ tên đã lưu của CCCD này
+                if (cleanFullName != null && !isSameName(cleanFullName, g.getFullName())) {
+                    throw new BusinessException(
+                            "Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký trong hệ thống nhưng không khớp với Họ và tên đã cung cấp.",
+                            ErrorCode.INVALID_INPUT);
+                }
 
-        // TH2: Tìm thấy khách theo CCCD/CMND
-        if (guestByIdNumber.isPresent()) {
-            Guest g = guestByIdNumber.get();
-            if (cleanPhone != null && !cleanPhone.equals(g.getPhone())) {
-                if (g.getPhone() == null || g.getPhone().isBlank()) {
-                    // Kiểm tra xem SĐT mới có bị trùng với người khác không
-                    if (guestRepository.existsByPhone(cleanPhone)) {
+                // SĐT có thể thay đổi/cập nhật (trừ trường hợp SĐT mới bị trùng với khách hàng khác)
+                if (cleanPhone != null && !cleanPhone.equals(g.getPhone())) {
+                    var otherGuestWithPhone = guestRepository.findByPhone(cleanPhone);
+                    if (otherGuestWithPhone.isPresent() && !otherGuestWithPhone.get().getId().equals(g.getId())) {
                         throw new BusinessException(
-                                "Số điện thoại " + cleanPhone + " đã được đăng ký cho một khách hàng khác.",
+                                "Số điện thoại " + cleanPhone + " đã được đăng ký cho một khách hàng khác trong hệ thống.",
                                 ErrorCode.INVALID_INPUT);
                     }
                     g.setPhone(cleanPhone);
                 }
+
+                // Cập nhật Email và Ghi chú nếu có thông tin mới
+                if (cleanEmail != null && !cleanEmail.isBlank()) g.setEmail(cleanEmail);
+                if (cleanNote != null && !cleanNote.isBlank()) g.setNote(cleanNote);
+
+                return guestRepository.save(g);
             }
-            if (cleanFullName != null && (g.getFullName() == null || g.getFullName().isBlank())) g.setFullName(cleanFullName);
-            if (cleanEmail != null && (g.getEmail() == null || g.getEmail().isBlank())) g.setEmail(cleanEmail);
-            if (cleanNote != null && (g.getNote() == null || g.getNote().isBlank())) g.setNote(cleanNote);
-            return guestRepository.save(g);
         }
 
-        // TH3: Tìm thấy khách theo SĐT
-        if (guestByPhone.isPresent()) {
-            Guest g = guestByPhone.get();
-            if (cleanIdNumber != null && !cleanIdNumber.equals(g.getIdNumber())) {
-                if (g.getIdNumber() == null || g.getIdNumber().isBlank()) {
-                    // Kiểm tra xem CCCD mới có bị trùng với người khác không
-                    if (guestRepository.existsByIdNumber(cleanIdNumber)) {
-                        throw new BusinessException(
-                                "Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký cho một khách hàng khác.",
-                                ErrorCode.INVALID_INPUT);
+        // 2. Tìm theo SĐT (nếu không tìm thấy theo CCCD hoặc không nhập CCCD)
+        if (cleanPhone != null) {
+            var guestByPhoneOpt = guestRepository.findByPhone(cleanPhone);
+            if (guestByPhoneOpt.isPresent()) {
+                Guest g = guestByPhoneOpt.get();
+
+                // Kiểm tra đồng nhất Họ tên
+                if (cleanFullName != null && !isSameName(cleanFullName, g.getFullName())) {
+                    throw new BusinessException(
+                            "Số điện thoại " + cleanPhone + " đã được đăng ký trong hệ thống nhưng không khớp với Họ và tên đã cung cấp.",
+                            ErrorCode.INVALID_INPUT);
+                }
+
+                // Nếu bổ sung CCCD mới, kiểm tra tính duy nhất của CCCD đó
+                if (cleanIdNumber != null) {
+                    if (g.getIdNumber() != null && !g.getIdNumber().isBlank() && !g.getIdNumber().equals(cleanIdNumber)) {
+                        var existingOwnerOfId = guestRepository.findByIdNumber(cleanIdNumber);
+                        if (existingOwnerOfId.isPresent() && !existingOwnerOfId.get().getId().equals(g.getId())) {
+                            throw new BusinessException(
+                                    "Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký cho một khách hàng khác trong hệ thống.",
+                                    ErrorCode.INVALID_INPUT);
+                        }
                     }
                     g.setIdNumber(cleanIdNumber);
                 }
+
+                if (cleanEmail != null && !cleanEmail.isBlank()) g.setEmail(cleanEmail);
+                if (cleanNote != null && !cleanNote.isBlank()) g.setNote(cleanNote);
+
+                return guestRepository.save(g);
             }
-            if (cleanFullName != null && (g.getFullName() == null || g.getFullName().isBlank())) g.setFullName(cleanFullName);
-            if (cleanEmail != null && (g.getEmail() == null || g.getEmail().isBlank())) g.setEmail(cleanEmail);
-            if (cleanNote != null && (g.getNote() == null || g.getNote().isBlank())) g.setNote(cleanNote);
-            return guestRepository.save(g);
         }
 
-        // TH4: Khách hoàn toàn mới — kiểm tra lại tính duy nhất trước khi lưu
-        if (cleanPhone != null && guestRepository.existsByPhone(cleanPhone)) {
-            throw new BusinessException("Số điện thoại " + cleanPhone + " đã được đăng ký trong hệ thống", ErrorCode.INVALID_INPUT);
-        }
-        if (cleanIdNumber != null && guestRepository.existsByIdNumber(cleanIdNumber)) {
-            throw new BusinessException("Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký trong hệ thống", ErrorCode.INVALID_INPUT);
-        }
-
+        // 3. Khách hàng mới hoàn toàn (chưa từng có SĐT và CCCD trong hệ thống)
         Guest newGuest = Guest.builder()
                 .fullName(cleanFullName)
                 .phone(cleanPhone)
@@ -223,6 +226,11 @@ public class GuestServiceImpl implements GuestService {
                 .note(cleanNote)
                 .build();
         return guestRepository.save(newGuest);
+    }
+
+    private boolean isSameName(String name1, String name2) {
+        if (name1 == null || name2 == null) return true;
+        return name1.trim().equalsIgnoreCase(name2.trim());
     }
 
     private GuestResponse toResponse(Guest g) {

@@ -355,26 +355,7 @@ const generateDailyTrend = (totalRev, startStr, endStr) => {
 };
 
 function Reports({ user, showNotification }) {
-  // Guard Clause for Access Control
-  if (user.role !== 'OWNER' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <AlertCircle size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang báo cáo doanh thu.
-        </p>
-      </div>
-    );
-  }
+  const isAuthorized = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN';
 
   // Local helper for local ISO date string formatting
   const getLocalDateString = (date) => {
@@ -568,8 +549,25 @@ function Reports({ user, showNotification }) {
     ? [...reportData.serviceRevenues].sort((a, b) => b.revenue - a.revenue)
     : [];
 
-  const maxRoomTypeRevenue = sortedRoomTypes.length > 0 ? Math.max(...sortedRoomTypes.map(r => r.revenue), 1) : 1;
-  const maxServiceRevenue = sortedServices.length > 0 ? Math.max(...sortedServices.map(s => s.revenue), 1) : 1;
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang báo cáo doanh thu.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', paddingBottom: '40px' }}>

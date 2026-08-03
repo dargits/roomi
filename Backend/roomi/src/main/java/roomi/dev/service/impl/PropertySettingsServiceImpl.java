@@ -19,6 +19,7 @@ public class PropertySettingsServiceImpl implements PropertySettingsService {
     private final PropertySettingsRepository repository;
 
     @Override
+    @Transactional
     public PropertySettingsResponse getSettings() {
         PropertySettings settings = repository.findById(1L).orElseGet(this::createDefaultSettings);
         return toResponse(settings);

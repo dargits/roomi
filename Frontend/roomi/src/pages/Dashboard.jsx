@@ -83,6 +83,8 @@ function Dashboard({ user, showNotification, readOnly = false }) {
   // Service Usage / Invoice States
   const [servicesList, setServicesList] = useState([]);
   const [activeInvoice, setActiveInvoice] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [paymentAmount, setPaymentAmount] = useState('');
   const [surchargeInput, setSurchargeInput] = useState({ surchargeServiceId: '', quantity: 1, note: '' });
   const [newStatus, setNewStatus] = useState('');
   const [drawerUsages, setDrawerUsages] = useState([]);
@@ -376,11 +378,47 @@ function Dashboard({ user, showNotification, readOnly = false }) {
     try {
       const res = await api.get(`/bookings/${activeBooking.bookingId}/invoice`);
       if (res.data && res.data.data) {
-        setActiveInvoice(res.data.data);
+        const inv = res.data.data;
+        setActiveInvoice(inv);
+        setPaymentMethod('CASH');
+        const due = inv.remainingAmount !== undefined ? inv.remainingAmount : (inv.status === 'PAID' ? 0 : inv.totalAmount);
+        setPaymentAmount(due > 0 ? due : '');
         setShowInvoiceModal(true);
       }
     } catch (err) {
       showNotification(err.message, 'error');
+    }
+  };
+
+  // Confirm payment and checkout from Dashboard room map
+  const handleConfirmPaymentAndCheckout = async () => {
+    const activeBooking = getTodayBooking(selectedRoom);
+    if (!activeBooking || !activeInvoice) return;
+
+    try {
+      // 1. Nếu hóa đơn chưa trả hết -> Ghi nhận thanh toán với loại hình chọn
+      if (activeInvoice.status !== 'PAID') {
+        const defaultDue = activeInvoice.remainingAmount !== undefined ? activeInvoice.remainingAmount : activeInvoice.totalAmount;
+        const amountToPay = paymentAmount ? parseFloat(paymentAmount) : defaultDue;
+        
+        if (amountToPay > 0) {
+          await api.post(`/bookings/${activeBooking.bookingId || activeBooking.id}/payments`, {
+            amount: amountToPay,
+            method: paymentMethod || 'CASH'
+          });
+        }
+      }
+
+      // 2. Thực hiện Trả phòng (Check-out)
+      const res = await api.patch(`/bookings/${activeBooking.bookingId}/check-out`);
+      showNotification(res.data.mess || 'Đã xác nhận thanh toán và Trả phòng thành công!', 'success');
+
+      // 3. Đóng modal & làm mới dữ liệu
+      setShowInvoiceModal(false);
+      setSelectedRoom(null);
+      fetchData();
+    } catch (err) {
+      showNotification(err.message || 'Không thể thanh toán và trả phòng', 'error');
     }
   };
 
@@ -1496,7 +1534,7 @@ function Dashboard({ user, showNotification, readOnly = false }) {
 
       {/* SERVICE RECORDING MODAL */}
       {showServiceModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
           <div className="modal-content" style={{ maxWidth: '450px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0 }}>Ghi nhận dịch vụ phát sinh</h2>
@@ -1660,20 +1698,62 @@ function Dashboard({ user, showNotification, readOnly = false }) {
                 </div>
               </div>
 
+              {/* Payment Section (when invoice is not fully paid) */}
+              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 12px 0' }}>Xác nhận thanh toán</h3>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px', color: 'var(--text-secondary)' }}>Hình thức thanh toán</label>
+                      <select 
+                        className="form-control"
+                        style={{ fontSize: '13px', padding: '8px' }}
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        <option value="CASH">💵 Tiền mặt</option>
+                        <option value="BANK_TRANSFER">💳 Chuyển khoản ngân hàng</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px', color: 'var(--text-secondary)' }}>Số tiền thu (VND)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        style={{ fontSize: '13px', padding: '8px' }}
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        placeholder="Số tiền thanh toán"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
               {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
                 <button 
-                  onClick={() => { 
+                  onClick={handleConfirmPaymentAndCheckout} 
+                  className="btn btn-primary btn-sm"
+                >
+                  <Check size={14} /> Xác nhận thanh toán & Trả phòng
+                </button>
+              )}
+              {activeInvoice.status === 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                <button 
+                  onClick={() => {
                     const activeBooking = getTodayBooking(selectedRoom);
-                    handleBookingTransition(activeBooking.bookingId, 'check-out');
+                    if (activeBooking) handleBookingTransition(activeBooking.bookingId, 'check-out');
                     setShowInvoiceModal(false);
                     setSelectedRoom(null);
                   }} 
                   className="btn btn-primary btn-sm"
                 >
-                  <Check size={14} /> Xác nhận thanh toán & Trả phòng
+                  <Check size={14} /> Trả phòng (Check-out)
                 </button>
               )}
             </div>

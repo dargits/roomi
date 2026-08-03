@@ -42,6 +42,18 @@ public class PropertySettingsController {
     }
 
     /**
+     * Lấy thông tin thiết lập cơ sở công khai (tên, địa chỉ, SĐT, giờ check-in/out, chính sách).
+     * Dành cho Cổng đặt phòng (BookingPortal) không cần token.
+     */
+    @GetMapping("/public")
+    public ResponseEntity<BaseResponse<PropertySettingsResponse>> getPublicSettings() {
+        return ResponseEntity.ok(BaseResponse.<PropertySettingsResponse>builder()
+                .mess("Thành công")
+                .data(propertySettingsService.getSettings())
+                .build());
+    }
+
+    /**
      * Cập nhật thông tin thiết lập cơ sở.
      * Quyền: OWNER, ADMIN
      */

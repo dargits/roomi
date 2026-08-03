@@ -12,12 +12,14 @@ import roomi.dev.model.Booking;
 import roomi.dev.model.Guest;
 import roomi.dev.model.Invoice;
 import roomi.dev.model.Payment;
+import roomi.dev.model.PropertySettings;
 import roomi.dev.model.User;
 import roomi.dev.repository.BookingRepository;
 import roomi.dev.repository.BookingSurchargeUsageRepository;
 import roomi.dev.repository.GuestRepository;
 import roomi.dev.repository.InvoiceRepository;
 import roomi.dev.repository.PaymentRepository;
+import roomi.dev.repository.PropertySettingsRepository;
 import roomi.dev.service.ActivityLogService;
 import roomi.dev.service.BookingSurchargeUsageService;
 import roomi.dev.service.PaymentService;
@@ -35,6 +37,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final GuestRepository   guestRepository;
     private final BookingSurchargeUsageService bookingSurchargeUsageService;
     private final ActivityLogService activityLogService;
+    private final PropertySettingsRepository propertySettingsRepository;
 
     @Override
     @Transactional
@@ -43,6 +46,10 @@ public class PaymentServiceImpl implements PaymentService {
 
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy booking", ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getStatus() == Booking.Status.CANCELLED) {
+            throw new BusinessException("Không thể ghi nhận thanh toán cho đặt phòng đã bị hủy", ErrorCode.BOOKING_INVALID_STATUS);
+        }
 
         requireReceptionistShift(booking, currentUser);
 
@@ -54,15 +61,20 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         List<Payment> existingPayments = paymentRepository.findByInvoiceId(invoice.getId());
-        BigDecimal currentPaid = existingPayments.stream()
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal currentPaid = (existingPayments != null) ? existingPayments.stream()
+                .map(p -> p != null && p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
 
-        BigDecimal remaining = invoice.getTotalAmount().subtract(currentPaid);
+        BigDecimal invoiceTotal = invoice.getTotalAmount() != null ? invoice.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal remaining = invoiceTotal.subtract(currentPaid);
+
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Số tiền thanh toán phải lớn hơn 0 VNĐ", ErrorCode.INVALID_INPUT);
+        }
 
         if (request.getAmount().compareTo(remaining) > 0) {
             throw new BusinessException(
-                    "Số tiền thanh toán (" + request.getAmount() + " VNĐ) vượt quá số tiền còn lại (" + remaining + " VNĐ)",
+                    "Số tiền thanh toán (" + String.format("%,d", request.getAmount().longValue()) + " VNĐ) vượt quá số tiền còn lại (" + String.format("%,d", remaining.longValue()) + " VNĐ)",
                     ErrorCode.PAYMENT_OVERPAID);
         }
 
@@ -78,30 +90,44 @@ public class PaymentServiceImpl implements PaymentService {
                 .amount(request.getAmount())
                 .method(method)
                 .receivedBy(currentUser)
+                .paidAt(java.time.LocalDateTime.now())
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
 
         // Calculate new total paid
         BigDecimal newTotalPaid = currentPaid.add(request.getAmount());
-        if (newTotalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
+        if (newTotalPaid.compareTo(invoiceTotal) >= 0) {
             invoice.setStatus(Invoice.Status.PAID);
             invoiceRepository.save(invoice);
         }
 
-        // Tích điểm thân thiết cho khách hàng (Mỗi 10.000 VNĐ thanh toán = 1 điểm)
-        if (booking.getGuest() != null) {
-            Guest guest = booking.getGuest();
-            int pointsEarned = request.getAmount().divide(new java.math.BigDecimal("10000"), 0, java.math.RoundingMode.FLOOR).intValue();
-            if (pointsEarned > 0) {
-                int currentPoints = (guest.getLoyaltyPoints() != null) ? guest.getLoyaltyPoints() : 0;
-                guest.setLoyaltyPoints(currentPoints + pointsEarned);
-                guestRepository.save(guest);
+        // BUG-01 FIX: Tích điểm thân thiết theo cấu hình PropertySettings
+        try {
+            if (booking.getGuest() != null) {
+                PropertySettings settings = propertySettingsRepository.findById(1L).orElse(null);
+                int pointsPerAmount = (settings != null && settings.getLoyaltyPointsPerAmount() != null)
+                        ? settings.getLoyaltyPointsPerAmount() : 0;
 
-                activityLogService.log(currentUser, "TÍCH ĐIỂM THÂN THIẾT", "GUEST", guest.getId(),
-                        "Tích lũy +" + pointsEarned + " điểm thân thiết cho khách hàng " + guest.getFullName() + 
-                        " (Thanh toán đơn #" + booking.getId() + " số tiền " + String.format("%,d", request.getAmount().longValue()) + "đ)");
+                if (pointsPerAmount > 0) {
+                    Guest guest = booking.getGuest();
+                    int pointsEarned = request.getAmount()
+                            .divide(new java.math.BigDecimal(pointsPerAmount), 0, java.math.RoundingMode.FLOOR)
+                            .intValue();
+                    if (pointsEarned > 0) {
+                        int currentPoints = (guest.getLoyaltyPoints() != null) ? guest.getLoyaltyPoints() : 0;
+                        guest.setLoyaltyPoints(currentPoints + pointsEarned);
+                        guestRepository.save(guest);
+
+                        activityLogService.log(currentUser, "TÍCH ĐIỂM THÂN THIẾT", "GUEST", guest.getId(),
+                                "Tích lũy +" + pointsEarned + " điểm thân thiết cho khách hàng " + guest.getFullName()
+                                + " (Thanh toán đơn #" + booking.getId() + " số tiền "
+                                + String.format("%,d", request.getAmount().longValue()) + "đ)");
+                    }
+                }
             }
+        } catch (Exception e) {
+            // Log lỗi tích điểm nhưng không block luồng thanh toán chính
         }
 
         return toPaymentResponse(savedPayment);
@@ -128,9 +154,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     private void requirePaymentPermission(User user) {
         if (user == null || !Boolean.TRUE.equals(user.getActive())
-                || (user.getRole() != User.Role.OWNER
-                && user.getRole() != User.Role.ADMIN
-                && user.getRole() != User.Role.RECEPTIONIST)) {
+                || (user.getRole() != User.Role.RECEPTIONIST
+                && user.getRole() != User.Role.ACCOUNTANT
+                && user.getRole() != User.Role.ADMIN)) {
             throw new BusinessException("Bạn không có quyền ghi nhận thanh toán", ErrorCode.INSUFFICIENT_PRIVILEGES);
         }
     }
@@ -158,15 +184,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void requireReceptionistShift(Booking booking, User user) {
-        if (user.getRole() == User.Role.RECEPTIONIST) {
-            java.time.LocalDate today = java.time.LocalDate.now();
-            boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
-                    && booking.getCreatedAt().toLocalDate().equals(today);
-            boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
-            boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
-            if (!createdByMeToday && !checkInToday && !checkOutToday) {
-                throw new BusinessException("Không có quyền thao tác ngoài ca làm việc", ErrorCode.INSUFFICIENT_PRIVILEGES);
-            }
-        }
+        // Tất cả lễ tân đều có quyền thao tác thanh toán cho các đơn trong khách sạn
     }
+
 }

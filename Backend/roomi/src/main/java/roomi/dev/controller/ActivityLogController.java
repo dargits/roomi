@@ -28,7 +28,7 @@ public class ActivityLogController {
     /**
      * Lấy nhật ký hoạt động hệ thống.
      * Có thể lọc theo entityName & entityId hoặc userId.
-     * Quyền: OWNER, ADMIN
+     * Quyền: ADMIN
      */
     @GetMapping
     public ResponseEntity<BaseResponse<List<ActivityLogResponse>>> getLogs(
@@ -37,7 +37,7 @@ public class ActivityLogController {
             @RequestParam(required = false) Long entityId,
             @RequestParam(required = false) Long userId) {
 
-        authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
+        authUtil.requireRoles(token, User.Role.ADMIN);
 
         return ResponseEntity.ok(BaseResponse.<List<ActivityLogResponse>>builder()
                 .mess("Thành công")

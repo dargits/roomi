@@ -227,7 +227,7 @@ public OccupancyReportResponse getOccupancyReport(LocalDate startDate, LocalDate
             .collect(Collectors.groupingBy(room -> room.getRoomType().getId()));
 
     // 2. Lấy tất cả Booking trùng khoảng thời gian báo cáo trong 1 câu truy vấn SQL
-    List<Booking.Status> validStatuses = List.of(Booking.Status.OCCUPIED, Booking.Status.CHECKED_IN);
+    List<Booking.Status> validStatuses = List.of(Booking.Status.CONFIRMED, Booking.Status.CHECKED_IN, Booking.Status.CHECKED_OUT);
     List<Booking> activeBookings = bookingRepository.findOverlappingBookings(startDate, endDate, validStatuses);
 
     List<OccupancyReportResponse.DailyOccupancy> dailyList = new ArrayList<>();
@@ -242,7 +242,8 @@ public OccupancyReportResponse getOccupancyReport(LocalDate startDate, LocalDate
 
         // Lọc danh sách booking có khách ở trong ngày date
         List<Booking> bookingsOnDate = activeBookings.stream()
-                .filter(b -> !b.getCheckInDate().isAfter(date) && !b.getCheckOutDate().isBefore(date))
+                .filter(b -> b.getRoom() != null)
+                .filter(b -> !b.getCheckInDate().isAfter(date) && (b.getCheckOutDate().isAfter(date) || (b.getCheckInDate().equals(b.getCheckOutDate()) && b.getCheckInDate().equals(date))))
                 .collect(Collectors.toList());
 
         // Lấy tập hợp ID các phòng đã được thuê trong ngày date

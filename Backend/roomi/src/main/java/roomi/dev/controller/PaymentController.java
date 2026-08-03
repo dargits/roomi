@@ -35,7 +35,7 @@ public class PaymentController {
     /**
      * Ghi nhận một lần thanh toán cho hóa đơn của booking.
      * Hệ thống tự động chuyển Invoice status → PAID khi tổng tiền thanh toán đạt totalAmount.
-     * Quyền: OWNER, RECEPTIONIST
+     * Quyền: RECEPTIONIST, ACCOUNTANT, ADMIN
      */
     @PostMapping
     public ResponseEntity<BaseResponse<PaymentResponse>> addPayment(
@@ -43,7 +43,7 @@ public class PaymentController {
             @PathVariable Long bookingId,
             @Valid @RequestBody PaymentRequest request) {
 
-        User currentUser = authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST);
+        User currentUser = authUtil.requireRoles(token, User.Role.RECEPTIONIST, User.Role.ACCOUNTANT, User.Role.ADMIN);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 BaseResponse.<PaymentResponse>builder()

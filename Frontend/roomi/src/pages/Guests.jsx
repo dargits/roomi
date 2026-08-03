@@ -27,26 +27,7 @@ function Guests({ user, showNotification }) {
     }
   };
 
-  // Guard Clause for Access Control (RECEPTIONIST, ACCOUNTANT, ADMIN)
-  if (user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <User size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý khách hàng.
-        </p>
-      </div>
-    );
-  }
+  const isAuthorized = user?.role === 'RECEPTIONIST' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN' || user?.role === 'OWNER';
 
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -186,6 +167,26 @@ function Guests({ user, showNotification }) {
       setLoadingHistory(false);
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <User size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý khách hàng.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

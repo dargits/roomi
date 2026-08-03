@@ -128,6 +128,15 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
         Invoice originalInvoice = invoiceRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new BusinessException("Chưa có hóa đơn cho booking này", ErrorCode.INVOICE_NOT_FOUND));
 
+        // RISK-03: Hóa đơn gốc phải đã được PAID mới được lập hóa đơn điều chỉnh
+        // Đúng AC NCL-05-CN-004-TC-02
+        if (originalInvoice.getStatus() != Invoice.Status.PAID) {
+            throw new BusinessException(
+                    "Hóa đơn gốc chưa được thanh toán (đang ở trạng thái PENDING). " +
+                    "Chỉ lập hóa đơn điều chỉnh sau khi đã thanh toán đủ.",
+                    ErrorCode.INVOICE_UNPAID);
+        }
+
         BigDecimal roomAdj = request.getRoomChargeAdjustment() != null ? request.getRoomChargeAdjustment() : BigDecimal.ZERO;
         BigDecimal serviceAdj = request.getServiceChargeAdjustment() != null ? request.getServiceChargeAdjustment() : BigDecimal.ZERO;
         BigDecimal discountAdj = request.getDiscountAdjustment() != null ? request.getDiscountAdjustment() : BigDecimal.ZERO;
@@ -167,12 +176,22 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
             throw new BusinessException("Hóa đơn đã thanh toán, không thể chỉnh sửa trực tiếp", ErrorCode.INVOICE_PAID);
         }
 
-        invoice.setDiscount(request.getDiscount());
         BigDecimal roomCharge = defaultValue(booking.getExpectedPrice());
         BigDecimal serviceCharge = defaultValue(usageRepository.sumLineTotalByBookingId(booking.getId()));
+        BigDecimal discount = request.getDiscount() != null ? request.getDiscount() : BigDecimal.ZERO;
+
+        // RISK-08: Kiểm tra giảm giá không vượt quá tổng tiền
+        BigDecimal subtotal = roomCharge.add(serviceCharge);
+        if (discount.compareTo(subtotal) > 0) {
+            throw new BusinessException(
+                    "Giảm giá (" + discount + " VNĐ) không được vượt quá tổng tiền (" + subtotal + " VNĐ).",
+                    ErrorCode.INVALID_INPUT);
+        }
+
+        invoice.setDiscount(discount);
         invoice.setRoomCharge(roomCharge);
         invoice.setServiceCharge(serviceCharge);
-        invoice.setTotalAmount(roomCharge.add(serviceCharge).subtract(request.getDiscount()));
+        invoice.setTotalAmount(subtotal.subtract(discount));
 
         Invoice saved = invoiceRepository.save(invoice);
         List<BookingSurchargeUsageResponse> usages = usageRepository
@@ -201,10 +220,19 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
         BigDecimal roomCharge = defaultValue(booking.getExpectedPrice());
         BigDecimal serviceCharge = defaultValue(usageRepository.sumLineTotalByBookingId(booking.getId()));
         BigDecimal discount = defaultValue(invoice.getDiscount());
+
+        // RISK-08: Không cho phép giảm giá vượt quá tổng tiền
+        BigDecimal subtotal = roomCharge.add(serviceCharge);
+        if (discount.compareTo(subtotal) > 0) {
+            throw new BusinessException(
+                    "Giảm giá (" + discount + " VNĐ) không được vượt quá tổng tiền (" + subtotal + " VNĐ).",
+                    ErrorCode.INVALID_INPUT);
+        }
+
         invoice.setRoomCharge(roomCharge);
         invoice.setServiceCharge(serviceCharge);
         invoice.setDiscount(discount);
-        invoice.setTotalAmount(roomCharge.add(serviceCharge).subtract(discount));
+        invoice.setTotalAmount(subtotal.subtract(discount));
         return invoiceRepository.save(invoice);
     }
 
@@ -216,9 +244,20 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
                 });
     }
 
+    /**
+     * RISK-06 FIX: Thống nhất điều kiện chỉnh sửa dịch vụ phụ thu.
+     * Cho phép thao tác khi booking ở NEW, CONFIRMED hoặc CHECKED_IN.
+     * Chỉ khóa khi hóa đơn đã PAID (kiểm tra qua requireUnpaidInvoice).
+     * Lý do: nếu lễ tân đã thêm dịch vụ khi booking còn NEW/CONFIRMED, họ cần
+     * có quyền sửa/xóa dịch vụ đó trước khi khách check-in.
+     */
     private void requireMutableBooking(Booking booking) {
-        if (booking.getStatus() != Booking.Status.CHECKED_IN && booking.getStatus() != Booking.Status.CHECKED_OUT) {
-            throw new BusinessException("Chỉ có thể điều chỉnh dịch vụ khi booking đang lưu trú hoặc đã trả phòng", ErrorCode.BOOKING_INVALID_STATUS);
+        if (booking.getStatus() == Booking.Status.CHECKED_OUT
+                || booking.getStatus() == Booking.Status.CANCELLED
+                || booking.getStatus() == Booking.Status.NO_SHOW) {
+            throw new BusinessException(
+                    "Không thể điều chỉnh dịch vụ cho booking đã kết thúc (" + booking.getStatus() + ")",
+                    ErrorCode.BOOKING_INVALID_STATUS);
         }
     }
 
@@ -259,16 +298,7 @@ public class BookingSurchargeUsageServiceImpl implements BookingSurchargeUsageSe
     }
 
     private void requireReceptionistShift(Booking booking, User user) {
-        if (user.getRole() == User.Role.RECEPTIONIST) {
-            java.time.LocalDate today = java.time.LocalDate.now();
-            boolean createdByMeToday = booking.getCreatedBy().getId().equals(user.getId()) 
-                    && booking.getCreatedAt().toLocalDate().equals(today);
-            boolean checkInToday = booking.getCheckInDate() != null && booking.getCheckInDate().equals(today);
-            boolean checkOutToday = booking.getCheckOutDate() != null && booking.getCheckOutDate().equals(today);
-            if (!createdByMeToday && !checkInToday && !checkOutToday) {
-                throw new BusinessException("Không có quyền thao tác ngoài ca làm việc", ErrorCode.INSUFFICIENT_PRIVILEGES);
-            }
-        }
+        // Tất cả lễ tân đều có quyền thao tác dịch vụ phụ thu cho các đơn trong khách sạn
     }
 
     /**

@@ -24,7 +24,8 @@ public interface BookingSurchargeUsageRepository extends JpaRepository<BookingSu
     @Query("SELECT new roomi.dev.dto.response.RevenueReportResponse$ServiceRevenueDetail(" +
            "u.serviceName, SUM(u.lineTotal), COUNT(u)) " +
            "FROM BookingSurchargeUsage u " +
-           "WHERE u.recordedAt >= :startDateTime AND u.recordedAt <= :endDateTime " +
+           "WHERE u.booking.id IN (SELECT inv.booking.id FROM Invoice inv WHERE inv.status = roomi.dev.model.Invoice.Status.PAID) " +
+           "AND u.recordedAt >= :startDateTime AND u.recordedAt <= :endDateTime " +
            "GROUP BY u.serviceName")
     List<RevenueReportResponse.ServiceRevenueDetail> findRevenueByService(
             @Param("startDateTime") LocalDateTime startDateTime,

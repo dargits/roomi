@@ -197,7 +197,7 @@ function App() {
     { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT'] },
     { id: 'settings', name: 'Cài đặt cơ sở', icon: Building2, roles: ['OWNER', 'ADMIN'] },
     { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },
-    { id: 'activity-logs', name: 'Nhật ký hoạt động', icon: ClipboardList, roles: ['ADMIN', 'OWNER'] },
+    { id: 'activity-logs', name: 'Nhật ký hoạt động', icon: ClipboardList, roles: ['ADMIN'] },
     { id: 'profile', name: 'Hồ sơ & Bảo mật', icon: User, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
   ];
 

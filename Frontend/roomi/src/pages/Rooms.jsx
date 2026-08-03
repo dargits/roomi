@@ -4,40 +4,21 @@ import PageLoader from '../components/PageLoader';
 import { 
   Plus, 
   Edit, 
-  Trash2, 
   X, 
   Layers, 
   Tv, 
-  DollarSign, 
   Info,
   Sliders,
   Home,
   ToggleLeft,
   ToggleRight,
-  Image
+  Image,
+  EyeOff,
+  Eye
 } from 'lucide-react';
 
 function Rooms({ user, showNotification }) {
-  // Guard Clause for Access Control
-  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <Info size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý phòng.
-        </p>
-      </div>
-    );
-  }
+  const isAuthorized = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'types'
   const [rooms, setRooms] = useState([]);
@@ -70,12 +51,6 @@ function Rooms({ user, showNotification }) {
     roomTypeImg: ''
   });
 
-  const [deleteConfirm, setDeleteConfirm] = useState({
-    show: false,
-    type: 'room', // 'room' | 'type'
-    target: null
-  });
-
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -101,7 +76,8 @@ function Rooms({ user, showNotification }) {
     fetchData();
   }, []);
 
-  // Room CRUD handlers
+  // ─── Room handlers ──────────────────────────────────────────────────────────
+
   const handleRoomSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -174,15 +150,8 @@ function Rooms({ user, showNotification }) {
     setShowRoomModal(true);
   };
 
-  const openDeleteRoomConfirm = (room) => {
-    setDeleteConfirm({
-      show: true,
-      type: 'room',
-      target: room
-    });
-  };
+  // ─── Room Type handlers ──────────────────────────────────────────────────────
 
-  // Room Type CRUD handlers
   const handleTypeSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -200,6 +169,40 @@ function Rooms({ user, showNotification }) {
         showNotification('Cập nhật loại phòng thành công');
       }
       setShowTypeModal(false);
+      fetchData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  /**
+   * Toggle ẩn/hiện danh mục phòng.
+   * Dùng cờ [HIDDEN] trong trường amenities để đánh dấu — không cần thêm cột DB.
+   * Danh mục bị ẩn vẫn tồn tại, chỉ không hiển thị trong dropdown khi tạo booking.
+   */
+  const handleToggleTypeVisible = async (type) => {
+    const isHidden = type.amenities && type.amenities.includes('[HIDDEN]');
+    let newAmenities = type.amenities || '';
+    if (isHidden) {
+      newAmenities = newAmenities.replace('[HIDDEN]', '').trim();
+    } else {
+      newAmenities = (newAmenities ? newAmenities + ' [HIDDEN]' : '[HIDDEN]').trim();
+    }
+
+    try {
+      const payload = {
+        name: type.name,
+        capacity: type.capacity,
+        amenities: newAmenities,
+        basePrice: type.basePrice,
+        roomTypeImg: type.roomTypeImg || ''
+      };
+      await api.put(`/room-types/${type.id}`, payload);
+      showNotification(
+        isHidden
+          ? `Đã hiển thị lại danh mục "${type.name}"`
+          : `Đã ẩn danh mục "${type.name}" — sẽ không xuất hiện khi tạo đặt phòng mới`
+      );
       fetchData();
     } catch (err) {
       showNotification(err.message, 'error');
@@ -224,37 +227,12 @@ function Rooms({ user, showNotification }) {
     setTypeForm({
       name: type.name,
       capacity: type.capacity,
-      amenities: type.amenities || '',
+      // Loại bỏ cờ [HIDDEN] khi hiển thị form sửa — không hiện cho user thấy
+      amenities: (type.amenities || '').replace('[HIDDEN]', '').trim(),
       basePrice: type.basePrice,
       roomTypeImg: type.roomTypeImg || ''
     });
     setShowTypeModal(true);
-  };
-
-  const openDeleteTypeConfirm = (type) => {
-    setDeleteConfirm({
-      show: true,
-      type: 'type',
-      target: type
-    });
-  };
-
-  const handleDeleteConfirmSubmit = async () => {
-    const { type, target } = deleteConfirm;
-    if (!target) return;
-    try {
-      if (type === 'room') {
-        await api.delete(`/rooms/${target.id}`);
-        showNotification('Đã xóa phòng thành công');
-      } else {
-        await api.delete(`/room-types/${target.id}`);
-        showNotification('Đã xóa loại phòng thành công');
-      }
-      setDeleteConfirm({ show: false, type: 'room', target: null });
-      fetchData();
-    } catch (err) {
-      showNotification(err.message, 'error');
-    }
   };
 
   const getStatusLabel = (status) => {
@@ -266,6 +244,26 @@ function Rooms({ user, showNotification }) {
       default: return status;
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <Info size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý phòng.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -291,7 +289,7 @@ function Rooms({ user, showNotification }) {
         </div>
       </div>
 
-      {/* Tabs switches */}
+      {/* Tabs */}
       <div style={{
         display: 'flex',
         borderBottom: '1px solid var(--border-color)',
@@ -343,7 +341,7 @@ function Rooms({ user, showNotification }) {
       {loading ? (
         <PageLoader />
       ) : activeTab === 'rooms' ? (
-        /* ROOMS LIST TAB */
+        /* ══════════════════ ROOMS LIST TAB ══════════════════ */
         <div className="table-container">
           <table>
             <thead>
@@ -388,6 +386,7 @@ function Rooms({ user, showNotification }) {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        {/* Toggle tắt/bật hoạt động phòng */}
                         <button 
                           onClick={() => handleToggleRoomActive(room)} 
                           className="btn btn-secondary btn-sm" 
@@ -396,11 +395,9 @@ function Rooms({ user, showNotification }) {
                         >
                           {room.note && room.note.includes('[INACTIVE]') ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
                         </button>
+                        {/* Sửa thông tin phòng */}
                         <button onClick={() => openEditRoom(room)} className="btn btn-secondary btn-sm" title="Sửa thông tin">
                           <Edit size={14} />
-                        </button>
-                        <button onClick={() => openDeleteRoomConfirm(room)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Xóa phòng">
-                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -415,7 +412,7 @@ function Rooms({ user, showNotification }) {
           </table>
         </div>
       ) : (
-        /* ROOM TYPES TAB */
+        /* ══════════════════ ROOM TYPES TAB ══════════════════ */
         <div className="table-container">
           <table>
             <thead>
@@ -425,68 +422,93 @@ function Rooms({ user, showNotification }) {
                 <th>Sức chứa tối đa</th>
                 <th>Giá mặc định (VND)</th>
                 <th>Tiện nghi kèm theo</th>
+                <th>Hiển thị</th>
                 <th style={{ textAlign: 'right' }}>Hành động</th>
               </tr>
             </thead>
             <tbody>
               {roomTypes.length > 0 ? (
-                roomTypes.map(type => (
-                  <tr key={type.id}>
-                    <td>
-                      <div style={{
-                        width: '54px',
-                        height: '40px',
-                        borderRadius: '6px',
-                        overflow: 'hidden',
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-color)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        {type.roomTypeImg ? (
-                          <img
-                            src={type.roomTypeImg}
-                            alt={type.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                          />
-                        ) : null}
-                        <div style={{ display: type.roomTypeImg ? 'none' : 'flex', color: 'var(--text-muted)' }}>
-                          <Image size={18} />
+                roomTypes.map(type => {
+                  const isHidden = type.amenities && type.amenities.includes('[HIDDEN]');
+                  return (
+                    <tr key={type.id} style={{ opacity: isHidden ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+                      <td>
+                        <div style={{
+                          width: '54px',
+                          height: '40px',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {type.roomTypeImg ? (
+                            <img
+                              src={type.roomTypeImg}
+                              alt={type.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                            />
+                          ) : null}
+                          <div style={{ display: type.roomTypeImg ? 'none' : 'flex', color: 'var(--text-muted)' }}>
+                            <Image size={18} />
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td><strong>{type.name}</strong></td>
-                    <td>{type.capacity} khách</td>
-                    <td style={{ fontWeight: '600', color: 'var(--primary)' }}>
-                      {type.basePrice?.toLocaleString('vi-VN')} đ / đêm
-                    </td>
-                    <td>
-                      {type.amenities ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                          <Tv size={14} color="var(--text-secondary)" />
-                          <span>{type.amenities}</span>
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Chưa thiết lập tiện nghi</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button onClick={() => openEditType(type)} className="btn btn-secondary btn-sm" title="Sửa loại phòng">
-                          <Edit size={14} />
+                      </td>
+                      <td>
+                        <strong>{type.name}</strong>
+                        {isHidden && (
+                          <span className="badge badge-cancelled" style={{ marginLeft: '8px', fontSize: '10px' }}>Đang ẩn</span>
+                        )}
+                      </td>
+                      <td>{type.capacity} khách</td>
+                      <td style={{ fontWeight: '600', color: 'var(--primary)' }}>
+                        {type.basePrice?.toLocaleString('vi-VN')} đ / đêm
+                      </td>
+                      <td>
+                        {type.amenities && type.amenities.replace('[HIDDEN]', '').trim() ? (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                            <Tv size={14} color="var(--text-secondary)" />
+                            <span>{type.amenities.replace('[HIDDEN]', '').trim()}</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Chưa thiết lập tiện nghi</span>
+                        )}
+                      </td>
+                      <td>
+                        {/* Toggle ẩn/hiện danh mục */}
+                        <button
+                          onClick={() => handleToggleTypeVisible(type)}
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            color: isHidden ? 'var(--text-muted)' : 'var(--color-available)',
+                            fontSize: '12px'
+                          }}
+                          title={isHidden ? 'Hiển thị danh mục này' : 'Ẩn danh mục này'}
+                        >
+                          {isHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                          {isHidden ? 'Đang ẩn' : 'Đang hiện'}
                         </button>
-                        <button onClick={() => openDeleteTypeConfirm(type)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Xóa loại phòng">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          {/* Sửa loại phòng */}
+                          <button onClick={() => openEditType(type)} className="btn btn-secondary btn-sm" title="Sửa loại phòng">
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Chưa có loại phòng nào được thiết lập.</td>
+                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Chưa có loại phòng nào được thiết lập.</td>
                 </tr>
               )}
             </tbody>
@@ -494,7 +516,7 @@ function Rooms({ user, showNotification }) {
         </div>
       )}
 
-      {/* CREATE / EDIT ROOM MODAL */}
+      {/* ══════ MODAL: TẠO / SỬA PHÒNG ══════ */}
       {showRoomModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '500px' }}>
@@ -575,7 +597,7 @@ function Rooms({ user, showNotification }) {
         </div>
       )}
 
-      {/* CREATE / EDIT TYPE MODAL */}
+      {/* ══════ MODAL: TẠO / SỬA DANH MỤC PHÒNG ══════ */}
       {showTypeModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '500px' }}>
@@ -660,55 +682,6 @@ function Rooms({ user, showNotification }) {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* DELETE CONFIRMATION MODAL */}
-      {deleteConfirm.show && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '450px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-            <div className="modal-header">
-              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
-                <Trash2 size={18} />
-                {deleteConfirm.type === 'room' ? 'Xác nhận xóa phòng' : 'Xác nhận xóa loại phòng'}
-              </h2>
-              <button 
-                onClick={() => setDeleteConfirm({ show: false, type: 'room', target: null })} 
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
-              {deleteConfirm.type === 'room' ? (
-                <p>Bạn có chắc chắn muốn xóa phòng <strong>{deleteConfirm.target?.roomNumber}</strong> (Tầng {deleteConfirm.target?.floor}) không?</p>
-              ) : (
-                <p>
-                  Bạn có chắc chắn muốn xóa loại phòng <strong>{deleteConfirm.target?.name}</strong> không?
-                  <br />
-                  <span style={{ color: 'var(--color-maintenance)', fontSize: '12px', fontWeight: '600' }}>
-                    LƯU Ý: Xóa loại phòng sẽ xóa tất cả phòng thuộc loại này!
-                  </span>
-                </p>
-              )}
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button 
-                type="button" 
-                onClick={() => setDeleteConfirm({ show: false, type: 'room', target: null })} 
-                className="btn btn-secondary btn-sm"
-              >
-                Hủy
-              </button>
-              <button 
-                type="button" 
-                onClick={handleDeleteConfirmSubmit} 
-                className="btn btn-danger btn-sm"
-              >
-                Xác nhận xóa
-              </button>
-            </div>
           </div>
         </div>
       )}

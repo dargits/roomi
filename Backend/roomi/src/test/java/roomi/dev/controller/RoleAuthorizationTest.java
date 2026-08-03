@@ -400,14 +400,13 @@ public class RoleAuthorizationTest {
     }
 
     @Test
-    @DisplayName("KẾ TOÁN không được truy cập API ghi nhận thanh toán")
-    public void accountant_cannotRecordPayment() throws Exception {
+    @DisplayName("KẾ TOÁN được truy cập API ghi nhận thanh toán")
+    public void accountant_canRecordPayment() throws Exception {
         mockMvc.perform(post("/api/v1/bookings/1/payments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":500000,\"method\":\"CASH\"}")
                         .header("Authorization", "mock-accountant-token"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PERM_002"));
+                .andExpect(status().isCreated());
     }
 
     @Test

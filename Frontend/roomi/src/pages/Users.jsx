@@ -26,26 +26,7 @@ const roleInfo = {
 };
 
 function Users({ user, showNotification }) {
-  // Guard Clause for Access Control (ADMIN only)
-  if (user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <ShieldAlert size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Chỉ Quản trị viên hệ thống (ADMIN) mới có quyền truy cập trang quản lý nhân viên và phân quyền.
-        </p>
-      </div>
-    );
-  }
+  const isAuthorized = user?.role === 'ADMIN';
 
   const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -215,6 +196,26 @@ function Users({ user, showNotification }) {
       
     return matchRole && matchStatus && matchSearch;
   });
+
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <ShieldAlert size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Chỉ Quản trị viên hệ thống (ADMIN) mới có quyền truy cập trang quản lý nhân viên và phân quyền.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

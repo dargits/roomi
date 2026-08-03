@@ -88,30 +88,12 @@ public class RoomServiceImpl implements RoomService {
     @Override
     @Transactional
     public List<Room> getAllRooms() {
-        List<Room> rooms = roomRepository.findAllByOrderByFloorAscRoomNumberAsc();
-        LocalDate today = LocalDate.now();
-
-        for (Room room : rooms) {
-            if (room.getStatus() == Room.Status.MAINTENANCE || room.getStatus() == Room.Status.NEEDS_CLEANING) {
-                continue;
-            }
-
-            boolean hasCheckedIn = bookingRepository.existsCheckedInBookingForRoomToday(room.getId(), today);
-
-            if (hasCheckedIn && room.getStatus() != Room.Status.OCCUPIED) {
-                room.setStatus(Room.Status.OCCUPIED);
-                roomRepository.save(room);
-            } else if (!hasCheckedIn && room.getStatus() == Room.Status.OCCUPIED) {
-                room.setStatus(Room.Status.NEEDS_CLEANING);
-                roomRepository.save(room);
-            }
-        }
-
-        return rooms;
+        syncRoomStatuses();
+        return roomRepository.findAllByOrderByFloorAscRoomNumberAsc();
     }
 
     /**
-     * Đồng bộ trạng thái tất cả phòng theo booking CHECKED_IN đang hoạt động hôm nay.
+     * Đồng bộ trạng thái tất cả phòng theo booking CHECKED_IN đang hoạt động.
      * Trả về số phòng đã được cập nhật.
      */
     @Override
@@ -122,19 +104,31 @@ public class RoomServiceImpl implements RoomService {
         int updated = 0;
 
         for (Room room : allRooms) {
-            // Bỏ qua phòng đang bảo trì hoặc cần dọn dẹp
-            if (room.getStatus() == Room.Status.MAINTENANCE
-                    || room.getStatus() == Room.Status.NEEDS_CLEANING) {
+            if (room.getStatus() == Room.Status.MAINTENANCE) {
                 continue;
             }
 
-            boolean hasCheckedIn = bookingRepository.existsCheckedInBookingForRoomToday(room.getId(), today);
+            // Tìm các booking đang ở (CHECKED_IN) gán cho phòng này
+            List<Booking> checkedInBookings = bookingRepository.findByRoomId(room.getId()).stream()
+                    .filter(b -> b.getStatus() == Booking.Status.CHECKED_IN)
+                    .toList();
 
-            if (hasCheckedIn && room.getStatus() != Room.Status.OCCUPIED) {
-                room.setStatus(Room.Status.OCCUPIED);
-                roomRepository.save(room);
-                updated++;
-            } else if (!hasCheckedIn && room.getStatus() == Room.Status.OCCUPIED) {
+            boolean isOccupied = !checkedInBookings.isEmpty();
+
+            if (isOccupied) {
+                // Đảm bảo ngày nhận phòng không bị ghi ở tương lai nếu đơn đã CHECKED_IN
+                for (Booking b : checkedInBookings) {
+                    if (b.getCheckInDate() != null && b.getCheckInDate().isAfter(today)) {
+                        b.setCheckInDate(today);
+                        bookingRepository.save(b);
+                    }
+                }
+                if (room.getStatus() != Room.Status.OCCUPIED) {
+                    room.setStatus(Room.Status.OCCUPIED);
+                    roomRepository.save(room);
+                    updated++;
+                }
+            } else if (room.getStatus() == Room.Status.OCCUPIED) {
                 room.setStatus(Room.Status.NEEDS_CLEANING);
                 roomRepository.save(room);
                 updated++;

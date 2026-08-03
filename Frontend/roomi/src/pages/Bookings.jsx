@@ -72,26 +72,7 @@ function Bookings({ user, showNotification }) {
     }
   };
 
-  // Guard Clause for Access Control (RECEPTIONIST, ACCOUNTANT, ADMIN)
-  if (user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <AlertCircle size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản Chủ cơ sở (OWNER) tập trung quản lý thiết lập, giá phòng và báo cáo. Trang quản lý đặt phòng chỉ dành cho Lễ tân và Kế toán.
-        </p>
-      </div>
-    );
-  }
+  const isAuthorized = user?.role === 'RECEPTIONIST' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN';
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -180,7 +161,8 @@ function Bookings({ user, showNotification }) {
         setBookings(sorted);
       }
       if (typesRes.data && typesRes.data.data) {
-        setRoomTypes(typesRes.data.data);
+        // Lọc bỏ danh mục đang bị ẩn ([HIDDEN]) — chỉ hiện loại phòng đang hoạt động
+        setRoomTypes(typesRes.data.data.filter(t => !t.amenities?.includes('[HIDDEN]')));
       }
     } catch (err) {
       showNotification(err.message, 'error');
@@ -549,6 +531,26 @@ function Bookings({ user, showNotification }) {
     }
   };
 
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản Chủ cơ sở (OWNER) tập trung quản lý thiết lập, giá phòng và báo cáo. Trang quản lý đặt phòng chỉ dành cho Lễ tân và Kế toán.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Page Header */}
@@ -828,18 +830,8 @@ function Bookings({ user, showNotification }) {
                                 Duyệt & Gán phòng
                               </button>
                             )}
-                            <button 
-                              onClick={() => {
-                                if (window.confirm('Xác nhận khách không đến (No-show)? Đặt phòng này sẽ chuyển thành NO_SHOW và giải phóng phòng.')) {
-                                  handleTransition(b.id, 'no-show');
-                                }
-                              }} 
-                              className="btn btn-secondary btn-sm" 
-                              style={{ color: 'var(--color-maintenance)' }}
-                              title="Khách không đến (No-show)"
-                            >
-                              No-show
-                            </button>
+                            {/* No-show KHÔNG hiển thị ở trạng thái NEW — booking chưa được xác nhận,
+                                lễ tân cần duyệt/gán phòng trước. Chỉ CONFIRMED mới cho phép No-show. */}
                           </>
                         )}
 
@@ -1255,11 +1247,11 @@ function Bookings({ user, showNotification }) {
       {/* BILLING / INVOICE VIEW MODAL */}
       {showInvoiceModal && activeInvoice && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: 'calc(100vh - 110px)' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Clipboard size={18} color="var(--primary)" />
-                Chi tiết Hóa đơn thanh toán
+                Chi tiết Hóa đơn thanh toán (#{activeInvoice.id || selectedBooking?.id})
               </h2>
               <button onClick={() => setShowInvoiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
@@ -1267,13 +1259,13 @@ function Bookings({ user, showNotification }) {
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
                 <div>
-                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking.guestName}</p>
-                  <p><strong>Số điện thoại:</strong> {selectedBooking.guestPhone || 'Không có'}</p>
-                  <p><strong>CCCD / ID:</strong> {selectedBooking.guestIdNumber || 'Không có'}</p>
-                  <p><strong>Phòng đặt:</strong> {selectedBooking.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking.roomTypeName})</p>
+                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking?.guestName}</p>
+                  <p><strong>Số điện thoại:</strong> {selectedBooking?.guestPhone || 'Không có'}</p>
+                  <p><strong>CCCD / ID:</strong> {selectedBooking?.guestIdNumber || 'Không có'}</p>
+                  <p><strong>Phòng đặt:</strong> {selectedBooking?.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking?.roomTypeName})</p>
                 </div>
                 <div>
-                  <p><strong>Số đêm:</strong> {activeInvoice.nights} đêm</p>
+                  <p><strong>Số đêm:</strong> {activeInvoice.nights || selectedBooking?.nights || 1} đêm</p>
                   <p><strong>Trạng thái hóa đơn:</strong> <span className={`badge badge-${activeInvoice.status?.toLowerCase() || 'pending'}`}>{activeInvoice.status || 'PENDING'}</span></p>
                 </div>
               </div>
@@ -1373,7 +1365,7 @@ function Bookings({ user, showNotification }) {
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Lịch sử thanh toán</h3>
-                  {activeInvoice.status !== 'PAID' && (activeInvoice.remainingAmount === undefined || activeInvoice.remainingAmount > 0) && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                  {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (activeInvoice.remainingAmount === undefined || activeInvoice.remainingAmount > 0) && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN') && (
                     <button
                       onClick={openPaymentModal}
                       className="btn btn-primary btn-sm"
@@ -1415,7 +1407,7 @@ function Bookings({ user, showNotification }) {
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
               
-              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+              {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN') && (
                 <button
                   onClick={openPaymentModal}
                   className="btn btn-secondary btn-sm"
@@ -1445,7 +1437,7 @@ function Bookings({ user, showNotification }) {
 
       {/* SURCHARGE ADD MODAL */}
       {showServiceModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
           <div className="modal-content" style={{ maxWidth: '400px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0 }}>Ghi nhận dịch vụ phát sinh</h2>
@@ -1496,7 +1488,7 @@ function Bookings({ user, showNotification }) {
 
       {/* PAYMENT RECORD MODAL */}
       {showPaymentModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
           <div className="modal-content" style={{ maxWidth: '420px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
