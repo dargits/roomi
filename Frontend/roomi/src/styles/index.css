@@ -105,6 +105,9 @@ input,
 select,
 textarea {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
   padding: 10px 14px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -125,6 +128,9 @@ input::-ms-clear {
 select option {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 input:focus,

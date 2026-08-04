@@ -212,7 +212,7 @@ function Settings({ user, showNotification }) {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px', marginTop: '12px' }}>
                 <AlertCircle size={16} />
-                Chỉ Chủ cơ sở (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền chỉnh sửa cấu hình này.
+                Chỉ Chủ cơ sở hoặc Quản trị viên mới có quyền chỉnh sửa cấu hình này.
               </div>
             )}
           </div>

@@ -545,7 +545,7 @@ function Bookings({ user, showNotification }) {
         <AlertCircle size={48} color="var(--color-maintenance)" />
         <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
         <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản Chủ cơ sở (OWNER) tập trung quản lý thiết lập, giá phòng và báo cáo. Trang quản lý đặt phòng chỉ dành cho Lễ tân và Kế toán.
+          Tài khoản Chủ cơ sở tập trung quản lý thiết lập, giá phòng và báo cáo. Trang quản lý đặt phòng chỉ dành cho Lễ tân và Kế toán.
         </p>
       </div>
     );
@@ -1076,7 +1076,7 @@ function Bookings({ user, showNotification }) {
                       value={newBooking.source}
                       onChange={(e) => setNewBooking(prev => ({ ...prev, source: e.target.value }))}
                     >
-                      <option value="WALK_IN">Trực tiếp (Walk-in)</option>
+                      <option value="WALK_IN">Trực tiếp tại quầy</option>
                       <option value="PHONE">Qua điện thoại</option>
                       <option value="EXTERNAL_CHANNEL">Kênh bên ngoài</option>
                       <option value="BOOKING_PORTAL">Cổng Booking</option>
@@ -1438,7 +1438,7 @@ function Bookings({ user, showNotification }) {
       {/* SURCHARGE ADD MODAL */}
       {showServiceModal && (
         <div className="modal-overlay" style={{ zIndex: 10500 }}>
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
+          <div className="modal-content" style={{ maxWidth: '580px', width: '90%' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0 }}>Ghi nhận dịch vụ phát sinh</h2>
               <button onClick={() => setShowServiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
@@ -1446,35 +1446,96 @@ function Bookings({ user, showNotification }) {
             <form onSubmit={handleAddSurcharge}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label>Chọn dịch vụ</label>
-                  <select 
-                    value={surchargeInput.surchargeServiceId} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: e.target.value }))}
-                    required
-                  >
-                    {servicesCatalog.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.unitPrice.toLocaleString('vi-VN')} đ/{s.description || 'lượt'})</option>
-                    ))}
-                  </select>
+                  <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>Chọn dịch vụ phát sinh *</label>
+                  <div style={{
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    {servicesCatalog.map(s => {
+                      const isSelected = String(s.id) === String(surchargeInput.surchargeServiceId);
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: s.id }))}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'var(--primary-glow)' : 'var(--bg-card)',
+                            border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                            {/* Nút tích chọn / Radio Check Button */}
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border-color)',
+                              backgroundColor: isSelected ? 'var(--primary)' : 'transparent',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease'
+                            }}>
+                              {isSelected && <Check size={12} strokeWidth={3} />}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                              <span style={{ fontWeight: isSelected ? '700' : '600', fontSize: '13.5px', color: isSelected ? 'var(--primary)' : 'var(--text-primary)' }}>
+                                {s.name}
+                              </span>
+                              {s.description && (
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                  {s.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span style={{ fontWeight: '700', fontSize: '13px', color: isSelected ? 'var(--primary)' : 'var(--text-secondary)', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                            {s.unitPrice.toLocaleString('vi-VN')} VNĐ
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label>Số lượng</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    value={surchargeInput.quantity} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
-                    required 
-                  />
-                </div>
-                <div>
-                  <label>Ghi chú</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ghi chú chi tiết dịch vụ..." 
-                    value={surchargeInput.note} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
-                  />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '16px' }}>
+                  <div>
+                    <label>Số lượng *</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={surchargeInput.quantity} 
+                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Ghi chú phát sinh</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ghi chú chi tiết dịch vụ..." 
+                      value={surchargeInput.note} 
+                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">

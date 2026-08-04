@@ -296,7 +296,7 @@ function Rates({ user, showNotification }) {
             <div className="card" style={{ padding: '12px 16px', borderLeft: '4px solid var(--color-cleaning)', display: 'flex', gap: '10px', alignItems: 'center' }}>
               <AlertCircle size={18} color="var(--color-cleaning)" />
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Tài khoản của bạn ({getRoleLabel(user.role)}) có quyền đọc. Chỉ quản trị viên **Quản trị viên (ADMIN)** hoặc chủ sở hữu **Chủ cơ sở (OWNER)** mới có quyền thay đổi bảng phí này.
+                Tài khoản của bạn ({getRoleLabel(user.role)}) có quyền đọc. Chỉ **Quản trị viên** hoặc **Chủ cơ sở** mới có quyền thay đổi bảng phí này.
               </span>
             </div>
           )}

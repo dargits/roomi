@@ -23,6 +23,24 @@ const roleLabels = {
   ACCOUNTANT: 'Kế toán'
 };
 
+const entityLabels = {
+  USER: 'Người dùng',
+  BOOKING: 'Đặt phòng',
+  ROOM: 'Phòng',
+  INVOICE: 'Hóa đơn',
+  PAYMENT: 'Thanh toán',
+  SURCHARGE: 'Dịch vụ phụ thu',
+  ROOM_TYPE: 'Loại phòng',
+  SEASONAL_RATE: 'Giá theo mùa',
+  GUEST: 'Khách hàng',
+  SETTINGS: 'Cài đặt cơ sở'
+};
+
+const formatEntityLabel = (entity) => {
+  if (!entity) return '—';
+  return entityLabels[entity.toUpperCase()] || entity;
+};
+
 const formatDateTime = (dateString) => {
   if (!dateString) return '—';
   try {
@@ -56,7 +74,7 @@ function ActivityLogs({ user, showNotification }) {
         <ShieldAlert size={48} color="var(--color-maintenance)" />
         <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
         <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Chỉ Quản trị viên (ADMIN) và Chủ cơ sở (OWNER) mới có quyền truy cập nhật ký hoạt động hệ thống.
+          Chỉ Quản trị viên và Chủ cơ sở mới có quyền truy cập nhật ký hoạt động hệ thống.
         </p>
       </div>
     );
@@ -110,7 +128,7 @@ function ActivityLogs({ user, showNotification }) {
         <div>
           <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <ClipboardList size={24} color="var(--primary)" />
-            <span>Nhật ký hoạt động hệ thống (Activity Log)</span>
+            <span>Nhật ký hoạt động hệ thống</span>
           </h1>
           <p className="page-subtitle">Theo dõi & giám sát mọi thao tác, lịch sử tác nghiệp của nhân viên trên hệ thống</p>
         </div>
@@ -216,11 +234,11 @@ function ActivityLogs({ user, showNotification }) {
             <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Lọc theo vai trò</label>
             <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
               <option value="ALL">Tất cả vai trò</option>
-              <option value="ADMIN">Quản trị viên (ADMIN)</option>
-              <option value="OWNER">Chủ cơ sở (OWNER)</option>
-              <option value="RECEPTIONIST">Lễ tân (RECEPTIONIST)</option>
-              <option value="HOUSEKEEPER">Buồng phòng (HOUSEKEEPER)</option>
-              <option value="ACCOUNTANT">Kế toán (ACCOUNTANT)</option>
+              <option value="ADMIN">Quản trị viên</option>
+              <option value="OWNER">Chủ cơ sở</option>
+              <option value="RECEPTIONIST">Lễ tân</option>
+              <option value="HOUSEKEEPER">Buồng phòng</option>
+              <option value="ACCOUNTANT">Kế toán</option>
             </select>
           </div>
 
@@ -229,7 +247,7 @@ function ActivityLogs({ user, showNotification }) {
             <select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}>
               <option value="ALL">Tất cả đối tượng</option>
               {entityTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>{formatEntityLabel(type)}</option>
               ))}
             </select>
           </div>
@@ -246,7 +264,7 @@ function ActivityLogs({ user, showNotification }) {
               <tr>
                 <th style={{ width: '180px' }}>Thời gian</th>
                 <th>Người thực hiện</th>
-                <th>Thao tác (Action)</th>
+                <th>Thao tác</th>
                 <th>Đối tượng</th>
                 <th>Chi tiết nhật ký</th>
               </tr>
@@ -279,7 +297,7 @@ function ActivityLogs({ user, showNotification }) {
                     <td>
                       {log.entityName ? (
                         <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--primary)' }}>
-                          {log.entityName} {log.entityId && `#${log.entityId}`}
+                          {formatEntityLabel(log.entityName)} {log.entityId && `#${log.entityId}`}
                         </div>
                       ) : (
                         <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>

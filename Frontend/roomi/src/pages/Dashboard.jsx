@@ -21,7 +21,28 @@ import {
   Bell
 } from 'lucide-react';
 
-function Dashboard({ user, showNotification, readOnly = false }) {
+function Dashboard({ user, showNotification, readOnly = false, cleaningNotifications = [], setCleaningNotifications = () => {} }) {
+  // Guard clause: Admin user is not allowed on room dashboard
+  if (user?.role === 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <ShieldAlert size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản Quản trị viên dùng để quản lý hệ thống, phân quyền nhân viên và xem nhật ký hoạt động. Sơ đồ phòng dành cho Lễ tân, Buồng phòng, Kế toán và Chủ cơ sở.
+        </p>
+      </div>
+    );
+  }
+
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'calendar'
   const [roomsCalendar, setRoomsCalendar] = useState([]);
@@ -30,9 +51,7 @@ function Dashboard({ user, showNotification, readOnly = false }) {
   const [filterType, setFilterType] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState(user?.role === 'HOUSEKEEPER' ? 'NEEDS_CLEANING' : 'ALL');
   
-  // States and refs for housekeeping notifications
-  const [cleaningNotifications, setCleaningNotifications] = useState([]);
-  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  // Refs for housekeeping notifications
   const roomsListRef = React.useRef([]);
 
   // Date range for calendar (14 days starting from today)
@@ -119,9 +138,16 @@ function Dashboard({ user, showNotification, readOnly = false }) {
     return arr;
   };
 
-  const fetchData = async () => {
+  const fetchData = async (isSilent = false) => {
+    if (user?.role === 'ADMIN') {
+      setLoading(false);
+      return;
+    }
+
     try {
-      setLoading(true);
+      if (!isSilent) {
+        setLoading(true);
+      }
 
       // Đồng bộ trạng thái phòng trước khi lấy dữ liệu
       // (xử lý trường hợp phòng có CHECKED_IN booking nhưng status vẫn AVAILABLE)
@@ -235,9 +261,13 @@ function Dashboard({ user, showNotification, readOnly = false }) {
         setUnassignedBookings(bookingsRes.data.data);
       }
     } catch (err) {
-      showNotification(err.message || 'Lỗi tải dữ liệu sơ đồ phòng', 'error');
+      if (!isSilent) {
+        showNotification(err.message || 'Lỗi tải dữ liệu sơ đồ phòng', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -255,7 +285,7 @@ function Dashboard({ user, showNotification, readOnly = false }) {
   useEffect(() => {
     if (user?.role !== 'HOUSEKEEPER') return;
     const intervalId = setInterval(() => {
-      fetchDataRef.current();
+      fetchDataRef.current(true);
     }, 10000);
     return () => clearInterval(intervalId);
   }, [user]);
@@ -521,143 +551,6 @@ function Dashboard({ user, showNotification, readOnly = false }) {
         
         {/* Actions bar */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {user?.role === 'HOUSEKEEPER' && (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: showNotifDropdown ? 'var(--primary-glow)' : 'var(--bg-secondary)',
-                  color: cleaningNotifications.length > 0 ? '#b45309' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'var(--transition-fast)'
-                }}
-                title="Chuông thông báo phòng cần dọn"
-              >
-                <Bell size={18} className={cleaningNotifications.length > 0 ? "animate-bounce" : ""} />
-                {cleaningNotifications.length > 0 && (
-                  <span style={{
-                    position: 'absolute',
-                    top: '-4px',
-                    right: '-4px',
-                    backgroundColor: '#ef4444',
-                    color: 'white',
-                    fontSize: '9px',
-                    fontWeight: 'bold',
-                    borderRadius: '50%',
-                    width: '16px',
-                    height: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px solid var(--bg-secondary)'
-                  }}>
-                    {cleaningNotifications.length}
-                  </span>
-                )}
-              </button>
-
-              {showNotifDropdown && (
-                <div style={{
-                  position: 'absolute',
-                  top: '46px',
-                  right: '0',
-                  width: '320px',
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 1000,
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: '1px solid var(--border-color)',
-                    paddingBottom: '8px',
-                    marginBottom: '4px'
-                  }}>
-                    <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>
-                      Thông báo dọn phòng ({cleaningNotifications.length})
-                    </span>
-                    {cleaningNotifications.length > 0 && (
-                      <button 
-                        onClick={() => setCleaningNotifications([])}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--primary)',
-                          fontSize: '11px',
-                          cursor: 'pointer',
-                          fontWeight: '600'
-                        }}
-                      >
-                        Xóa tất cả
-                      </button>
-                    )}
-                  </div>
-                  
-                  {cleaningNotifications.length === 0 ? (
-                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
-                      Không có thông báo mới nào
-                    </div>
-                  ) : (
-                    <div style={{ 
-                      maxHeight: '240px', 
-                      overflowY: 'auto',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px'
-                    }}>
-                      {cleaningNotifications.map(notif => (
-                        <div 
-                          key={notif.id}
-                          style={{
-                            padding: '8px 10px',
-                            backgroundColor: '#fffbeb',
-                            borderLeft: '3px solid var(--color-cleaning)',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: '8px'
-                          }}
-                        >
-                          <span style={{ color: '#b45309', fontWeight: '500' }}>{notif.message}</span>
-                          <button
-                            onClick={() => setCleaningNotifications(prev => prev.filter(n => n.id !== notif.id))}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#b45309',
-                              cursor: 'pointer',
-                              padding: '2px',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
 
           <div style={{
             display: 'flex',
@@ -847,61 +740,7 @@ function Dashboard({ user, showNotification, readOnly = false }) {
         </div>
       </div>
 
-      {user.role === 'HOUSEKEEPER' && (
-        <div className="card" style={{ padding: '14px 20px', marginBottom: '20px', borderLeft: '4px solid var(--color-cleaning)', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px' }}>
-          <Sparkles size={20} color="var(--color-cleaning)" />
-          <div>
-            <strong>Giao diện Buồng phòng:</strong> Tự động hiển thị danh sách phòng <strong>Cần dọn dẹp</strong>. 
-            Các phòng có khách sắp nhận trong ngày được tự động ưu tiên xếp lên đầu.
-          </div>
-        </div>
-      )}
-
-      {user.role === 'HOUSEKEEPER' && cleaningNotifications.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-          {cleaningNotifications.map(notif => (
-            <div 
-              key={notif.id} 
-              className="card" 
-              style={{ 
-                padding: '12px 20px', 
-                backgroundColor: '#fffbeb', 
-                border: '1px solid #fde68a',
-                borderLeft: '4px solid var(--color-cleaning)', 
-                borderRadius: '8px',
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                gap: '12px', 
-                fontSize: '13px',
-                boxShadow: 'var(--shadow-sm)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309' }}>
-                <AlertCircle size={18} />
-                <span><strong>Thông báo mới:</strong> {notif.message}</span>
-              </div>
-              <button 
-                onClick={() => {
-                  setCleaningNotifications(prev => prev.filter(n => n.id !== notif.id));
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#b45309',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-                title="Đóng thông báo"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Room Grid / Calendar View */}
 
       {loading ? (
         <PageLoader />
@@ -1535,7 +1374,7 @@ function Dashboard({ user, showNotification, readOnly = false }) {
       {/* SERVICE RECORDING MODAL */}
       {showServiceModal && (
         <div className="modal-overlay" style={{ zIndex: 10500 }}>
-          <div className="modal-content" style={{ maxWidth: '450px' }}>
+          <div className="modal-content" style={{ maxWidth: '580px', width: '90%' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0 }}>Ghi nhận dịch vụ phát sinh</h2>
               <button onClick={() => setShowServiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
@@ -1543,35 +1382,96 @@ function Dashboard({ user, showNotification, readOnly = false }) {
             <form onSubmit={handleAddSurcharge}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label>Chọn dịch vụ</label>
-                  <select 
-                    value={surchargeInput.surchargeServiceId} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: e.target.value }))}
-                    required
-                  >
-                    {servicesList.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.unitPrice.toLocaleString('vi-VN')} đ/{s.description || 'lượt'})</option>
-                    ))}
-                  </select>
+                  <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>Chọn dịch vụ phát sinh *</label>
+                  <div style={{
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    {servicesList.map(s => {
+                      const isSelected = String(s.id) === String(surchargeInput.surchargeServiceId);
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: s.id }))}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'var(--primary-glow)' : 'var(--bg-card)',
+                            border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                            {/* Nút tích chọn / Radio Check Button */}
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border-color)',
+                              backgroundColor: isSelected ? 'var(--primary)' : 'transparent',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease'
+                            }}>
+                              {isSelected && <Check size={12} strokeWidth={3} />}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                              <span style={{ fontWeight: isSelected ? '700' : '600', fontSize: '13.5px', color: isSelected ? 'var(--primary)' : 'var(--text-primary)' }}>
+                                {s.name}
+                              </span>
+                              {s.description && (
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                  {s.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span style={{ fontWeight: '700', fontSize: '13px', color: isSelected ? 'var(--primary)' : 'var(--text-secondary)', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                            {s.unitPrice.toLocaleString('vi-VN')} VNĐ
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label>Số lượng</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    value={surchargeInput.quantity} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
-                    required 
-                  />
-                </div>
-                <div>
-                  <label>Ghi chú</label>
-                  <input 
-                    type="text" 
-                    placeholder="VD: 2 lon nước ngọt, 1kg quần áo" 
-                    value={surchargeInput.note} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
-                  />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '16px' }}>
+                  <div>
+                    <label>Số lượng *</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={surchargeInput.quantity} 
+                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Ghi chú phát sinh</label>
+                    <input 
+                      type="text" 
+                      placeholder="VD: 2 lon nước ngọt, 1kg quần áo..." 
+                      value={surchargeInput.note} 
+                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">

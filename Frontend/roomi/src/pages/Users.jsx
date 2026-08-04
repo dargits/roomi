@@ -211,7 +211,7 @@ function Users({ user, showNotification }) {
         <ShieldAlert size={48} color="var(--color-maintenance)" />
         <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
         <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Chỉ Quản trị viên hệ thống (ADMIN) mới có quyền truy cập trang quản lý nhân viên và phân quyền.
+          Chỉ Quản trị viên mới có quyền truy cập trang quản lý nhân viên và phân quyền.
         </p>
       </div>
     );
@@ -678,11 +678,11 @@ function Users({ user, showNotification }) {
                     value={createForm.role}
                     onChange={(e) => setCreateForm(prev => ({ ...prev, role: e.target.value }))}
                   >
-                    <option value="RECEPTIONIST">Lễ tân (RECEPTIONIST)</option>
-                    <option value="HOUSEKEEPER">Buồng phòng (HOUSEKEEPER)</option>
-                    <option value="ACCOUNTANT">Kế toán (ACCOUNTANT)</option>
-                    <option value="OWNER">Chủ cơ sở (OWNER)</option>
-                    <option value="ADMIN">Quản trị viên (ADMIN)</option>
+                    <option value="RECEPTIONIST">Lễ tân</option>
+                    <option value="HOUSEKEEPER">Buồng phòng</option>
+                    <option value="ACCOUNTANT">Kế toán</option>
+                    <option value="OWNER">Chủ cơ sở</option>
+                    <option value="ADMIN">Quản trị viên</option>
                   </select>
                 </div>
               </div>

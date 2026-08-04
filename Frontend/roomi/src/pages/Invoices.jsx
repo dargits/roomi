@@ -265,7 +265,7 @@ function Invoices({ user, showNotification }) {
             >
               <option value="ALL">Tất cả hóa đơn</option>
               <option value="PENDING">Chưa thanh toán</option>
-              <option value="PAID">Đã thanh toán (CHECKED_OUT)</option>
+              <option value="PAID">Đã thanh toán (Trả phòng)</option>
             </select>
           </div>
         </div>
@@ -328,13 +328,13 @@ function Invoices({ user, showNotification }) {
                   </td>
                   <td>
                     {b.status === 'CHECKED_OUT' ? (
-                      <span className="badge badge-confirmed">Đã thanh toán (OUT)</span>
+                      <span className="badge badge-confirmed">Đã thanh toán</span>
                     ) : b.status === 'CANCELLED' ? (
                       <span className="badge badge-maintenance">Đã hủy</span>
                     ) : b.status === 'CHECKED_IN' ? (
-                      <span className="badge badge-pending">Đang ở (Chưa trả)</span>
+                      <span className="badge badge-pending">Đang ở (Chưa trả phòng)</span>
                     ) : (
-                      <span className="badge badge-pending">Chưa thanh toán (NEW)</span>
+                      <span className="badge badge-pending">Chưa thanh toán</span>
                     )}
                   </td>
                   <td style={{ textAlign: 'right' }}>

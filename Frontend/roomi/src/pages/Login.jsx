@@ -60,7 +60,7 @@ function Login({ onLoginSuccess, showNotification, onGoToPortal }) {
           textAlign: 'center'
         }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
-            Roomi Hotel System
+            Hệ thống Quản lý Khách sạn Roomi
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
             Hệ thống Quản lý Khách sạn & Homestay

@@ -32,8 +32,24 @@ import {
   BarChart3,
   Building2,
   Sparkles,
-  ClipboardList
+  ClipboardList,
+  Bell
 } from 'lucide-react';
+
+const MENU_ITEMS = [
+  { id: 'dashboard', name: 'Sơ đồ phòng', icon: LayoutDashboard, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT'] },
+  { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['RECEPTIONIST'] },
+  { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['RECEPTIONIST'] },
+  { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER'] },
+  { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER'] },
+  { id: 'invoices', name: 'Hóa đơn & Thanh toán', icon: Receipt, roles: ['ACCOUNTANT', 'OWNER', 'RECEPTIONIST'] },
+  { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST'] },
+  { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT'] },
+  { id: 'settings', name: 'Cài đặt cơ sở', icon: Building2, roles: ['OWNER', 'ADMIN'] },
+  { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },
+  { id: 'activity-logs', name: 'Nhật ký hoạt động', icon: ClipboardList, roles: ['ADMIN'] },
+  { id: 'profile', name: 'Hồ sơ & Bảo mật', icon: User, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
+];
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('roomi_token') || null);
@@ -45,6 +61,8 @@ function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loadingBarStatus, setLoadingBarStatus] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [cleaningNotifications, setCleaningNotifications] = useState([]);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
 
   const handleViewChange = (viewId) => {
     if (viewId === currentView) return;
@@ -74,7 +92,12 @@ function App() {
       setLoading(true);
       const res = await api.get('/users/profile');
       if (res.data && res.data.data) {
-        setUser(res.data.data);
+        const u = res.data.data;
+        setUser(u);
+        const allowedIds = MENU_ITEMS.filter(item => item.roles.includes(u.role)).map(item => item.id);
+        if (allowedIds.length > 0 && !allowedIds.includes(currentView)) {
+          setCurrentView(allowedIds[0]);
+        }
       }
     } catch (err) {
       showNotification(err.message || 'Không thể lấy thông tin tài khoản', 'error');
@@ -95,7 +118,7 @@ function App() {
   // Auto-redirect if currentView is not allowed for user role
   useEffect(() => {
     if (user) {
-      const allowedIds = menuItems.filter(item => item.roles.includes(user.role)).map(item => item.id);
+      const allowedIds = MENU_ITEMS.filter(item => item.roles.includes(user.role)).map(item => item.id);
       if (allowedIds.length > 0 && !allowedIds.includes(currentView)) {
         setCurrentView(allowedIds[0]);
       }
@@ -186,27 +209,22 @@ function App() {
   }
 
   // Navigation items based on roles (Exact matrix matching VT-01 to VT-05)
-  const menuItems = [
-    { id: 'dashboard', name: 'Sơ đồ phòng', icon: LayoutDashboard, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT'] },
-    { id: 'bookings', name: 'Đặt phòng', icon: CalendarRange, roles: ['RECEPTIONIST'] },
-    { id: 'guests', name: 'Khách hàng', icon: UsersIcon, roles: ['RECEPTIONIST'] },
-    { id: 'rooms', name: 'Phòng & Loại', icon: BedDouble, roles: ['OWNER'] },
-    { id: 'rates', name: 'Giá theo mùa', icon: TrendingUp, roles: ['OWNER'] },
-    { id: 'invoices', name: 'Hóa đơn & Thanh toán', icon: Receipt, roles: ['ACCOUNTANT', 'OWNER', 'RECEPTIONIST'] },
-    { id: 'services', name: 'Dịch vụ phụ thu', icon: ConciergeBell, roles: ['OWNER', 'RECEPTIONIST'] },
-    { id: 'reports', name: 'Báo cáo doanh thu', icon: BarChart3, roles: ['OWNER', 'ACCOUNTANT'] },
-    { id: 'settings', name: 'Cài đặt cơ sở', icon: Building2, roles: ['OWNER', 'ADMIN'] },
-    { id: 'users', name: 'Nhân viên', icon: ShieldAlert, roles: ['ADMIN'] },
-    { id: 'activity-logs', name: 'Nhật ký hoạt động', icon: ClipboardList, roles: ['ADMIN'] },
-    { id: 'profile', name: 'Hồ sơ & Bảo mật', icon: User, roles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER', 'ACCOUNTANT', 'ADMIN'] },
-  ];
+  const menuItems = MENU_ITEMS;
 
   const allowedMenuItems = menuItems.filter(item => item.roles.includes(user.role));
 
   const renderActiveView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard user={user} showNotification={showNotification} readOnly={user.role === 'ACCOUNTANT'} />;
+        return (
+          <Dashboard 
+            user={user} 
+            showNotification={showNotification} 
+            readOnly={user.role === 'ACCOUNTANT'}
+            cleaningNotifications={cleaningNotifications}
+            setCleaningNotifications={setCleaningNotifications}
+          />
+        );
       case 'bookings':
         return <Bookings user={user} showNotification={showNotification} />;
       case 'guests':
@@ -230,7 +248,15 @@ function App() {
       case 'profile':
         return <Profile user={user} showNotification={showNotification} onProfileUpdate={() => fetchProfile(token)} />;
       default:
-        return <Dashboard user={user} showNotification={showNotification} readOnly={user.role === 'ACCOUNTANT'} />;
+        return (
+          <Dashboard 
+            user={user} 
+            showNotification={showNotification} 
+            readOnly={user.role === 'ACCOUNTANT'}
+            cleaningNotifications={cleaningNotifications}
+            setCleaningNotifications={setCleaningNotifications}
+          />
+        );
     }
   };
 
@@ -283,6 +309,145 @@ function App() {
 
         {/* User profile & actions */}
         <div className="navbar-actions">
+          {/* Notification bell for Housekeeper */}
+          {user?.role === 'HOUSEKEEPER' && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: showNotifDropdown ? 'var(--primary-glow)' : 'var(--bg-secondary)',
+                  color: cleaningNotifications.length > 0 ? '#b45309' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'var(--transition-fast)'
+                }}
+                title="Thông báo phòng cần dọn dẹp"
+              >
+                <Bell size={18} className={cleaningNotifications.length > 0 ? "animate-bounce" : ""} />
+                {cleaningNotifications.length > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    borderRadius: '50%',
+                    width: '16px',
+                    height: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid var(--bg-secondary)'
+                  }}>
+                    {cleaningNotifications.length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '46px',
+                  right: '0',
+                  width: '320px',
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 1000,
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid var(--border-color)',
+                    paddingBottom: '8px',
+                    marginBottom: '4px'
+                  }}>
+                    <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>
+                      Thông báo dọn phòng ({cleaningNotifications.length})
+                    </span>
+                    {cleaningNotifications.length > 0 && (
+                      <button 
+                        onClick={() => setCleaningNotifications([])}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Xóa tất cả
+                      </button>
+                    )}
+                  </div>
+                  
+                  {cleaningNotifications.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      Không có thông báo mới nào
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      maxHeight: '240px', 
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      {cleaningNotifications.map(notif => (
+                        <div 
+                          key={notif.id}
+                          style={{
+                            padding: '8px 10px',
+                            backgroundColor: '#fffbeb',
+                            borderLeft: '3px solid var(--color-cleaning)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <span style={{ color: '#b45309', fontWeight: '500' }}>{notif.message}</span>
+                          <button
+                            onClick={() => setCleaningNotifications(prev => prev.filter(n => n.id !== notif.id))}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#b45309',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* User profile button */}
           <button 
             onClick={() => handleViewChange('profile')}

@@ -570,9 +570,9 @@ function Rooms({ user, showNotification }) {
                     value={roomForm.status}
                     onChange={(e) => setRoomForm(prev => ({ ...prev, status: e.target.value }))}
                   >
-                    <option value="AVAILABLE">Sẵn sàng đón khách (AVAILABLE)</option>
-                    <option value="NEEDS_CLEANING">Cần dọn dẹp (NEEDS_CLEANING)</option>
-                    <option value="MAINTENANCE">Đang bảo trì (MAINTENANCE)</option>
+                    <option value="AVAILABLE">Sẵn sàng đón khách</option>
+                    <option value="NEEDS_CLEANING">Cần dọn dẹp</option>
+                    <option value="MAINTENANCE">Đang bảo trì</option>
                   </select>
                 </div>
 
