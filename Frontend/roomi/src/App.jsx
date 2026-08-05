@@ -94,6 +94,18 @@ function App() {
       if (res.data && res.data.data) {
         const u = res.data.data;
         setUser(u);
+
+        // Fetch cleaning notifications if Housekeeper
+        if (u.role === 'HOUSEKEEPER') {
+          api.get('/cleaning-notifications')
+            .then(notifsRes => {
+              if (notifsRes.data && notifsRes.data.data) {
+                setCleaningNotifications(notifsRes.data.data);
+              }
+            })
+            .catch(() => {});
+        }
+
         const allowedIds = MENU_ITEMS.filter(item => item.roles.includes(u.role)).map(item => item.id);
         if (allowedIds.length > 0 && !allowedIds.includes(currentView)) {
           setCurrentView(allowedIds[0]);
@@ -104,6 +116,24 @@ function App() {
       handleLogout();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDismissNotification = async (id) => {
+    try {
+      await api.patch(`/cleaning-notifications/${id}/read`);
+      setCleaningNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      showNotification(err.message || 'Không thể đánh dấu đã đọc thông báo', 'error');
+    }
+  };
+
+  const handleDismissAllNotifications = async () => {
+    try {
+      await api.post('/cleaning-notifications/read-all');
+      setCleaningNotifications([]);
+    } catch (err) {
+      showNotification(err.message || 'Không thể xóa tất cả thông báo', 'error');
     }
   };
 
@@ -382,7 +412,7 @@ function App() {
                     </span>
                     {cleaningNotifications.length > 0 && (
                       <button 
-                        onClick={() => setCleaningNotifications([])}
+                        onClick={handleDismissAllNotifications}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -426,7 +456,7 @@ function App() {
                         >
                           <span style={{ color: '#b45309', fontWeight: '500' }}>{notif.message}</span>
                           <button
-                            onClick={() => setCleaningNotifications(prev => prev.filter(n => n.id !== notif.id))}
+                            onClick={() => handleDismissNotification(notif.id)}
                             style={{
                               background: 'none',
                               border: 'none',

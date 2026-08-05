@@ -11,6 +11,7 @@ import roomi.dev.model.RoomType;
 import roomi.dev.repository.RoomRepository;
 import roomi.dev.repository.RoomTypeRepository;
 import roomi.dev.repository.BookingRepository;
+import roomi.dev.repository.CleaningNotificationRepository;
 import roomi.dev.exception.BusinessException;
 import roomi.dev.service.impl.RoomServiceImpl;
 
@@ -33,6 +34,9 @@ class RoomServiceImplTest {
 
     @Mock
     private BookingRepository bookingRepository;
+
+    @Mock
+    private CleaningNotificationRepository cleaningNotificationRepository;
 
     @InjectMocks
     private RoomServiceImpl roomService;

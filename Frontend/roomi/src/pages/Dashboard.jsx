@@ -160,11 +160,14 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
       const checkIn = formatDateString(start);
       const checkOut = formatDateString(end);
 
-      // Fetch Calendar, unassigned bookings and actual rooms list with notes
-      const [calRes, bookingsRes, roomsRes] = await Promise.all([
+      // Fetch Calendar, unassigned bookings, actual rooms list and cleaning notifications (if Housekeeper)
+      const [calRes, bookingsRes, roomsRes, notifsRes] = await Promise.all([
         api.get('/calendar/rooms', { params: { checkIn, checkOut } }),
         api.get('/bookings/status/NEW').catch(() => ({ data: { data: [] } })),
-        api.get('/rooms')
+        api.get('/rooms'),
+        user?.role === 'HOUSEKEEPER' 
+          ? api.get('/cleaning-notifications').catch(() => ({ data: { data: [] } })) 
+          : Promise.resolve({ data: { data: [] } })
       ]);
 
       setDateHeaders(getDatesArray(start, 14));
@@ -185,63 +188,20 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
           note: roomsMap[r.roomId] || ''
         }));
 
-        // Detect room state changes to NEEDS_CLEANING for Housekeeper
+        // Handle cleaning notifications from Backend for Housekeeper
         if (user?.role === 'HOUSEKEEPER') {
-          if (roomsListRef.current.length === 0) {
-            // First load: initialize notifications with all current NEEDS_CLEANING rooms
-            const initialCleaningRooms = enriched.filter(r => r.status === 'NEEDS_CLEANING');
-            if (initialCleaningRooms.length > 0) {
-              const initialNotifs = initialCleaningRooms.map(r => ({
-                id: Date.now() + Math.random(),
-                roomNumber: r.roomNumber,
-                roomId: r.roomId,
-                message: `Phòng ${r.roomNumber} đang cần dọn dẹp!`
-              }));
-              setCleaningNotifications(initialNotifs);
-            }
-          } else {
-            // Subsequent loads: detect transitions to NEEDS_CLEANING
-            const newCleaningRooms = [];
-            enriched.forEach(newRoom => {
-              const oldRoom = roomsListRef.current.find(o => o.roomId === newRoom.roomId);
-              if (oldRoom) {
-                if (oldRoom.status !== 'NEEDS_CLEANING' && newRoom.status === 'NEEDS_CLEANING') {
-                  newCleaningRooms.push(newRoom);
-                }
-              }
-            });
-
-            // Find rooms that were cleaned (no longer NEEDS_CLEANING)
-            const cleanRoomIds = enriched
-              .filter(r => r.status !== 'NEEDS_CLEANING')
-              .map(r => r.roomId);
-
-            setCleaningNotifications(prev => {
-              // 1. Filter out rooms that are already clean
-              let updated = prev.filter(notif => !cleanRoomIds.includes(notif.roomId));
-              
-              // 2. Append new notifications
-              if (newCleaningRooms.length > 0) {
-                const newNotifs = newCleaningRooms.map(r => ({
-                  id: Date.now() + Math.random(),
-                  roomNumber: r.roomNumber,
-                  roomId: r.roomId,
-                  message: `Phòng ${r.roomNumber} vừa chuyển sang trạng thái cần dọn dẹp!`
-                }));
-                // Check for duplicates
-                const filteredNew = newNotifs.filter(nn => !updated.some(u => u.roomId === nn.roomId));
-                updated = [...filteredNew, ...updated];
-              }
-              return updated;
-            });
-
-            if (newCleaningRooms.length > 0) {
+          const serverNotifs = notifsRes.data?.data || [];
+          if (roomsListRef.current.length > 0) {
+            // Chỉ phát âm thanh và hiển thị toast khi có thông báo mới (ID chưa tồn tại trong state hiện tại)
+            const newNotifs = serverNotifs.filter(sn => !cleaningNotifications.some(cn => cn.id === sn.id));
+            if (newNotifs.length > 0) {
               playNotificationSound();
-              newCleaningRooms.forEach(r => {
-                showNotification(`Phòng ${r.roomNumber} đang cần dọn dẹp!`, 'warning');
+              newNotifs.forEach(n => {
+                showNotification(n.message, 'warning');
               });
             }
           }
+          setCleaningNotifications(serverNotifs);
         }
 
         setRoomsCalendar(enriched);

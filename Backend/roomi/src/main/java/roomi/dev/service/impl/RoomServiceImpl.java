@@ -10,12 +10,15 @@ import roomi.dev.exception.ErrorCode;
 import roomi.dev.model.Booking;
 import roomi.dev.model.Room;
 import roomi.dev.model.RoomType;
+import roomi.dev.model.CleaningNotification;
 import roomi.dev.repository.BookingRepository;
+import roomi.dev.repository.CleaningNotificationRepository;
 import roomi.dev.repository.RoomRepository;
 import roomi.dev.repository.RoomTypeRepository;
 import roomi.dev.service.RoomService;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -25,6 +28,7 @@ public class RoomServiceImpl implements RoomService {
     private final RoomRepository roomRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final BookingRepository bookingRepository;
+    private final CleaningNotificationRepository cleaningNotificationRepository;
 
     @Override
     public Room createRoom(RoomRequest request) {
@@ -173,8 +177,26 @@ public class RoomServiceImpl implements RoomService {
                     ErrorCode.INVALID_INPUT);
         }
 
+        Room.Status oldStatus = room.getStatus();
         room.setStatus(newStatus);
-        return roomRepository.save(room);
+        Room savedRoom = roomRepository.save(room);
+
+        // Xử lý thông báo dọn phòng
+        if (newStatus != Room.Status.NEEDS_CLEANING) {
+            cleaningNotificationRepository.deleteByRoomId(id);
+        } else if (oldStatus != Room.Status.NEEDS_CLEANING) {
+            cleaningNotificationRepository.deleteByRoomId(id);
+            CleaningNotification notification = CleaningNotification.builder()
+                    .roomId(savedRoom.getId())
+                    .roomNumber(savedRoom.getRoomNumber())
+                    .message("Phòng " + savedRoom.getRoomNumber() + " đang cần dọn dẹp!")
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            cleaningNotificationRepository.save(notification);
+        }
+
+        return savedRoom;
     }
 
     @Override
