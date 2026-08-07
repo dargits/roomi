@@ -12,6 +12,8 @@ public interface BookingService {
 
     BookingResponse createBooking(BookingRequest request, User createdBy);
 
+    BookingResponse createPublicBooking(BookingRequest request);
+
     BookingResponse updateBooking(Long id, BookingRequest request);
 
     void deleteBooking(Long id);
@@ -30,14 +32,14 @@ public interface BookingService {
 
     BookingResponse markNoShow(Long bookingId);
 
-    BookingResponse getBookingById(Long id);
+    BookingResponse getBookingById(Long id, User currentUser);
 
-    List<BookingResponse> getAllBookings();
+    List<BookingResponse> getAllBookings(User currentUser);
 
-    List<BookingResponse> getBookingsByGuest(Long guestId);
+    List<BookingResponse> getBookingsByGuest(Long guestId, User currentUser);
 
-    List<BookingResponse> getBookingsByStatus(String status);
+    List<BookingResponse> getBookingsByStatus(String status, User currentUser);
 
     List<BookingResponse> searchBookings(String guestName, String phone, String idNumber, 
-                                         Long roomTypeId, LocalDate fromDate, LocalDate toDate);
+                                         Long roomTypeId, LocalDate fromDate, LocalDate toDate, User currentUser);
 }

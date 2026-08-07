@@ -11,6 +11,8 @@ import roomi.dev.service.CalendarService;
 
 import java.time.LocalDate;
 import java.util.List;
+import roomi.dev.util.AuthUtil;
+import roomi.dev.model.User;
 
 /**
  * Controller cung cấp API lịch đặt phòng (calendar view) và tìm phòng trống.
@@ -30,6 +32,7 @@ import java.util.List;
 public class CalendarController {
 
     private final CalendarService calendarService;
+    private final AuthUtil authUtil;
 
     // ------------------------------------------------------------------ CALENDAR VIEW
 
@@ -44,9 +47,12 @@ public class CalendarController {
      */
     @GetMapping("/rooms/{roomId}")
     public ResponseEntity<BaseResponse<RoomCalendarResponse>> getRoomCalendar(
+            @RequestHeader("Authorization") String token,
             @PathVariable Long roomId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
+
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.HOUSEKEEPER, User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<RoomCalendarResponse>builder()
                 .mess("Thành công")
@@ -64,8 +70,11 @@ public class CalendarController {
      */
     @GetMapping("/rooms")
     public ResponseEntity<BaseResponse<List<RoomCalendarResponse>>> getAllRoomsCalendar(
+            @RequestHeader("Authorization") String token,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
+
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.HOUSEKEEPER, User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<List<RoomCalendarResponse>>builder()
                 .mess("Thành công")
@@ -84,9 +93,12 @@ public class CalendarController {
      */
     @GetMapping("/room-types/{roomTypeId}")
     public ResponseEntity<BaseResponse<List<RoomCalendarResponse>>> getRoomCalendarByType(
+            @RequestHeader("Authorization") String token,
             @PathVariable Long roomTypeId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
+
+        authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST, User.Role.HOUSEKEEPER, User.Role.ACCOUNTANT);
 
         return ResponseEntity.ok(BaseResponse.<List<RoomCalendarResponse>>builder()
                 .mess("Thành công")

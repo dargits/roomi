@@ -14,6 +14,21 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Seed dữ liệu mẫu cho môi trường phát triển / demo.
+ *
+ * TÀI KHOẢN ĐĂNG NHẬP MẪU (mật khẩu chung: 123456)
+ * ------------------------------------------------------------------
+ *  admin        -> ADMIN         Admin Hệ Thống
+ *  letan1       -> RECEPTIONIST  Nguyễn Thị Lễ Tân
+ *  letan2       -> RECEPTIONIST  Trần Văn Lễ Tân
+ *  buongphong1  -> HOUSEKEEPER   Lê Thị Buồng Phòng
+ *  ketoan1      -> ACCOUNTANT    Phạm Kế Toán
+ *  chusohuu     -> OWNER         Chủ Khách Sạn
+ * ------------------------------------------------------------------
+ * Username đặt theo mẫu "tên-vai-trò + số thứ tự" để dễ nhớ và dễ phân biệt
+ * khi có nhiều nhân viên cùng vai trò (vd: letan1, letan2, ...).
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -30,14 +45,19 @@ public class DataSeeder implements CommandLineRunner {
     private final SurchargeServiceRepository surchargeServiceRepository;
     private final BookingSurchargeUsageRepository bookingSurchargeUsageRepository;
     private final PropertySettingsRepository propertySettingsRepository;
+    private final ActivityLogRepository activityLogRepository;
 
     @Override
     @Transactional
     public void run(String... args) {
-        if (userRepository.count() > 0) {
-            log.info("=== Database đã có dữ liệu, bỏ qua seeding ===");
+        if (roomRepository.count() > 0) {
+            log.info("=== Database đã được seed đầy đủ, bỏ qua seeding ===");
             return;
         }
+        log.info("=== Phát hiện database trống hoặc chưa được seed đầy đủ ===");
+        log.info("=== Làm sạch database trước khi seed ===");
+        clearDatabase();
+
         log.info("=== Bắt đầu seed dữ liệu mẫu ===");
         seedPropertySettings();
         seedUsers();
@@ -47,6 +67,7 @@ public class DataSeeder implements CommandLineRunner {
         seedSurchargeServices();
         seedGuests();
         seedBookings();
+        seedActivityLogs();
         log.info("=== Hoàn thành seed dữ liệu mẫu ===");
     }
 
@@ -60,6 +81,7 @@ public class DataSeeder implements CommandLineRunner {
                 .phone("0281234567")
                 .freeCancelHours(24)
                 .cancelFeePercent(new BigDecimal("10.00"))
+                .loyaltyPointsPerAmount(10000) // 10.000 VNĐ/điểm — Chủ cơ sở có thể thay đổi qua Settings
                 .build());
         log.info("✓ PropertySettings");
     }
@@ -70,19 +92,19 @@ public class DataSeeder implements CommandLineRunner {
         userRepository.save(User.builder().fullName("Admin Hệ Thống").username("admin")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.ADMIN)
                 .phone("0900000000").active(true).build());
-        userRepository.save(User.builder().fullName("Nguyễn Thị Lễ Tân").username("letana")
+        userRepository.save(User.builder().fullName("Nguyễn Thị Lễ Tân").username("letan1")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.RECEPTIONIST)
                 .phone("0900000001").active(true).build());
-        userRepository.save(User.builder().fullName("Trần Văn Lễ Tân").username("letanb")
+        userRepository.save(User.builder().fullName("Trần Văn Lễ Tân").username("letan2")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.RECEPTIONIST)
                 .phone("0900000002").active(true).build());
-        userRepository.save(User.builder().fullName("Lê Thị Buồng Phòng").username("housekeepera")
+        userRepository.save(User.builder().fullName("Lê Thị Buồng Phòng").username("buongphong1")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.HOUSEKEEPER)
                 .phone("0900000003").active(true).build());
-        userRepository.save(User.builder().fullName("Phạm Kế Toán").username("accountant")
+        userRepository.save(User.builder().fullName("Phạm Kế Toán").username("ketoan1")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.ACCOUNTANT)
                 .phone("0900000004").active(true).build());
-        userRepository.save(User.builder().fullName("Chủ Khách Sạn").username("owner")
+        userRepository.save(User.builder().fullName("Chủ Khách Sạn").username("chusohuu")
                 .passwordHash(PasswordHelper.encode("123456")).role(User.Role.OWNER)
                 .phone("0900000005").active(true).build());
         log.info("✓ 6 users");
@@ -107,6 +129,9 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     // ================================================================== ROOMS
+    // Lưu ý: trạng thái phòng ở đây được đặt để KHỚP với danh sách booking tạo ở seedBookings()
+    // bên dưới (phòng đang có khách thì OCCUPIED, phòng vừa trả mà chưa dọn thì NEEDS_CLEANING,
+    // phòng chưa có khách hoặc khách không đến thì AVAILABLE) để tránh dữ liệu mâu thuẫn.
     private void seedRooms() {
         log.info("Seed Rooms...");
         RoomType std = roomTypeRepository.findAll().get(0);
@@ -115,10 +140,13 @@ public class DataSeeder implements CommandLineRunner {
         RoomType fam = roomTypeRepository.findAll().get(3);
 
         // Tầng 1 — Standard (101-106)
+        // 101: vừa CHECKED_OUT (b1) và đã được dọn xong -> AVAILABLE
+        // 102: đang CHECKED_IN hôm nay (b3) -> OCCUPIED
+        // 103: khách NO_SHOW (b10, chưa từng có khách ở) -> AVAILABLE, không cần dọn
         String[] stdNotes = {"Phòng góc, view đường phố", null, null, "Gần thang máy", null, null};
         Room.Status[] stdStatuses = {
             Room.Status.AVAILABLE, Room.Status.OCCUPIED,
-            Room.Status.NEEDS_CLEANING, Room.Status.AVAILABLE,
+            Room.Status.AVAILABLE, Room.Status.AVAILABLE,
             Room.Status.AVAILABLE, Room.Status.MAINTENANCE
         };
         for (int i = 1; i <= 6; i++) {
@@ -126,8 +154,10 @@ public class DataSeeder implements CommandLineRunner {
                     .status(stdStatuses[i - 1]).note(stdNotes[i - 1]).build());
         }
         // Tầng 2 — Deluxe (201-205)
+        // 201: khách vừa CHECKED_OUT hôm qua (b2), chưa dọn -> NEEDS_CLEANING
+        // 202: còn trống, chờ khách CONFIRMED sắp tới (b5) -> AVAILABLE
         Room.Status[] dlxStatuses = {
-            Room.Status.OCCUPIED, Room.Status.AVAILABLE,
+            Room.Status.NEEDS_CLEANING, Room.Status.AVAILABLE,
             Room.Status.AVAILABLE, Room.Status.NEEDS_CLEANING, Room.Status.AVAILABLE
         };
         for (int i = 1; i <= 5; i++) {
@@ -135,10 +165,14 @@ public class DataSeeder implements CommandLineRunner {
                     .status(dlxStatuses[i - 1]).build());
         }
         // Tầng 3 — Suite (301-303) + Family (304-305)
+        // 301: còn trống, chờ khách CONFIRMED sắp tới (b6) -> AVAILABLE
+        // 302: đang có khách CHECKED_IN (b4) -> OCCUPIED
+        // 304: còn trống, chờ khách CONFIRMED xa hơn (b11) -> AVAILABLE
+        // 305: đang có khách CHECKED_IN (b12) -> OCCUPIED
         roomRepository.save(Room.builder().roomType(ste).roomNumber("301").floor("3")
                 .status(Room.Status.AVAILABLE).note("Suite góc, view toàn thành phố").build());
         roomRepository.save(Room.builder().roomType(ste).roomNumber("302").floor("3")
-                .status(Room.Status.AVAILABLE).build());
+                .status(Room.Status.OCCUPIED).build());
         roomRepository.save(Room.builder().roomType(ste).roomNumber("303").floor("3")
                 .status(Room.Status.AVAILABLE).build());
         roomRepository.save(Room.builder().roomType(fam).roomNumber("304").floor("3")
@@ -231,8 +265,9 @@ public class DataSeeder implements CommandLineRunner {
         log.info("Seed Guests...");
         guestRepository.save(Guest.builder().fullName("Nguyễn Văn An").phone("0901234567")
                 .email("nguyenvanan@email.com").idNumber("001234567890").loyaltyPoints(250).build());
+        // Sửa lỗi email không khớp tên (trước đây là "tranthiminh" dù tên là "Bình")
         guestRepository.save(Guest.builder().fullName("Trần Thị Bình").phone("0912345678")
-                .email("tranthiminh@email.com").idNumber("001234567891").loyaltyPoints(120).build());
+                .email("tranthibinh@email.com").idNumber("001234567891").loyaltyPoints(120).build());
         guestRepository.save(Guest.builder().fullName("Lê Hoàng Cường").phone("0923456789")
                 .idNumber("001234567892").loyaltyPoints(0).build());
         guestRepository.save(Guest.builder().fullName("Phạm Thị Dung").phone("0934567890")
@@ -271,11 +306,12 @@ public class DataSeeder implements CommandLineRunner {
         Room r103 = findRoom(rooms, "103"); Room r201 = findRoom(rooms, "201");
         Room r202 = findRoom(rooms, "202"); Room r301 = findRoom(rooms, "301");
         Room r302 = findRoom(rooms, "302"); Room r304 = findRoom(rooms, "304");
+        Room r305 = findRoom(rooms, "305");
 
         RoomType std = types.get(0); RoomType dlx = types.get(1);
         RoomType ste = types.get(2); RoomType fam = types.get(3);
 
-        // --- Booking 1: CHECKED_OUT — đã thanh toán tiền mặt ---
+        // --- Booking 1: CHECKED_OUT — đã thanh toán tiền mặt, phòng 101 đã dọn xong (AVAILABLE) ---
         Booking b1 = bookingRepository.save(Booking.builder()
                 .guest(guests.get(0)).roomType(std).room(r101)
                 .checkInDate(LocalDate.now().minusDays(5)).checkOutDate(LocalDate.now().minusDays(2))
@@ -289,7 +325,7 @@ public class DataSeeder implements CommandLineRunner {
                 .amount(new BigDecimal("1620000")).method(Payment.Method.CASH)
                 .receivedBy(accountant).build());
 
-        // --- Booking 2: CHECKED_OUT — thanh toán chuyển khoản ---
+        // --- Booking 2: CHECKED_OUT — thanh toán chuyển khoản, phòng 201 chưa dọn (NEEDS_CLEANING) ---
         Booking b2 = bookingRepository.save(Booking.builder()
                 .guest(guests.get(1)).roomType(dlx).room(r201)
                 .checkInDate(LocalDate.now().minusDays(3)).checkOutDate(LocalDate.now().minusDays(1))
@@ -312,7 +348,7 @@ public class DataSeeder implements CommandLineRunner {
                 .quantity(1).lineTotal(new BigDecimal("300000")).recordedBy(receptionist).build());
         log.info("  Đã tạo 2 booking CHECKED_OUT");
 
-        // --- Booking 3: CHECKED_IN hôm nay — invoice PENDING ---
+        // --- Booking 3: CHECKED_IN hôm nay — phòng 102 đang có khách (OCCUPIED), invoice PENDING ---
         Booking b3 = bookingRepository.save(Booking.builder()
                 .guest(guests.get(2)).roomType(std).room(r102)
                 .checkInDate(LocalDate.now()).checkOutDate(LocalDate.now().plusDays(3))
@@ -323,7 +359,7 @@ public class DataSeeder implements CommandLineRunner {
                 .discount(BigDecimal.ZERO).totalAmount(new BigDecimal("1500000"))
                 .status(Invoice.Status.PENDING).build());
 
-        // --- Booking 4: CHECKED_IN — Suite, đang ở ---
+        // --- Booking 4: CHECKED_IN — Suite 302 đang có khách (OCCUPIED) ---
         Booking b4 = bookingRepository.save(Booking.builder()
                 .guest(guests.get(4)).roomType(ste).room(r302)
                 .checkInDate(LocalDate.now().minusDays(1)).checkOutDate(LocalDate.now().plusDays(4))
@@ -340,7 +376,7 @@ public class DataSeeder implements CommandLineRunner {
                 .quantity(1).lineTotal(new BigDecimal("400000")).note("Massage thư giãn").recordedBy(receptionist).build());
         log.info("  Đã tạo 2 booking CHECKED_IN");
 
-        // --- Booking 5: CONFIRMED — sắp đến ---
+        // --- Booking 5: CONFIRMED — Deluxe 202 còn trống, chờ khách đến (AVAILABLE) ---
         Booking b5 = bookingRepository.save(Booking.builder()
                 .guest(guests.get(3)).roomType(dlx).room(r202)
                 .checkInDate(LocalDate.now().plusDays(2)).checkOutDate(LocalDate.now().plusDays(5))
@@ -351,7 +387,7 @@ public class DataSeeder implements CommandLineRunner {
                 .discount(BigDecimal.ZERO).totalAmount(new BigDecimal("2400000"))
                 .status(Invoice.Status.PENDING).build());
 
-        // --- Booking 6: CONFIRMED — Suite sắp tới ---
+        // --- Booking 6: CONFIRMED — Suite 301 còn trống, chờ khách đến (AVAILABLE) ---
         Booking b6 = bookingRepository.save(Booking.builder()
                 .guest(guests.get(7)).roomType(ste).room(r301)
                 .checkInDate(LocalDate.now().plusDays(5)).checkOutDate(LocalDate.now().plusDays(10))
@@ -378,7 +414,7 @@ public class DataSeeder implements CommandLineRunner {
                 .expectedPrice(new BigDecimal("8000000")).createdBy(receptionist).build());
         log.info("  Đã tạo 2 booking NEW");
 
-        // --- Booking 9: CANCELLED ---
+        // --- Booking 9: CANCELLED — khách đã hủy trước ngày nhận phòng ---
         Booking b9 = bookingRepository.save(Booking.builder()
                 .guest(guests.get(8)).roomType(dlx)
                 .checkInDate(LocalDate.now().plusDays(1)).checkOutDate(LocalDate.now().plusDays(3))
@@ -389,24 +425,107 @@ public class DataSeeder implements CommandLineRunner {
                 .discount(BigDecimal.ZERO).totalAmount(new BigDecimal("1600000"))
                 .status(Invoice.Status.PENDING).build());
 
-        // --- Booking 10: NO_SHOW ---
+        // --- Booking 10: NO_SHOW — khách không đến, phòng 103 không cần dọn (AVAILABLE) ---
         bookingRepository.save(Booking.builder()
                 .guest(guests.get(9)).roomType(std).room(r103)
                 .checkInDate(LocalDate.now().minusDays(2)).checkOutDate(LocalDate.now().plusDays(1))
                 .status(Booking.Status.NO_SHOW).source(Booking.Source.EXTERNAL_CHANNEL)
                 .expectedPrice(new BigDecimal("1500000")).createdBy(receptionist).build());
 
-        // --- Booking 11: CONFIRMED Family — đặt qua web ---
+        // --- Booking 11: CONFIRMED Family 304 — đặt qua web, còn trống chờ khách (AVAILABLE) ---
         bookingRepository.save(Booking.builder()
                 .guest(guests.get(0)).roomType(fam).room(r304)
                 .checkInDate(LocalDate.now().plusDays(14)).checkOutDate(LocalDate.now().plusDays(18))
                 .status(Booking.Status.CONFIRMED).source(Booking.Source.BOOKING_PORTAL)
                 .expectedPrice(new BigDecimal("8000000")).createdBy(receptionist).build());
 
-        log.info("✓ 11 bookings với đầy đủ trạng thái (CHECKED_OUT/CHECKED_IN/CONFIRMED/NEW/CANCELLED/NO_SHOW)");
+        // --- Booking 12: CHECKED_IN — Family 305 đang có khách (OCCUPIED) ---
+        Booking b12 = bookingRepository.save(Booking.builder()
+                .guest(guests.get(8)).roomType(fam).room(r305)
+                .checkInDate(LocalDate.now().minusDays(1)).checkOutDate(LocalDate.now().plusDays(2))
+                .status(Booking.Status.CHECKED_IN).source(Booking.Source.WALK_IN)
+                .expectedPrice(new BigDecimal("6000000")).createdBy(receptionist).build());
+        invoiceRepository.save(Invoice.builder().booking(b12)
+                .roomCharge(new BigDecimal("6000000")).serviceCharge(BigDecimal.ZERO)
+                .discount(BigDecimal.ZERO).totalAmount(new BigDecimal("6000000"))
+                .status(Invoice.Status.PENDING).build());
+
+        log.info("✓ 12 bookings với đầy đủ trạng thái (CHECKED_OUT/CHECKED_IN/CONFIRMED/NEW/CANCELLED/NO_SHOW), " +
+                "trạng thái phòng khớp với từng booking tương ứng");
+    }
+
+    // ================================================================== ACTIVITY LOGS
+    private void seedActivityLogs() {
+        log.info("Seed ActivityLogs...");
+        User admin = userRepository.findByUsername("admin").orElse(null);
+        User letan = userRepository.findByUsername("letan1").orElse(null);
+        User owner = userRepository.findByUsername("chusohuu").orElse(null);
+        User housekeeper = userRepository.findByUsername("buongphong1").orElse(null);
+
+        if (admin != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(admin)
+                    .action("TẠO TÀI KHOẢN")
+                    .entityName("USER")
+                    .entityId(2L)
+                    .detail("Tạo tài khoản nhân viên Lễ tân Nguyễn Thị Lễ Tân")
+                    .build());
+        }
+        if (letan != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(letan)
+                    .action("CHECK_IN")
+                    .entityName("BOOKING")
+                    .entityId(1L)
+                    .detail("Làm thủ tục Check-in cho khách Nguyễn Văn An vào phòng 101")
+                    .build());
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(letan)
+                    .action("THÊM DỊCH VỤ")
+                    .entityName("BOOKING")
+                    .entityId(1L)
+                    .detail("Ghi nhận phụ thu Nước suối chai 500ml x2 cho phòng 101")
+                    .build());
+        }
+        if (housekeeper != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(housekeeper)
+                    .action("DỌN PHÒNG")
+                    .entityName("ROOM")
+                    .entityId(2L)
+                    .detail("Đã dọn dẹp và làm vệ sinh xong phòng 102 (Đánh dấu Sẵn sàng)")
+                    .build());
+        }
+        if (owner != null) {
+            activityLogRepository.save(ActivityLog.builder()
+                    .user(owner)
+                    .action("BẢO TRÌ PHÒNG")
+                    .entityName("ROOM")
+                    .entityId(6L)
+                    .detail("Đưa phòng 202 vào trạng thái bảo trì điều hòa")
+                    .build());
+        }
+        log.info("✓ ActivityLogs");
     }
 
     // ================================================================== HELPER
+    private void clearDatabase() {
+        log.info("Xóa dữ liệu cũ...");
+        activityLogRepository.deleteAll();
+        bookingSurchargeUsageRepository.deleteAll();
+        paymentRepository.deleteAll();
+        invoiceRepository.deleteAll();
+        bookingRepository.deleteAll();
+        guestRepository.deleteAll();
+        surchargeServiceRepository.deleteAll();
+        seasonalRateRepository.deleteAll();
+        roomRepository.deleteAll();
+        roomTypeRepository.deleteAll();
+        userRepository.deleteAll();
+        propertySettingsRepository.deleteAll();
+        log.info("✓ Đã xóa sạch dữ liệu cũ");
+    }
+
     private Room findRoom(List<Room> rooms, String number) {
         return rooms.stream().filter(r -> r.getRoomNumber().equals(number)).findFirst().orElse(null);
     }

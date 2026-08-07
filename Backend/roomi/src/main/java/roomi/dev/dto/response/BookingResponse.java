@@ -40,6 +40,8 @@ public class BookingResponse {
     private BigDecimal roomCharge;
     private BigDecimal serviceCharge;
     private BigDecimal totalAmount;
+    /** Phí hủy đặt phòng (null nếu chưa hủy hoặc hủy miễn phí). */
+    private BigDecimal cancelFeeAmount;
 
     private Long createdById;
     private String createdByName;

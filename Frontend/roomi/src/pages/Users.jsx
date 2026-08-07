@@ -6,12 +6,13 @@ import {
   Lock, 
   Unlock, 
   ShieldAlert, 
-  Check, 
   X, 
   Phone, 
   Calendar,
   UserCheck,
-  Search
+  Search,
+  Plus,
+  User
 } from 'lucide-react';
 
 const roleInfo = {
@@ -23,6 +24,8 @@ const roleInfo = {
 };
 
 function Users({ user, showNotification }) {
+  const isAuthorized = user?.role === 'ADMIN';
+
   const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState('ALL');
@@ -36,6 +39,53 @@ function Users({ user, showNotification }) {
     currentRoleLabel: '',
     targetRoleLabel: ''
   });
+
+  // Create User Modal State (Admin only)
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    fullName: '',
+    username: '',
+    password: '',
+    phone: '',
+    role: 'RECEPTIONIST'
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!createForm.fullName.trim() || !createForm.username.trim() || !createForm.password.trim() || !createForm.phone.trim()) {
+      showNotification('Vui lòng điền đầy đủ các thông tin bắt buộc', 'error');
+      return;
+    }
+    if (createForm.password.length < 6) {
+      showNotification('Mật khẩu phải có ít nhất 6 ký tự', 'error');
+      return;
+    }
+    const phoneRegex = /^[0-9]{9,11}$/;
+    if (!phoneRegex.test(createForm.phone.trim())) {
+      showNotification('Số điện thoại không hợp lệ (phải từ 9 - 11 chữ số)', 'error');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await api.post('/auth/register', {
+        fullName: createForm.fullName.trim(),
+        username: createForm.username.trim(),
+        password: createForm.password,
+        phone: createForm.phone.trim() ? createForm.phone.trim() : undefined,
+        role: createForm.role
+      });
+
+      showNotification(`Tạo tài khoản nhân viên ${createForm.fullName} thành công!`);
+      setShowCreateModal(false);
+      setCreateForm({ fullName: '', username: '', password: '', phone: '', role: 'RECEPTIONIST' });
+      fetchUsers();
+    } catch (err) {
+      showNotification(err.message || 'Tạo tài khoản thất bại', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -57,6 +107,7 @@ function Users({ user, showNotification }) {
     } else {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleChangeRole = (userId, targetRole) => {
@@ -145,14 +196,40 @@ function Users({ user, showNotification }) {
     return matchRole && matchStatus && matchSearch;
   });
 
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <ShieldAlert size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Chỉ Quản trị viên mới có quyền truy cập trang quản lý nhân viên và phân quyền.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Page Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Quản lý nhân viên</h1>
-          <p className="page-subtitle">Quản trị viên quản lý danh sách tài khoản, phân quyền vai trò và khóa mở khóa nhân viên</p>
+          <p className="page-subtitle">Quản trị viên khởi tạo tài khoản, phân quyền vai trò và quản lý trạng thái nhân viên</p>
         </div>
+        <button 
+          onClick={() => setShowCreateModal(true)} 
+          className="btn btn-primary"
+        >
+          <Plus size={16} /> Thêm tài khoản nhân viên
+        </button>
       </div>
 
       {/* Statistics Cards */}
@@ -447,39 +524,49 @@ function Users({ user, showNotification }) {
       {/* ROLE CHANGE CONFIRMATION MODAL */}
       {roleConfirm.show && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '420px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
             <div className="modal-header">
-              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
-                <ShieldAlert size={18} />
-                Xác nhận thay đổi chức vụ
+              <h2 style={{ fontSize: '17px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '10px',
+                  backgroundColor: '#eff6ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--primary)'
+                }}>
+                  <ShieldAlert size={18} />
+                </div>
+                <span>Xác nhận phân quyền</span>
               </h2>
               <button 
                 onClick={() => {
                   setRoleConfirm(prev => ({ ...prev, show: false }));
-                  fetchUsers(); // trigger re-render to revert select value
+                  fetchUsers();
                 }} 
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
               >
                 <X size={16} />
               </button>
             </div>
-            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
-              <p>Bạn có chắc chắn muốn thay đổi chức vụ của nhân viên <strong>{roleConfirm.userName}</strong>?</p>
-              <div style={{ marginTop: '12px', padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div>Chức vụ hiện tại: <span className="badge" style={{ fontSize: '12px', marginLeft: '6px', color: roleInfo[usersList.find(u => u.id === roleConfirm.userId)?.role]?.color, backgroundColor: roleInfo[usersList.find(u => u.id === roleConfirm.userId)?.role]?.bg }}>{roleConfirm.currentRoleLabel}</span></div>
-                <div style={{ marginTop: '4px' }}>Chức vụ mới: <span className="badge" style={{ fontSize: '12px', marginLeft: '6px', color: roleInfo[roleConfirm.targetRole]?.color, backgroundColor: roleInfo[roleConfirm.targetRole]?.bg }}>{roleConfirm.targetRoleLabel}</span></div>
+            <div className="modal-body" style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
+              <p style={{ margin: 0 }}>Bạn có chắc chắn muốn thay đổi chức vụ của nhân viên <strong>{roleConfirm.userName}</strong>?</p>
+              <div style={{ marginTop: '14px', padding: '14px 16px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '13px' }}>Chức vụ hiện tại: <span className="badge" style={{ fontSize: '12px', marginLeft: '6px', color: roleInfo[usersList.find(u => u.id === roleConfirm.userId)?.role]?.color, backgroundColor: roleInfo[usersList.find(u => u.id === roleConfirm.userId)?.role]?.bg }}>{roleConfirm.currentRoleLabel}</span></div>
+                <div style={{ fontSize: '13px' }}>Chức vụ mới: <span className="badge" style={{ fontSize: '12px', marginLeft: '6px', color: roleInfo[roleConfirm.targetRole]?.color, backgroundColor: roleInfo[roleConfirm.targetRole]?.bg }}>{roleConfirm.targetRoleLabel}</span></div>
               </div>
             </div>
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div className="modal-footer">
               <button 
                 type="button" 
                 onClick={() => {
                   setRoleConfirm(prev => ({ ...prev, show: false }));
-                  fetchUsers(); // trigger re-render to revert select value
+                  fetchUsers();
                 }} 
                 className="btn btn-secondary btn-sm"
               >
-                Hủy
+                Hủy bỏ
               </button>
               <button 
                 type="button" 
@@ -500,6 +587,114 @@ function Users({ user, showNotification }) {
                 Xác nhận phân quyền
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE USER MODAL (ADMIN ONLY) */}
+      {showCreateModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '17px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '10px',
+                  backgroundColor: '#e0f2fe',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--primary)'
+                }}>
+                  <User size={18} />
+                </div>
+                <span>Thêm tài khoản nhân viên mới</span>
+              </h2>
+              <button onClick={() => setShowCreateModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateUser}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                    Họ và tên <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Nguyễn Văn An"
+                    value={createForm.fullName}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                    Tên đăng nhập <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: letan01"
+                    value={createForm.username}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, username: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                    Mật khẩu khởi tạo <span style={{ color: '#ef4444' }}>*</span> <span style={{ fontSize: '12px', fontWeight: '400', color: 'var(--text-muted)' }}>(tối thiểu 6 ký tự)</span>
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="••••••"
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, password: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                    Số điện thoại <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Ví dụ: 0901234567"
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                    Chức vụ / Vai trò ban đầu <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <select
+                    value={createForm.role}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, role: e.target.value }))}
+                  >
+                    <option value="RECEPTIONIST">Lễ tân</option>
+                    <option value="HOUSEKEEPER">Buồng phòng</option>
+                    <option value="ACCOUNTANT">Kế toán</option>
+                    <option value="OWNER">Chủ cơ sở</option>
+                    <option value="ADMIN">Quản trị viên</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary btn-sm">
+                  Hủy bỏ
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+                  {submitting ? 'Đang khởi tạo...' : 'Khởi tạo tài khoản'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

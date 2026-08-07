@@ -1,0 +1,144 @@
+name: Roomi CD Pipeline (Continuous Deployment)
+
+# ─────────────────────────────────────────────────────────────────
+# Trigger: Push to main branch or semantic version tags (v1.2.3)
+# ─────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Job 1: Wait for CI to pass before building Docker images
+  # ──────────────────────────────────────────────────────────────
+  ci-gate:
+    name: Wait for CI Pipeline
+    uses: ./.github/workflows/ci.yml
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 2: Build & Push Docker Images to GHCR
+  # ──────────────────────────────────────────────────────────────
+  build-and-push-docker:
+    name: Build & Push Docker Images
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Backend Image ─────────────────────────────────────────
+      - name: Extract Metadata (Backend)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Backend/roomi
+          file: ./Backend/roomi/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      # ── Frontend Image ────────────────────────────────────────
+      - name: Extract Metadata (Frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/frontend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Frontend/roomi
+          file: ./Frontend/roomi/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+          # Inject production API URL from GitHub Secret
+          # Set secret: Settings → Secrets → VITE_API_BASE_URL_PROD
+          # If secret is not set, Dockerfile falls back to /api/v1 (Nginx proxy)
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL_PROD }}
+
+      # ── Deployment Summary ─────────────────────────────────────
+      - name: Write Job Summary
+        if: always()
+        run: |
+          echo "## 🐳 Docker Build & Push Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tags |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Backend** | \`${{ steps.meta-backend.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Frontend** | \`${{ steps.meta-frontend.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Package Registry" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: [ghcr.io/${{ github.repository }}/backend](https://ghcr.io/${{ github.repository }}/backend)" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: [ghcr.io/${{ github.repository }}/frontend](https://ghcr.io/${{ github.repository }}/frontend)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Deploy lên server" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull" >> $GITHUB_STEP_SUMMARY
+          echo "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 3: Deployment notification
+  # To enable SSH auto-deploy, configure secrets:
+  #   SERVER_HOST, SERVER_USER, SSH_PRIVATE_KEY
+  # ──────────────────────────────────────────────────────────────
+  notify:
+    name: Deployment Notification
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deployment Ready
+        run: |
+          echo "✅ Docker Images pushed to GHCR successfully!"
+          echo ""
+          echo "📦 Images available at:"
+          echo "  ghcr.io/${{ github.repository }}/backend:latest"
+          echo "  ghcr.io/${{ github.repository }}/frontend:latest"
+          echo ""
+          echo "💡 To deploy on your server:"
+          echo "  docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull"
+          echo "  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d"
+          echo ""
+          echo "🔐 To enable auto SSH deploy, add these GitHub Secrets:"
+          echo "  SERVER_HOST      — IP hoặc domain server"
+          echo "  SERVER_USER      — SSH user (ví dụ: ubuntu)"
+          echo "  SSH_PRIVATE_KEY  — Private key (-----BEGIN OPENSSH...)"
+          echo "  VITE_API_BASE_URL_PROD — URL backend API production"

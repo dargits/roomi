@@ -69,7 +69,7 @@ const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey, isPer
   // Xác định những điểm nào sẽ hiện label
   // Nếu có điểm > 0: chỉ hiện label cho điểm > 0
   // Nếu tất cả = 0: không hiện gì
-  const shouldShowLabel = (pt, i) => {
+  const shouldShowLabel = (pt, _i) => {
     if (!hasNonZero) return false;
     if (showValueLabel === false) return false;
     // Luôn hiện nếu val > 0
@@ -355,26 +355,7 @@ const generateDailyTrend = (totalRev, startStr, endStr) => {
 };
 
 function Reports({ user, showNotification }) {
-  // Guard Clause for Access Control
-  if (user.role !== 'OWNER' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <AlertCircle size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang báo cáo doanh thu.
-        </p>
-      </div>
-    );
-  }
+  const isAuthorized = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN';
 
   // Local helper for local ISO date string formatting
   const getLocalDateString = (date) => {
@@ -497,6 +478,7 @@ function Reports({ user, showNotification }) {
     } else if (activeTab === 'occupancy') {
       fetchOccupancyReport();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, activeTab]);
 
   const handlePresetClick = (preset) => {
@@ -568,8 +550,25 @@ function Reports({ user, showNotification }) {
     ? [...reportData.serviceRevenues].sort((a, b) => b.revenue - a.revenue)
     : [];
 
-  const maxRoomTypeRevenue = sortedRoomTypes.length > 0 ? Math.max(...sortedRoomTypes.map(r => r.revenue), 1) : 1;
-  const maxServiceRevenue = sortedServices.length > 0 ? Math.max(...sortedServices.map(s => s.revenue), 1) : 1;
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang báo cáo doanh thu.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', paddingBottom: '40px' }}>
@@ -1481,7 +1480,7 @@ function Reports({ user, showNotification }) {
                       try {
                         const parts = mDate.split('-');
                         return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                      } catch (e) {
+                      } catch (_e) {
                         return mDate;
                       }
                     })()}
@@ -1552,7 +1551,7 @@ function Reports({ user, showNotification }) {
                       try {
                         const parts = mDate.split('-');
                         return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                      } catch (e) {
+                      } catch (_e) {
                         return mDate;
                       }
                     })()}
@@ -1639,7 +1638,7 @@ function Reports({ user, showNotification }) {
                         try {
                           const parts = d.date.split('-');
                           return `${parseInt(parts[2])}/${parseInt(parts[1])}`;
-                        } catch (e) {
+                        } catch (_e) {
                           return d.date;
                         }
                       })()
@@ -1853,7 +1852,7 @@ function Reports({ user, showNotification }) {
                       try {
                         const parts = d.date.split('-');
                         displayDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                      } catch (e) {}
+                      } catch (_e) {}
                       return (
                         <option key={d.date} value={d.date}>
                           {displayDate} (Công suất: {d.occupancyRate}%)

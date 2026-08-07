@@ -20,6 +20,7 @@ public class AvailableRoomResponse {
     private String      floor;
     private Long        roomTypeId;
     private String      roomTypeName;
+    private String      roomTypeImg;
     private Integer     capacity;
     private String      amenities;
 

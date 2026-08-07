@@ -7,35 +7,12 @@ import {
   Trash2, 
   X, 
   AlertCircle, 
-  Check, 
   Coffee, 
-  Info,
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
 
 function Services({ user, showNotification }) {
-  // Guard Clause for Access Control
-  if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <AlertCircle size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang cấu hình dịch vụ phụ thu.
-        </p>
-      </div>
-    );
-  }
-
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -71,6 +48,7 @@ function Services({ user, showNotification }) {
 
   useEffect(() => {
     fetchServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleServiceSubmit = async (e) => {
@@ -165,6 +143,27 @@ function Services({ user, showNotification }) {
       }
     }
   };
+
+  // Guard Clause for Access Control (OWNER, RECEPTIONIST, ADMIN)
+  if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang cấu hình dịch vụ phụ thu.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

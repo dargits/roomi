@@ -1,0 +1,35 @@
+# docker-compose.prod.yml — Production Override
+# ──────────────────────────────────────────────────────────────────────────────
+# Dùng file này kết hợp với docker-compose.yml để deploy lên server production.
+# Override các service build: để dùng pre-built images từ GHCR thay vì build từ source.
+#
+# Cách dùng:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Hoặc dùng biến môi trường IMAGE_TAG để pin version cụ thể:
+#   IMAGE_TAG=sha-abc1234 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  backend:
+    # Dùng pre-built image từ GHCR — không build từ source
+    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/roomi}/backend:${IMAGE_TAG:-latest}
+    build: !reset null   # Xóa build config từ docker-compose.yml gốc
+    pull_policy: always  # Luôn pull image mới nhất
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/laybo?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-root}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-changeme}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      # JVM tuning for production
+      - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC
+
+  frontend:
+    # Dùng pre-built image từ GHCR — không build từ source
+    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/roomi}/frontend:${IMAGE_TAG:-latest}
+    build: !reset null   # Xóa build config từ docker-compose.yml gốc
+    pull_policy: always  # Luôn pull image mới nhất
+    restart: unless-stopped

@@ -26,6 +26,9 @@ import roomi.dev.service.impl.GuestServiceImpl;
 import roomi.dev.dto.request.BookingRequest;
 import roomi.dev.util.time.BookingConflictChecker;
 
+import roomi.dev.repository.PropertySettingsRepository;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,12 +42,13 @@ import static org.mockito.Mockito.*;
 @DisplayName("BookingServiceImpl — Kiểm thử gán phòng")
 class BookingControllerTest {
 
-    @Mock BookingRepository      bookingRepository;
-    @Mock RoomRepository         roomRepository;
-    @Mock RoomTypeRepository     roomTypeRepository;
-    @Mock SeasonalRateRepository seasonalRateRepository;
-    @Mock GuestServiceImpl       guestService;
-    @Mock UserRepository         userRepository;
+    @Mock BookingRepository          bookingRepository;
+    @Mock RoomRepository             roomRepository;
+    @Mock RoomTypeRepository         roomTypeRepository;
+    @Mock SeasonalRateRepository     seasonalRateRepository;
+    @Mock GuestServiceImpl           guestService;
+    @Mock UserRepository             userRepository;
+    @Mock PropertySettingsRepository propertySettingsRepository;
 
     BookingServiceImpl bookingService;
 
@@ -58,8 +62,9 @@ class BookingControllerTest {
             seasonalRateRepository,
             guestService,
             conflictChecker,
-                        userRepository
+            userRepository
         );
+        ReflectionTestUtils.setField(bookingService, "propertySettingsRepository", propertySettingsRepository);
     }
 
     // ------------------------------------------------------------------ fixtures
@@ -355,7 +360,7 @@ class BookingControllerTest {
                         Room r = room(5L, "101", rt);
                         r.setStatus(Room.Status.OCCUPIED);
                         Booking confirmed = booking(40L, r, rt, Booking.Status.CONFIRMED,
-                                        LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4));
+                                        LocalDate.of(2025, 8, 1), LocalDate.of(2025, 8, 4));
 
                         when(bookingRepository.findById(40L)).thenReturn(Optional.of(confirmed));
                         when(bookingRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

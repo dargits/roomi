@@ -27,4 +27,7 @@ public class RoomType {
     
     @Column(name = "base_price", nullable = false, precision = 12)
     private BigDecimal basePrice;
+
+    @Column(name = "room_type_img", columnDefinition = "TEXT")
+    private String roomTypeImg;
 }

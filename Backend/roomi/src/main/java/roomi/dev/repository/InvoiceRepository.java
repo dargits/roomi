@@ -11,16 +11,16 @@ import java.util.List;
 import java.util.Optional;
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     Optional<Invoice> findByBookingId(Long bookingId);
-    @Query("SELECT SUM(i.roomCharge), SUM(i.serviceCharge), COUNT(i) FROM Invoice i " +
-           "WHERE i.status = roomi.dev.model.Invoice.Status.PENDING " +
+    @Query("SELECT SUM(i.roomCharge), SUM(i.serviceCharge - i.discount), COUNT(i) FROM Invoice i " +
+           "WHERE i.status = roomi.dev.model.Invoice.Status.PAID " +
            "AND i.createdAt >= :startDateTime AND i.createdAt <= :endDateTime")
     List<Object[]> findRevenueSummary(@Param("startDateTime") LocalDateTime startDateTime, 
                                       @Param("endDateTime") LocalDateTime endDateTime);
-    // Bắt buộc phải viết đường dẫn đầy đủ của class DTO bên trong chuỗi Query
+
     @Query("SELECT new roomi.dev.dto.response.RevenueReportResponse$RoomTypeRevenueDetail(" +
            "i.booking.roomType.name, SUM(i.roomCharge), COUNT(i)) " +
            "FROM Invoice i " +
-           "WHERE i.status = roomi.dev.model.Invoice.Status.PENDING " +
+           "WHERE i.status = roomi.dev.model.Invoice.Status.PAID " +
            "AND i.createdAt >= :startDateTime AND i.createdAt <= :endDateTime " +
            "GROUP BY i.booking.roomType.name")
     List<RevenueReportResponse.RoomTypeRevenueDetail> findRevenueByRoomType(
@@ -28,12 +28,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             @Param("endDateTime") LocalDateTime endDateTime);
 
     /**
-     * Doanh thu tổng (phòng + dịch vụ) từng ngày — dùng cho chart "Xu Hướng Doanh Thu Theo Ngày".
+     * Doanh thu tổng (phòng + dịch vụ - giảm giá) từng ngày — dùng cho chart "Xu Hướng Doanh Thu Theo Ngày".
      * Group by YYYY-MM-DD của createdAt, trả về mỗi ngày 1 row gồm: dateStr, totalRevenue.
      */
-    @Query("SELECT FUNCTION('DATE', i.createdAt), SUM(i.roomCharge + i.serviceCharge) " +
+    @Query("SELECT FUNCTION('DATE', i.createdAt), SUM(i.totalAmount) " +
            "FROM Invoice i " +
-           "WHERE i.status = roomi.dev.model.Invoice.Status.PENDING " +
+           "WHERE i.status = roomi.dev.model.Invoice.Status.PAID " +
            "AND i.createdAt >= :startDateTime AND i.createdAt <= :endDateTime " +
            "GROUP BY FUNCTION('DATE', i.createdAt) " +
            "ORDER BY FUNCTION('DATE', i.createdAt)")

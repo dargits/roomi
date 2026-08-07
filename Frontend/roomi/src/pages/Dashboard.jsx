@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
+import { formatDateString } from '../utils/formatters';
 import { 
   Grid, 
   Calendar, 
@@ -8,29 +9,66 @@ import {
   User, 
   Clock, 
   Plus, 
-  AlertCircle, 
   Wrench, 
   Sparkles, 
   DollarSign, 
-  ArrowLeftRight,
   ClipboardList,
   Coffee,
   Check,
-  X
+  CheckCircle,
+  X,
+  ShieldAlert
 } from 'lucide-react';
 
-function Dashboard({ user, showNotification }) {
+function Dashboard({ user, showNotification, readOnly = false, cleaningNotifications = [], setCleaningNotifications = () => {} }) {
+
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'calendar'
   const [roomsCalendar, setRoomsCalendar] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null); // Selected room for drawer/modal
   const [filterType, setFilterType] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState(user?.role === 'HOUSEKEEPER' ? 'NEEDS_CLEANING' : 'ALL');
   
-  // Date range for calendar (14 days starting from today)
-  const [startDate, setStartDate] = useState(new Date());
+  // Refs for housekeeping notifications
+  const roomsListRef = React.useRef([]);
+
   const [dateHeaders, setDateHeaders] = useState([]);
+
+  // Play programmatic notification beep chimes
+  const playNotificationSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Beep 1 (D5)
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.12);
+      
+      // Beep 2 (A5)
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880.00, audioCtx.currentTime);
+        gain2.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.22);
+      }, 120);
+    } catch (e) {
+      console.warn("Could not play notification sound:", e);
+    }
+  };
 
   // Modal States
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -41,6 +79,8 @@ function Dashboard({ user, showNotification }) {
   // Service Usage / Invoice States
   const [servicesList, setServicesList] = useState([]);
   const [activeInvoice, setActiveInvoice] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [paymentAmount, setPaymentAmount] = useState('');
   const [surchargeInput, setSurchargeInput] = useState({ surchargeServiceId: '', quantity: 1, note: '' });
   const [newStatus, setNewStatus] = useState('');
   const [drawerUsages, setDrawerUsages] = useState([]);
@@ -49,14 +89,6 @@ function Dashboard({ user, showNotification }) {
   // Assign Room States
   const [unassignedBookings, setUnassignedBookings] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState('');
-
-  // Helper to format date in local timezone (YYYY-MM-DD)
-  const formatDateString = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   const todayStr = formatDateString(new Date());
 
@@ -75,9 +107,16 @@ function Dashboard({ user, showNotification }) {
     return arr;
   };
 
-  const fetchData = async () => {
+  const fetchData = async (isSilent = false) => {
+    if (user?.role === 'ADMIN') {
+      setLoading(false);
+      return;
+    }
+
     try {
-      setLoading(true);
+      if (!isSilent) {
+        setLoading(true);
+      }
 
       // Đồng bộ trạng thái phòng trước khi lấy dữ liệu
       // (xử lý trường hợp phòng có CHECKED_IN booking nhưng status vẫn AVAILABLE)
@@ -90,11 +129,14 @@ function Dashboard({ user, showNotification }) {
       const checkIn = formatDateString(start);
       const checkOut = formatDateString(end);
 
-      // Fetch Calendar, unassigned bookings and actual rooms list with notes
-      const [calRes, bookingsRes, roomsRes] = await Promise.all([
+      // Fetch Calendar, unassigned bookings, actual rooms list and cleaning notifications (if Housekeeper)
+      const [calRes, bookingsRes, roomsRes, notifsRes] = await Promise.all([
         api.get('/calendar/rooms', { params: { checkIn, checkOut } }),
-        api.get('/bookings/status/NEW'),
-        api.get('/rooms')
+        api.get('/bookings/status/NEW').catch(() => ({ data: { data: [] } })),
+        api.get('/rooms'),
+        user?.role === 'HOUSEKEEPER' 
+          ? api.get('/cleaning-notifications').catch(() => ({ data: { data: [] } })) 
+          : Promise.resolve({ data: { data: [] } })
       ]);
 
       setDateHeaders(getDatesArray(start, 14));
@@ -115,7 +157,24 @@ function Dashboard({ user, showNotification }) {
           note: roomsMap[r.roomId] || ''
         }));
 
+        // Handle cleaning notifications from Backend for Housekeeper
+        if (user?.role === 'HOUSEKEEPER') {
+          const serverNotifs = notifsRes.data?.data || [];
+          if (roomsListRef.current.length > 0) {
+            // Chỉ phát âm thanh và hiển thị toast khi có thông báo mới (ID chưa tồn tại trong state hiện tại)
+            const newNotifs = serverNotifs.filter(sn => !cleaningNotifications.some(cn => cn.id === sn.id));
+            if (newNotifs.length > 0) {
+              playNotificationSound();
+              newNotifs.forEach(n => {
+                showNotification(n.message, 'warning');
+              });
+            }
+          }
+          setCleaningNotifications(serverNotifs);
+        }
+
         setRoomsCalendar(enriched);
+        roomsListRef.current = enriched;
         
         // Update selectedRoom detail if it was open
         if (selectedRoom) {
@@ -131,15 +190,35 @@ function Dashboard({ user, showNotification }) {
         setUnassignedBookings(bookingsRes.data.data);
       }
     } catch (err) {
-      showNotification(err.message || 'Lỗi tải dữ liệu sơ đồ phòng', 'error');
+      if (!isSilent) {
+        showNotification(err.message || 'Lỗi tải dữ liệu sơ đồ phòng', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
+
+  // Keep reference to latest fetchData to prevent stale closure in interval
+  const fetchDataRef = React.useRef(fetchData);
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  });
+
+  // Polling mechanism every 10 seconds for real-time notifications (Housekeeper only)
+  useEffect(() => {
+    if (user?.role !== 'HOUSEKEEPER') return;
+    const intervalId = setInterval(() => {
+      fetchDataRef.current(true);
+    }, 10000);
+    return () => clearInterval(intervalId);
+  }, [user?.role]);
 
   // Fetch surcharge services catalog
   const fetchServicesCatalog = async () => {
@@ -170,6 +249,19 @@ function Dashboard({ user, showNotification }) {
     }
   };
 
+  // Get active booking in the room (for today)
+  const getTodayBooking = React.useCallback((room) => {
+    if (!room || !room.bookings) return null;
+    return room.bookings.find(b => {
+      const checkIn = b.checkInDate;
+      const checkOut = b.checkOutDate;
+      return todayStr >= checkIn && todayStr < checkOut && 
+             b.status !== 'CANCELLED' && 
+             b.status !== 'NO_SHOW' && 
+             b.status !== 'CHECKED_OUT';
+    });
+  }, [todayStr]);
+
   useEffect(() => {
     if (selectedRoom) {
       const activeBooking = getTodayBooking(selectedRoom);
@@ -181,37 +273,20 @@ function Dashboard({ user, showNotification }) {
     } else {
       setDrawerUsages([]);
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, getTodayBooking]);
 
-  // Get active booking in the room (for today)
-  const getTodayBooking = (room) => {
-    if (!room.bookings) return null;
-    return room.bookings.find(b => {
-      const checkIn = b.checkInDate;
-      const checkOut = b.checkOutDate;
-      return todayStr >= checkIn && todayStr < checkOut && b.status !== 'CANCELLED';
-    });
-  };
-
-  // Update room profile details / status
-  const handleUpdateRoomStatus = async () => {
-    if (!selectedRoom || !newStatus) return;
+  // Update room status (Housekeeper / Owner / Receptionist)
+  const handleUpdateRoomStatus = async (statusOverride) => {
+    const targetStatus = typeof statusOverride === 'string' ? statusOverride : newStatus;
+    if (!selectedRoom || !targetStatus) return;
     try {
-      // Find room in database and update it
-      const roomDetailsRes = await api.get(`/rooms/${selectedRoom.roomId}`);
-      const currentRoom = roomDetailsRes.data.data;
-      
-      const payload = {
-        roomTypeId: currentRoom.roomType.id,
-        roomNumber: currentRoom.roomNumber,
-        floor: currentRoom.floor,
-        status: newStatus,
-        note: currentRoom.note
-      };
-
-      await api.put(`/rooms/${selectedRoom.roomId}`, payload);
-      showNotification(`Đã chuyển phòng ${selectedRoom.roomNumber} sang trạng thái ${newStatus}`);
+      await api.patch(`/rooms/${selectedRoom.roomId}/status`, null, {
+        params: { status: targetStatus }
+      });
+      const statusText = targetStatus === 'AVAILABLE' ? 'Sẵn sàng' : targetStatus === 'MAINTENANCE' ? 'Bảo trì' : targetStatus;
+      showNotification(`Đã chuyển phòng ${selectedRoom.roomNumber} sang trạng thái ${statusText}!`, 'success');
       setShowStatusModal(false);
+      setSelectedRoom(null);
       fetchData();
     } catch (err) {
       showNotification(err.message, 'error');
@@ -235,6 +310,11 @@ function Dashboard({ user, showNotification }) {
     e.preventDefault();
     const activeBooking = getTodayBooking(selectedRoom);
     if (!activeBooking) return;
+    
+    if (parseInt(surchargeInput.quantity) > 100) {
+      showNotification('Số lượng dịch vụ không được vượt quá 100', 'error');
+      return;
+    }
     
     try {
       await api.post(`/bookings/${activeBooking.bookingId}/service-usages`, {
@@ -263,11 +343,47 @@ function Dashboard({ user, showNotification }) {
     try {
       const res = await api.get(`/bookings/${activeBooking.bookingId}/invoice`);
       if (res.data && res.data.data) {
-        setActiveInvoice(res.data.data);
+        const inv = res.data.data;
+        setActiveInvoice(inv);
+        setPaymentMethod('CASH');
+        const due = inv.remainingAmount !== undefined ? inv.remainingAmount : (inv.status === 'PAID' ? 0 : inv.totalAmount);
+        setPaymentAmount(due > 0 ? due : '');
         setShowInvoiceModal(true);
       }
     } catch (err) {
       showNotification(err.message, 'error');
+    }
+  };
+
+  // Confirm payment and checkout from Dashboard room map
+  const handleConfirmPaymentAndCheckout = async () => {
+    const activeBooking = getTodayBooking(selectedRoom);
+    if (!activeBooking || !activeInvoice) return;
+
+    try {
+      // 1. Nếu hóa đơn chưa trả hết -> Ghi nhận thanh toán với loại hình chọn
+      if (activeInvoice.status !== 'PAID') {
+        const defaultDue = activeInvoice.remainingAmount !== undefined ? activeInvoice.remainingAmount : activeInvoice.totalAmount;
+        const amountToPay = paymentAmount ? parseFloat(paymentAmount) : defaultDue;
+        
+        if (amountToPay > 0) {
+          await api.post(`/bookings/${activeBooking.bookingId || activeBooking.id}/payments`, {
+            amount: amountToPay,
+            method: paymentMethod || 'CASH'
+          });
+        }
+      }
+
+      // 2. Thực hiện Trả phòng (Check-out)
+      const res = await api.patch(`/bookings/${activeBooking.bookingId}/check-out`);
+      showNotification(res.data.mess || 'Đã xác nhận thanh toán và Trả phòng thành công!', 'success');
+
+      // 3. Đóng modal & làm mới dữ liệu
+      setShowInvoiceModal(false);
+      setSelectedRoom(null);
+      fetchData();
+    } catch (err) {
+      showNotification(err.message || 'Không thể thanh toán và trả phòng', 'error');
     }
   };
 
@@ -321,11 +437,32 @@ function Dashboard({ user, showNotification }) {
     return parseInt(a) - parseInt(b);
   });
 
-  // Filters
+  // Filters & Priority Sorting for Housekeeper
+  const getUpcomingCheckInDays = (room) => {
+    if (!room.bookings || room.bookings.length === 0) return 999;
+    const upcoming = room.bookings
+      .filter(b => b.checkInDate >= todayStr && b.status !== 'CANCELLED' && b.status !== 'NO_SHOW')
+      .sort((a, b) => a.checkInDate.localeCompare(b.checkInDate));
+    if (upcoming.length > 0) {
+      if (upcoming[0].checkInDate === todayStr) return 0; // Hôm nay
+      return 1; // Tương lai
+    }
+    return 999;
+  };
+
   const filteredRooms = roomsCalendar.filter(room => {
     const matchType = filterType === 'ALL' || room.roomTypeId === parseInt(filterType);
     const matchStatus = filterStatus === 'ALL' || room.status === filterStatus;
     return matchType && matchStatus;
+  }).sort((a, b) => {
+    if (user.role === 'HOUSEKEEPER' || filterStatus === 'NEEDS_CLEANING') {
+      const priorityA = getUpcomingCheckInDays(a);
+      const priorityB = getUpcomingCheckInDays(b);
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB; // Ưu tiên phòng có khách sắp nhận phòng lên đầu
+      }
+    }
+    return 0;
   });
 
   const getStatusLabel = (status) => {
@@ -338,6 +475,27 @@ function Dashboard({ user, showNotification }) {
     }
   };
 
+  // Guard clause: Admin user is not allowed on room dashboard
+  if (user?.role === 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <ShieldAlert size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản Quản trị viên dùng để quản lý hệ thống, phân quyền nhân viên và xem nhật ký hoạt động. Sơ đồ phòng dành cho Lễ tân, Buồng phòng, Kế toán và Chủ cơ sở.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Page Header */}
@@ -348,7 +506,8 @@ function Dashboard({ user, showNotification }) {
         </div>
         
         {/* Actions bar */}
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+
           <div style={{
             display: 'flex',
             backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -398,6 +557,97 @@ function Dashboard({ user, showNotification }) {
         </div>
       </div>
 
+      {/* KiotViet Style Summary KPI Bar */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+        gap: '12px',
+        marginBottom: '20px'
+      }}>
+        <div 
+          onClick={() => setFilterStatus('ALL')}
+          className="card" 
+          style={{ 
+            padding: '14px 16px', 
+            cursor: 'pointer', 
+            borderLeft: '4px solid var(--primary)',
+            backgroundColor: filterStatus === 'ALL' ? 'var(--primary-glow)' : undefined,
+            transition: 'var(--transition-fast)'
+          }}
+        >
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TỔNG SỐ PHÒNG</div>
+          <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>{roomsCalendar.length}</div>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus('AVAILABLE')}
+          className="card" 
+          style={{ 
+            padding: '14px 16px', 
+            cursor: 'pointer', 
+            borderLeft: '4px solid var(--color-available)',
+            backgroundColor: filterStatus === 'AVAILABLE' ? 'var(--color-available-bg)' : undefined,
+            transition: 'var(--transition-fast)'
+          }}
+        >
+          <div style={{ fontSize: '11px', color: 'var(--color-available)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>SẮN SÀNG</div>
+          <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-available)', marginTop: '2px' }}>
+            {roomsCalendar.filter(r => r.status === 'AVAILABLE').length}
+          </div>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus('OCCUPIED')}
+          className="card" 
+          style={{ 
+            padding: '14px 16px', 
+            cursor: 'pointer', 
+            borderLeft: '4px solid var(--color-occupied)',
+            backgroundColor: filterStatus === 'OCCUPIED' ? 'var(--color-occupied-bg)' : undefined,
+            transition: 'var(--transition-fast)'
+          }}
+        >
+          <div style={{ fontSize: '11px', color: 'var(--color-occupied)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ĐANG CÓ KHÁCH</div>
+          <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-occupied)', marginTop: '2px' }}>
+            {roomsCalendar.filter(r => r.status === 'OCCUPIED').length}
+          </div>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus('NEEDS_CLEANING')}
+          className="card" 
+          style={{ 
+            padding: '14px 16px', 
+            cursor: 'pointer', 
+            borderLeft: '4px solid var(--color-cleaning)',
+            backgroundColor: filterStatus === 'NEEDS_CLEANING' ? 'var(--color-cleaning-bg)' : undefined,
+            transition: 'var(--transition-fast)'
+          }}
+        >
+          <div style={{ fontSize: '11px', color: 'var(--color-cleaning)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>CẦN DỌN DẸP</div>
+          <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-cleaning)', marginTop: '2px' }}>
+            {roomsCalendar.filter(r => r.status === 'NEEDS_CLEANING').length}
+          </div>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus('MAINTENANCE')}
+          className="card" 
+          style={{ 
+            padding: '14px 16px', 
+            cursor: 'pointer', 
+            borderLeft: '4px solid var(--color-maintenance)',
+            backgroundColor: filterStatus === 'MAINTENANCE' ? 'var(--color-maintenance-bg)' : undefined,
+            transition: 'var(--transition-fast)'
+          }}
+        >
+          <div style={{ fontSize: '11px', color: 'var(--color-maintenance)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>BẢO TRÌ</div>
+          <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-maintenance)', marginTop: '2px' }}>
+            {roomsCalendar.filter(r => r.status === 'MAINTENANCE').length}
+          </div>
+        </div>
+      </div>
+
       {/* Filter panel */}
       <div className="card" style={{ padding: '16px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
         <div>
@@ -414,21 +664,13 @@ function Dashboard({ user, showNotification }) {
           <label style={{ marginBottom: '4px' }}>Trạng thái phòng</label>
           <select 
             value={filterStatus} 
-            onChange={(e) => {
-              if (e.target.value === 'NEEDS_CLEANING' && user.role !== 'HOUSEKEEPER') {
-                showNotification('Từ chối truy cập: Chỉ nhân viên buồng phòng mới có quyền xem danh sách phòng cần dọn dẹp.', 'error');
-                return;
-              }
-              setFilterStatus(e.target.value);
-            }} 
+            onChange={(e) => setFilterStatus(e.target.value)} 
             style={{ width: '180px', padding: '6px 12px' }}
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="AVAILABLE">Trống (Sẵn sàng)</option>
             <option value="OCCUPIED">Đang có khách</option>
-            {user.role === 'HOUSEKEEPER' && (
-              <option value="NEEDS_CLEANING">Cần dọn dẹp</option>
-            )}
+            <option value="NEEDS_CLEANING">Cần dọn dẹp</option>
             <option value="MAINTENANCE">Bảo trì</option>
           </select>
         </div>
@@ -454,8 +696,44 @@ function Dashboard({ user, showNotification }) {
         </div>
       </div>
 
+      {/* Room Grid / Calendar View */}
+
       {loading ? (
         <PageLoader />
+      ) : filteredRooms.length === 0 ? (
+        <div className="card" style={{ padding: '60px 20px', textAlign: 'center', backgroundColor: '#ffffff' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: '#e8f5e9',
+            color: '#2e7d32',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <CheckCircle size={32} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>
+            {filterStatus === 'NEEDS_CLEANING' 
+              ? 'Tất cả các phòng đã được dọn dẹp sạch sẽ!' 
+              : 'Không tìm thấy phòng nào phù hợp với bộ lọc.'}
+          </h3>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '440px', margin: '0 auto 20px' }}>
+            {filterStatus === 'NEEDS_CLEANING'
+              ? 'Hiện không còn phòng nào cần làm vệ sinh. Bạn có thể chọn "Tất cả trạng thái" để xem sơ đồ toàn bộ phòng.'
+              : 'Vui lòng thay đổi lựa chọn loại phòng hoặc trạng thái phòng trên bộ lọc.'}
+          </p>
+          {filterStatus !== 'ALL' && (
+            <button 
+              onClick={() => { setFilterStatus('ALL'); setFilterType('ALL'); }}
+              className="btn btn-primary btn-sm"
+            >
+              Xem tất cả phòng
+            </button>
+          )}
+        </div>
       ) : viewMode === 'grid' ? (
         /* GRID VIEW LAYOUT */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -479,35 +757,41 @@ function Dashboard({ user, showNotification }) {
                     const activeBooking = getTodayBooking(room);
                     const isInactive = room.note && room.note.includes('[INACTIVE]');
 
-                    // Tính trạng thái hiển thị: nếu có booking CHECKED_IN hôm nay
-                    // thì luôn hiện OCCUPIED dù room.status trong DB có thể bị lệch
+                    // Tính trạng thái hiển thị: nếu phòng đang CẦN DỌN DẸP hoặc BẢO TRÌ, giữ nguyên trạng thái đó!
+                    // Chỉ khi phòng SẴN SÀNG và có booking CHECKED_IN hôm nay thì hiển thị OCCUPIED.
                     const hasCheckedInToday = room.bookings?.some(b =>
                       todayStr >= b.checkInDate &&
                       todayStr < b.checkOutDate &&
                       b.status === 'CHECKED_IN'
                     );
-                    const displayStatus = hasCheckedInToday ? 'OCCUPIED' : room.status;
+                    const displayStatus = (room.status === 'NEEDS_CLEANING' || room.status === 'MAINTENANCE')
+                      ? room.status
+                      : (hasCheckedInToday ? 'OCCUPIED' : room.status);
 
                     let cardBorder = 'var(--border-color)';
                     let cardBg = 'rgba(255,255,255,0.02)';
                     let glowColor = 'transparent';
 
                     if (isInactive) {
-                      cardBorder = 'rgba(255,255,255,0.05)';
-                      cardBg = 'rgba(255,255,255,0.01)';
-                      glowColor = 'rgba(255,255,255,0.01)';
+                      cardBorder = '#cbd5e1';
+                      cardBg = '#f1f5f9';
+                      glowColor = '#e2e8f0';
                     } else if (displayStatus === 'AVAILABLE') {
-                      cardBorder = 'rgba(16, 185, 129, 0.3)';
-                      glowColor = 'rgba(16, 185, 129, 0.05)';
+                      cardBorder = '#2e7d32';
+                      cardBg = '#ffffff';
+                      glowColor = '#f4fbf7';
                     } else if (displayStatus === 'OCCUPIED') {
-                      cardBorder = 'rgba(99, 102, 241, 0.3)';
-                      glowColor = 'rgba(99, 102, 241, 0.05)';
+                      cardBorder = '#1565c0';
+                      cardBg = '#ffffff';
+                      glowColor = '#f0f7ff';
                     } else if (displayStatus === 'NEEDS_CLEANING') {
-                      cardBorder = 'rgba(245, 158, 11, 0.3)';
-                      glowColor = 'rgba(245, 158, 11, 0.05)';
+                      cardBorder = '#ed6c02';
+                      cardBg = '#ffffff';
+                      glowColor = '#fffbf5';
                     } else if (displayStatus === 'MAINTENANCE') {
-                      cardBorder = 'rgba(239, 68, 68, 0.3)';
-                      glowColor = 'rgba(239, 68, 68, 0.05)';
+                      cardBorder = '#c62828';
+                      cardBg = '#ffffff';
+                      glowColor = '#fff5f5';
                     }
 
                     return (
@@ -516,10 +800,6 @@ function Dashboard({ user, showNotification }) {
                         onClick={() => {
                           if (isInactive) {
                             showNotification('Phòng đang tạm ngưng hoạt động, không thể thực hiện giao dịch.', 'error');
-                            return;
-                          }
-                          if (room.status === 'NEEDS_CLEANING' && user.role !== 'HOUSEKEEPER') {
-                            showNotification('Từ chối truy cập: Chỉ nhân viên buồng phòng mới có quyền cập nhật phòng cần dọn.', 'error');
                             return;
                           }
                           setSelectedRoom(room);
@@ -740,8 +1020,8 @@ function Dashboard({ user, showNotification }) {
               {getTodayBooking(selectedRoom) && user.role !== 'HOUSEKEEPER' ? (
                 (() => {
                   const activeBooking = getTodayBooking(selectedRoom);
-                  const isManager = user.role === 'OWNER' || user.role === 'RECEPTIONIST';
-                  const isAccountant = user.role === 'ACCOUNTANT';
+                  const isReceptionist = (user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && !readOnly;
+                  const isAccountant = user.role === 'ACCOUNTANT' || readOnly;
                   return (
                     <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
                       <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
@@ -782,7 +1062,7 @@ function Dashboard({ user, showNotification }) {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <span>{(u.lineTotal || 0).toLocaleString('vi-VN')} đ</span>
-                                  {activeBooking.status !== 'CHECKED_OUT' && isManager && (
+                                  {activeBooking.status !== 'CHECKED_OUT' && isReceptionist && (
                                     <button 
                                       onClick={() => handleDeleteSurchargeUsage(u.id)}
                                       style={{ background: 'none', border: 'none', color: 'var(--color-maintenance)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
@@ -802,12 +1082,23 @@ function Dashboard({ user, showNotification }) {
 
                       {/* Transition Actions */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {(activeBooking.status === 'CONFIRMED' || activeBooking.status === 'NEW') && isManager && (
+                        {(activeBooking.status === 'CONFIRMED' || activeBooking.status === 'NEW') && isReceptionist && (
                           <>
                             <button 
-                              onClick={() => handleBookingTransition(activeBooking.bookingId, 'check-in')} 
+                              onClick={() => {
+                                if (selectedRoom.status === 'NEEDS_CLEANING') {
+                                  showNotification('Từ chối nhận phòng: Phòng đang CẦN DỌN DẸP. Nhân viên buồng phòng phải dọn dẹp xong trước khi check-in!', 'error');
+                                  return;
+                                }
+                                if (selectedRoom.status === 'MAINTENANCE') {
+                                  showNotification('Từ chối nhận phòng: Phòng đang BẢO TRÌ.', 'error');
+                                  return;
+                                }
+                                handleBookingTransition(activeBooking.bookingId, 'check-in');
+                              }} 
                               className="btn btn-primary btn-sm"
-                              style={{ flex: 1 }}
+                              style={{ flex: 1, opacity: (selectedRoom.status === 'NEEDS_CLEANING' || selectedRoom.status === 'MAINTENANCE') ? 0.6 : 1 }}
+                              title={selectedRoom.status === 'NEEDS_CLEANING' ? 'Phòng chưa sẵn sàng (đang cần dọn dẹp)' : 'Nhận phòng'}
                             >
                               <Check size={14} /> Nhận phòng (Check-in)
                             </button>
@@ -827,7 +1118,7 @@ function Dashboard({ user, showNotification }) {
                         )}
                         {activeBooking.status === 'CHECKED_IN' && (
                           <>
-                            {isManager && (
+                            {isReceptionist && (
                               <>
                                 <button 
                                   onClick={handleViewInvoice} 
@@ -856,7 +1147,7 @@ function Dashboard({ user, showNotification }) {
                             )}
                           </>
                         )}
-                        {activeBooking.status !== 'CHECKED_OUT' && activeBooking.status !== 'CANCELLED' && activeBooking.status !== 'CHECKED_IN' && isManager && (
+                        {activeBooking.status !== 'CHECKED_OUT' && activeBooking.status !== 'CANCELLED' && activeBooking.status !== 'CHECKED_IN' && isReceptionist && (
                           <button 
                             onClick={() => handleBookingTransition(activeBooking.bookingId, 'cancel')} 
                             className="btn btn-secondary btn-sm"
@@ -869,55 +1160,84 @@ function Dashboard({ user, showNotification }) {
                     </div>
                   );
                 })()
-              ) : getTodayBooking(selectedRoom) && user.role === 'HOUSEKEEPER' ? (
-                <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
-                  <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                    <User size={16} color="var(--primary)" />
-                    Trạng thái phòng
+              ) : selectedRoom.status === 'NEEDS_CLEANING' ? (
+                <div className="card" style={{ borderLeft: '4px solid var(--color-cleaning)', padding: '18px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--color-cleaning)' }}>
+                    <Sparkles size={16} />
+                    Phòng cần dọn dẹp (Chưa sẵn sàng)
                   </h4>
-                  <p style={{ fontSize: '14px' }}>Phòng hiện đang bận (Đang có khách lưu trú).</p>
-                </div>
-              ) : (
-                /* Room is vacant */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {/* Status checks */}
-                  {selectedRoom.status === 'NEEDS_CLEANING' && user.role === 'HOUSEKEEPER' && (
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                    Phòng vừa làm thủ tục Check-out hoặc đang chờ làm vệ sinh trước khi đón khách tiếp theo.
+                  </p>
+                  {user.role === 'HOUSEKEEPER' && !readOnly && (
                     <button 
-                      onClick={() => { setNewStatus('AVAILABLE'); handleUpdateRoomStatus(); }}
+                      onClick={() => handleUpdateRoomStatus('AVAILABLE')}
                       className="btn btn-primary"
+                      style={{ width: '100%' }}
                     >
-                      <Sparkles size={16} /> Hoàn tất dọn phòng (Sẵn sàng đón khách)
+                      <Sparkles size={16} /> Hoàn tất dọn phòng (Đánh dấu Sẵn sàng)
                     </button>
                   )}
-                  {selectedRoom.status === 'AVAILABLE' && (
-                    <>
-                      {(user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
-                        <button 
-                          onClick={() => { setShowAssignModal(true); }}
-                          className="btn btn-primary"
-                        >
-                          <Plus size={16} /> Gán booking chưa có phòng
-                        </button>
-                      )}
-                      {user.role === 'OWNER' && (
-                        <button 
-                          onClick={() => { setNewStatus('MAINTENANCE'); setShowStatusModal(true); }}
-                          className="btn btn-secondary"
-                          style={{ color: 'var(--color-maintenance)' }}
-                        >
-                          <Wrench size={16} /> Đưa vào bảo trì
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {selectedRoom.status === 'MAINTENANCE' && user.role === 'OWNER' && (
+                </div>
+              ) : selectedRoom.status === 'MAINTENANCE' ? (
+                <div className="card" style={{ borderLeft: '4px solid var(--color-maintenance)', padding: '18px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--color-maintenance)' }}>
+                    <Wrench size={16} />
+                    Phòng đang bảo trì
+                  </h4>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                    Phòng đang tạm ngưng đón khách để sửa chữa thiết bị hoặc bảo trì phòng.
+                  </p>
+                  {(user.role === 'OWNER' || user.role === 'ADMIN') && !readOnly && (
                     <button 
-                      onClick={() => { setNewStatus('AVAILABLE'); handleUpdateRoomStatus(); }}
+                      onClick={() => handleUpdateRoomStatus('AVAILABLE')}
                       className="btn btn-primary"
+                      style={{ width: '100%' }}
                     >
                       <Check size={16} /> Hoàn tất bảo trì (Sẵn sàng)
                     </button>
                   )}
+                </div>
+              ) : getTodayBooking(selectedRoom) && user.role === 'HOUSEKEEPER' ? (
+                <div className="card" style={{ borderLeft: '4px solid var(--color-occupied)', padding: '18px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--color-occupied)' }}>
+                    <User size={16} />
+                    Phòng đang có khách lưu trú
+                  </h4>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                    Khách đang sử dụng phòng. Buồng phòng không cần dọn dẹp vào lúc này.
+                  </p>
+                </div>
+              ) : (
+                /* Room is AVAILABLE vacant */
+                <div className="card" style={{ borderLeft: '4px solid var(--color-available)', padding: '18px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--color-available)' }}>
+                    <CheckCircle size={16} />
+                    Phòng trống (Sẵn sàng đón khách)
+                  </h4>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                    Phòng đã được làm vệ sinh sạch sẽ và sẵn sàng đón lượt khách mới.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && !readOnly && (
+                      <button 
+                        onClick={() => { setShowAssignModal(true); }}
+                        className="btn btn-primary"
+                        style={{ width: '100%' }}
+                      >
+                        <Plus size={16} /> Gán booking chưa có phòng
+                      </button>
+                    )}
+                    {(user.role === 'OWNER' || user.role === 'ADMIN') && !readOnly && (
+                      <button 
+                        onClick={() => { setNewStatus('MAINTENANCE'); setShowStatusModal(true); }}
+                        className="btn btn-secondary"
+                        style={{ width: '100%', color: 'var(--color-maintenance)' }}
+                      >
+                        <Wrench size={16} /> Đưa vào bảo trì
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -943,7 +1263,7 @@ function Dashboard({ user, showNotification }) {
                               {b.status}
                             </span>
                           </div>
-                          {(b.status === 'CONFIRMED' || b.status === 'NEW') && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                          {(b.status === 'CONFIRMED' || b.status === 'NEW') && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && !readOnly && (
                             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                               <button 
                                 onClick={() => handleBookingTransition(b.bookingId, 'check-in')} 
@@ -1009,8 +1329,8 @@ function Dashboard({ user, showNotification }) {
 
       {/* SERVICE RECORDING MODAL */}
       {showServiceModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '450px' }}>
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
+          <div className="modal-content" style={{ maxWidth: '580px', width: '90%' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0 }}>Ghi nhận dịch vụ phát sinh</h2>
               <button onClick={() => setShowServiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
@@ -1018,35 +1338,103 @@ function Dashboard({ user, showNotification }) {
             <form onSubmit={handleAddSurcharge}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label>Chọn dịch vụ</label>
-                  <select 
-                    value={surchargeInput.surchargeServiceId} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: e.target.value }))}
-                    required
-                  >
-                    {servicesList.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.unitPrice.toLocaleString('vi-VN')} đ/{s.description || 'lượt'})</option>
-                    ))}
-                  </select>
+                  <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>Chọn dịch vụ phát sinh *</label>
+                  <div style={{
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    {servicesList.map(s => {
+                      const isSelected = String(s.id) === String(surchargeInput.surchargeServiceId);
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: s.id }))}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'var(--primary-glow)' : 'var(--bg-card)',
+                            border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                            {/* Nút tích chọn / Radio Check Button */}
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border-color)',
+                              backgroundColor: isSelected ? 'var(--primary)' : 'transparent',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease'
+                            }}>
+                              {isSelected && <Check size={12} strokeWidth={3} />}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                              <span style={{ fontWeight: isSelected ? '700' : '600', fontSize: '13.5px', color: isSelected ? 'var(--primary)' : 'var(--text-primary)' }}>
+                                {s.name}
+                              </span>
+                              {s.description && (
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                  {s.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span style={{ fontWeight: '700', fontSize: '13px', color: isSelected ? 'var(--primary)' : 'var(--text-secondary)', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                            {s.unitPrice.toLocaleString('vi-VN')} VNĐ
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label>Số lượng</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    value={surchargeInput.quantity} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
-                    required 
-                  />
-                </div>
-                <div>
-                  <label>Ghi chú</label>
-                  <input 
-                    type="text" 
-                    placeholder="VD: 2 lon nước ngọt, 1kg quần áo" 
-                    value={surchargeInput.note} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
-                  />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '16px' }}>
+                  <div>
+                    <label>Số lượng *</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="100"
+                      value={surchargeInput.quantity} 
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (val !== '' && parseInt(val) > 100) {
+                          showNotification('Số lượng dịch vụ không được vượt quá 100', 'warning');
+                        }
+                        setSurchargeInput(prev => ({ ...prev, quantity: val }));
+                      }}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Ghi chú phát sinh</label>
+                    <input 
+                      type="text" 
+                      placeholder="VD: 2 lon nước ngọt, 1kg quần áo..." 
+                      value={surchargeInput.note} 
+                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
@@ -1173,20 +1561,62 @@ function Dashboard({ user, showNotification }) {
                 </div>
               </div>
 
+              {/* Payment Section (when invoice is not fully paid) */}
+              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 12px 0' }}>Xác nhận thanh toán</h3>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px', color: 'var(--text-secondary)' }}>Hình thức thanh toán</label>
+                      <select 
+                        className="form-control"
+                        style={{ fontSize: '13px', padding: '8px' }}
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        <option value="CASH">💵 Tiền mặt</option>
+                        <option value="BANK_TRANSFER">💳 Chuyển khoản ngân hàng</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px', color: 'var(--text-secondary)' }}>Số tiền thu (VND)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        style={{ fontSize: '13px', padding: '8px' }}
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        placeholder="Số tiền thanh toán"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT') && (
+              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
                 <button 
-                  onClick={() => { 
+                  onClick={handleConfirmPaymentAndCheckout} 
+                  className="btn btn-primary btn-sm"
+                >
+                  <Check size={14} /> Xác nhận thanh toán & Trả phòng
+                </button>
+              )}
+              {activeInvoice.status === 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                <button 
+                  onClick={() => {
                     const activeBooking = getTodayBooking(selectedRoom);
-                    handleBookingTransition(activeBooking.bookingId, 'check-out');
+                    if (activeBooking) handleBookingTransition(activeBooking.bookingId, 'check-out');
                     setShowInvoiceModal(false);
                     setSelectedRoom(null);
                   }} 
                   className="btn btn-primary btn-sm"
                 >
-                  <Check size={14} /> Xác nhận thanh toán & Trả phòng
+                  <Check size={14} /> Trả phòng (Check-out)
                 </button>
               )}
             </div>

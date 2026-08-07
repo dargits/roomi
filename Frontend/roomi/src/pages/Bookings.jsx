@@ -1,79 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
+import { getTierLabel, getSourceLabel, getBookingStatusLabel, formatDateTime } from '../utils/formatters';
 import { 
   Search, 
   Plus, 
-  Calendar, 
-  User, 
-  Phone, 
-  Layers, 
   Clipboard, 
-  Tag, 
   X, 
   Check, 
   AlertCircle,
-  HelpCircle,
-  TrendingUp,
-  DollarSign,
-  Coffee,
-  Bookmark,
+  Trash2,
   RefreshCw,
-  Trash2
+  DollarSign
 } from 'lucide-react';
 
 function Bookings({ user, showNotification }) {
-  const getTierLabel = (tier) => {
-    switch (tier) {
-      case 'DIAMOND': return 'Kim cương';
-      case 'PLATINUM': return 'Bạch kim';
-      case 'GOLD': return 'Vàng';
-      case 'SILVER': return 'Bạc';
-      case 'BRONZE': return 'Đồng';
-      default: return 'Thành viên';
-    }
-  };
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch (e) {
-      return dateString;
-    }
-  };
-
-  // Guard Clause for Access Control
-  if (user.role !== 'OWNER' && user.role !== 'RECEPTIONIST' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <AlertCircle size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang quản lý đặt phòng.
-        </p>
-      </div>
-    );
-  }
+  const isAuthorized = user?.role === 'RECEPTIONIST' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN';
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roomTypes, setRoomTypes] = useState([]);
+
+  // Helper rank for priority sorting (NEW -> CONFIRMED -> CHECKED_IN -> CHECKED_OUT/NO_SHOW/CANCELLED)
+  const getStatusPriorityRank = (status) => {
+    switch (status) {
+      case 'NEW': return 1;          // Yêu cầu mới chờ duyệt (Khẩn cấp nhất)
+      case 'CONFIRMED': return 2;    // Đã gán phòng (Chờ check-in)
+      case 'CHECKED_IN': return 3;   // Đang lưu trú
+      case 'CHECKED_OUT': return 4;  // Đã trả phòng
+      case 'NO_SHOW': return 5;      // Khách không đến
+      case 'CANCELLED': return 6;    // Đã hủy
+      default: return 99;
+    }
+  };
+
+  // Status Filter Tab - Default to ACTIVE (Cần xử lý & Đang ở)
+  const [statusFilterTab, setStatusFilterTab] = useState('ACTIVE');
 
   // Search Fields
   const [searchParams, setSearchParams] = useState({
@@ -121,10 +83,12 @@ function Bookings({ user, showNotification }) {
   const [changeReason, setChangeReason] = useState('');
   const [selectedGuestLoyalty, setSelectedGuestLoyalty] = useState(null); // { tier, points, benefits }
 
-  // Invoice & Surcharge states
+  // Invoice & Surcharge & Payment states
   const [activeInvoice, setActiveInvoice] = useState(null);
   const [servicesCatalog, setServicesCatalog] = useState([]);
   const [surchargeInput, setSurchargeInput] = useState({ surchargeServiceId: '', quantity: 1, note: '' });
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentInput, setPaymentInput] = useState({ amount: '', method: 'CASH' });
 
   // Fetch initial data
   const fetchInitialData = async () => {
@@ -140,7 +104,8 @@ function Bookings({ user, showNotification }) {
         setBookings(sorted);
       }
       if (typesRes.data && typesRes.data.data) {
-        setRoomTypes(typesRes.data.data);
+        // Lọc bỏ danh mục đang bị ẩn ([HIDDEN]) — chỉ hiện loại phòng đang hoạt động
+        setRoomTypes(typesRes.data.data.filter(t => !t.amenities?.includes('[HIDDEN]')));
       }
     } catch (err) {
       showNotification(err.message, 'error');
@@ -151,6 +116,7 @@ function Bookings({ user, showNotification }) {
 
   useEffect(() => {
     fetchInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Search bookings
@@ -222,6 +188,7 @@ function Bookings({ user, showNotification }) {
     } else {
       setAvailableRooms([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newBooking.roomTypeId, newBooking.checkInDate, newBooking.checkOutDate]);
 
   // Quick guest check by phone
@@ -453,6 +420,10 @@ function Bookings({ user, showNotification }) {
 
   const handleAddSurcharge = async (e) => {
     e.preventDefault();
+    if (parseInt(surchargeInput.quantity) > 100) {
+      showNotification('Số lượng dịch vụ không được vượt quá 100', 'error');
+      return;
+    }
     try {
       await api.post(`/bookings/${selectedBooking.id}/service-usages`, {
         surchargeServiceId: parseInt(surchargeInput.surchargeServiceId),
@@ -479,15 +450,55 @@ function Bookings({ user, showNotification }) {
     }
   };
 
-  const getSourceLabel = (src) => {
-    switch (src) {
-      case 'WALK_IN': return 'Trực tiếp (Walk-in)';
-      case 'PHONE': return 'Qua điện thoại';
-      case 'EXTERNAL_CHANNEL': return 'Kênh bên ngoài';
-      case 'BOOKING_PORTAL': return 'Cổng Booking';
-      default: return src;
+  // Payment Management
+  const openPaymentModal = () => {
+    if (!activeInvoice) return;
+    const remaining = activeInvoice.remainingAmount !== undefined
+      ? activeInvoice.remainingAmount
+      : activeInvoice.totalAmount;
+    setPaymentInput({
+      amount: remaining > 0 ? remaining : '',
+      method: 'CASH'
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleAddPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedBooking) return;
+    try {
+      await api.post(`/bookings/${selectedBooking.id}/payments`, {
+        amount: parseFloat(paymentInput.amount),
+        method: paymentInput.method
+      });
+      showNotification('Ghi nhận thanh toán thành công!');
+      setShowPaymentModal(false);
+      openInvoiceModal(selectedBooking);
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản Chủ cơ sở tập trung quản lý thiết lập, giá phòng và báo cáo. Trang quản lý đặt phòng chỉ dành cho Lễ tân và Kế toán.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -575,6 +586,95 @@ function Bookings({ user, showNotification }) {
         </div>
       </form>
 
+      {/* Filter Tabs by Status */}
+      <div style={{
+        display: 'flex',
+        gap: '10px',
+        marginBottom: '20px',
+        overflowX: 'auto',
+        paddingBottom: '4px'
+      }}>
+        {[
+          { 
+            key: 'ACTIVE', 
+            label: '⚡ Cần xử lý & Đang ở', 
+            count: bookings.filter(b => ['NEW', 'CONFIRMED', 'CHECKED_IN'].includes(b.status)).length 
+          },
+          { 
+            key: 'NEW', 
+            label: 'Yêu cầu mới (Chờ duyệt)', 
+            count: bookings.filter(b => b.status === 'NEW').length 
+          },
+          { 
+            key: 'CONFIRMED', 
+            label: 'Đã gán phòng', 
+            count: bookings.filter(b => b.status === 'CONFIRMED').length 
+          },
+          { 
+            key: 'CHECKED_IN', 
+            label: 'Đang ở', 
+            count: bookings.filter(b => b.status === 'CHECKED_IN').length 
+          },
+          { 
+            key: 'FINISHED', 
+            label: 'Đã hoàn tất / Hủy', 
+            count: bookings.filter(b => ['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(b.status)).length 
+          },
+          { 
+            key: 'ALL', 
+            label: 'Tất cả đơn', 
+            count: bookings.length 
+          }
+        ].map(tab => {
+          const isActive = statusFilterTab === tab.key;
+          const isNewPending = tab.key === 'NEW' && tab.count > 0;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatusFilterTab(tab.key)}
+              style={{
+                background: isActive 
+                  ? 'var(--primary)' 
+                  : (isNewPending ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-glass)'),
+                border: isActive 
+                  ? '1px solid var(--primary)' 
+                  : (isNewPending ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)'),
+                color: isActive ? 'white' : (isNewPending ? '#f87171' : 'var(--text-secondary)'),
+                padding: '8px 16px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap',
+                transition: 'var(--transition-fast)'
+              }}
+            >
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span style={{
+                  backgroundColor: isActive 
+                    ? 'rgba(255,255,255,0.25)' 
+                    : (isNewPending ? '#ef4444' : 'var(--border-color)'),
+                  color: (isActive || isNewPending)
+                    ? 'white' 
+                    : 'var(--text-secondary)',
+                  padding: '1px 7px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: '700'
+                }}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Bookings List Table */}
       {loading ? (
         <PageLoader />
@@ -595,13 +695,44 @@ function Bookings({ user, showNotification }) {
               </tr>
             </thead>
             <tbody>
-              {bookings.length > 0 ? (
-                bookings.map(b => (
+              {(() => {
+                const filtered = bookings.filter(b => {
+                  if (statusFilterTab === 'ACTIVE') return ['NEW', 'CONFIRMED', 'CHECKED_IN'].includes(b.status);
+                  if (statusFilterTab === 'NEW') return b.status === 'NEW';
+                  if (statusFilterTab === 'CONFIRMED') return b.status === 'CONFIRMED';
+                  if (statusFilterTab === 'CHECKED_IN') return b.status === 'CHECKED_IN';
+                  if (statusFilterTab === 'FINISHED') return ['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(b.status);
+                  return true;
+                }).sort((a, b) => {
+                  const rankA = getStatusPriorityRank(a.status);
+                  const rankB = getStatusPriorityRank(b.status);
+                  if (rankA !== rankB) return rankA - rankB;
+                  return b.id - a.id;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan="9" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px' }}>
+                          {statusFilterTab === 'ACTIVE'
+                            ? 'Hiện không có đơn đặt phòng nào cần xử lý hoặc đang lưu trú!'
+                            : 'Không tìm thấy đơn đặt phòng nào phù hợp.'}
+                        </div>
+                        <p style={{ fontSize: '13px', margin: 0, color: 'var(--text-muted)' }}>
+                          Bạn có thể chuyển sang tab "Tất cả đơn" hoặc "Đã hoàn tất / Hủy" để xem lịch sử đặt phòng.
+                        </p>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return filtered.map(b => (
                   <tr key={b.id}>
-                    <td><strong>{b.id}</strong></td>
+                    <td><strong>#{b.id}</strong></td>
                     <td>
                       <div><strong>{b.guestName}</strong></div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{b.guestPhone}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>SĐT: {b.guestPhone}</div>
                       {b.guestIdNumber && (
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CCCD: {b.guestIdNumber}</div>
                       )}
@@ -616,7 +747,7 @@ function Bookings({ user, showNotification }) {
                       {b.roomNumber ? (
                         <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: '600' }}>Phòng {b.roomNumber}</div>
                       ) : (
-                        <span className="badge badge-new" style={{ fontSize: '10px', padding: '1px 6px', marginTop: '4px' }}>Chưa gán phòng</span>
+                        <span className="badge badge-new" style={{ fontSize: '10px', padding: '2px 8px', marginTop: '4px', display: 'inline-block' }}>Chưa gán phòng</span>
                       )}
                     </td>
                     <td>
@@ -624,10 +755,10 @@ function Bookings({ user, showNotification }) {
                       <div style={{ fontSize: '13px' }}>{b.checkOutDate}</div>
                     </td>
                     <td>{b.nights}</td>
-                    <td style={{ fontSize: '12px' }}>{getSourceLabel(b.source)}</td>
+                    <td style={{ fontSize: '12px', fontWeight: '500' }}>{getSourceLabel(b.source)}</td>
                     <td>
                       <span className={`badge badge-${b.status.toLowerCase()}`}>
-                        {b.status}
+                        {getBookingStatusLabel(b.status)}
                       </span>
                     </td>
                     <td style={{ fontWeight: '600' }}>
@@ -644,22 +775,12 @@ function Bookings({ user, showNotification }) {
                                 Nhận phòng
                               </button>
                             ) : (
-                              <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" title="Gán phòng">
-                                Gán phòng
+                              <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--primary)', fontWeight: '700' }} title="Duyệt yêu cầu và gán phòng cho khách">
+                                Duyệt & Gán phòng
                               </button>
                             )}
-                            <button 
-                              onClick={() => {
-                                if (window.confirm('Xác nhận khách không đến (No-show)? Đặt phòng này sẽ chuyển thành NO_SHOW và giải phóng phòng.')) {
-                                  handleTransition(b.id, 'no-show');
-                                }
-                              }} 
-                              className="btn btn-secondary btn-sm" 
-                              style={{ color: 'var(--color-maintenance)' }}
-                              title="Khách không đến (No-show)"
-                            >
-                              No-show
-                            </button>
+                            {/* No-show KHÔNG hiển thị ở trạng thái NEW — booking chưa được xác nhận,
+                                lễ tân cần duyệt/gán phòng trước. Chỉ CONFIRMED mới cho phép No-show. */}
                           </>
                         )}
 
@@ -729,11 +850,7 @@ function Bookings({ user, showNotification }) {
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px' }}>Không tìm thấy lịch đặt phòng nào.</td>
-                </tr>
-              )}
+              })()}
             </tbody>
           </table>
         </div>
@@ -908,7 +1025,7 @@ function Bookings({ user, showNotification }) {
                       value={newBooking.source}
                       onChange={(e) => setNewBooking(prev => ({ ...prev, source: e.target.value }))}
                     >
-                      <option value="WALK_IN">Trực tiếp (Walk-in)</option>
+                      <option value="WALK_IN">Trực tiếp tại quầy</option>
                       <option value="PHONE">Qua điện thoại</option>
                       <option value="EXTERNAL_CHANNEL">Kênh bên ngoài</option>
                       <option value="BOOKING_PORTAL">Cổng Booking</option>
@@ -1079,11 +1196,11 @@ function Bookings({ user, showNotification }) {
       {/* BILLING / INVOICE VIEW MODAL */}
       {showInvoiceModal && activeInvoice && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: 'calc(100vh - 110px)' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Clipboard size={18} color="var(--primary)" />
-                Chi tiết Hóa đơn thanh toán
+                Chi tiết Hóa đơn thanh toán (#{activeInvoice.id || selectedBooking?.id})
               </h2>
               <button onClick={() => setShowInvoiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
@@ -1091,13 +1208,13 @@ function Bookings({ user, showNotification }) {
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
                 <div>
-                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking.guestName}</p>
-                  <p><strong>Số điện thoại:</strong> {selectedBooking.guestPhone || 'Không có'}</p>
-                  <p><strong>CCCD / ID:</strong> {selectedBooking.guestIdNumber || 'Không có'}</p>
-                  <p><strong>Phòng đặt:</strong> {selectedBooking.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking.roomTypeName})</p>
+                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking?.guestName}</p>
+                  <p><strong>Số điện thoại:</strong> {selectedBooking?.guestPhone || 'Không có'}</p>
+                  <p><strong>CCCD / ID:</strong> {selectedBooking?.guestIdNumber || 'Không có'}</p>
+                  <p><strong>Phòng đặt:</strong> {selectedBooking?.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking?.roomTypeName})</p>
                 </div>
                 <div>
-                  <p><strong>Số đêm:</strong> {activeInvoice.nights} đêm</p>
+                  <p><strong>Số đêm:</strong> {activeInvoice.nights || selectedBooking?.nights || 1} đêm</p>
                   <p><strong>Trạng thái hóa đơn:</strong> <span className={`badge badge-${activeInvoice.status?.toLowerCase() || 'pending'}`}>{activeInvoice.status || 'PENDING'}</span></p>
                 </div>
               </div>
@@ -1165,8 +1282,8 @@ function Bookings({ user, showNotification }) {
                 </table>
               </div>
 
-              {/* Invoice breakdown */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              {/* Invoice breakdown & Payment status */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span>Tiền thuê phòng:</span>
                   <span>{activeInvoice.roomCharge?.toLocaleString('vi-VN')} VND</span>
@@ -1180,23 +1297,86 @@ function Bookings({ user, showNotification }) {
                   <span>- {activeInvoice.discount?.toLocaleString('vi-VN') || 0} VND</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '4px', color: 'var(--primary)' }}>
-                  <span>Tổng tiền thanh toán:</span>
+                  <span>Tổng tiền hóa đơn:</span>
                   <span>{activeInvoice.totalAmount?.toLocaleString('vi-VN')} VND</span>
                 </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#10b981', fontWeight: '600' }}>
+                  <span>Đã thanh toán:</span>
+                  <span>{(activeInvoice.totalPaid || (activeInvoice.status === 'PAID' ? activeInvoice.totalAmount : 0))?.toLocaleString('vi-VN')} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: activeInvoice.remainingAmount > 0 ? '#ef4444' : '#10b981', fontWeight: '600' }}>
+                  <span>Còn lại:</span>
+                  <span>{(activeInvoice.remainingAmount !== undefined ? activeInvoice.remainingAmount : (activeInvoice.status === 'PAID' ? 0 : activeInvoice.totalAmount))?.toLocaleString('vi-VN')} VND</span>
+                </div>
+              </div>
+
+              {/* Payment history list */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Lịch sử thanh toán</h3>
+                  {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (activeInvoice.remainingAmount === undefined || activeInvoice.remainingAmount > 0) && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN') && (
+                    <button
+                      onClick={openPaymentModal}
+                      className="btn btn-primary btn-sm"
+                      style={{ padding: '4px 12px', fontSize: '12px' }}
+                    >
+                      <DollarSign size={12} /> Ghi nhận thanh toán
+                    </button>
+                  )}
+                </div>
+                {activeInvoice.payments && activeInvoice.payments.length > 0 ? (
+                  <div className="table-container">
+                    <table style={{ fontSize: '12px' }}>
+                      <thead>
+                        <tr>
+                          <th>Thời gian</th>
+                          <th>Phương thức</th>
+                          <th>Người thu</th>
+                          <th style={{ textAlign: 'right' }}>Số tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeInvoice.payments.map(p => (
+                          <tr key={p.id}>
+                            <td>{formatDateTime(p.paidAt)}</td>
+                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? '💵 Tiền mặt' : '💳 Chuyển khoản'}</span></td>
+                            <td>{p.receivedByName || 'Nhân viên'}</td>
+                            <td style={{ textAlign: 'right', fontWeight: '600', color: '#10b981' }}>{p.amount?.toLocaleString('vi-VN')} VND</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '8px 0' }}>Chưa có lần thanh toán nào.</div>
+                )}
               </div>
 
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && selectedBooking.status === 'CHECKED_IN' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT') && (
+              
+              {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN') && (
+                <button
+                  onClick={openPaymentModal}
+                  className="btn btn-secondary btn-sm"
+                  style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                >
+                  <DollarSign size={14} /> Ghi nhận thanh toán
+                </button>
+              )}
+
+              {selectedBooking.status === 'CHECKED_IN' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
                 <button 
                   onClick={() => { 
                     handleTransition(selectedBooking.id, 'check-out');
                     setShowInvoiceModal(false);
                   }} 
                   className="btn btn-primary btn-sm"
+                  disabled={activeInvoice.status !== 'PAID'}
+                  title={activeInvoice.status !== 'PAID' ? 'Cần thanh toán đủ trước khi trả phòng' : 'Trả phòng'}
                 >
-                  <Check size={14} /> Xác nhận thanh toán & Trả phòng (Check-out)
+                  <Check size={14} /> Trả phòng (Check-out)
                 </button>
               )}
             </div>
@@ -1206,8 +1386,8 @@ function Bookings({ user, showNotification }) {
 
       {/* SURCHARGE ADD MODAL */}
       {showServiceModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
+          <div className="modal-content" style={{ maxWidth: '580px', width: '90%' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0 }}>Ghi nhận dịch vụ phát sinh</h2>
               <button onClick={() => setShowServiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
@@ -1215,40 +1395,160 @@ function Bookings({ user, showNotification }) {
             <form onSubmit={handleAddSurcharge}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label>Chọn dịch vụ</label>
-                  <select 
-                    value={surchargeInput.surchargeServiceId} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: e.target.value }))}
-                    required
-                  >
-                    {servicesCatalog.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.unitPrice.toLocaleString('vi-VN')} đ/{s.description || 'lượt'})</option>
-                    ))}
-                  </select>
+                  <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>Chọn dịch vụ phát sinh *</label>
+                  <div style={{
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    {servicesCatalog.map(s => {
+                      const isSelected = String(s.id) === String(surchargeInput.surchargeServiceId);
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: s.id }))}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'var(--primary-glow)' : 'var(--bg-card)',
+                            border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                            {/* Nút tích chọn / Radio Check Button */}
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border-color)',
+                              backgroundColor: isSelected ? 'var(--primary)' : 'transparent',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease'
+                            }}>
+                              {isSelected && <Check size={12} strokeWidth={3} />}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                              <span style={{ fontWeight: isSelected ? '700' : '600', fontSize: '13.5px', color: isSelected ? 'var(--primary)' : 'var(--text-primary)' }}>
+                                {s.name}
+                              </span>
+                              {s.description && (
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                  {s.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span style={{ fontWeight: '700', fontSize: '13px', color: isSelected ? 'var(--primary)' : 'var(--text-secondary)', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                            {s.unitPrice.toLocaleString('vi-VN')} VNĐ
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label>Số lượng</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    value={surchargeInput.quantity} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
-                    required 
-                  />
-                </div>
-                <div>
-                  <label>Ghi chú</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ghi chú chi tiết dịch vụ..." 
-                    value={surchargeInput.note} 
-                    onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
-                  />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '16px' }}>
+                  <div>
+                    <label>Số lượng *</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="100"
+                      value={surchargeInput.quantity} 
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (val !== '' && parseInt(val) > 100) {
+                          showNotification('Số lượng dịch vụ không được vượt quá 100', 'warning');
+                        }
+                        setSurchargeInput(prev => ({ ...prev, quantity: val }));
+                      }}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Ghi chú phát sinh</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ghi chú chi tiết dịch vụ..." 
+                      value={surchargeInput.note} 
+                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" onClick={() => setShowServiceModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
                 <button type="submit" className="btn btn-primary btn-sm">Ghi nhận</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT RECORD MODAL */}
+      {showPaymentModal && (
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <DollarSign size={18} color="var(--primary)" />
+                Ghi nhận thanh toán
+              </h2>
+              <button onClick={() => setShowPaymentModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleAddPaymentSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <div><strong>Khách hàng:</strong> {selectedBooking?.guestName}</div>
+                  <div><strong>Còn lại cần thu:</strong> <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{(activeInvoice?.remainingAmount !== undefined ? activeInvoice.remainingAmount : activeInvoice?.totalAmount)?.toLocaleString('vi-VN')} VND</span></div>
+                </div>
+
+                <div>
+                  <label>Số tiền thu (VND) *</label>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="1000"
+                    placeholder="Nhập số tiền..."
+                    value={paymentInput.amount}
+                    onChange={(e) => setPaymentInput(prev => ({ ...prev, amount: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label>Phương thức thanh toán *</label>
+                  <select
+                    value={paymentInput.method}
+                    onChange={(e) => setPaymentInput(prev => ({ ...prev, method: e.target.value }))}
+                    required
+                  >
+                    <option value="CASH">💵 Tiền mặt (Cash)</option>
+                    <option value="BANK_TRANSFER">💳 Chuyển khoản (Bank Transfer)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="submit" className="btn btn-primary btn-sm">Xác nhận thu tiền</button>
               </div>
             </form>
           </div>

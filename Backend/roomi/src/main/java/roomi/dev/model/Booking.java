@@ -25,6 +25,18 @@ public class Booking {
     @JoinColumn(name = "guest_id", nullable = false)
     private Guest guest;
     
+    @Column(name = "guest_name", length = 150)
+    private String guestName;
+    
+    @Column(name = "guest_phone", length = 20)
+    private String guestPhone;
+    
+    @Column(name = "guest_id_number", length = 30)
+    private String guestIdNumber;
+    
+    @Column(name = "guest_email", length = 150)
+    private String guestEmail;
+    
     @ManyToOne
     @JoinColumn(name = "room_type_id", nullable = false)
     private RoomType roomType;
@@ -61,7 +73,7 @@ public class Booking {
     private LocalDateTime createdAt = LocalDateTime.now();
     
     public enum Status {
-        NEW, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW, OCCUPIED
+        NEW, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW
     }
     
     public enum Source {

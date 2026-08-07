@@ -166,6 +166,7 @@ public class CalendarServiceImpl implements CalendarService {
                 .floor(room.getFloor())
                 .roomTypeId(roomType.getId())
                 .roomTypeName(roomType.getName())
+                .roomTypeImg(roomType.getRoomTypeImg())
                 .capacity(roomType.getCapacity())
                 .amenities(roomType.getAmenities())
                 .expectedPrice(price)

@@ -28,20 +28,31 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public RegisterResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessException("Username đã tồn tại", ErrorCode.USERNAME_ALREADY_EXISTS);
+        String username = request.getUsername().trim();
+        if (userRepository.existsByUsername(username)) {
+            throw new BusinessException("Tên đăng nhập đã tồn tại trên hệ thống", ErrorCode.USERNAME_ALREADY_EXISTS);
         }
         
-        if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
-            throw new BusinessException("Số điện thoại đã tồn tại", ErrorCode.PHONE_ALREADY_EXISTS);
+        String phone = (request.getPhone() != null && !request.getPhone().isBlank()) ? request.getPhone().trim() : null;
+        if (phone != null && userRepository.existsByPhone(phone)) {
+            throw new BusinessException("Số điện thoại đã được đăng ký bởi tài khoản khác", ErrorCode.PHONE_ALREADY_EXISTS);
+        }
+
+        User.Role targetRole = User.Role.RECEPTIONIST;
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            try {
+                targetRole = User.Role.valueOf(request.getRole().trim().toUpperCase());
+            } catch (Exception ignored) {}
         }
 
         User user = User.builder()
-                .fullName(request.getFullName())
-                .username(request.getUsername())
+                .fullName(request.getFullName().trim())
+                .username(username)
                 .passwordHash(PasswordHelper.encode(request.getPassword()))
-                .role(User.Role.RECEPTIONIST) // Default role
-                .phone(request.getPhone())
+                .role(targetRole)
+                .phone(phone)
+                .active(true)
+                .createdAt(LocalDateTime.now())
                 .build();
 
         user = userRepository.save(user);
