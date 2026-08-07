@@ -2,10 +2,12 @@ package roomi.dev.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -35,4 +37,7 @@ public class BookingRequest {
 
     private String source; // WALK_IN | PHONE | EXTERNAL_CHANNEL | BOOKING_PORTAL
     private String note;
+
+    @Valid
+    private List<BookingSurchargeUsageRequest> initialServiceUsages;
 }

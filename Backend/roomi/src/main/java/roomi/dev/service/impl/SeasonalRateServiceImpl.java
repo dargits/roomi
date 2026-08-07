@@ -11,6 +11,8 @@ import roomi.dev.repository.RoomTypeRepository;
 import roomi.dev.repository.SeasonalRateRepository;
 import roomi.dev.service.SeasonalRateService;
 
+import roomi.dev.dto.response.PriceLookupResponse;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -92,6 +94,41 @@ public class SeasonalRateServiceImpl implements SeasonalRateService {
     public SeasonalRate getSeasonalRateById(Long id) {
         return seasonalRateRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy cấu hình giá theo mùa", ErrorCode.INVALID_INPUT));
+    }
+
+    @Override
+    public PriceLookupResponse getPriceLookup(Long roomTypeId, LocalDate date) {
+        RoomType roomType = roomTypeRepository.findById(roomTypeId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy loại phòng", ErrorCode.INVALID_INPUT));
+
+        List<SeasonalRate> rates = seasonalRateRepository.findByRoomTypeId(roomTypeId);
+
+        SeasonalRate activeRate = rates.stream()
+                .filter(r -> !date.isBefore(r.getStartDate()) && !date.isAfter(r.getEndDate()))
+                .findFirst()
+                .orElse(null);
+
+        if (activeRate != null) {
+            return PriceLookupResponse.builder()
+                    .roomTypeId(roomTypeId)
+                    .roomTypeName(roomType.getName())
+                    .date(date)
+                    .price(activeRate.getPrice())
+                    .basePrice(roomType.getBasePrice())
+                    .isSeasonalRate(true)
+                    .priceSource("SEASONAL_RATE")
+                    .build();
+        } else {
+            return PriceLookupResponse.builder()
+                    .roomTypeId(roomTypeId)
+                    .roomTypeName(roomType.getName())
+                    .date(date)
+                    .price(roomType.getBasePrice())
+                    .basePrice(roomType.getBasePrice())
+                    .isSeasonalRate(false)
+                    .priceSource("BASE_PRICE")
+                    .build();
+        }
     }
 
     // ------------------------------------------------------------------ helpers

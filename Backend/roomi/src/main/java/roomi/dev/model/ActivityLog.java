@@ -28,7 +28,7 @@ public class ActivityLog {
     @Column(name = "entity_name", nullable = false, length = 50)
     private String entityName;
     
-    @Column(name = "entity_id", nullable = false)
+    @Column(name = "entity_id")
     private Long entityId;
     
     @Column(columnDefinition = "TEXT")

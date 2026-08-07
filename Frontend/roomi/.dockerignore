@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.git/
+.gitignore
+.idea/
+.vscode/
+*.log
+*.tmp
+npm-debug.log*
+
+# Exclude all .env files — API URL is injected via Docker ARG at build time
+.env
+.env.*

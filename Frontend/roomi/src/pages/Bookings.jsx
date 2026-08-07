@@ -1,0 +1,1604 @@
+import React, { useState, useEffect } from 'react';
+import api from '../utils/api';
+import PageLoader from '../components/PageLoader';
+import { getTierLabel, getSourceLabel, getBookingStatusLabel, formatDateTime } from '../utils/formatters';
+import { 
+  Search, 
+  Plus, 
+  Clipboard, 
+  X, 
+  Check, 
+  AlertCircle,
+  Trash2,
+  RefreshCw,
+  DollarSign
+} from 'lucide-react';
+
+function Bookings({ user, showNotification }) {
+  const isAuthorized = user?.role === 'RECEPTIONIST' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN';
+
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [roomTypes, setRoomTypes] = useState([]);
+
+  // Helper rank for priority sorting (NEW -> CONFIRMED -> CHECKED_IN -> CHECKED_OUT/NO_SHOW/CANCELLED)
+  const getStatusPriorityRank = (status) => {
+    switch (status) {
+      case 'NEW': return 1;          // Yêu cầu mới chờ duyệt (Khẩn cấp nhất)
+      case 'CONFIRMED': return 2;    // Đã gán phòng (Chờ check-in)
+      case 'CHECKED_IN': return 3;   // Đang lưu trú
+      case 'CHECKED_OUT': return 4;  // Đã trả phòng
+      case 'NO_SHOW': return 5;      // Khách không đến
+      case 'CANCELLED': return 6;    // Đã hủy
+      default: return 99;
+    }
+  };
+
+  // Status Filter Tab - Default to ACTIVE (Cần xử lý & Đang ở)
+  const [statusFilterTab, setStatusFilterTab] = useState('ACTIVE');
+
+  // Search Fields
+  const [searchParams, setSearchParams] = useState({
+    guestName: '',
+    phone: '',
+    idNumber: '',
+    roomTypeId: '',
+    fromDate: '',
+    toDate: ''
+  });
+
+  // Modal / Drawer States
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showChangeRoomModal, setShowChangeRoomModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    show: false,
+    bookingId: null,
+    guestName: ''
+  });
+
+  // Create Booking Form State
+  const [newBooking, setNewBooking] = useState({
+    fullName: '',
+    phone: '',
+    idNumber: '',
+    email: '',
+    roomTypeId: '',
+    roomId: '',
+    checkInDate: '',
+    checkOutDate: '',
+    source: 'WALK_IN',
+    note: ''
+  });
+
+  // Assign & Change Room States
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState('');
+  const [filterRoomTypeId, setFilterRoomTypeId] = useState('');
+  const [changeReason, setChangeReason] = useState('');
+  const [selectedGuestLoyalty, setSelectedGuestLoyalty] = useState(null); // { tier, points, benefits }
+
+  // Invoice & Surcharge & Payment states
+  const [activeInvoice, setActiveInvoice] = useState(null);
+  const [servicesCatalog, setServicesCatalog] = useState([]);
+  const [surchargeInput, setSurchargeInput] = useState({ surchargeServiceId: '', quantity: 1, note: '' });
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentInput, setPaymentInput] = useState({ amount: '', method: 'CASH' });
+
+  // Fetch initial data
+  const fetchInitialData = async () => {
+    try {
+      setLoading(true);
+      const [bookingsRes, typesRes] = await Promise.all([
+        api.get('/bookings'),
+        api.get('/room-types')
+      ]);
+
+      if (bookingsRes.data && bookingsRes.data.data) {
+        const sorted = bookingsRes.data.data.sort((a, b) => b.id - a.id);
+        setBookings(sorted);
+      }
+      if (typesRes.data && typesRes.data.data) {
+        // Lọc bỏ danh mục đang bị ẩn ([HIDDEN]) — chỉ hiện loại phòng đang hoạt động
+        setRoomTypes(typesRes.data.data.filter(t => !t.amenities?.includes('[HIDDEN]')));
+      }
+    } catch (err) {
+      showNotification(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Search bookings
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const params = {};
+      Object.keys(searchParams).forEach(key => {
+        if (searchParams[key]) {
+          params[key] = searchParams[key];
+        }
+      });
+
+      const res = await api.get('/bookings/search', { params });
+      if (res.data && res.data.data) {
+        const sorted = res.data.data.sort((a, b) => b.id - a.id);
+        setBookings(sorted);
+        showNotification('Tìm kiếm hoàn tất!');
+      }
+    } catch (err) {
+      showNotification(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetSearch = () => {
+    setSearchParams({
+      guestName: '',
+      phone: '',
+      idNumber: '',
+      roomTypeId: '',
+      fromDate: '',
+      toDate: ''
+    });
+    fetchInitialData();
+  };
+  // Fetch available rooms for checkin-checkout dates and type
+  const fetchAvailableRooms = async (typeId, checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return;
+    try {
+      setLoadingRooms(true);
+      const params = { checkIn, checkOut };
+      if (typeId) {
+        params.roomTypeId = typeId;
+      }
+      const [res, roomsRes] = await Promise.all([
+        api.get('/calendar/available-rooms', { params }),
+        api.get('/rooms')
+      ]);
+      if (res.data && res.data.data && roomsRes.data && roomsRes.data.data) {
+        const inactiveIds = roomsRes.data.data
+          .filter(r => r.note && r.note.includes('[INACTIVE]'))
+          .map(r => Number(r.id));
+        const activeRooms = res.data.data.filter(r => !inactiveIds.includes(Number(r.roomId)));
+        setAvailableRooms(activeRooms);
+      }
+    } catch (err) {
+      showNotification(err.message, 'error');
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+  // Trigger loading available rooms when creating booking
+  useEffect(() => {
+    if (newBooking.roomTypeId && newBooking.checkInDate && newBooking.checkOutDate) {
+      fetchAvailableRooms(newBooking.roomTypeId, newBooking.checkInDate, newBooking.checkOutDate);
+    } else {
+      setAvailableRooms([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newBooking.roomTypeId, newBooking.checkInDate, newBooking.checkOutDate]);
+
+  // Quick guest check by phone
+  const handleQuickGuestLookup = async () => {
+    const phone = newBooking.phone?.trim();
+    if (!phone) {
+      showNotification('Vui lòng nhập số điện thoại trước!', 'error');
+      return;
+    }
+    try {
+      showNotification('Đang tìm kiếm thông tin khách hàng...', 'info');
+      const res = await api.get(`/guests/phone/${phone}`);
+      if (res.data && res.data.data) {
+        const guest = res.data.data;
+        setNewBooking(prev => ({
+          ...prev,
+          fullName: guest.fullName || prev.fullName,
+          idNumber: guest.idNumber || prev.idNumber,
+          email: guest.email || prev.email
+        }));
+        setSelectedGuestLoyalty({
+          tier: guest.loyaltyTier || 'MEMBER',
+          points: guest.loyaltyPoints || 0,
+          benefits: guest.loyaltyBenefits || []
+        });
+        showNotification(`Tìm thấy khách hàng hạng ${getTierLabel(guest.loyaltyTier || 'MEMBER')}!`, 'success');
+      }
+    } catch (err) {
+      if (err.message?.includes('404')) {
+        showNotification('Không tìm thấy thông tin khách hàng với số điện thoại này. Vui lòng nhập mới.', 'info');
+      } else {
+        showNotification(err.message || 'Lỗi kiểm tra số điện thoại', 'error');
+      }
+    }
+  };
+
+  // Create booking submit
+  const handleCreateBooking = async (e) => {
+    e.preventDefault();
+    if (newBooking.checkOutDate <= newBooking.checkInDate) {
+      showNotification('Ngày trả phòng phải sau ngày nhận phòng', 'error');
+      return;
+    }
+
+    try {
+      const payload = { ...newBooking };
+      if (!payload.roomId) {
+        delete payload.roomId; // clean field if empty
+      } else {
+        payload.roomId = parseInt(payload.roomId);
+      }
+      payload.roomTypeId = parseInt(payload.roomTypeId);
+
+      await api.post('/bookings', payload);
+      showNotification('Đặt phòng thành công!');
+      setShowCreateModal(false);
+      setSelectedGuestLoyalty(null);
+      // Reset form
+      setNewBooking({
+        fullName: '',
+        phone: '',
+        idNumber: '',
+        email: '',
+        roomTypeId: '',
+        roomId: '',
+        checkInDate: '',
+        checkOutDate: '',
+        source: 'WALK_IN',
+        note: ''
+      });
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  // Assign room dialog trigger
+  const openAssignModal = (booking) => {
+    setSelectedBooking(booking);
+    setSelectedRoomId('');
+    setFilterRoomTypeId(booking.roomTypeId || '');
+    setShowAssignModal(true);
+    fetchAvailableRooms(booking.roomTypeId, booking.checkInDate, booking.checkOutDate);
+  };
+
+  const handleAssignRoom = async (e) => {
+    e.preventDefault();
+    if (!selectedRoomId) return;
+    try {
+      const selectedRoom = availableRooms.find(r => r.roomId === parseInt(selectedRoomId));
+      if (selectedRoom && selectedRoom.roomTypeId !== selectedBooking.roomTypeId) {
+        // Cập nhật loại phòng trước khi gán
+        const updatePayload = {
+          fullName: selectedBooking.guestFullName || selectedBooking.guestName,
+          phone: selectedBooking.guestPhone,
+          idNumber: selectedBooking.guestIdNumber,
+          email: selectedBooking.guestEmail,
+          roomTypeId: selectedRoom.roomTypeId,
+          roomId: null,
+          checkInDate: selectedBooking.checkInDate,
+          checkOutDate: selectedBooking.checkOutDate,
+          source: selectedBooking.source,
+          note: selectedBooking.note
+        };
+        await api.put(`/bookings/${selectedBooking.id}`, updatePayload);
+      }
+
+      await api.patch(`/bookings/${selectedBooking.id}/assign-room`, null, {
+        params: { roomId: parseInt(selectedRoomId) }
+      });
+      showNotification('Gán phòng thành công');
+      setShowAssignModal(false);
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  // Change room trigger
+  const openChangeRoomModal = (booking) => {
+    setSelectedBooking(booking);
+    setSelectedRoomId('');
+    setChangeReason('');
+    setShowChangeRoomModal(true);
+    fetchAvailableRooms(booking.roomTypeId, booking.checkInDate, booking.checkOutDate);
+  };
+
+  const handleChangeRoomSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedRoomId) return;
+    try {
+      const selectedRoom = availableRooms.find(r => r.roomId === parseInt(selectedRoomId));
+      
+      if (selectedRoom && selectedRoom.roomTypeId !== selectedBooking.roomTypeId) {
+        // Cập nhật loại phòng trước. Khi đổi loại phòng ở Backend, phòng cũ sẽ được set = null.
+        const updatePayload = {
+          fullName: selectedBooking.guestFullName || selectedBooking.guestName,
+          phone: selectedBooking.guestPhone,
+          idNumber: selectedBooking.guestIdNumber,
+          email: selectedBooking.guestEmail,
+          roomTypeId: selectedRoom.roomTypeId,
+          roomId: selectedBooking.roomId,
+          checkInDate: selectedBooking.checkInDate,
+          checkOutDate: selectedBooking.checkOutDate,
+          source: selectedBooking.source,
+          note: selectedBooking.note
+        };
+        await api.put(`/bookings/${selectedBooking.id}`, updatePayload);
+        
+        // Vì phòng cũ bị chuyển về null, ta gọi assign-room thay vì change-room
+        await api.patch(`/bookings/${selectedBooking.id}/assign-room`, null, {
+          params: { roomId: parseInt(selectedRoomId) }
+        });
+      } else {
+        await api.patch(`/bookings/${selectedBooking.id}/change-room`, {
+          roomId: parseInt(selectedRoomId),
+          reason: changeReason
+        });
+      }
+
+      showNotification('Đổi phòng thành công');
+      setShowChangeRoomModal(false);
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  // Booking action workflow transitions
+  const handleTransition = async (bookingId, transition) => {
+    try {
+      await api.patch(`/bookings/${bookingId}/${transition}`);
+      showNotification('Cập nhật trạng thái thành công');
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  const openDeleteConfirm = (booking) => {
+    setDeleteConfirm({
+      show: true,
+      bookingId: booking.id,
+      guestName: booking.guestName
+    });
+  };
+
+  const handleDeleteConfirmSubmit = async () => {
+    const { bookingId } = deleteConfirm;
+    if (!bookingId) return;
+    try {
+      await api.delete(`/bookings/${bookingId}`);
+      showNotification('Đã xóa đặt phòng thành công');
+      setDeleteConfirm({ show: false, bookingId: null, guestName: '' });
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  // Fetch surcharge catalog
+  const fetchServices = async () => {
+    try {
+      const res = await api.get('/surcharge-services?activeOnly=true');
+      if (res.data && res.data.data) {
+        setServicesCatalog(res.data.data);
+        if (res.data.data.length > 0) {
+          setSurchargeInput(prev => ({ ...prev, surchargeServiceId: res.data.data[0].id }));
+        }
+      }
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  // Invoice management
+  const openInvoiceModal = async (booking) => {
+    setSelectedBooking(booking);
+    try {
+      const res = await api.get(`/bookings/${booking.id}/invoice`);
+      if (res.data && res.data.data) {
+        setActiveInvoice(res.data.data);
+        setShowInvoiceModal(true);
+      }
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  const handleAddSurcharge = async (e) => {
+    e.preventDefault();
+    if (parseInt(surchargeInput.quantity) > 100) {
+      showNotification('Số lượng dịch vụ không được vượt quá 100', 'error');
+      return;
+    }
+    try {
+      await api.post(`/bookings/${selectedBooking.id}/service-usages`, {
+        surchargeServiceId: parseInt(surchargeInput.surchargeServiceId),
+        quantity: parseInt(surchargeInput.quantity),
+        note: surchargeInput.note
+      });
+      showNotification('Đã thêm dịch vụ phát sinh');
+      setSurchargeInput(prev => ({ ...prev, quantity: 1, note: '' }));
+      setShowServiceModal(false);
+      // reload invoice
+      openInvoiceModal(selectedBooking);
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  const handleDeleteSurchargeUsage = async (usageId) => {
+    try {
+      await api.delete(`/bookings/${selectedBooking.id}/service-usages/${usageId}`);
+      showNotification('Đã xóa dịch vụ');
+      openInvoiceModal(selectedBooking);
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  // Payment Management
+  const openPaymentModal = () => {
+    if (!activeInvoice) return;
+    const remaining = activeInvoice.remainingAmount !== undefined
+      ? activeInvoice.remainingAmount
+      : activeInvoice.totalAmount;
+    setPaymentInput({
+      amount: remaining > 0 ? remaining : '',
+      method: 'CASH'
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleAddPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedBooking) return;
+    try {
+      await api.post(`/bookings/${selectedBooking.id}/payments`, {
+        amount: parseFloat(paymentInput.amount),
+        method: paymentInput.method
+      });
+      showNotification('Ghi nhận thanh toán thành công!');
+      setShowPaymentModal(false);
+      openInvoiceModal(selectedBooking);
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  if (!isAuthorized) {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản Chủ cơ sở tập trung quản lý thiết lập, giá phòng và báo cáo. Trang quản lý đặt phòng chỉ dành cho Lễ tân và Kế toán.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Page Header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Quản lý đặt phòng</h1>
+          <p className="page-subtitle">Quản lý đặt chỗ, gán phòng, nhận phòng và thanh toán hóa đơn</p>
+        </div>
+        {user.role !== 'ACCOUNTANT' && (
+          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
+            <Plus size={18} />
+            Đặt phòng mới
+          </button>
+        )}
+      </div>
+
+      {/* Search Panel */}
+      <form onSubmit={handleSearch} className="card" style={{ marginBottom: '24px', padding: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px' }}>
+          <div>
+            <label>Tên khách hàng</label>
+            <input 
+              type="text" 
+              placeholder="VD: Nguyễn Văn A"
+              value={searchParams.guestName}
+              onChange={(e) => setSearchParams(prev => ({ ...prev, guestName: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label>Số điện thoại</label>
+            <input 
+              type="text" 
+              placeholder="VD: 0901234567"
+              value={searchParams.phone}
+              onChange={(e) => setSearchParams(prev => ({ ...prev, phone: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label>CCCD / Identity</label>
+            <input 
+              type="text" 
+              placeholder="VD: 0012003..."
+              value={searchParams.idNumber}
+              onChange={(e) => setSearchParams(prev => ({ ...prev, idNumber: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label>Loại phòng</label>
+            <select
+              value={searchParams.roomTypeId}
+              onChange={(e) => setSearchParams(prev => ({ ...prev, roomTypeId: e.target.value }))}
+            >
+              <option value="">Tất cả loại phòng</option>
+              {roomTypes.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Từ ngày</label>
+            <input 
+              type="date"
+              value={searchParams.fromDate}
+              onChange={(e) => setSearchParams(prev => ({ ...prev, fromDate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label>Đến ngày</label>
+            <input 
+              type="date"
+              value={searchParams.toDate}
+              onChange={(e) => setSearchParams(prev => ({ ...prev, toDate: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
+          <button type="button" onClick={handleResetSearch} className="btn btn-secondary btn-sm">
+            <RefreshCw size={14} /> Reset
+          </button>
+          <button type="submit" className="btn btn-primary btn-sm">
+            <Search size={14} /> Tìm kiếm
+          </button>
+        </div>
+      </form>
+
+      {/* Filter Tabs by Status */}
+      <div style={{
+        display: 'flex',
+        gap: '10px',
+        marginBottom: '20px',
+        overflowX: 'auto',
+        paddingBottom: '4px'
+      }}>
+        {[
+          { 
+            key: 'ACTIVE', 
+            label: '⚡ Cần xử lý & Đang ở', 
+            count: bookings.filter(b => ['NEW', 'CONFIRMED', 'CHECKED_IN'].includes(b.status)).length 
+          },
+          { 
+            key: 'NEW', 
+            label: 'Yêu cầu mới (Chờ duyệt)', 
+            count: bookings.filter(b => b.status === 'NEW').length 
+          },
+          { 
+            key: 'CONFIRMED', 
+            label: 'Đã gán phòng', 
+            count: bookings.filter(b => b.status === 'CONFIRMED').length 
+          },
+          { 
+            key: 'CHECKED_IN', 
+            label: 'Đang ở', 
+            count: bookings.filter(b => b.status === 'CHECKED_IN').length 
+          },
+          { 
+            key: 'FINISHED', 
+            label: 'Đã hoàn tất / Hủy', 
+            count: bookings.filter(b => ['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(b.status)).length 
+          },
+          { 
+            key: 'ALL', 
+            label: 'Tất cả đơn', 
+            count: bookings.length 
+          }
+        ].map(tab => {
+          const isActive = statusFilterTab === tab.key;
+          const isNewPending = tab.key === 'NEW' && tab.count > 0;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatusFilterTab(tab.key)}
+              style={{
+                background: isActive 
+                  ? 'var(--primary)' 
+                  : (isNewPending ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-glass)'),
+                border: isActive 
+                  ? '1px solid var(--primary)' 
+                  : (isNewPending ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)'),
+                color: isActive ? 'white' : (isNewPending ? '#f87171' : 'var(--text-secondary)'),
+                padding: '8px 16px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap',
+                transition: 'var(--transition-fast)'
+              }}
+            >
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span style={{
+                  backgroundColor: isActive 
+                    ? 'rgba(255,255,255,0.25)' 
+                    : (isNewPending ? '#ef4444' : 'var(--border-color)'),
+                  color: (isActive || isNewPending)
+                    ? 'white' 
+                    : 'var(--text-secondary)',
+                  padding: '1px 7px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: '700'
+                }}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bookings List Table */}
+      {loading ? (
+        <PageLoader />
+      ) : (
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Mã đặt</th>
+                <th>Khách hàng</th>
+                <th>Thông tin phòng</th>
+                <th>Ngày ở</th>
+                <th>Đêm</th>
+                <th>Nguồn đặt</th>
+                <th>Trạng thái</th>
+                <th>Tổng thanh toán</th>
+                <th style={{ textAlign: 'right' }}>Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const filtered = bookings.filter(b => {
+                  if (statusFilterTab === 'ACTIVE') return ['NEW', 'CONFIRMED', 'CHECKED_IN'].includes(b.status);
+                  if (statusFilterTab === 'NEW') return b.status === 'NEW';
+                  if (statusFilterTab === 'CONFIRMED') return b.status === 'CONFIRMED';
+                  if (statusFilterTab === 'CHECKED_IN') return b.status === 'CHECKED_IN';
+                  if (statusFilterTab === 'FINISHED') return ['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(b.status);
+                  return true;
+                }).sort((a, b) => {
+                  const rankA = getStatusPriorityRank(a.status);
+                  const rankB = getStatusPriorityRank(b.status);
+                  if (rankA !== rankB) return rankA - rankB;
+                  return b.id - a.id;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan="9" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px' }}>
+                          {statusFilterTab === 'ACTIVE'
+                            ? 'Hiện không có đơn đặt phòng nào cần xử lý hoặc đang lưu trú!'
+                            : 'Không tìm thấy đơn đặt phòng nào phù hợp.'}
+                        </div>
+                        <p style={{ fontSize: '13px', margin: 0, color: 'var(--text-muted)' }}>
+                          Bạn có thể chuyển sang tab "Tất cả đơn" hoặc "Đã hoàn tất / Hủy" để xem lịch sử đặt phòng.
+                        </p>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return filtered.map(b => (
+                  <tr key={b.id}>
+                    <td><strong>#{b.id}</strong></td>
+                    <td>
+                      <div><strong>{b.guestName}</strong></div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>SĐT: {b.guestPhone}</div>
+                      {b.guestIdNumber && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CCCD: {b.guestIdNumber}</div>
+                      )}
+                      {b.createdAt && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          Thời gian đặt: {formatDateTime(b.createdAt)}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <div><strong>{b.roomTypeName}</strong></div>
+                      {b.roomNumber ? (
+                        <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: '600' }}>Phòng {b.roomNumber}</div>
+                      ) : (
+                        <span className="badge badge-new" style={{ fontSize: '10px', padding: '2px 8px', marginTop: '4px', display: 'inline-block' }}>Chưa gán phòng</span>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ fontSize: '13px' }}>{b.checkInDate} <span style={{ color: 'var(--text-muted)' }}>tới</span></div>
+                      <div style={{ fontSize: '13px' }}>{b.checkOutDate}</div>
+                    </td>
+                    <td>{b.nights}</td>
+                    <td style={{ fontSize: '12px', fontWeight: '500' }}>{getSourceLabel(b.source)}</td>
+                    <td>
+                      <span className={`badge badge-${b.status.toLowerCase()}`}>
+                        {getBookingStatusLabel(b.status)}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: '600' }}>
+                      {(b.totalAmount || b.expectedPrice)?.toLocaleString('vi-VN')} đ
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        
+                        {/* Status transition actions */}
+                        {b.status === 'NEW' && user.role !== 'ACCOUNTANT' && (
+                          <>
+                            {b.roomNumber ? (
+                              <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
+                                Nhận phòng
+                              </button>
+                            ) : (
+                              <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--primary)', fontWeight: '700' }} title="Duyệt yêu cầu và gán phòng cho khách">
+                                Duyệt & Gán phòng
+                              </button>
+                            )}
+                            {/* No-show KHÔNG hiển thị ở trạng thái NEW — booking chưa được xác nhận,
+                                lễ tân cần duyệt/gán phòng trước. Chỉ CONFIRMED mới cho phép No-show. */}
+                          </>
+                        )}
+
+                        {b.status === 'CONFIRMED' && user.role !== 'ACCOUNTANT' && (
+                          <>
+                            <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
+                              Nhận phòng
+                            </button>
+                            <button onClick={() => openChangeRoomModal(b)} className="btn btn-secondary btn-sm" title="Đổi phòng">
+                              Đổi phòng
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm('Xác nhận khách không đến (No-show)? Đặt phòng này sẽ chuyển thành NO_SHOW và giải phóng phòng.')) {
+                                  handleTransition(b.id, 'no-show');
+                                }
+                              }} 
+                              className="btn btn-secondary btn-sm" 
+                              style={{ color: 'var(--color-maintenance)' }}
+                              title="Khách không đến (No-show)"
+                            >
+                              No-show
+                            </button>
+                          </>
+                        )}
+
+                        {b.status === 'CHECKED_IN' && (
+                          <>
+                            {user.role !== 'ACCOUNTANT' ? (
+                              <>
+                                <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-available)', fontWeight: '600' }} title="Thanh toán & Trả phòng (Check-out)">
+                                  Trả phòng
+                                </button>
+                                <button onClick={() => openChangeRoomModal(b)} className="btn btn-secondary btn-sm" title="Đổi phòng">
+                                  Đổi phòng
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" title="Xem hóa đơn">
+                                Hóa đơn
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {(b.status === 'CHECKED_OUT' || b.status === 'CANCELLED') && (
+                          <button onClick={() => openInvoiceModal(b)} className="btn btn-secondary btn-sm" title="Xem hóa đơn">
+                            Hóa đơn
+                          </button>
+                        )}
+
+                        {/* Admin/Owner cancel action */}
+                        {b.status !== 'CHECKED_OUT' && b.status !== 'CANCELLED' && b.status !== 'CHECKED_IN' && user.role !== 'ACCOUNTANT' && (
+                          <button onClick={() => handleTransition(b.id, 'cancel')} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Hủy đặt phòng">
+                            Hủy
+                          </button>
+                        )}
+
+                        {/* Owner delete action */}
+                        {user.role === 'OWNER' && (
+                          <button onClick={() => openDeleteConfirm(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)', padding: '6px 10px' }} title="Xóa vĩnh viễn">
+                            Xóa
+                          </button>
+                        )}
+
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              })()}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* CREATE BOOKING MODAL */}
+      {showCreateModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0 }}>Tạo Đặt Phòng Mới</h2>
+              <button onClick={() => { setShowCreateModal(false); setSelectedGuestLoyalty(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleCreateBooking}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                {/* Guest Info section */}
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>Thông tin khách hàng</h3>
+                
+                {selectedGuestLoyalty && (
+                  <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '13px',
+                    margin: '4px 0',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)' }}>Hạng hội viên:</span>
+                      <span className={`badge badge-tier-${selectedGuestLoyalty.tier.toLowerCase()}`} style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 'bold' }}>
+                        {getTierLabel(selectedGuestLoyalty.tier)}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)' }}>Tích lũy:</span>
+                      <strong style={{ color: 'var(--primary)', marginLeft: '4px' }}>{selectedGuestLoyalty.points}</strong> điểm
+                    </div>
+                    {selectedGuestLoyalty.benefits && selectedGuestLoyalty.benefits.length > 0 && (
+                      <div style={{ color: 'var(--color-available)', fontWeight: '500' }}>
+                        Ưu đãi: {selectedGuestLoyalty.benefits.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="grid-2">
+                  <div>
+                    <label>Họ và tên *</label>
+                    <input 
+                      type="text" 
+                      placeholder="Nguyễn Văn A" 
+                      value={newBooking.fullName}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, fullName: e.target.value }))}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Số điện thoại *</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input 
+                        type="tel" 
+                        placeholder="0901234567" 
+                        value={newBooking.phone}
+                        onChange={(e) => setNewBooking(prev => ({ ...prev, phone: e.target.value }))}
+                        required 
+                      />
+                      <button
+                        type="button"
+                        onClick={handleQuickGuestLookup}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0 12px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Kiểm tra khách hàng cũ"
+                      >
+                        <Search size={14} /> Tìm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div>
+                    <label>CCCD / ID Số định danh *</label>
+                    <input 
+                      type="text" 
+                      placeholder="Số định danh" 
+                      value={newBooking.idNumber}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, idNumber: e.target.value }))}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Email (tùy chọn)</label>
+                    <input 
+                      type="email" 
+                      placeholder="nguyen@email.com" 
+                      value={newBooking.email}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Booking Info section */}
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginTop: '10px' }}>Thông tin đặt phòng</h3>
+                
+                <div className="grid-2">
+                  <div>
+                    <label>Ngày nhận phòng (Check-in) *</label>
+                    <input 
+                      type="date" 
+                      value={newBooking.checkInDate}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, checkInDate: e.target.value }))}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Ngày trả phòng (Check-out) *</label>
+                    <input 
+                      type="date" 
+                      value={newBooking.checkOutDate}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, checkOutDate: e.target.value }))}
+                      required 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div>
+                    <label>Loại phòng *</label>
+                    <select
+                      value={newBooking.roomTypeId}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, roomTypeId: e.target.value, roomId: '' }))}
+                      required
+                    >
+                      <option value="">-- Chọn Loại phòng --</option>
+                      {roomTypes.map(t => (
+                        <option key={t.id} value={t.id}>{t.name} (Giá mặc định: {t.basePrice.toLocaleString()} đ)</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Gán phòng trống (Không bắt buộc)</label>
+                    <select
+                      value={newBooking.roomId}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, roomId: e.target.value }))}
+                      disabled={loadingRooms || availableRooms.length === 0}
+                    >
+                      {loadingRooms ? (
+                        <option>Đang quét phòng trống...</option>
+                      ) : availableRooms.length > 0 ? (
+                        <>
+                          <option value="">-- Để gán phòng sau --</option>
+                          {availableRooms.map(r => (
+                            <option key={r.roomId} value={r.roomId}>Phòng {r.roomNumber} (Tầng {r.floor})</option>
+                          ))}
+                        </>
+                      ) : (
+                        <option value="">-- Vui lòng chọn Ngày & Loại phòng để quét --</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div>
+                    <label>Nguồn đặt phòng</label>
+                    <select
+                      value={newBooking.source}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, source: e.target.value }))}
+                    >
+                      <option value="WALK_IN">Trực tiếp tại quầy</option>
+                      <option value="PHONE">Qua điện thoại</option>
+                      <option value="EXTERNAL_CHANNEL">Kênh bên ngoài</option>
+                      <option value="BOOKING_PORTAL">Cổng Booking</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Ghi chú</label>
+                    <input 
+                      type="text" 
+                      placeholder="Yêu cầu đặc biệt..." 
+                      value={newBooking.note}
+                      onChange={(e) => setNewBooking(prev => ({ ...prev, note: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Estimate Price banner */}
+                {availableRooms.length > 0 && (
+                  <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: 'var(--primary-glow)',
+                    border: '1px solid var(--primary)',
+                    borderRadius: 'var(--radius-sm)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: '8px'
+                  }}>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Giá ước tính ({availableRooms[0].nights} đêm):</span>
+                    <strong style={{ fontSize: '16px', color: 'var(--primary)' }}>
+                      {availableRooms[0].expectedPrice?.toLocaleString()} VND
+                    </strong>
+                  </div>
+                )}
+
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setShowCreateModal(false); setSelectedGuestLoyalty(null); }} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="submit" className="btn btn-primary btn-sm">Tạo booking</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ASSIGN ROOM MODAL */}
+      {showAssignModal && selectedBooking && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0 }}>Gán phòng cho {selectedBooking.id}</h2>
+              <button onClick={() => setShowAssignModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleAssignRoom}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ fontSize: '14px' }}>
+                  Khách hàng: <strong>{selectedBooking.guestName}</strong> <br />
+                  Loại phòng yêu cầu: <strong>{selectedBooking.roomTypeName}</strong> <br />
+                  Thời gian: <strong>{selectedBooking.checkInDate} → {selectedBooking.checkOutDate}</strong>
+                </p>
+
+                <div>
+                  <label>Lọc theo loại phòng</label>
+                  <select
+                    value={filterRoomTypeId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFilterRoomTypeId(val);
+                      fetchAvailableRooms(val ? parseInt(val) : null, selectedBooking.checkInDate, selectedBooking.checkOutDate);
+                    }}
+                  >
+                    <option value="">-- Tất cả loại phòng --</option>
+                    {roomTypes.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Chọn phòng trống phù hợp *</label>
+                  <select
+                    value={selectedRoomId}
+                    onChange={(e) => setSelectedRoomId(e.target.value)}
+                    required
+                    disabled={loadingRooms}
+                  >
+                    {loadingRooms ? (
+                      <option>Đang tìm phòng trống...</option>
+                    ) : availableRooms.length > 0 ? (
+                      <>
+                        <option value="">-- Chọn phòng --</option>
+                        {availableRooms.map(r => (
+                          <option key={r.roomId} value={r.roomId}>Phòng {r.roomNumber} - {r.roomTypeName} (Tầng {r.floor})</option>
+                        ))}
+                      </>
+                    ) : (
+                      <option value="">Không có phòng trống nào trong thời gian này!</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowAssignModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={!selectedRoomId}>Gán phòng</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CHANGE ROOM MODAL */}
+      {showChangeRoomModal && selectedBooking && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0 }}>Đổi phòng cho {selectedBooking.id}</h2>
+              <button onClick={() => setShowChangeRoomModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleChangeRoomSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ fontSize: '13px' }}>
+                  Phòng hiện tại: <strong>Phòng {selectedBooking.roomNumber}</strong> ({selectedBooking.roomTypeName}) <br />
+                  Thời gian: <strong>{selectedBooking.checkInDate} → {selectedBooking.checkOutDate}</strong>
+                </p>
+
+                <div>
+                  <label>Chọn phòng mới trong cùng loại *</label>
+                  <select
+                    value={selectedRoomId}
+                    onChange={(e) => setSelectedRoomId(e.target.value)}
+                    required
+                    disabled={loadingRooms}
+                  >
+                    {loadingRooms ? (
+                      <option>Đang tìm phòng trống...</option>
+                    ) : availableRooms.length > 0 ? (
+                      <>
+                        <option value="">-- Chọn phòng muốn đổi sang --</option>
+                        {availableRooms.filter(r => r.roomId !== selectedBooking.roomId).map(r => (
+                          <option key={r.roomId} value={r.roomId}>Phòng {r.roomNumber} (Tầng {r.floor})</option>
+                        ))}
+                      </>
+                    ) : (
+                      <option value="">Không có phòng khác trống trong thời gian này!</option>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Lý do đổi phòng</label>
+                  <input 
+                    type="text" 
+                    placeholder="Khách muốn tầng cao hơn, sự cố kĩ thuật..." 
+                    value={changeReason}
+                    onChange={(e) => setChangeReason(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowChangeRoomModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={!selectedRoomId}>Đổi phòng</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BILLING / INVOICE VIEW MODAL */}
+      {showInvoiceModal && activeInvoice && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: 'calc(100vh - 110px)' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clipboard size={18} color="var(--primary)" />
+                Chi tiết Hóa đơn thanh toán (#{activeInvoice.id || selectedBooking?.id})
+              </h2>
+              <button onClick={() => setShowInvoiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
+                <div>
+                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || selectedBooking?.guestName}</p>
+                  <p><strong>Số điện thoại:</strong> {selectedBooking?.guestPhone || 'Không có'}</p>
+                  <p><strong>CCCD / ID:</strong> {selectedBooking?.guestIdNumber || 'Không có'}</p>
+                  <p><strong>Phòng đặt:</strong> {selectedBooking?.roomNumber ? `Phòng ${selectedBooking.roomNumber}` : 'Chưa gán'} ({selectedBooking?.roomTypeName})</p>
+                </div>
+                <div>
+                  <p><strong>Số đêm:</strong> {activeInvoice.nights || selectedBooking?.nights || 1} đêm</p>
+                  <p><strong>Trạng thái hóa đơn:</strong> <span className={`badge badge-${activeInvoice.status?.toLowerCase() || 'pending'}`}>{activeInvoice.status || 'PENDING'}</span></p>
+                </div>
+              </div>
+
+              <h3 style={{ fontSize: '13px', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Phí thuê phòng</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', marginBottom: '20px', fontSize: '14px' }}>
+                <span>Tiền phòng ({activeInvoice.nights} đêm)</span>
+                <strong>{activeInvoice.roomCharge?.toLocaleString('vi-VN')} VND</strong>
+              </div>
+
+              {/* Service usages list */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Dịch vụ phụ thu</h3>
+                {activeInvoice.status !== 'PAID' && user.role !== 'ACCOUNTANT' && (
+                  <button 
+                    onClick={() => { fetchServices(); setShowServiceModal(true); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '11px' }}
+                  >
+                    <Plus size={10} /> Thêm phụ thu
+                  </button>
+                )}
+              </div>
+
+              <div className="table-container" style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '20px' }}>
+                <table style={{ fontSize: '13px' }}>
+                  <thead>
+                    <tr>
+                      <th>Dịch vụ</th>
+                      <th>Đơn giá</th>
+                      <th>SL</th>
+                      <th style={{ textAlign: 'right' }}>Thành tiền</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeInvoice.serviceUsages && activeInvoice.serviceUsages.length > 0 ? (
+                      activeInvoice.serviceUsages.map(u => (
+                        <tr key={u.id}>
+                          <td>
+                            <div><strong>{u.serviceName}</strong></div>
+                            {u.note && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{u.note}</div>}
+                          </td>
+                          <td>{u.unitPrice?.toLocaleString('vi-VN')}</td>
+                          <td>{u.quantity}</td>
+                          <td style={{ textAlign: 'right', fontWeight: '600' }}>{u.lineTotal?.toLocaleString('vi-VN')}</td>
+                          <td>
+                            {activeInvoice.status !== 'PAID' && user.role !== 'ACCOUNTANT' && (
+                              <button 
+                                onClick={() => handleDeleteSurchargeUsage(u.id)}
+                                style={{ background: 'none', border: 'none', color: 'var(--color-maintenance)', cursor: 'pointer' }}
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '16px' }}>Không có dịch vụ phát sinh.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Invoice breakdown & Payment status */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span>Tiền thuê phòng:</span>
+                  <span>{activeInvoice.roomCharge?.toLocaleString('vi-VN')} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span>Tiền dịch vụ phụ thu:</span>
+                  <span>{activeInvoice.serviceCharge?.toLocaleString('vi-VN')} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--color-maintenance)' }}>
+                  <span>Giảm giá (Discount):</span>
+                  <span>- {activeInvoice.discount?.toLocaleString('vi-VN') || 0} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '4px', color: 'var(--primary)' }}>
+                  <span>Tổng tiền hóa đơn:</span>
+                  <span>{activeInvoice.totalAmount?.toLocaleString('vi-VN')} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#10b981', fontWeight: '600' }}>
+                  <span>Đã thanh toán:</span>
+                  <span>{(activeInvoice.totalPaid || (activeInvoice.status === 'PAID' ? activeInvoice.totalAmount : 0))?.toLocaleString('vi-VN')} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: activeInvoice.remainingAmount > 0 ? '#ef4444' : '#10b981', fontWeight: '600' }}>
+                  <span>Còn lại:</span>
+                  <span>{(activeInvoice.remainingAmount !== undefined ? activeInvoice.remainingAmount : (activeInvoice.status === 'PAID' ? 0 : activeInvoice.totalAmount))?.toLocaleString('vi-VN')} VND</span>
+                </div>
+              </div>
+
+              {/* Payment history list */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Lịch sử thanh toán</h3>
+                  {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (activeInvoice.remainingAmount === undefined || activeInvoice.remainingAmount > 0) && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN') && (
+                    <button
+                      onClick={openPaymentModal}
+                      className="btn btn-primary btn-sm"
+                      style={{ padding: '4px 12px', fontSize: '12px' }}
+                    >
+                      <DollarSign size={12} /> Ghi nhận thanh toán
+                    </button>
+                  )}
+                </div>
+                {activeInvoice.payments && activeInvoice.payments.length > 0 ? (
+                  <div className="table-container">
+                    <table style={{ fontSize: '12px' }}>
+                      <thead>
+                        <tr>
+                          <th>Thời gian</th>
+                          <th>Phương thức</th>
+                          <th>Người thu</th>
+                          <th style={{ textAlign: 'right' }}>Số tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeInvoice.payments.map(p => (
+                          <tr key={p.id}>
+                            <td>{formatDateTime(p.paidAt)}</td>
+                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? '💵 Tiền mặt' : '💳 Chuyển khoản'}</span></td>
+                            <td>{p.receivedByName || 'Nhân viên'}</td>
+                            <td style={{ textAlign: 'right', fontWeight: '600', color: '#10b981' }}>{p.amount?.toLocaleString('vi-VN')} VND</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '8px 0' }}>Chưa có lần thanh toán nào.</div>
+                )}
+              </div>
+
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
+              
+              {activeInvoice.status !== 'PAID' && selectedBooking?.status !== 'CANCELLED' && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN') && (
+                <button
+                  onClick={openPaymentModal}
+                  className="btn btn-secondary btn-sm"
+                  style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                >
+                  <DollarSign size={14} /> Ghi nhận thanh toán
+                </button>
+              )}
+
+              {selectedBooking.status === 'CHECKED_IN' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+                <button 
+                  onClick={() => { 
+                    handleTransition(selectedBooking.id, 'check-out');
+                    setShowInvoiceModal(false);
+                  }} 
+                  className="btn btn-primary btn-sm"
+                  disabled={activeInvoice.status !== 'PAID'}
+                  title={activeInvoice.status !== 'PAID' ? 'Cần thanh toán đủ trước khi trả phòng' : 'Trả phòng'}
+                >
+                  <Check size={14} /> Trả phòng (Check-out)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SURCHARGE ADD MODAL */}
+      {showServiceModal && (
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
+          <div className="modal-content" style={{ maxWidth: '580px', width: '90%' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0 }}>Ghi nhận dịch vụ phát sinh</h2>
+              <button onClick={() => setShowServiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleAddSurcharge}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>Chọn dịch vụ phát sinh *</label>
+                  <div style={{
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    {servicesCatalog.map(s => {
+                      const isSelected = String(s.id) === String(surchargeInput.surchargeServiceId);
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setSurchargeInput(prev => ({ ...prev, surchargeServiceId: s.id }))}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'var(--primary-glow)' : 'var(--bg-card)',
+                            border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                            {/* Nút tích chọn / Radio Check Button */}
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border-color)',
+                              backgroundColor: isSelected ? 'var(--primary)' : 'transparent',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease'
+                            }}>
+                              {isSelected && <Check size={12} strokeWidth={3} />}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                              <span style={{ fontWeight: isSelected ? '700' : '600', fontSize: '13.5px', color: isSelected ? 'var(--primary)' : 'var(--text-primary)' }}>
+                                {s.name}
+                              </span>
+                              {s.description && (
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                  {s.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span style={{ fontWeight: '700', fontSize: '13px', color: isSelected ? 'var(--primary)' : 'var(--text-secondary)', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                            {s.unitPrice.toLocaleString('vi-VN')} VNĐ
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '16px' }}>
+                  <div>
+                    <label>Số lượng *</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="100"
+                      value={surchargeInput.quantity} 
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (val !== '' && parseInt(val) > 100) {
+                          showNotification('Số lượng dịch vụ không được vượt quá 100', 'warning');
+                        }
+                        setSurchargeInput(prev => ({ ...prev, quantity: val }));
+                      }}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label>Ghi chú phát sinh</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ghi chú chi tiết dịch vụ..." 
+                      value={surchargeInput.note} 
+                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, note: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowServiceModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="submit" className="btn btn-primary btn-sm">Ghi nhận</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT RECORD MODAL */}
+      {showPaymentModal && (
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <DollarSign size={18} color="var(--primary)" />
+                Ghi nhận thanh toán
+              </h2>
+              <button onClick={() => setShowPaymentModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleAddPaymentSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <div><strong>Khách hàng:</strong> {selectedBooking?.guestName}</div>
+                  <div><strong>Còn lại cần thu:</strong> <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{(activeInvoice?.remainingAmount !== undefined ? activeInvoice.remainingAmount : activeInvoice?.totalAmount)?.toLocaleString('vi-VN')} VND</span></div>
+                </div>
+
+                <div>
+                  <label>Số tiền thu (VND) *</label>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="1000"
+                    placeholder="Nhập số tiền..."
+                    value={paymentInput.amount}
+                    onChange={(e) => setPaymentInput(prev => ({ ...prev, amount: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label>Phương thức thanh toán *</label>
+                  <select
+                    value={paymentInput.method}
+                    onChange={(e) => setPaymentInput(prev => ({ ...prev, method: e.target.value }))}
+                    required
+                  >
+                    <option value="CASH">💵 Tiền mặt (Cash)</option>
+                    <option value="BANK_TRANSFER">💳 Chuyển khoản (Bank Transfer)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="submit" className="btn btn-primary btn-sm">Xác nhận thu tiền</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirm.show && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
+                <Trash2 size={18} />
+                Xác nhận xóa đặt phòng
+              </h2>
+              <button 
+                onClick={() => setDeleteConfirm({ show: false, bookingId: null, guestName: '' })} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 0', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' }}>
+              <p>Bạn có chắc chắn muốn xóa đặt phòng mã số <strong>{deleteConfirm.bookingId}</strong> của khách hàng <strong>{deleteConfirm.guestName}</strong> không?</p>
+              <p style={{ color: 'var(--color-maintenance)', fontSize: '12px', fontWeight: '600', marginTop: '8px' }}>
+                LƯU Ý: Hành động này không thể hoàn tác và toàn bộ hóa đơn liên quan sẽ bị xóa!
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                type="button" 
+                onClick={() => setDeleteConfirm({ show: false, bookingId: null, guestName: '' })} 
+                className="btn btn-secondary btn-sm"
+              >
+                Hủy
+              </button>
+              <button 
+                type="button" 
+                onClick={handleDeleteConfirmSubmit} 
+                className="btn btn-danger btn-sm"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+export default Bookings;

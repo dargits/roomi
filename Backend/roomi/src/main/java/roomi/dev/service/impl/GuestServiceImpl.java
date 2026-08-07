@@ -140,6 +140,10 @@ public class GuestServiceImpl implements GuestService {
      * Tìm khách theo CCCD, nếu chưa có thì tạo mới.
      * Dùng khi tạo booking để tự động tạo khách mới nếu chưa tồn tại.
      */
+    /**
+     * Tìm khách theo SĐT hoặc CCCD/CMND; nếu chưa có thì tạo mới.
+     * Kiểm tra đối soát chặt chẽ tránh xung đột dữ liệu giữa các khách hàng khác nhau.
+     */
     @Override
     public Guest findOrCreateGuest(String idNumber, String fullName, String phone, String email, String note) {
         String cleanIdNumber = (idNumber != null && !idNumber.isBlank()) ? idNumber.trim() : null;
@@ -148,33 +152,72 @@ public class GuestServiceImpl implements GuestService {
         String cleanEmail = (email != null && !email.isBlank()) ? email.trim() : null;
         String cleanNote = (note != null && !note.isBlank()) ? note.trim() : null;
 
-        // 1. Tìm theo CCCD/CMND nếu có
+        // 1. Kiểm tra theo CCCD/CMND trước (Quy tắc bắt buộc: 1 CCCD <-> 1 Họ và tên duy nhất)
         if (cleanIdNumber != null) {
-            var guestById = guestRepository.findByIdNumber(cleanIdNumber);
-            if (guestById.isPresent()) {
-                Guest g = guestById.get();
-                if (cleanFullName != null) g.setFullName(cleanFullName);
-                if (cleanPhone != null) g.setPhone(cleanPhone);
-                if (cleanEmail != null) g.setEmail(cleanEmail);
-                if (cleanNote != null) g.setNote(cleanNote);
+            var guestByIdOpt = guestRepository.findByIdNumber(cleanIdNumber);
+            if (guestByIdOpt.isPresent()) {
+                Guest g = guestByIdOpt.get();
+
+                // Kiểm tra sự đồng nhất giữa Họ tên nhập vào và Họ tên đã lưu của CCCD này
+                if (cleanFullName != null && !isSameName(cleanFullName, g.getFullName())) {
+                    throw new BusinessException(
+                            "Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký trong hệ thống nhưng không khớp với Họ và tên đã cung cấp.",
+                            ErrorCode.INVALID_INPUT);
+                }
+
+                // SĐT có thể thay đổi/cập nhật (trừ trường hợp SĐT mới bị trùng với khách hàng khác)
+                if (cleanPhone != null && !cleanPhone.equals(g.getPhone())) {
+                    var otherGuestWithPhone = guestRepository.findByPhone(cleanPhone);
+                    if (otherGuestWithPhone.isPresent() && !otherGuestWithPhone.get().getId().equals(g.getId())) {
+                        throw new BusinessException(
+                                "Số điện thoại " + cleanPhone + " đã được đăng ký cho một khách hàng khác trong hệ thống.",
+                                ErrorCode.INVALID_INPUT);
+                    }
+                    g.setPhone(cleanPhone);
+                }
+
+                // Cập nhật Email và Ghi chú nếu có thông tin mới
+                if (cleanEmail != null && !cleanEmail.isBlank()) g.setEmail(cleanEmail);
+                if (cleanNote != null && !cleanNote.isBlank()) g.setNote(cleanNote);
+
                 return guestRepository.save(g);
             }
         }
 
-        // 2. Tìm theo SĐT nếu chưa tìm thấy theo CCCD
+        // 2. Tìm theo SĐT (nếu không tìm thấy theo CCCD hoặc không nhập CCCD)
         if (cleanPhone != null) {
-            var guestByPhone = guestRepository.findByPhone(cleanPhone);
-            if (guestByPhone.isPresent()) {
-                Guest g = guestByPhone.get();
-                if (cleanFullName != null) g.setFullName(cleanFullName);
-                if (cleanIdNumber != null) g.setIdNumber(cleanIdNumber);
-                if (cleanEmail != null) g.setEmail(cleanEmail);
-                if (cleanNote != null) g.setNote(cleanNote);
+            var guestByPhoneOpt = guestRepository.findByPhone(cleanPhone);
+            if (guestByPhoneOpt.isPresent()) {
+                Guest g = guestByPhoneOpt.get();
+
+                // Kiểm tra đồng nhất Họ tên
+                if (cleanFullName != null && !isSameName(cleanFullName, g.getFullName())) {
+                    throw new BusinessException(
+                            "Số điện thoại " + cleanPhone + " đã được đăng ký trong hệ thống nhưng không khớp với Họ và tên đã cung cấp.",
+                            ErrorCode.INVALID_INPUT);
+                }
+
+                // Nếu bổ sung CCCD mới, kiểm tra tính duy nhất của CCCD đó
+                if (cleanIdNumber != null) {
+                    if (g.getIdNumber() != null && !g.getIdNumber().isBlank() && !g.getIdNumber().equals(cleanIdNumber)) {
+                        var existingOwnerOfId = guestRepository.findByIdNumber(cleanIdNumber);
+                        if (existingOwnerOfId.isPresent() && !existingOwnerOfId.get().getId().equals(g.getId())) {
+                            throw new BusinessException(
+                                    "Số CMND/CCCD " + cleanIdNumber + " đã được đăng ký cho một khách hàng khác trong hệ thống.",
+                                    ErrorCode.INVALID_INPUT);
+                        }
+                    }
+                    g.setIdNumber(cleanIdNumber);
+                }
+
+                if (cleanEmail != null && !cleanEmail.isBlank()) g.setEmail(cleanEmail);
+                if (cleanNote != null && !cleanNote.isBlank()) g.setNote(cleanNote);
+
                 return guestRepository.save(g);
             }
         }
 
-        // 3. Tạo mới nếu chưa tồn tại
+        // 3. Khách hàng mới hoàn toàn (chưa từng có SĐT và CCCD trong hệ thống)
         Guest newGuest = Guest.builder()
                 .fullName(cleanFullName)
                 .phone(cleanPhone)
@@ -185,7 +228,14 @@ public class GuestServiceImpl implements GuestService {
         return guestRepository.save(newGuest);
     }
 
+    private boolean isSameName(String name1, String name2) {
+        if (name1 == null || name2 == null) return true;
+        return name1.trim().equalsIgnoreCase(name2.trim());
+    }
+
     private GuestResponse toResponse(Guest g) {
+        String loyaltyTier = getLoyaltyTier(g.getLoyaltyPoints());
+
         return GuestResponse.builder()
                 .id(g.getId())
                 .fullName(g.getFullName())
@@ -194,8 +244,42 @@ public class GuestServiceImpl implements GuestService {
                 .idNumber(g.getIdNumber())
                 .note(g.getNote())
                 .loyaltyPoints(g.getLoyaltyPoints())
+                .loyaltyTier(loyaltyTier)
+                .loyaltyBenefits(getLoyaltyBenefits(loyaltyTier))
                 .createdAt(g.getCreatedAt())
                 .build();
+    }
+
+    private String getLoyaltyTier(Integer loyaltyPoints) {
+        int points = loyaltyPoints == null ? 0 : Math.max(loyaltyPoints, 0);
+
+        if (points >= 5000) {
+            return "DIAMOND";
+        }
+        if (points >= 4000) {
+            return "PLATINUM";
+        }
+        if (points >= 3000) {
+            return "GOLD";
+        }
+        if (points >= 2000) {
+            return "SILVER";
+        }
+        if (points >= 1000) {
+            return "BRONZE";
+        }
+        return "MEMBER";
+    }
+
+    private List<String> getLoyaltyBenefits(String loyaltyTier) {
+        return switch (loyaltyTier) {
+            case "BRONZE" -> List.of("Giảm 2% giá phòng");
+            case "SILVER" -> List.of("Giảm 5% giá phòng");
+            case "GOLD" -> List.of("Giảm 8% giá phòng");
+            case "PLATINUM" -> List.of("Giảm 10% giá phòng");
+            case "DIAMOND" -> List.of("Giảm 15% giá phòng");
+            default -> List.of();
+        };
     }
 
     @Override

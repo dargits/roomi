@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: roomi.dev.DevApplicationTests
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 29.75 s -- in roomi.dev.DevApplicationTests
