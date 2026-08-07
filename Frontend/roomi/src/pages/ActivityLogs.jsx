@@ -1,85 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
+import { formatDateTimeFull, formatEntityLabel } from '../utils/formatters';
+import { ROLE_LABELS } from '../utils/role';
 import { 
   ClipboardList, 
   Search, 
   RefreshCw, 
   User, 
-  Calendar, 
   Clock, 
-  Filter, 
   ShieldAlert, 
-  Info,
   Activity,
   Layers
 } from 'lucide-react';
 
-const roleLabels = {
-  ADMIN: 'Quản trị viên',
-  OWNER: 'Chủ cơ sở',
-  RECEPTIONIST: 'Lễ tân',
-  HOUSEKEEPER: 'Buồng phòng',
-  ACCOUNTANT: 'Kế toán'
-};
-
-const entityLabels = {
-  USER: 'Người dùng',
-  BOOKING: 'Đặt phòng',
-  ROOM: 'Phòng',
-  INVOICE: 'Hóa đơn',
-  PAYMENT: 'Thanh toán',
-  SURCHARGE: 'Dịch vụ phụ thu',
-  ROOM_TYPE: 'Loại phòng',
-  SEASONAL_RATE: 'Giá theo mùa',
-  GUEST: 'Khách hàng',
-  SETTINGS: 'Cài đặt cơ sở'
-};
-
-const formatEntityLabel = (entity) => {
-  if (!entity) return '—';
-  return entityLabels[entity.toUpperCase()] || entity;
-};
-
-const formatDateTime = (dateString) => {
-  if (!dateString) return '—';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-  } catch (e) {
-    return dateString;
-  }
-};
 
 function ActivityLogs({ user, showNotification }) {
-  // Guard Clause for Access Control (ADMIN & OWNER)
-  if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <ShieldAlert size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Chỉ Quản trị viên và Chủ cơ sở mới có quyền truy cập nhật ký hoạt động hệ thống.
-        </p>
-      </div>
-    );
-  }
-
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,6 +38,7 @@ function ActivityLogs({ user, showNotification }) {
 
   useEffect(() => {
     fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filtered logs calculation
@@ -120,6 +57,27 @@ function ActivityLogs({ user, showNotification }) {
 
   // Extract unique entities for filter dropdown
   const entityTypes = Array.from(new Set(logs.map(l => l.entityName).filter(Boolean)));
+
+  // Guard Clause for Access Control (ADMIN & OWNER)
+  if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <ShieldAlert size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Chỉ Quản trị viên và Chủ cơ sở mới có quyền truy cập nhật ký hoạt động hệ thống.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -276,7 +234,7 @@ function ActivityLogs({ user, showNotification }) {
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                         <Clock size={13} color="var(--text-muted)" />
-                        <span>{formatDateTime(log.createdAt)}</span>
+                        <span>{formatDateTimeFull(log.createdAt)}</span>
                       </div>
                     </td>
                     <td>
@@ -285,7 +243,7 @@ function ActivityLogs({ user, showNotification }) {
                       </div>
                       {log.userRole && (
                         <span className="badge" style={{ fontSize: '10px', marginTop: '2px', display: 'inline-block' }}>
-                          {roleLabels[log.userRole] || log.userRole}
+                          {ROLE_LABELS[log.userRole] || log.userRole}
                         </span>
                       )}
                     </td>

@@ -6,15 +6,13 @@ import {
   Lock, 
   Unlock, 
   ShieldAlert, 
-  Check, 
   X, 
   Phone, 
   Calendar,
   UserCheck,
   Search,
   Plus,
-  User,
-  Key
+  User
 } from 'lucide-react';
 
 const roleInfo = {
@@ -70,7 +68,7 @@ function Users({ user, showNotification }) {
     }
     try {
       setSubmitting(true);
-      const res = await api.post('/auth/register', {
+      await api.post('/auth/register', {
         fullName: createForm.fullName.trim(),
         username: createForm.username.trim(),
         password: createForm.password,
@@ -109,6 +107,7 @@ function Users({ user, showNotification }) {
     } else {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleChangeRole = (userId, targetRole) => {

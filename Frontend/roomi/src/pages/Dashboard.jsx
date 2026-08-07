@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
+import { formatDateString } from '../utils/formatters';
 import { 
   Grid, 
   Calendar, 
@@ -8,40 +9,18 @@ import {
   User, 
   Clock, 
   Plus, 
-  AlertCircle, 
   Wrench, 
   Sparkles, 
   DollarSign, 
-  ArrowLeftRight,
   ClipboardList,
   Coffee,
   Check,
   CheckCircle,
   X,
-  Bell
+  ShieldAlert
 } from 'lucide-react';
 
 function Dashboard({ user, showNotification, readOnly = false, cleaningNotifications = [], setCleaningNotifications = () => {} }) {
-  // Guard clause: Admin user is not allowed on room dashboard
-  if (user?.role === 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <ShieldAlert size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản Quản trị viên dùng để quản lý hệ thống, phân quyền nhân viên và xem nhật ký hoạt động. Sơ đồ phòng dành cho Lễ tân, Buồng phòng, Kế toán và Chủ cơ sở.
-        </p>
-      </div>
-    );
-  }
 
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'calendar'
@@ -54,8 +33,6 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
   // Refs for housekeeping notifications
   const roomsListRef = React.useRef([]);
 
-  // Date range for calendar (14 days starting from today)
-  const [startDate, setStartDate] = useState(new Date());
   const [dateHeaders, setDateHeaders] = useState([]);
 
   // Play programmatic notification beep chimes
@@ -112,14 +89,6 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
   // Assign Room States
   const [unassignedBookings, setUnassignedBookings] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState('');
-
-  // Helper to format date in local timezone (YYYY-MM-DD)
-  const formatDateString = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   const todayStr = formatDateString(new Date());
 
@@ -233,6 +202,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
   // Keep reference to latest fetchData to prevent stale closure in interval
@@ -248,7 +218,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
       fetchDataRef.current(true);
     }, 10000);
     return () => clearInterval(intervalId);
-  }, [user]);
+  }, [user?.role]);
 
   // Fetch surcharge services catalog
   const fetchServicesCatalog = async () => {
@@ -279,6 +249,19 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
     }
   };
 
+  // Get active booking in the room (for today)
+  const getTodayBooking = React.useCallback((room) => {
+    if (!room || !room.bookings) return null;
+    return room.bookings.find(b => {
+      const checkIn = b.checkInDate;
+      const checkOut = b.checkOutDate;
+      return todayStr >= checkIn && todayStr < checkOut && 
+             b.status !== 'CANCELLED' && 
+             b.status !== 'NO_SHOW' && 
+             b.status !== 'CHECKED_OUT';
+    });
+  }, [todayStr]);
+
   useEffect(() => {
     if (selectedRoom) {
       const activeBooking = getTodayBooking(selectedRoom);
@@ -290,20 +273,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
     } else {
       setDrawerUsages([]);
     }
-  }, [selectedRoom]);
-
-  // Get active booking in the room (for today)
-  const getTodayBooking = (room) => {
-    if (!room || !room.bookings) return null;
-    return room.bookings.find(b => {
-      const checkIn = b.checkInDate;
-      const checkOut = b.checkOutDate;
-      return todayStr >= checkIn && todayStr < checkOut && 
-             b.status !== 'CANCELLED' && 
-             b.status !== 'NO_SHOW' && 
-             b.status !== 'CHECKED_OUT';
-    });
-  };
+  }, [selectedRoom, getTodayBooking]);
 
   // Update room status (Housekeeper / Owner / Receptionist)
   const handleUpdateRoomStatus = async (statusOverride) => {
@@ -340,6 +310,11 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
     e.preventDefault();
     const activeBooking = getTodayBooking(selectedRoom);
     if (!activeBooking) return;
+    
+    if (parseInt(surchargeInput.quantity) > 100) {
+      showNotification('Số lượng dịch vụ không được vượt quá 100', 'error');
+      return;
+    }
     
     try {
       await api.post(`/bookings/${activeBooking.bookingId}/service-usages`, {
@@ -499,6 +474,27 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
       default: return status;
     }
   };
+
+  // Guard clause: Admin user is not allowed on room dashboard
+  if (user?.role === 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <ShieldAlert size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản Quản trị viên dùng để quản lý hệ thống, phân quyền nhân viên và xem nhật ký hoạt động. Sơ đồ phòng dành cho Lễ tân, Buồng phòng, Kế toán và Chủ cơ sở.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -1418,8 +1414,15 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                     <input 
                       type="number" 
                       min="1" 
+                      max="100"
                       value={surchargeInput.quantity} 
-                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (val !== '' && parseInt(val) > 100) {
+                          showNotification('Số lượng dịch vụ không được vượt quá 100', 'warning');
+                        }
+                        setSurchargeInput(prev => ({ ...prev, quantity: val }));
+                      }}
                       required 
                     />
                   </div>

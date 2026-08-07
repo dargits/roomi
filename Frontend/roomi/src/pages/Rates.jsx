@@ -9,34 +9,10 @@ import {
   X, 
   Search, 
   Calendar, 
-  TrendingUp, 
-  DollarSign, 
-  HelpCircle,
   AlertCircle
 } from 'lucide-react';
 
 function Rates({ user, showNotification }) {
-  // Guard Clause for Access Control (OWNER, ACCOUNTANT, ADMIN)
-  if (user.role !== 'OWNER' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
-    return (
-      <div className="card" style={{
-        padding: '40px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px',
-        marginTop: '40px'
-      }}>
-        <AlertCircle size={48} color="var(--color-maintenance)" />
-        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
-          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang cấu hình giá theo mùa.
-        </p>
-      </div>
-    );
-  }
-
   const [rates, setRates] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +62,7 @@ function Rates({ user, showNotification }) {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sandbox price checker lookup
@@ -192,6 +169,27 @@ function Rates({ user, showNotification }) {
       showNotification(err.message, 'error');
     }
   };
+
+  // Guard Clause for Access Control (OWNER, ACCOUNTANT, ADMIN)
+  if (user.role !== 'OWNER' && user.role !== 'ACCOUNTANT' && user.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{
+        padding: '40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px',
+        marginTop: '40px'
+      }}>
+        <AlertCircle size={48} color="var(--color-maintenance)" />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Từ chối truy cập</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', fontSize: '14px' }}>
+          Tài khoản của bạn không có đủ thẩm quyền để truy cập trang cấu hình giá theo mùa.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

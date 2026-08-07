@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
+import { getTierLabel } from '../utils/formatters';
 import { 
   Search, 
   Plus, 
@@ -15,17 +16,8 @@ import {
   History
 } from 'lucide-react';
 
+
 function Guests({ user, showNotification }) {
-  const getTierLabel = (tier) => {
-    switch (tier) {
-      case 'DIAMOND': return 'Kim cương';
-      case 'PLATINUM': return 'Bạch kim';
-      case 'GOLD': return 'Vàng';
-      case 'SILVER': return 'Bạc';
-      case 'BRONZE': return 'Đồng';
-      default: return 'Thành viên';
-    }
-  };
 
   const isAuthorized = user?.role === 'RECEPTIONIST' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN' || user?.role === 'OWNER';
 

@@ -168,11 +168,11 @@ public class RoomController {
 
         String uppercaseStatus = status.trim().toUpperCase();
         if ("MAINTENANCE".equals(uppercaseStatus)) {
-            // Khóa bảo trì -> Chỉ Chủ cơ sở (OWNER)
-            authUtil.requireRoles(token, User.Role.OWNER);
+            // Khóa bảo trì -> Chủ cơ sở (OWNER) hoặc Quản trị (ADMIN)
+            authUtil.requireRoles(token, User.Role.OWNER, User.Role.ADMIN);
         } else {
-            // Hoàn tất dọn dẹp phòng -> Duy nhất Nhân viên Buồng phòng (HOUSEKEEPER)
-            authUtil.requireRoles(token, User.Role.HOUSEKEEPER);
+            // Hoàn tất dọn dẹp phòng (HOUSEKEEPER) hoặc Hoàn tất bảo trì (OWNER, ADMIN)
+            authUtil.requireRoles(token, User.Role.HOUSEKEEPER, User.Role.OWNER, User.Role.ADMIN);
         }
 
         User currentUser = authUtil.getUserFromToken(token);

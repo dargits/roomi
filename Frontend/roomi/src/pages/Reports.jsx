@@ -69,7 +69,7 @@ const SVGLineChart = ({ data, xKey, yKey, colorStart, colorEnd, xLabelKey, isPer
   // Xác định những điểm nào sẽ hiện label
   // Nếu có điểm > 0: chỉ hiện label cho điểm > 0
   // Nếu tất cả = 0: không hiện gì
-  const shouldShowLabel = (pt, i) => {
+  const shouldShowLabel = (pt, _i) => {
     if (!hasNonZero) return false;
     if (showValueLabel === false) return false;
     // Luôn hiện nếu val > 0
@@ -478,6 +478,7 @@ function Reports({ user, showNotification }) {
     } else if (activeTab === 'occupancy') {
       fetchOccupancyReport();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, activeTab]);
 
   const handlePresetClick = (preset) => {
@@ -1479,7 +1480,7 @@ function Reports({ user, showNotification }) {
                       try {
                         const parts = mDate.split('-');
                         return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                      } catch (e) {
+                      } catch (_e) {
                         return mDate;
                       }
                     })()}
@@ -1550,7 +1551,7 @@ function Reports({ user, showNotification }) {
                       try {
                         const parts = mDate.split('-');
                         return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                      } catch (e) {
+                      } catch (_e) {
                         return mDate;
                       }
                     })()}
@@ -1637,7 +1638,7 @@ function Reports({ user, showNotification }) {
                         try {
                           const parts = d.date.split('-');
                           return `${parseInt(parts[2])}/${parseInt(parts[1])}`;
-                        } catch (e) {
+                        } catch (_e) {
                           return d.date;
                         }
                       })()
@@ -1851,7 +1852,7 @@ function Reports({ user, showNotification }) {
                       try {
                         const parts = d.date.split('-');
                         displayDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                      } catch (e) {}
+                      } catch (_e) {}
                       return (
                         <option key={d.date} value={d.date}>
                           {displayDate} (Công suất: {d.occupancyRate}%)

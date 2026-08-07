@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import api from "../utils/api";
+import { formatDateVN } from "../utils/formatters";
+import { ROOM_TYPE_HIDDEN_TAG } from "../utils/constants";
 import {
   Calendar,
   User,
@@ -24,15 +26,6 @@ import {
   Shield,
   Clock,
 } from "lucide-react";
-
-const formatDateVN = (dateStr) => {
-  if (!dateStr) return "";
-  const parts = dateStr.split("-");
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`; // YYYY-MM-DD -> DD/MM/YYYY
-  }
-  return dateStr;
-};
 
 function BookingPortal({ onBackToLogin, showNotification }) {
   const [step, setStep] = useState(1);
@@ -76,7 +69,7 @@ function BookingPortal({ onBackToLogin, showNotification }) {
 
         if (typesRes?.data && typesRes.data.data) {
           // Lọc bỏ danh mục đang bị ẩn ([HIDDEN]) — không hiện với khách
-          setRoomTypes(typesRes.data.data.filter(t => !t.amenities?.includes('[HIDDEN]')));
+          setRoomTypes(typesRes.data.data.filter(t => !t.amenities?.includes(ROOM_TYPE_HIDDEN_TAG)));
         }
         if (settingsRes?.data && settingsRes.data.data) {
           setPropertySettings(settingsRes.data.data);

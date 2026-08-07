@@ -1,77 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
+import { getTierLabel, getSourceLabel, getBookingStatusLabel, formatDateTime } from '../utils/formatters';
 import { 
   Search, 
   Plus, 
-  Calendar, 
-  User, 
-  Phone, 
-  Layers, 
   Clipboard, 
-  Tag, 
   X, 
   Check, 
   AlertCircle,
-  HelpCircle,
-  TrendingUp,
-  DollarSign,
-  Coffee,
-  Bookmark,
+  Trash2,
   RefreshCw,
-  Trash2
+  DollarSign
 } from 'lucide-react';
 
 function Bookings({ user, showNotification }) {
-  const getTierLabel = (tier) => {
-    switch (tier) {
-      case 'DIAMOND': return 'Kim cương';
-      case 'PLATINUM': return 'Bạch kim';
-      case 'GOLD': return 'Vàng';
-      case 'SILVER': return 'Bạc';
-      case 'BRONZE': return 'Đồng';
-      default: return 'Thành viên';
-    }
-  };
-
-  const getSourceLabel = (source) => {
-    switch (source) {
-      case 'BOOKING_PORTAL': return 'Đặt từ Web';
-      case 'WALK_IN': return 'Khách vãng lai';
-      case 'PHONE': return 'Điện thoại';
-      case 'EXTERNAL_CHANNEL': return 'Kênh ngoài';
-      default: return source || 'Trực tiếp';
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case 'NEW': return 'Chờ lễ tân duyệt';
-      case 'CONFIRMED': return 'Đã gán phòng';
-      case 'CHECKED_IN': return 'Đang lưu trú';
-      case 'CHECKED_OUT': return 'Đã trả phòng';
-      case 'CANCELLED': return 'Đã hủy';
-      case 'NO_SHOW': return 'Khách không đến';
-      default: return status;
-    }
-  };
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch (e) {
-      return dateString;
-    }
-  };
-
   const isAuthorized = user?.role === 'RECEPTIONIST' || user?.role === 'ACCOUNTANT' || user?.role === 'ADMIN';
 
   const [bookings, setBookings] = useState([]);
@@ -173,6 +116,7 @@ function Bookings({ user, showNotification }) {
 
   useEffect(() => {
     fetchInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Search bookings
@@ -244,6 +188,7 @@ function Bookings({ user, showNotification }) {
     } else {
       setAvailableRooms([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newBooking.roomTypeId, newBooking.checkInDate, newBooking.checkOutDate]);
 
   // Quick guest check by phone
@@ -475,6 +420,10 @@ function Bookings({ user, showNotification }) {
 
   const handleAddSurcharge = async (e) => {
     e.preventDefault();
+    if (parseInt(surchargeInput.quantity) > 100) {
+      showNotification('Số lượng dịch vụ không được vượt quá 100', 'error');
+      return;
+    }
     try {
       await api.post(`/bookings/${selectedBooking.id}/service-usages`, {
         surchargeServiceId: parseInt(surchargeInput.surchargeServiceId),
@@ -809,7 +758,7 @@ function Bookings({ user, showNotification }) {
                     <td style={{ fontSize: '12px', fontWeight: '500' }}>{getSourceLabel(b.source)}</td>
                     <td>
                       <span className={`badge badge-${b.status.toLowerCase()}`}>
-                        {getStatusLabel(b.status)}
+                        {getBookingStatusLabel(b.status)}
                       </span>
                     </td>
                     <td style={{ fontWeight: '600' }}>
@@ -1522,8 +1471,15 @@ function Bookings({ user, showNotification }) {
                     <input 
                       type="number" 
                       min="1" 
+                      max="100"
                       value={surchargeInput.quantity} 
-                      onChange={(e) => setSurchargeInput(prev => ({ ...prev, quantity: e.target.value }))}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (val !== '' && parseInt(val) > 100) {
+                          showNotification('Số lượng dịch vụ không được vượt quá 100', 'warning');
+                        }
+                        setSurchargeInput(prev => ({ ...prev, quantity: val }));
+                      }}
                       required 
                     />
                   </div>

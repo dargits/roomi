@@ -1,0 +1,69 @@
+name: Roomi CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-ci:
+    name: Backend (Spring Boot) CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Backend/roomi
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Make mvnw Executable
+        run: chmod +x mvnw
+
+      - name: Run Backend Unit Tests & Coverage
+        run: ./mvnw clean test
+
+      - name: Build Backend Package
+        run: ./mvnw package -DskipTests
+
+  frontend-ci:
+    name: Frontend (React + Vite) CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Frontend/roomi
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: './Frontend/roomi/package-lock.json'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Oxlint
+        run: npm run lint
+
+      - name: Run Frontend Unit Tests
+        run: npm test
+
+      - name: Build Frontend (Production Verify)
+        # Sử dụng /api/v1 (relative path) để verify build pass
+        # Giá trị thật sẽ được inject lúc docker build trong CD pipeline
+        env:
+          VITE_API_BASE_URL: /api/v1
+        run: npm run build
