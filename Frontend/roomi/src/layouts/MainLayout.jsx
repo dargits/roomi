@@ -304,11 +304,15 @@ export default function MainLayout() {
         </div>
       </header>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Menu - Bottom Sheet */}
       {isMobileMenuOpen && (
         <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}>
           <nav className="mobile-menu-content" onClick={(e) => e.stopPropagation()}>
-            {allowedMenuItems.map((item) => {
+            <div className="mobile-menu-header">Điều hướng</div>
+
+            {allowedMenuItems
+              .filter(item => item.id !== 'profile')
+              .map((item) => {
               const Icon = item.icon;
               const isActive = currentPath.startsWith(item.path);
               return (
@@ -317,7 +321,7 @@ export default function MainLayout() {
                   onClick={() => handleViewChange(item.path)}
                   className={`mobile-menu-item ${isActive ? 'active' : ''}`}
                 >
-                  <Icon size={18} />
+                  <Icon size={20} />
                   <span>{item.name}</span>
                 </button>
               );
@@ -328,16 +332,25 @@ export default function MainLayout() {
             {/* User Profile Mobile */}
             <div className="mobile-menu-user">
               <div className="user-avatar">
-                <User size={16} />
+                <User size={18} />
               </div>
-              <div className="user-meta">
-                <span className="user-name">{user.fullName}</span>
-                <span className="user-role" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <UserCheck size={10} />
+              <div className="user-meta" style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="user-name" style={{ maxWidth: '200px' }}>{user.fullName}</span>
+                <span className="user-role" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
+                  <UserCheck size={11} />
                   <span>{getRoleLabel(user.role)}</span>
                 </span>
               </div>
             </div>
+
+            {/* Profile button */}
+            <button
+              onClick={() => handleViewChange('/profile')}
+              className={`mobile-menu-item ${currentPath === '/profile' ? 'active' : ''}`}
+            >
+              <User size={20} />
+              <span>Hồ sơ &amp; Bảo mật</span>
+            </button>
 
             <div className="mobile-menu-actions">
               <button

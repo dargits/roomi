@@ -25,7 +25,10 @@ import {
   Sparkles,
   Shield,
   Clock,
+  Menu,
+  X,
 } from "lucide-react";
+
 
 function BookingPortal({ onBackToLogin, showNotification }) {
   const [step, setStep] = useState(1);
@@ -54,9 +57,15 @@ function BookingPortal({ onBackToLogin, showNotification }) {
   // Result
   const [createdBooking, setCreatedBooking] = useState(null);
 
+  // Active navigation section state ("home" | "rooms" | "amenities")
+  const [activeNavSection, setActiveNavSection] = useState("home");
+  const [isMobilePortalMenuOpen, setIsMobilePortalMenuOpen] = useState(false);
+
   // Refs for scrolling to landing page sections
   const roomsSectionRef = useRef(null);
   const amenitiesSectionRef = useRef(null);
+  const isClickScrollingRef = useRef(false);
+  const clickScrollTimerRef = useRef(null);
 
   // Fetch Room Types and Property Settings on mount
   useEffect(() => {
@@ -88,6 +97,35 @@ function BookingPortal({ onBackToLogin, showNotification }) {
     setCheckInDate(today.toISOString().split("T")[0]);
     setCheckOutDate(tomorrow.toISOString().split("T")[0]);
   }, []);
+
+  // Track active section on scroll
+  useEffect(() => {
+    if (step !== 1) return;
+
+    const handleScroll = () => {
+      if (isClickScrollingRef.current) return;
+
+      const scrollPosition = window.scrollY + 180;
+
+      const amenitiesTop = amenitiesSectionRef.current
+        ? amenitiesSectionRef.current.offsetTop
+        : Infinity;
+      const roomsTop = roomsSectionRef.current
+        ? roomsSectionRef.current.offsetTop
+        : Infinity;
+
+      if (scrollPosition >= amenitiesTop) {
+        setActiveNavSection("amenities");
+      } else if (scrollPosition >= roomsTop) {
+        setActiveNavSection("rooms");
+      } else {
+        setActiveNavSection("home");
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [step]);
 
   const handleDateSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -222,12 +260,32 @@ function BookingPortal({ onBackToLogin, showNotification }) {
     });
     setCreatedBooking(null);
     setStep(1);
+    setActiveNavSection("home");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const scrollToSection = (ref) => {
-    if (ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  const scrollToSection = (ref, sectionKey) => {
+    if (sectionKey) {
+      setActiveNavSection(sectionKey);
+    }
+    isClickScrollingRef.current = true;
+    if (clickScrollTimerRef.current) {
+      clearTimeout(clickScrollTimerRef.current);
+    }
+    clickScrollTimerRef.current = setTimeout(() => {
+      isClickScrollingRef.current = false;
+    }, 800);
+
+    if (ref && ref.current) {
+      const headerOffset = 80;
+      const elementPosition = ref.current.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth",
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -259,6 +317,7 @@ function BookingPortal({ onBackToLogin, showNotification }) {
           boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.05)",
           height: "72px"
         }}
+        className="portal-header"
       >
         <div
           style={{
@@ -303,6 +362,7 @@ function BookingPortal({ onBackToLogin, showNotification }) {
                 textTransform: "uppercase",
                 letterSpacing: "0.8px"
               }}
+              className="portal-brand-sub"
             >
               Resort & Luxury Hotel
             </span>
@@ -315,91 +375,135 @@ function BookingPortal({ onBackToLogin, showNotification }) {
             className="desktop-only"
             style={{ display: "flex", alignItems: "center", gap: "8px" }}
           >
-            <button
-              onClick={() => resetPortal()}
-              style={{
-                background: "rgba(0, 102, 204, 0.08)",
-                border: "1px solid rgba(0, 102, 204, 0.2)",
-                color: "#0066cc",
-                fontWeight: "700",
-                fontSize: "14px",
-                padding: "8px 18px",
-                borderRadius: "20px",
-                cursor: "pointer",
-                transition: "all 0.15s ease"
-              }}
-            >
-              Trang chủ
-            </button>
-            <button
-              onClick={() => scrollToSection(roomsSectionRef)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#475569",
-                fontWeight: "600",
-                fontSize: "14px",
-                padding: "8px 18px",
-                borderRadius: "20px",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-              onMouseOver={(e) => {
-                e.target.style.backgroundColor = "#f1f5f9";
-                e.target.style.color = "#0066cc";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.backgroundColor = "transparent";
-                e.target.style.color = "#475569";
-              }}
-            >
-              Hạng phòng
-            </button>
-            <button
-              onClick={() => scrollToSection(amenitiesSectionRef)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#475569",
-                fontWeight: "600",
-                fontSize: "14px",
-                padding: "8px 18px",
-                borderRadius: "20px",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-              onMouseOver={(e) => {
-                e.target.style.backgroundColor = "#f1f5f9";
-                e.target.style.color = "#0066cc";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.backgroundColor = "transparent";
-                e.target.style.color = "#475569";
-              }}
-            >
-              Dịch vụ & Tiện ích
-            </button>
+            {[
+              {
+                key: "home",
+                label: "Trang chủ",
+                action: () => scrollToSection(null, "home"),
+              },
+              {
+                key: "rooms",
+                label: "Hạng phòng",
+                action: () => scrollToSection(roomsSectionRef, "rooms"),
+              },
+              {
+                key: "amenities",
+                label: "Dịch vụ & Tiện ích",
+                action: () => scrollToSection(amenitiesSectionRef, "amenities"),
+              },
+            ].map((navItem) => {
+              const isActive = activeNavSection === navItem.key;
+              return (
+                <button
+                  key={navItem.key}
+                  onClick={navItem.action}
+                  style={{
+                    background: isActive
+                      ? "rgba(0, 102, 204, 0.08)"
+                      : "transparent",
+                    border: isActive
+                      ? "1px solid rgba(0, 102, 204, 0.2)"
+                      : "1px solid transparent",
+                    color: isActive ? "#0066cc" : "#475569",
+                    fontWeight: isActive ? "700" : "600",
+                    fontSize: "14px",
+                    padding: "8px 18px",
+                    borderRadius: "20px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = "#f1f5f9";
+                      e.currentTarget.style.color = "#0066cc";
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = "#475569";
+                    }
+                  }}
+                >
+                  {navItem.label}
+                </button>
+              );
+            })}
           </nav>
         )}
 
-        <button
-          onClick={onBackToLogin}
-          className="btn btn-primary"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "9px 20px",
-            fontSize: "13px",
-            fontWeight: "700",
-            borderRadius: "30px",
-            boxShadow: "0 4px 12px rgba(0, 102, 204, 0.25)"
-          }}
-        >
-          <LogOut size={15} />
-          <span>Nhân viên đăng nhập</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={onBackToLogin}
+            className="btn btn-primary portal-login-btn"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "9px 20px",
+              fontSize: "13px",
+              fontWeight: "700",
+              borderRadius: "30px",
+              boxShadow: "0 4px 12px rgba(0, 102, 204, 0.25)"
+            }}
+          >
+            <LogOut size={15} />
+            <span className="portal-login-label">Nhân viên đăng nhập</span>
+          </button>
+
+          {/* Mobile hamburger - only shown on mobile */}
+          {step === 1 && (
+            <button
+              onClick={() => setIsMobilePortalMenuOpen(!isMobilePortalMenuOpen)}
+              className="portal-mobile-toggle"
+              aria-label="Mở menu"
+            >
+              {isMobilePortalMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Mobile Menu for BookingPortal */}
+      {isMobilePortalMenuOpen && step === 1 && (
+        <div
+          className="mobile-menu-overlay"
+          onClick={() => setIsMobilePortalMenuOpen(false)}
+        >
+          <nav
+            className="mobile-menu-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mobile-menu-header">Điều hướng</div>
+            {[
+              { key: "home", label: "Trang chủ", action: () => { scrollToSection(null, "home"); setIsMobilePortalMenuOpen(false); } },
+              { key: "rooms", label: "Hạng phòng", action: () => { scrollToSection(roomsSectionRef, "rooms"); setIsMobilePortalMenuOpen(false); } },
+              { key: "amenities", label: "Dịch vụ & Tiện ích", action: () => { scrollToSection(amenitiesSectionRef, "amenities"); setIsMobilePortalMenuOpen(false); } },
+            ].map((navItem) => (
+              <button
+                key={navItem.key}
+                onClick={navItem.action}
+                className={`mobile-menu-item ${activeNavSection === navItem.key ? 'active' : ''}`}
+              >
+                {navItem.key === 'home' && <MapPin size={20} />}
+                {navItem.key === 'rooms' && <Star size={20} />}
+                {navItem.key === 'amenities' && <Sparkles size={20} />}
+                <span>{navItem.label}</span>
+              </button>
+            ))}
+            <div className="mobile-menu-divider" />
+            <div className="mobile-menu-actions">
+              <button
+                onClick={() => { setIsMobilePortalMenuOpen(false); onBackToLogin(); }}
+                className="btn btn-primary mobile-action-btn"
+              >
+                <LogOut size={16} />
+                <span>Nhân viên đăng nhập</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+      )}
 
       {/* Progress Tracker (Only shown during booking wizard Steps 2, 3, 4) */}
       {step > 1 && (
@@ -2489,9 +2593,59 @@ function BookingPortal({ onBackToLogin, showNotification }) {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+        /* BookingPortal Responsive Styles */
+        .portal-header {
+          padding: 12px 48px !important;
+        }
+        .portal-mobile-toggle {
+          display: none;
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          background: transparent;
+          color: #0f172a;
+          border: 1px solid #e2e8f0;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
+        }
+        .portal-mobile-toggle:hover {
+          background: rgba(0, 102, 204, 0.08);
+          border-color: rgba(0, 102, 204, 0.3);
+          color: #0066cc;
+        }
+        @media (max-width: 1024px) {
+          .portal-header {
+            padding: 12px 24px !important;
+          }
+        }
         @media (max-width: 768px) {
+          .portal-header {
+            padding: 10px 16px !important;
+            height: 60px !important;
+          }
+          .portal-brand-sub {
+            display: none !important;
+          }
+          .portal-login-label {
+            display: none;
+          }
+          .portal-login-btn {
+            padding: 8px 12px !important;
+            border-radius: 10px !important;
+          }
+          .portal-mobile-toggle {
+            display: flex;
+          }
           .desktop-only {
             display: none !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .portal-header {
+            padding: 8px 12px !important;
           }
         }
       `}</style>
