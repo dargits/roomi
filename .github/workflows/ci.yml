@@ -10,6 +10,8 @@ jobs:
   backend-ci:
     name: Backend (Spring Boot) CI
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: ./Backend/roomi
@@ -37,6 +39,8 @@ jobs:
   frontend-ci:
     name: Frontend (React + Vite) CI
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: ./Frontend/roomi
