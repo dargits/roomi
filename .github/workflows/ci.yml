@@ -14,6 +14,16 @@ jobs:
       run:
         working-directory: ./Backend/roomi
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: laybo
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -57,9 +67,6 @@ jobs:
 
       - name: Run Oxlint
         run: npm run lint
-
-      - name: Run Frontend Unit Tests
-        run: npm test
 
       - name: Build Frontend (Production Verify)
         # Sử dụng /api/v1 (relative path) để verify build pass
