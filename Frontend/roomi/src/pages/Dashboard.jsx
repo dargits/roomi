@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import PageLoader from '../components/PageLoader';
-import { formatDateString } from '../utils/formatters';
+import { formatDateString, formatDateTime } from '../utils/formatters';
 import { 
   Grid, 
   Calendar, 
@@ -12,6 +12,7 @@ import {
   Wrench, 
   Sparkles, 
   DollarSign, 
+  Clipboard,
   ClipboardList,
   Coffee,
   Check,
@@ -79,8 +80,8 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
   // Service Usage / Invoice States
   const [servicesList, setServicesList] = useState([]);
   const [activeInvoice, setActiveInvoice] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
-  const [paymentAmount, setPaymentAmount] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentInput, setPaymentInput] = useState({ amount: '', method: 'CASH' });
   const [surchargeInput, setSurchargeInput] = useState({ surchargeServiceId: '', quantity: 1, note: '' });
   const [newStatus, setNewStatus] = useState('');
   const [drawerUsages, setDrawerUsages] = useState([]);
@@ -345,9 +346,6 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
       if (res.data && res.data.data) {
         const inv = res.data.data;
         setActiveInvoice(inv);
-        setPaymentMethod('CASH');
-        const due = inv.remainingAmount !== undefined ? inv.remainingAmount : (inv.status === 'PAID' ? 0 : inv.totalAmount);
-        setPaymentAmount(due > 0 ? due : '');
         setShowInvoiceModal(true);
       }
     } catch (err) {
@@ -355,35 +353,34 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
     }
   };
 
-  // Confirm payment and checkout from Dashboard room map
-  const handleConfirmPaymentAndCheckout = async () => {
+  // Payment Management
+  const openPaymentModal = () => {
+    if (!activeInvoice) return;
+    const remaining = activeInvoice.remainingAmount !== undefined
+      ? activeInvoice.remainingAmount
+      : activeInvoice.totalAmount;
+    setPaymentInput({
+      amount: remaining > 0 ? remaining : '',
+      method: 'CASH'
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleAddPaymentSubmit = async (e) => {
+    e.preventDefault();
     const activeBooking = getTodayBooking(selectedRoom);
-    if (!activeBooking || !activeInvoice) return;
-
+    if (!activeBooking) return;
     try {
-      // 1. Nếu hóa đơn chưa trả hết -> Ghi nhận thanh toán với loại hình chọn
-      if (activeInvoice.status !== 'PAID') {
-        const defaultDue = activeInvoice.remainingAmount !== undefined ? activeInvoice.remainingAmount : activeInvoice.totalAmount;
-        const amountToPay = paymentAmount ? parseFloat(paymentAmount) : defaultDue;
-        
-        if (amountToPay > 0) {
-          await api.post(`/bookings/${activeBooking.bookingId || activeBooking.id}/payments`, {
-            amount: amountToPay,
-            method: paymentMethod || 'CASH'
-          });
-        }
-      }
-
-      // 2. Thực hiện Trả phòng (Check-out)
-      const res = await api.patch(`/bookings/${activeBooking.bookingId}/check-out`);
-      showNotification(res.data.mess || 'Đã xác nhận thanh toán và Trả phòng thành công!', 'success');
-
-      // 3. Đóng modal & làm mới dữ liệu
-      setShowInvoiceModal(false);
-      setSelectedRoom(null);
+      await api.post(`/bookings/${activeBooking.bookingId}/payments`, {
+        amount: parseFloat(paymentInput.amount),
+        method: paymentInput.method
+      });
+      showNotification('Ghi nhận thanh toán thành công!');
+      setShowPaymentModal(false);
+      handleViewInvoice();
       fetchData();
     } catch (err) {
-      showNotification(err.message || 'Không thể thanh toán và trả phòng', 'error');
+      showNotification(err.message, 'error');
     }
   };
 
@@ -1449,11 +1446,11 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
       {/* BILLING / INVOICE VIEW MODAL */}
       {showInvoiceModal && activeInvoice && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: 'calc(100vh - 110px)' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ClipboardList size={18} color="var(--primary)" />
-                Chi tiết Hóa đơn thanh toán
+                <Clipboard size={18} color="var(--primary)" />
+                Chi tiết Hóa đơn thanh toán (#{activeInvoice.id || getTodayBooking(selectedRoom)?.bookingId})
               </h2>
               <button onClick={() => setShowInvoiceModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
@@ -1462,23 +1459,23 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
               {/* Billing summary */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
                 <div>
-                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || activeInvoice.guestName || 'Khách vãng lai'}</p>
+                  <p><strong>Khách hàng:</strong> {activeInvoice.guestFullName || activeInvoice.guestName || getTodayBooking(selectedRoom)?.guestName || 'Khách vãng lai'}</p>
                   {selectedRoom && getTodayBooking(selectedRoom) && (
                     <>
                       <p><strong>Số điện thoại:</strong> {getTodayBooking(selectedRoom).guestPhone || 'Không có'}</p>
                       <p><strong>CCCD / ID:</strong> {getTodayBooking(selectedRoom).guestIdNumber || 'Không có'}</p>
                     </>
                   )}
-                  <p><strong>Phòng đặt:</strong> {selectedRoom.roomNumber} ({selectedRoom.roomTypeName})</p>
+                  <p><strong>Phòng đặt:</strong> {selectedRoom ? `Phòng ${selectedRoom.roomNumber}` : 'Chưa gán'} ({selectedRoom?.roomTypeName || ''})</p>
                 </div>
                 <div>
-                  <p><strong>Số đêm:</strong> {activeInvoice.nights} đêm</p>
-                  <p><strong>Trạng thái:</strong> <span className={`badge badge-${activeInvoice.status?.toLowerCase() || 'pending'}`}>{activeInvoice.status || 'PENDING'}</span></p>
+                  <p><strong>Số đêm:</strong> {activeInvoice.nights || 1} đêm</p>
+                  <p><strong>Trạng thái hóa đơn:</strong> <span className={`badge badge-${activeInvoice.status?.toLowerCase() || 'pending'}`}>{activeInvoice.status || 'PENDING'}</span></p>
                 </div>
               </div>
 
               {/* Itemized summary */}
-              <h3 style={{ fontSize: '14px', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Phí thuê phòng</h3>
+              <h3 style={{ fontSize: '13px', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Phí thuê phòng</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', marginBottom: '20px', fontSize: '14px' }}>
                 <span>Tiền phòng ({activeInvoice.nights} đêm)</span>
                 <strong>{activeInvoice.roomCharge?.toLocaleString('vi-VN')} VND</strong>
@@ -1486,8 +1483,8 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
 
               {/* Service usages */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Dịch vụ & Phụ thu</h3>
-                {(user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Dịch vụ phụ thu</h3>
+                {activeInvoice.status !== 'PAID' && user.role !== 'ACCOUNTANT' && (
                   <button 
                     onClick={() => { fetchServicesCatalog(); setShowServiceModal(true); }}
                     className="btn btn-secondary btn-sm"
@@ -1498,7 +1495,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                 )}
               </div>
 
-              <div className="table-container" style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '20px' }}>
+              <div className="table-container" style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '20px' }}>
                 <table style={{ fontSize: '13px' }}>
                   <thead>
                     <tr>
@@ -1521,7 +1518,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                           <td>{u.quantity}</td>
                           <td style={{ textAlign: 'right', fontWeight: '600' }}>{u.lineTotal?.toLocaleString('vi-VN')}</td>
                           <td>
-                            {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+                            {activeInvoice.status !== 'PAID' && user.role !== 'ACCOUNTANT' && (
                               <button 
                                 onClick={() => handleDeleteSurchargeUsage(u.id)}
                                 style={{ background: 'none', border: 'none', color: 'var(--color-maintenance)', cursor: 'pointer' }}
@@ -1534,21 +1531,21 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '16px' }}>Chưa ghi nhận dịch vụ phụ thu nào.</td>
+                        <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '16px' }}>Không có dịch vụ phát sinh.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
 
-              {/* Totals */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              {/* Totals & Payment breakdown */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                  <span>Phí phòng:</span>
+                  <span>Tiền thuê phòng:</span>
                   <span>{activeInvoice.roomCharge?.toLocaleString('vi-VN')} VND</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                  <span>Phí dịch vụ:</span>
+                  <span>Tiền dịch vụ phụ thu:</span>
                   <span>{activeInvoice.serviceCharge?.toLocaleString('vi-VN')} VND</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--color-maintenance)' }}>
@@ -1556,57 +1553,76 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                   <span>- {activeInvoice.discount?.toLocaleString('vi-VN') || 0} VND</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '4px', color: 'var(--primary)' }}>
-                  <span>Tổng cộng cần trả:</span>
+                  <span>Tổng tiền hóa đơn:</span>
                   <span>{activeInvoice.totalAmount?.toLocaleString('vi-VN')} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#10b981', fontWeight: '600' }}>
+                  <span>Đã thanh toán:</span>
+                  <span>{(activeInvoice.totalPaid || (activeInvoice.status === 'PAID' ? activeInvoice.totalAmount : 0))?.toLocaleString('vi-VN')} VND</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: activeInvoice.remainingAmount > 0 ? '#ef4444' : '#10b981', fontWeight: '600' }}>
+                  <span>Còn lại:</span>
+                  <span>{(activeInvoice.remainingAmount !== undefined ? activeInvoice.remainingAmount : (activeInvoice.status === 'PAID' ? 0 : activeInvoice.totalAmount))?.toLocaleString('vi-VN')} VND</span>
                 </div>
               </div>
 
-              {/* Payment Section (when invoice is not fully paid) */}
-              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
-                <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 12px 0' }}>Xác nhận thanh toán</h3>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px', color: 'var(--text-secondary)' }}>Hình thức thanh toán</label>
-                      <select 
-                        className="form-control"
-                        style={{ fontSize: '13px', padding: '8px' }}
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                      >
-                        <option value="CASH">💵 Tiền mặt</option>
-                        <option value="BANK_TRANSFER">💳 Chuyển khoản ngân hàng</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px', color: 'var(--text-secondary)' }}>Số tiền thu (VND)</label>
-                      <input 
-                        type="number"
-                        className="form-control"
-                        style={{ fontSize: '13px', padding: '8px' }}
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        placeholder="Số tiền thanh toán"
-                      />
-                    </div>
-                  </div>
+              {/* Payment history list */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>Lịch sử thanh toán</h3>
+                  {activeInvoice.status !== 'PAID' && (activeInvoice.remainingAmount === undefined || activeInvoice.remainingAmount > 0) && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN' || user.role === 'OWNER') && (
+                    <button
+                      onClick={openPaymentModal}
+                      className="btn btn-primary btn-sm"
+                      style={{ padding: '4px 12px', fontSize: '12px' }}
+                    >
+                      <DollarSign size={12} /> Ghi nhận thanh toán
+                    </button>
+                  )}
                 </div>
-              )}
+                {activeInvoice.payments && activeInvoice.payments.length > 0 ? (
+                  <div className="table-container">
+                    <table style={{ fontSize: '12px' }}>
+                      <thead>
+                        <tr>
+                          <th>Thời gian</th>
+                          <th>Phương thức</th>
+                          <th>Người thu</th>
+                          <th style={{ textAlign: 'right' }}>Số tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeInvoice.payments.map(p => (
+                          <tr key={p.id}>
+                            <td>{formatDateTime(p.paidAt)}</td>
+                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? '💵 Tiền mặt' : '💳 Chuyển khoản'}</span></td>
+                            <td>{p.receivedByName || 'Nhân viên'}</td>
+                            <td style={{ textAlign: 'right', fontWeight: '600', color: '#10b981' }}>{p.amount?.toLocaleString('vi-VN')} VND</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '8px 0' }}>Chưa có lần thanh toán nào.</div>
+                )}
+              </div>
 
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary btn-sm">Đóng</button>
-              {activeInvoice.status !== 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
-                <button 
-                  onClick={handleConfirmPaymentAndCheckout} 
-                  className="btn btn-primary btn-sm"
+              
+              {activeInvoice.status !== 'PAID' && (user.role === 'RECEPTIONIST' || user.role === 'ACCOUNTANT' || user.role === 'ADMIN' || user.role === 'OWNER') && (
+                <button
+                  onClick={openPaymentModal}
+                  className="btn btn-secondary btn-sm"
+                  style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
                 >
-                  <Check size={14} /> Xác nhận thanh toán & Trả phòng
+                  <DollarSign size={14} /> Ghi nhận thanh toán
                 </button>
               )}
-              {activeInvoice.status === 'PAID' && (user.role === 'OWNER' || user.role === 'RECEPTIONIST') && (
+
+              {(user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
                 <button 
                   onClick={() => {
                     const activeBooking = getTodayBooking(selectedRoom);
@@ -1615,11 +1631,65 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                     setSelectedRoom(null);
                   }} 
                   className="btn btn-primary btn-sm"
+                  disabled={activeInvoice.status !== 'PAID'}
+                  title={activeInvoice.status !== 'PAID' ? 'Cần thanh toán đủ trước khi trả phòng' : 'Trả phòng'}
                 >
                   <Check size={14} /> Trả phòng (Check-out)
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT RECORD MODAL */}
+      {showPaymentModal && (
+        <div className="modal-overlay" style={{ zIndex: 10500 }}>
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <DollarSign size={18} color="var(--primary)" />
+                Ghi nhận thanh toán
+              </h2>
+              <button onClick={() => setShowPaymentModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleAddPaymentSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <div><strong>Khách hàng:</strong> {activeInvoice?.guestFullName || activeInvoice?.guestName || getTodayBooking(selectedRoom)?.guestName}</div>
+                  <div><strong>Còn lại cần thu:</strong> <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{(activeInvoice?.remainingAmount !== undefined ? activeInvoice.remainingAmount : activeInvoice?.totalAmount)?.toLocaleString('vi-VN')} VND</span></div>
+                </div>
+
+                <div>
+                  <label>Số tiền thu (VND) *</label>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="1000"
+                    placeholder="Nhập số tiền..."
+                    value={paymentInput.amount}
+                    onChange={(e) => setPaymentInput(prev => ({ ...prev, amount: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label>Phương thức thanh toán *</label>
+                  <select
+                    value={paymentInput.method}
+                    onChange={(e) => setPaymentInput(prev => ({ ...prev, method: e.target.value }))}
+                    required
+                  >
+                    <option value="CASH">💵 Tiền mặt (Cash)</option>
+                    <option value="BANK_TRANSFER">💳 Chuyển khoản (Bank Transfer)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary btn-sm">Hủy</button>
+                <button type="submit" className="btn btn-primary btn-sm">Ghi nhận</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
