@@ -526,8 +526,8 @@ function Rooms({ user, showNotification }) {
               </h2>
               <button onClick={() => setShowRoomModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
-            <form onSubmit={handleRoomSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleRoomSubmit} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
                 <div>
                   <label>Số phòng *</label>
                   <input
@@ -607,8 +607,8 @@ function Rooms({ user, showNotification }) {
               </h2>
               <button onClick={() => setShowTypeModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
             </div>
-            <form onSubmit={handleTypeSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleTypeSubmit} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
                 <div>
                   <label>Tên loại phòng *</label>
                   <input
