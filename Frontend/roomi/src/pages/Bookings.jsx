@@ -794,15 +794,15 @@ function Bookings({ user, showNotification }) {
                             </button>
                             <button 
                               onClick={() => {
-                                if (window.confirm('Xác nhận khách không đến (No-show)? Đặt phòng này sẽ chuyển thành NO_SHOW và giải phóng phòng.')) {
+                                if (window.confirm('Xác nhận khách không đến? Trạng thái đặt phòng sẽ chuyển sang KHÁCH KHÔNG ĐẾN và giải phóng phòng.')) {
                                   handleTransition(b.id, 'no-show');
                                 }
                               }} 
                               className="btn btn-secondary btn-sm" 
                               style={{ color: 'var(--color-maintenance)' }}
-                              title="Khách không đến (No-show)"
+                              title="Khách không đến"
                             >
-                              No-show
+                              Khách không đến
                             </button>
                           </>
                         )}
