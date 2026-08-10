@@ -844,12 +844,13 @@ label {
     top: 64px;
   }
 
-  /* Notification toast */
-  .notification {
+  /* Notification toast stack */
+  .notification-stack {
     left: 16px;
     right: 16px;
     bottom: 16px;
-    padding: 12px 16px;
+    width: auto;
+    max-width: none;
   }
 
   /* Tabs - scrollable on mobile */
@@ -908,9 +909,13 @@ label {
     min-width: 100px;
   }
 
-  .notification {
+  .notification-stack {
     left: 12px;
     right: 12px;
+    bottom: 12px;
+  }
+  .notification {
+    padding: 10px 14px;
     font-size: 13px;
   }
 }
@@ -1242,21 +1247,73 @@ tr:hover td {
   margin-bottom: 24px;
 }
 
-/* Toast/Notification Banner */
-.notification {
+/* Toast/Notification Stack Container */
+.notification-stack {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  pointer-events: none;
+}
+
+/* Toast/Notification Banner Item */
+.notification {
+  position: relative;
+  padding: 12px 16px;
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
-  gap: 12px;
-  z-index: 1100;
-  animation: slideLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 10px;
+  pointer-events: auto;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease;
+  word-break: break-word;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+.notification-message {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.notification-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
 }
 
 .notification-success {
@@ -1265,6 +1322,14 @@ tr:hover td {
 
 .notification-error {
   border-left: 4px solid var(--color-maintenance);
+}
+
+.notification-warning {
+  border-left: 4px solid #d97706;
+}
+
+.notification-info {
+  border-left: 4px solid #2563eb;
 }
 
 /* Animations */

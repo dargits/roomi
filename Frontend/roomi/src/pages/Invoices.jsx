@@ -483,7 +483,7 @@ function Invoices({ user, showNotification }) {
                         {activeInvoice.payments.map(p => (
                           <tr key={p.id}>
                             <td>{formatDateTime(p.paidAt)}</td>
-                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? '💵 Tiền mặt' : '💳 Chuyển khoản'}</span></td>
+                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></td>
                             <td>{p.receivedByName || 'Nhân viên'}</td>
                             <td style={{ textAlign: 'right', fontWeight: '600', color: '#10b981' }}>{p.amount?.toLocaleString('vi-VN')} VND</td>
                           </tr>
