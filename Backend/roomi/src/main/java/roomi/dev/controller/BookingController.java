@@ -393,13 +393,14 @@ public class BookingController {
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<BaseResponse<BookingResponse>> cancelBooking(
             @RequestHeader("Authorization") String token,
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason) {
 
         authUtil.requireRoles(token, User.Role.OWNER, User.Role.RECEPTIONIST);
 
         return ResponseEntity.ok(BaseResponse.<BookingResponse>builder()
-                .mess("Huỷ booking thành công")
-                .data(bookingService.cancelBooking(id))
+                .mess("Huỷ / Từ chối booking thành công")
+                .data(bookingService.cancelBooking(id, reason))
                 .build());
     }
 

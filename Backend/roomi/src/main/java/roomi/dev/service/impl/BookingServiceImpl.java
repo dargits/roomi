@@ -30,13 +30,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BookingServiceImpl implements BookingService {
 
-    private final BookingRepository      bookingRepository;
-    private final RoomRepository         roomRepository;
-    private final RoomTypeRepository     roomTypeRepository;
+    private final BookingRepository bookingRepository;
+    private final RoomRepository roomRepository;
+    private final RoomTypeRepository roomTypeRepository;
     private final SeasonalRateRepository seasonalRateRepository;
-    private final GuestService           guestService;       // inject interface thay vì impl
-    private final BookingConflictChecker conflictChecker;    // kiểm tra xung đột lịch
-    private final UserRepository         userRepository;
+    private final GuestService guestService; // inject interface thay vì impl
+    private final BookingConflictChecker conflictChecker; // kiểm tra xung đột lịch
+    private final UserRepository userRepository;
+
+    @Autowired
+    private GuestRepository guestRepository;
 
     @Autowired
     private InvoiceRepository invoiceRepository;
@@ -68,8 +71,7 @@ public class BookingServiceImpl implements BookingService {
                 request.getFullName(),
                 request.getPhone(),
                 request.getEmail(),
-                request.getNote()
-        );
+                request.getNote());
 
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new BusinessException(
@@ -83,10 +85,11 @@ public class BookingServiceImpl implements BookingService {
             room = conflictChecker.validateAndGetRoom(
                     request.getRoomId(), roomType, slot, -1L);
             if (room.getStatus() != Room.Status.AVAILABLE) {
-                String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP" :
-                                    room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
+                String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP"
+                        : room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
                 throw new BusinessException(
-                        "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName + "). Vui lòng cho buồng phòng dọn dẹp xong trước khi đặt/gán phòng!",
+                        "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName
+                                + "). Vui lòng cho buồng phòng dọn dẹp xong trước khi đặt/gán phòng!",
                         ErrorCode.ROOM_NOT_AVAILABLE);
             }
         }
@@ -115,8 +118,10 @@ public class BookingServiceImpl implements BookingService {
 
     /**
      * Tạo đặt phòng công khai từ cổng khách hàng (BookingPortal).
-     * Nghiệp vụ: Đơn đặt phòng từ Web luôn ở trạng thái MỚI TẠO (NEW), chưa gán phòng cụ thể (room = null).
-     * Đơn sẽ nằm ở danh sách Yêu cầu mới chờ Lễ tân kiểm tra, xác nhận và gán phòng.
+     * Nghiệp vụ: Đơn đặt phòng từ Web luôn ở trạng thái MỚI TẠO (NEW), chưa gán
+     * phòng cụ thể (room = null).
+     * Đơn sẽ nằm ở danh sách Yêu cầu mới chờ Lễ tân kiểm tra, xác nhận và gán
+     * phòng.
      */
     @Override
     @Transactional
@@ -128,8 +133,7 @@ public class BookingServiceImpl implements BookingService {
                 request.getFullName(),
                 request.getPhone(),
                 request.getEmail(),
-                request.getNote()
-        );
+                request.getNote());
 
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new BusinessException(
@@ -155,11 +159,11 @@ public class BookingServiceImpl implements BookingService {
                 .guestIdNumber(request.getIdNumber())
                 .guestEmail(request.getEmail())
                 .roomType(roomType)
-                .room(preferredRoom) // Lưu lại phòng cụ thể khách đã chọn trên Web!
+                .room(preferredRoom) // Lưu lại phòng cụ thể khách đã chọn trên Web
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .source(Booking.Source.BOOKING_PORTAL)
-                .status(preferredRoom != null ? Booking.Status.CONFIRMED : Booking.Status.NEW)
+                .status(Booking.Status.NEW)
                 .expectedPrice(expectedPrice)
                 .createdBy(systemUser)
                 .build();
@@ -168,7 +172,8 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(savedBooking);
     }
 
-    // ================================================================== ASSIGN ROOM
+    // ================================================================== ASSIGN
+    // ROOM
 
     @Override
     @Transactional
@@ -186,18 +191,19 @@ public class BookingServiceImpl implements BookingService {
         TimeSlot slot = TimeSlot.of(booking.getCheckInDate(), booking.getCheckOutDate());
 
         // BookingConflictChecker kiểm tra:
-        //   1. Phòng tồn tại
-        //   2. RoomType của phòng khớp booking
-        //   3. Không bị chồng lấn thời gian với booking khác (loại trừ chính booking này)
+        // 1. Phòng tồn tại
+        // 2. RoomType của phòng khớp booking
+        // 3. Không bị chồng lấn thời gian với booking khác (loại trừ chính booking này)
         Room room = conflictChecker.validateAndGetRoom(
                 roomId, booking.getRoomType(), slot, bookingId);
 
         // Kiểm tra phòng phải ở trạng thái SAN_SANG (AVAILABLE)
         if (room.getStatus() != Room.Status.AVAILABLE) {
-            String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP" :
-                                room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
+            String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP"
+                    : room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
             throw new BusinessException(
-                    "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName + "). Vui lòng cho buồng phòng dọn dẹp xong trước khi gán!",
+                    "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName
+                            + "). Vui lòng cho buồng phòng dọn dẹp xong trước khi gán!",
                     ErrorCode.ROOM_NOT_AVAILABLE);
         }
 
@@ -208,7 +214,8 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(bookingRepository.save(booking));
     }
 
-    // ================================================================== CHANGE ROOM
+    // ================================================================== CHANGE
+    // ROOM
 
     @Override
     @Transactional
@@ -220,7 +227,7 @@ public class BookingServiceImpl implements BookingService {
                 && booking.getStatus() != Booking.Status.CHECKED_IN) {
             throw new BusinessException(
                     "Chỉ có thể đổi phòng khi booking ở trạng thái CONFIRMED hoặc CHECKED_IN"
-                    + " (hiện tại: " + booking.getStatus() + ")",
+                            + " (hiện tại: " + booking.getStatus() + ")",
                     ErrorCode.BOOKING_INVALID_STATUS);
         }
 
@@ -248,13 +255,14 @@ public class BookingServiceImpl implements BookingService {
         // Kiểm tra phòng mới phải ở trạng thái AVAILABLE
         if (newRoom.getStatus() != Room.Status.AVAILABLE) {
             throw new BusinessException(
-                    "Phòng mới (Phòng " + newRoom.getRoomNumber() + ") chưa sẵn sàng (trạng thái: " + newRoom.getStatus() + "). Hãy dọn phòng trước khi đổi!",
+                    "Phòng mới (Phòng " + newRoom.getRoomNumber() + ") chưa sẵn sàng (trạng thái: "
+                            + newRoom.getStatus() + "). Hãy dọn phòng trước khi đổi!",
                     ErrorCode.ROOM_NOT_AVAILABLE);
         }
 
         // Logic trạng thái phòng:
-        // CONFIRMED:  phòng cũ → AVAILABLE,       phòng mới giữ nguyên AVAILABLE
-        // CHECKED_IN: phòng cũ → NEEDS_CLEANING,  phòng mới → OCCUPIED
+        // CONFIRMED: phòng cũ → AVAILABLE, phòng mới giữ nguyên AVAILABLE
+        // CHECKED_IN: phòng cũ → NEEDS_CLEANING, phòng mới → OCCUPIED
         if (booking.getStatus() == Booking.Status.CHECKED_IN) {
             currentRoom.setStatus(Room.Status.NEEDS_CLEANING);
             newRoom.setStatus(Room.Status.OCCUPIED);
@@ -272,13 +280,22 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(bookingRepository.save(booking));
     }
 
-    // ================================================================== STATUS TRANSITIONS
+    // ================================================================== STATUS
+    // TRANSITIONS
 
     @Override
     @Transactional
     public BookingResponse confirmBooking(Long bookingId) {
         Booking booking = findById(bookingId);
         requireStatus(booking, Booking.Status.NEW);
+
+        // Tránh nhận trùng phòng: Kiểm tra xung đột lịch trước khi chuyển thành đặt
+        // phòng chính thức!
+        if (booking.getRoom() != null) {
+            TimeSlot slot = TimeSlot.of(booking.getCheckInDate(), booking.getCheckOutDate());
+            conflictChecker.validateNoConflict(booking.getRoom(), slot, bookingId);
+        }
+
         booking.setStatus(Booking.Status.CONFIRMED);
         return toResponse(bookingRepository.save(booking));
     }
@@ -287,7 +304,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponse checkIn(Long bookingId) {
         Booking booking = findById(bookingId);
-        
+
         if (booking.getStatus() != Booking.Status.CONFIRMED && booking.getStatus() != Booking.Status.NEW) {
             throw new BusinessException(
                     "Booking phải ở trạng thái CONFIRMED hoặc NEW (hiện tại: " + booking.getStatus() + ")",
@@ -303,17 +320,20 @@ public class BookingServiceImpl implements BookingService {
         Room room = booking.getRoom();
 
         // Qtr: SAN_SANG → CO_KHACH → CAN_DON → SAN_SANG
-        // Không nhận khách vào phòng chưa SẴN SÀNG! (Ví dụ: NEEDS_CLEANING hoặc MAINTENANCE)
+        // Không nhận khách vào phòng chưa SẴN SÀNG! (Ví dụ: NEEDS_CLEANING hoặc
+        // MAINTENANCE)
         if (room.getStatus() != Room.Status.AVAILABLE) {
-            String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP" :
-                                room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
+            String statusName = room.getStatus() == Room.Status.NEEDS_CLEANING ? "CẦN DỌN DẸP"
+                    : room.getStatus() == Room.Status.MAINTENANCE ? "BẢO TRÌ" : room.getStatus().name();
             throw new BusinessException(
-                    "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName + "). Không thể check-in khi phòng chưa SẴN SÀNG!",
+                    "Phòng " + room.getRoomNumber() + " đang ở trạng thái (" + statusName
+                            + "). Không thể check-in khi phòng chưa SẴN SÀNG!",
                     ErrorCode.ROOM_NOT_AVAILABLE);
         }
 
         LocalDate today = LocalDate.now();
-        // Nếu nhận phòng sớm trước lịch dự kiến (ví dụ lịch 05/08 nhưng nhận hôm nay 03/08)
+        // Nếu nhận phòng sớm trước lịch dự kiến (ví dụ lịch 05/08 nhưng nhận hôm nay
+        // 03/08)
         // Cập nhật checkInDate về today để Sơ đồ phòng và Lịch ở khớp 100%
         if (booking.getCheckInDate() != null && booking.getCheckInDate().isAfter(today)) {
             booking.setCheckInDate(today);
@@ -336,7 +356,8 @@ public class BookingServiceImpl implements BookingService {
         Invoice invoice = invoiceRepository.findByBookingId(bookingId)
                 .orElse(null);
         if (invoice != null && invoice.getStatus() != Invoice.Status.PAID) {
-            throw new BusinessException("Chưa thanh toán đầy đủ hóa đơn, không thể trả phòng", ErrorCode.INVOICE_UNPAID);
+            throw new BusinessException("Chưa thanh toán đầy đủ hóa đơn, không thể trả phòng",
+                    ErrorCode.INVOICE_UNPAID);
         }
 
         // Đổi trạng thái phòng → NEEDS_CLEANING
@@ -353,6 +374,12 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse cancelBooking(Long bookingId) {
+        return cancelBooking(bookingId, null);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse cancelBooking(Long bookingId, String reason) {
         Booking booking = findById(bookingId);
 
         if (booking.getStatus() == Booking.Status.CHECKED_IN
@@ -373,26 +400,36 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(Booking.Status.CANCELLED);
+        if (reason != null && !reason.isBlank() && booking.getGuest() != null) {
+            Guest guest = booking.getGuest();
+            guest.setNote("Lý do từ chối/hủy: " + reason.trim());
+            guestRepository.save(guest);
+        }
+
         BookingResponse response = toResponse(bookingRepository.save(booking));
         response.setCancelFeeAmount(cancelFee);
         return response;
     }
 
     /**
-     * Tính phí hủy theo chính sách: nếu hủy trong vòng freeCancelHours trước check-in
+     * Tính phí hủy theo chính sách: nếu hủy trong vòng freeCancelHours trước
+     * check-in
      * thì áp cancelFeePercent trên tiền phòng dự kiến.
      * Trả về ZERO nếu còn trong thời hạn miễn phí hoặc chưa cấu hình.
      */
     private BigDecimal calcCancelFee(Booking booking) {
         PropertySettings settings = propertySettingsRepository.findById(1L).orElse(null);
-        if (settings == null || booking.getCheckInDate() == null) return BigDecimal.ZERO;
+        if (settings == null || booking.getCheckInDate() == null)
+            return BigDecimal.ZERO;
 
         BigDecimal feePercent = settings.getCancelFeePercent();
-        if (feePercent == null || feePercent.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+        if (feePercent == null || feePercent.compareTo(BigDecimal.ZERO) == 0)
+            return BigDecimal.ZERO;
 
         int freeCancelHours = settings.getFreeCancelHours() != null ? settings.getFreeCancelHours() : 24;
         LocalDateTime checkInDateTime = booking.getCheckInDate().atTime(
-                settings.getDefaultCheckinTime() != null ? settings.getDefaultCheckinTime() : java.time.LocalTime.of(14, 0));
+                settings.getDefaultCheckinTime() != null ? settings.getDefaultCheckinTime()
+                        : java.time.LocalTime.of(14, 0));
         long hoursUntilCheckIn = ChronoUnit.HOURS.between(LocalDateTime.now(), checkInDateTime);
 
         if (hoursUntilCheckIn >= freeCancelHours) {
@@ -420,7 +457,8 @@ public class BookingServiceImpl implements BookingService {
             if (LocalDateTime.now().isBefore(holdDeadline)) {
                 throw new BusinessException(
                         "Chưa tới giờ giữ phòng (" + defaultCheckinTime + " ngày "
-                        + booking.getCheckInDate() + "). Không thể đánh dấu khách không đến trước giờ giữ phòng.",
+                                + booking.getCheckInDate()
+                                + "). Không thể đánh dấu khách không đến trước giờ giữ phòng.",
                         ErrorCode.BOOKING_INVALID_STATUS);
             }
         }
@@ -477,31 +515,33 @@ public class BookingServiceImpl implements BookingService {
                 .collect(Collectors.toList());
     }
 
-    // ================================================================== PRIVATE HELPERS
+    // ================================================================== PRIVATE
+    // HELPERS
 
     /**
      * Tính expectedPrice theo SeasonalRate.
-     * Thuật toán: duyệt từng đêm trong slot — nếu ngày đó nằm trong SeasonalRate thì dùng
+     * Thuật toán: duyệt từng đêm trong slot — nếu ngày đó nằm trong SeasonalRate
+     * thì dùng
      * giá đó, ngược lại fallback về basePrice của roomType.
      *
      * Ví dụ: check-in 2026-09-28, check-out 2026-10-02 → 4 đêm:
-     *   đêm 28/9, 29/9 → dùng rate tháng 9
-     *   đêm 30/9, 01/10 → dùng rate tháng 10
+     * đêm 28/9, 29/9 → dùng rate tháng 9
+     * đêm 30/9, 01/10 → dùng rate tháng 10
      */
     private BigDecimal calcExpectedPrice(RoomType roomType, TimeSlot slot) {
         List<SeasonalRate> rates = seasonalRateRepository.findByRoomTypeId(roomType.getId());
 
         BigDecimal total = BigDecimal.ZERO;
-        LocalDate night = slot.getStartDate();   // mỗi vòng lặp = 1 đêm
+        LocalDate night = slot.getStartDate(); // mỗi vòng lặp = 1 đêm
 
         while (night.isBefore(slot.getEndDate())) {
-            final LocalDate currentNight = night;   // effectively final cho lambda
+            final LocalDate currentNight = night; // effectively final cho lambda
             BigDecimal nightPrice = rates.stream()
                     .filter(r -> !currentNight.isBefore(r.getStartDate())
-                              && !currentNight.isAfter(r.getEndDate()))
+                            && !currentNight.isAfter(r.getEndDate()))
                     .map(SeasonalRate::getPrice)
                     .findFirst()
-                    .orElse(roomType.getBasePrice());   // fallback basePrice
+                    .orElse(roomType.getBasePrice()); // fallback basePrice
 
             total = total.add(nightPrice);
             night = night.plusDays(1);
@@ -511,8 +551,8 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void addInitialServiceUsages(Booking booking,
-                                         List<BookingSurchargeUsageRequest> requests,
-                                         User recordedBy) {
+            List<BookingSurchargeUsageRequest> requests,
+            User recordedBy) {
         if (requests == null || requests.isEmpty()) {
             return;
         }
@@ -557,7 +597,7 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getStatus() != expected) {
             throw new BusinessException(
                     "Booking phải ở trạng thái " + expected
-                    + " (hiện tại: " + booking.getStatus() + ")",
+                            + " (hiện tại: " + booking.getStatus() + ")",
                     ErrorCode.BOOKING_INVALID_STATUS);
         }
     }
@@ -569,7 +609,8 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private Booking.Source parseSource(String source) {
-        if (source == null || source.isBlank()) return Booking.Source.WALK_IN;
+        if (source == null || source.isBlank())
+            return Booking.Source.WALK_IN;
         try {
             return Booking.Source.valueOf(source.toUpperCase());
         } catch (IllegalArgumentException e) {
@@ -586,14 +627,17 @@ public class BookingServiceImpl implements BookingService {
                 ? ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate())
                 : 0;
         Invoice invoice = invoiceRepository == null
-            ? null
-            : invoiceRepository.findByBookingId(b.getId()).orElse(null);
+                ? null
+                : invoiceRepository.findByBookingId(b.getId()).orElse(null);
         BigDecimal roomCharge = invoice != null && invoice.getRoomCharge() != null
-            ? invoice.getRoomCharge() : b.getExpectedPrice();
+                ? invoice.getRoomCharge()
+                : b.getExpectedPrice();
         BigDecimal serviceCharge = invoice != null && invoice.getServiceCharge() != null
-            ? invoice.getServiceCharge() : BigDecimal.ZERO;
+                ? invoice.getServiceCharge()
+                : BigDecimal.ZERO;
         BigDecimal totalAmount = invoice != null && invoice.getTotalAmount() != null
-            ? invoice.getTotalAmount() : roomCharge != null ? roomCharge.add(serviceCharge) : serviceCharge;
+                ? invoice.getTotalAmount()
+                : roomCharge != null ? roomCharge.add(serviceCharge) : serviceCharge;
 
         String effectiveGuestName = b.getGuestName() != null && !b.getGuestName().isBlank()
                 ? b.getGuestName()
@@ -644,7 +688,8 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponse updateBooking(Long id, BookingRequest request) {
         Booking booking = findById(id);
 
-        // Dùng TimeRangeValidator - kiểm tra thứ tự ngày + không trong quá khứ khi update
+        // Dùng TimeRangeValidator - kiểm tra thứ tự ngày + không trong quá khứ khi
+        // update
         TimeRangeValidator.validate(request.getCheckInDate(), request.getCheckOutDate());
 
         // Tìm/cập nhật thông tin khách hàng
@@ -653,20 +698,21 @@ public class BookingServiceImpl implements BookingService {
                 request.getFullName(),
                 request.getPhone(),
                 request.getEmail(),
-                request.getNote()
-        );
+                request.getNote());
 
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy loại phòng", ErrorCode.INVALID_INPUT));
 
-        // Nếu thay đổi loại phòng hoặc thay đổi ngày, và đã gán phòng, ta cần kiểm tra xung đột hoặc hủy gán
+        // Nếu thay đổi loại phòng hoặc thay đổi ngày, và đã gán phòng, ta cần kiểm tra
+        // xung đột hoặc hủy gán
         Room room = booking.getRoom();
         if (room != null) {
             if (!room.getRoomType().getId().equals(roomType.getId())) {
                 // Đổi loại phòng thì hủy gán phòng cũ
                 room = null;
             } else {
-                // Cùng loại phòng nhưng đổi ngày, kiểm tra xem phòng cũ có bị trùng lịch mới không (loại trừ chính booking này)
+                // Cùng loại phòng nhưng đổi ngày, kiểm tra xem phòng cũ có bị trùng lịch mới
+                // không (loại trừ chính booking này)
                 TimeSlot slot = TimeSlot.of(request.getCheckInDate(), request.getCheckOutDate());
                 try {
                     room = conflictChecker.validateAndGetRoom(room.getId(), roomType, slot, id);
@@ -698,7 +744,8 @@ public class BookingServiceImpl implements BookingService {
         booking.setRoom(room);
 
         // Cập nhật trạng thái booking dựa trên việc gán phòng
-        if (room == null && (booking.getStatus() == Booking.Status.NEW || booking.getStatus() == Booking.Status.CONFIRMED)) {
+        if (room == null
+                && (booking.getStatus() == Booking.Status.NEW || booking.getStatus() == Booking.Status.CONFIRMED)) {
             booking.setStatus(Booking.Status.NEW);
         } else if (room != null && booking.getStatus() == Booking.Status.NEW) {
             booking.setStatus(Booking.Status.CONFIRMED);
@@ -722,8 +769,10 @@ public class BookingServiceImpl implements BookingService {
     public void deleteBooking(Long id) {
         Booking booking = findById(id);
 
-        // Trả phòng về AVAILABLE nếu đã gán phòng và trạng thái không phải CHECKED_OUT hoặc CANCELLED
-        if (booking.getRoom() != null && booking.getStatus() != Booking.Status.CHECKED_OUT && booking.getStatus() != Booking.Status.CANCELLED) {
+        // Trả phòng về AVAILABLE nếu đã gán phòng và trạng thái không phải CHECKED_OUT
+        // hoặc CANCELLED
+        if (booking.getRoom() != null && booking.getStatus() != Booking.Status.CHECKED_OUT
+                && booking.getStatus() != Booking.Status.CANCELLED) {
             Room room = booking.getRoom();
             room.setStatus(Room.Status.AVAILABLE);
             roomRepository.save(room);
@@ -789,7 +838,8 @@ public class BookingServiceImpl implements BookingService {
     private void requireReceptionistShift(Booking booking, User user) {
         if (user.getRole() == User.Role.RECEPTIONIST) {
             if (!isBookingInReceptionistShift(booking, user)) {
-                throw new BusinessException("Không có quyền thao tác ngoài ca làm việc", ErrorCode.INSUFFICIENT_PRIVILEGES);
+                throw new BusinessException("Không có quyền thao tác ngoài ca làm việc",
+                        ErrorCode.INSUFFICIENT_PRIVILEGES);
             }
         }
     }

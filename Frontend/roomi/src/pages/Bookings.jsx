@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Trash2,
   RefreshCw,
-  DollarSign
+  DollarSign,
+  XCircle
 } from 'lucide-react';
 
 function Bookings({ user, showNotification }) {
@@ -60,6 +61,11 @@ function Bookings({ user, showNotification }) {
     bookingId: null,
     guestName: ''
   });
+
+  // Reject Booking Modal State
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectBooking, setRejectBooking] = useState(null);
+  const [rejectReason, setRejectReason] = useState('Hết phòng trống phù hợp');
 
   // Create Booking Form State
   const [newBooking, setNewBooking] = useState({
@@ -268,7 +274,7 @@ function Bookings({ user, showNotification }) {
   // Assign room dialog trigger
   const openAssignModal = (booking) => {
     setSelectedBooking(booking);
-    setSelectedRoomId('');
+    setSelectedRoomId(booking.roomId ? String(booking.roomId) : '');
     setFilterRoomTypeId(booking.roomTypeId || '');
     setShowAssignModal(true);
     fetchAvailableRooms(booking.roomTypeId, booking.checkInDate, booking.checkOutDate);
@@ -362,6 +368,27 @@ function Bookings({ user, showNotification }) {
     try {
       await api.patch(`/bookings/${bookingId}/${transition}`);
       showNotification('Cập nhật trạng thái thành công');
+      fetchInitialData();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
+  const openRejectModal = (booking) => {
+    setRejectBooking(booking);
+    setRejectReason('Hết phòng trống phù hợp');
+    setShowRejectModal(true);
+  };
+
+  const handleRejectSubmit = async (e) => {
+    e.preventDefault();
+    if (!rejectBooking) return;
+    try {
+      await api.patch(`/bookings/${rejectBooking.id}/cancel`, null, {
+        params: { reason: rejectReason }
+      });
+      showNotification(`Đã từ chối yêu cầu đặt phòng #${rejectBooking.id}`);
+      setShowRejectModal(false);
       fetchInitialData();
     } catch (err) {
       showNotification(err.message, 'error');
@@ -771,16 +798,27 @@ function Bookings({ user, showNotification }) {
                         {b.status === 'NEW' && user.role !== 'ACCOUNTANT' && (
                           <>
                             {b.roomNumber ? (
-                              <button onClick={() => handleTransition(b.id, 'check-in')} className="btn btn-primary btn-sm" title="Nhận phòng (Check-in)">
-                                Nhận phòng
-                              </button>
+                              <>
+                                <button onClick={() => handleTransition(b.id, 'confirm')} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--primary)', fontWeight: '700' }} title="Duyệt yêu cầu và xác nhận đặt phòng">
+                                  Duyệt phòng
+                                </button>
+                                <button onClick={() => openRejectModal(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Từ chối yêu cầu đặt phòng">
+                                  Từ chối
+                                </button>
+                                <button onClick={() => openAssignModal(b)} className="btn btn-secondary btn-sm" title="Gán hoặc đổi sang phòng khác trước khi duyệt">
+                                  Gán/Đổi phòng
+                                </button>
+                              </>
                             ) : (
-                              <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--primary)', fontWeight: '700' }} title="Duyệt yêu cầu và gán phòng cho khách">
-                                Duyệt & Gán phòng
-                              </button>
+                              <>
+                                <button onClick={() => openAssignModal(b)} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--primary)', fontWeight: '700' }} title="Duyệt yêu cầu và gán phòng cho khách">
+                                  Duyệt & Gán phòng
+                                </button>
+                                <button onClick={() => openRejectModal(b)} className="btn btn-secondary btn-sm" style={{ color: 'var(--color-maintenance)' }} title="Từ chối yêu cầu đặt phòng">
+                                  Từ chối
+                                </button>
+                              </>
                             )}
-                            {/* No-show KHÔNG hiển thị ở trạng thái NEW — booking chưa được xác nhận,
-                                lễ tân cần duyệt/gán phòng trước. Chỉ CONFIRMED mới cho phép No-show. */}
                           </>
                         )}
 
@@ -1339,7 +1377,7 @@ function Bookings({ user, showNotification }) {
                         {activeInvoice.payments.map(p => (
                           <tr key={p.id}>
                             <td>{formatDateTime(p.paidAt)}</td>
-                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? '💵 Tiền mặt' : '💳 Chuyển khoản'}</span></td>
+                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></td>
                             <td>{p.receivedByName || 'Nhân viên'}</td>
                             <td style={{ textAlign: 'right', fontWeight: '600', color: '#10b981' }}>{p.amount?.toLocaleString('vi-VN')} VND</td>
                           </tr>
@@ -1541,8 +1579,8 @@ function Bookings({ user, showNotification }) {
                     onChange={(e) => setPaymentInput(prev => ({ ...prev, method: e.target.value }))}
                     required
                   >
-                    <option value="CASH">💵 Tiền mặt (Cash)</option>
-                    <option value="BANK_TRANSFER">💳 Chuyển khoản (Bank Transfer)</option>
+                    <option value="CASH">Tiền mặt (Cash)</option>
+                    <option value="BANK_TRANSFER">Chuyển khoản (Bank Transfer)</option>
                   </select>
                 </div>
               </div>
@@ -1593,6 +1631,83 @@ function Bookings({ user, showNotification }) {
                 Xác nhận xóa
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT BOOKING MODAL */}
+      {showRejectModal && rejectBooking && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-maintenance)' }}>
+                <XCircle size={20} />
+                Từ chối yêu cầu đặt phòng #{rejectBooking.id}
+              </h2>
+              <button 
+                onClick={() => setShowRejectModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRejectSubmit}>
+              <div className="modal-body" style={{ padding: '16px 0' }}>
+                <div style={{ marginBottom: '16px', background: 'var(--bg-glass)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <p style={{ margin: '0 0 6px 0', fontWeight: '600', color: 'var(--text-primary)' }}>
+                    Khách hàng: {rejectBooking.guestFullName || rejectBooking.guestName} ({rejectBooking.guestPhone || 'Không có SĐT'})
+                  </p>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    Loại phòng: <strong>{rejectBooking.roomTypeName}</strong> {rejectBooking.roomNumber ? `(Phòng ${rejectBooking.roomNumber})` : ''} | Thời gian: {rejectBooking.checkInDate} đến {rejectBooking.checkOutDate} ({rejectBooking.nights} đêm)
+                  </p>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', fontSize: '13px' }}>
+                    Lý do từ chối yêu cầu <span style={{ color: 'var(--color-maintenance)' }}>*</span>
+                  </label>
+                  <select 
+                    className="form-control" 
+                    style={{ marginBottom: '10px' }}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                  >
+                    <option value="Hết phòng trống phù hợp">Hết phòng trống phù hợp</option>
+                    <option value="Trùng lịch đặt phòng khác">Trùng lịch đặt phòng khác</option>
+                    <option value="Phòng đang bảo trì / dọn dẹp">Phòng đang bảo trì / dọn dẹp</option>
+                    <option value="Khách yêu cầu hủy đơn">Khách yêu cầu hủy đơn</option>
+                    <option value="Không liên lạc được với khách hàng">Không liên lạc được với khách hàng</option>
+                  </select>
+
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    placeholder="Ghi chú chi tiết nguyên nhân từ chối..."
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary btn-sm" 
+                  onClick={() => setShowRejectModal(false)}
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-danger btn-sm"
+                  style={{ backgroundColor: 'var(--color-maintenance)', borderColor: 'var(--color-maintenance)' }}
+                >
+                  Xác nhận từ chối
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -30,6 +30,8 @@ public interface BookingService {
 
     BookingResponse cancelBooking(Long bookingId);
 
+    BookingResponse cancelBooking(Long bookingId, String reason);
+
     BookingResponse markNoShow(Long bookingId);
 
     BookingResponse getBookingById(Long id, User currentUser);

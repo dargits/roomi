@@ -1595,7 +1595,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                         {activeInvoice.payments.map(p => (
                           <tr key={p.id}>
                             <td>{formatDateTime(p.paidAt)}</td>
-                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? '💵 Tiền mặt' : '💳 Chuyển khoản'}</span></td>
+                            <td><span className="badge badge-confirmed">{p.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></td>
                             <td>{p.receivedByName || 'Nhân viên'}</td>
                             <td style={{ textAlign: 'right', fontWeight: '600', color: '#10b981' }}>{p.amount?.toLocaleString('vi-VN')} VND</td>
                           </tr>
@@ -1680,8 +1680,8 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                     onChange={(e) => setPaymentInput(prev => ({ ...prev, method: e.target.value }))}
                     required
                   >
-                    <option value="CASH">💵 Tiền mặt (Cash)</option>
-                    <option value="BANK_TRANSFER">💳 Chuyển khoản (Bank Transfer)</option>
+                    <option value="CASH">Tiền mặt (Cash)</option>
+                    <option value="BANK_TRANSFER">Chuyển khoản (Bank Transfer)</option>
                   </select>
                 </div>
               </div>
