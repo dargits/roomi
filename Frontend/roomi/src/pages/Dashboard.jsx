@@ -1101,7 +1101,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                             </button>
                             <button 
                               onClick={() => {
-                                if (window.confirm('Xác nhận khách không đến (No-show)? Trạng thái đặt phòng sẽ chuyển sang NO_SHOW và giải phóng phòng.')) {
+                                if (window.confirm('Xác nhận khách không đến? Trạng thái đặt phòng sẽ chuyển sang KHÁCH KHÔNG ĐẾN và giải phóng phòng.')) {
                                   handleBookingTransition(activeBooking.bookingId, 'no-show');
                                   setSelectedRoom(null);
                                 }
@@ -1109,7 +1109,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                               className="btn btn-secondary btn-sm"
                               style={{ flex: 1, color: 'var(--color-maintenance)' }}
                             >
-                              <X size={14} /> No-show
+                              <X size={14} /> Khách không đến
                             </button>
                           </>
                         )}
@@ -1271,7 +1271,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                               </button>
                               <button 
                                 onClick={() => {
-                                  if (window.confirm('Xác nhận khách không đến (No-show)? Trạng thái đặt phòng sẽ chuyển sang NO_SHOW và giải phóng phòng.')) {
+                                  if (window.confirm('Xác nhận khách không đến? Trạng thái đặt phòng sẽ chuyển sang KHÁCH KHÔNG ĐẾN và giải phóng phòng.')) {
                                     handleBookingTransition(b.bookingId, 'no-show');
                                     setSelectedRoom(null);
                                   }
@@ -1279,7 +1279,7 @@ function Dashboard({ user, showNotification, readOnly = false, cleaningNotificat
                                 className="btn btn-secondary btn-sm"
                                 style={{ padding: '2px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-maintenance)' }}
                               >
-                                <X size={10} /> No-show
+                                <X size={10} /> Khách không đến
                               </button>
                               <button 
                                 onClick={() => handleBookingTransition(b.bookingId, 'cancel')} 
