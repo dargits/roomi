@@ -26,6 +26,9 @@ import roomi.dev.service.impl.GuestServiceImpl;
 import roomi.dev.dto.request.BookingRequest;
 import roomi.dev.util.time.BookingConflictChecker;
 
+import roomi.dev.repository.PropertySettingsRepository;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,12 +42,13 @@ import static org.mockito.Mockito.*;
 @DisplayName("BookingServiceImpl — Kiểm thử gán phòng")
 class BookingControllerTest {
 
-    @Mock BookingRepository      bookingRepository;
-    @Mock RoomRepository         roomRepository;
-    @Mock RoomTypeRepository     roomTypeRepository;
-    @Mock SeasonalRateRepository seasonalRateRepository;
-    @Mock GuestServiceImpl       guestService;
-    @Mock UserRepository         userRepository;
+    @Mock BookingRepository          bookingRepository;
+    @Mock RoomRepository             roomRepository;
+    @Mock RoomTypeRepository         roomTypeRepository;
+    @Mock SeasonalRateRepository     seasonalRateRepository;
+    @Mock GuestServiceImpl           guestService;
+    @Mock UserRepository             userRepository;
+    @Mock PropertySettingsRepository propertySettingsRepository;
 
     BookingServiceImpl bookingService;
 
@@ -60,6 +64,7 @@ class BookingControllerTest {
             conflictChecker,
             userRepository
         );
+        ReflectionTestUtils.setField(bookingService, "propertySettingsRepository", propertySettingsRepository);
     }
 
     // ------------------------------------------------------------------ fixtures
@@ -118,7 +123,6 @@ class BookingControllerTest {
             when(bookingRepository.existsRoomConflict(5L,
                     LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4), 2L))
                     .thenReturn(true);
-            when(seasonalRateRepository.findByRoomTypeId(1L)).thenReturn(List.of());
 
             assertThatThrownBy(() -> bookingService.assignRoom(2L, 5L))
                     .isInstanceOf(BusinessException.class)
@@ -141,7 +145,6 @@ class BookingControllerTest {
             when(bookingRepository.existsRoomConflict(5L,
                     LocalDate.of(2027, 8, 3), LocalDate.of(2027, 8, 6), 3L))
                     .thenReturn(true);
-            when(seasonalRateRepository.findByRoomTypeId(1L)).thenReturn(List.of());
 
             assertThatThrownBy(() -> bookingService.assignRoom(3L, 5L))
                     .isInstanceOf(BusinessException.class)
@@ -343,4 +346,49 @@ class BookingControllerTest {
                     .isEqualByComparingTo(new BigDecimal("2400000"));
         }
     }
+
+        // ================================================================== NO-SHOW
+
+        @Nested
+        @DisplayName("Kiểm thử đánh dấu khách không đến")
+        class MarkNoShow {
+
+                @Test
+                @DisplayName("Booking CONFIRMED chuyển sang NO_SHOW và giải phóng phòng")
+                void markNoShow_confirmedBooking_releasesRoom() {
+                        RoomType rt = roomType(1L, "Deluxe", new BigDecimal("800000"));
+                        Room r = room(5L, "101", rt);
+                        r.setStatus(Room.Status.OCCUPIED);
+                        Booking confirmed = booking(40L, r, rt, Booking.Status.CONFIRMED,
+                                        LocalDate.of(2025, 8, 1), LocalDate.of(2025, 8, 4));
+
+                        when(bookingRepository.findById(40L)).thenReturn(Optional.of(confirmed));
+                        when(bookingRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+                        BookingResponse result = bookingService.markNoShow(40L);
+
+                        assertThat(result.getStatus()).isEqualTo("NO_SHOW");
+                        assertThat(r.getStatus()).isEqualTo(Room.Status.AVAILABLE);
+                        verify(roomRepository).save(r);
+                }
+
+                @Test
+                @DisplayName("Không thể đánh dấu NO_SHOW cho booking đã check-in")
+                void markNoShow_checkedInBooking_throwsInvalidStatus() {
+                        RoomType rt = roomType(1L, "Deluxe", new BigDecimal("800000"));
+                        Room r = room(5L, "101", rt);
+                        Booking checkedIn = booking(41L, r, rt, Booking.Status.CHECKED_IN,
+                                        LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4));
+
+                        when(bookingRepository.findById(41L)).thenReturn(Optional.of(checkedIn));
+
+                        assertThatThrownBy(() -> bookingService.markNoShow(41L))
+                                        .isInstanceOf(BusinessException.class)
+                                        .extracting(error -> ((BusinessException) error).getErrorCode())
+                                        .isEqualTo(ErrorCode.BOOKING_INVALID_STATUS);
+
+                        verify(roomRepository, never()).save(any());
+                        verify(bookingRepository, never()).save(any());
+                }
+        }
 }

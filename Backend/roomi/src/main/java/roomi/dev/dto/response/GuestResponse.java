@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Builder
 @Getter
@@ -17,5 +18,7 @@ public class GuestResponse {
     private String idNumber;
     private String note;
     private Integer loyaltyPoints;
+    private String loyaltyTier;
+    private List<String> loyaltyBenefits;
     private LocalDateTime createdAt;
 }

@@ -1,0 +1,166 @@
+name: Roomi CD Pipeline (Continuous Deployment)
+
+# ─────────────────────────────────────────────────────────────────
+# Trigger: Push to main branch or semantic version tags (v1.2.3)
+# ─────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Job 1: Wait for CI to pass before building Docker images
+  # ──────────────────────────────────────────────────────────────
+  ci-gate:
+    name: Wait for CI Pipeline
+    uses: ./.github/workflows/ci.yml
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 2: Build & Push Docker Images to GHCR
+  # ──────────────────────────────────────────────────────────────
+  build-and-push-docker:
+    name: Build & Push Docker Images
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Backend Image ─────────────────────────────────────────
+      - name: Extract Metadata (Backend)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Backend/roomi
+          file: ./Backend/roomi/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      # ── Frontend Image ────────────────────────────────────────
+      - name: Extract Metadata (Frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/frontend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Frontend/roomi
+          file: ./Frontend/roomi/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+          # Inject production API URL — relative path, Nginx proxy handles routing
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL_PROD || '/api/v1' }}
+
+      # ── Deployment Summary ─────────────────────────────────────
+      - name: Write Job Summary
+        if: always()
+        run: |
+          echo "## 🐳 Docker Build & Push Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tags |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Backend** | \`${{ steps.meta-backend.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Frontend** | \`${{ steps.meta-frontend.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 3: SSH Auto-Deploy to VPS
+  # Requires GitHub Secrets:
+  #   SERVER_HOST      — IP hoặc domain VPS (ví dụ: 13.236.183.211)
+  #   SERVER_USER      — SSH user (thường là: ubuntu)
+  #   SSH_PRIVATE_KEY  — Nội dung file .pem của EC2 (-----BEGIN OPENSSH PRIVATE KEY-----)
+  # ──────────────────────────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy to VPS (roomi.website)
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 120s
+          script: |
+            set -e
+            echo "📦 Pulling latest Docker images from GHCR..."
+            cd ~/roomi
+
+            # Đăng nhập GHCR với token từ GitHub Actions (không cần credentials riêng)
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull images mới nhất
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+
+            # Restart services với zero-downtime (recreate only changed containers)
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Dọn dẹp images cũ không còn dùng (giải phóng disk)
+            docker image prune -f
+
+            echo "✅ Deploy hoàn tất! Website đang chạy tại https://roomi.website"
+
+      - name: Deployment Success Summary
+        if: success()
+        run: |
+          echo "## ✅ Deploy Thành Công!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Thông tin | Giá trị |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 Website | https://roomi.website |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🖥️ Server | ${{ secrets.SERVER_HOST }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 👤 Triggered by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment Failed — Check Logs
+        if: failure()
+        run: |
+          echo "## ❌ Deploy Thất Bại!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Kiểm tra logs trên VPS:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "ssh ubuntu@${{ secrets.SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "cd ~/roomi && docker compose logs --tail=50" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

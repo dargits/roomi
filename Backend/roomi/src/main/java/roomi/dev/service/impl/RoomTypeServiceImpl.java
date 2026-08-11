@@ -28,6 +28,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 .capacity(request.getCapacity())
                 .amenities(request.getAmenities())
                 .basePrice(request.getBasePrice())
+                .roomTypeImg(request.getRoomTypeImg())
                 .build();
 
         return roomTypeRepository.save(roomType);
@@ -46,6 +47,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         roomType.setCapacity(request.getCapacity());
         roomType.setAmenities(request.getAmenities());
         roomType.setBasePrice(request.getBasePrice());
+        roomType.setRoomTypeImg(request.getRoomTypeImg());
 
         return roomTypeRepository.save(roomType);
     }

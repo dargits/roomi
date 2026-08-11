@@ -97,6 +97,10 @@ public class BookingConflictChecker {
      * @return true nếu phòng KHÔNG bị trùng (available), false nếu đã bị đặt
      */
     public boolean isRoomAvailable(Long roomId, TimeSlot slot) {
+        Room room = roomRepository.findById(roomId).orElse(null);
+        if (room != null && room.getStatus() != Room.Status.AVAILABLE) {
+            return false;
+        }
         return !bookingRepository.existsRoomConflict(
                 roomId,
                 slot.getStartDate(),
@@ -105,7 +109,7 @@ public class BookingConflictChecker {
     }
     
     /**
-     * Lọc danh sách phòng — chỉ giữ lại các phòng KHÔNG bị trùng lịch trong khoảng thời gian.
+     * Lọc danh sách phòng — chỉ giữ lại các phòng KHÔNG bị trùng lịch và ở trạng thái AVAILABLE.
      *
      * @param rooms Danh sách phòng cần lọc
      * @param slot  Khoảng thời gian cần kiểm tra
@@ -113,6 +117,7 @@ public class BookingConflictChecker {
      */
     public List<Room> filterAvailableRooms(List<Room> rooms, TimeSlot slot) {
         return rooms.stream()
+                .filter(room -> room != null && room.getStatus() == Room.Status.AVAILABLE)
                 .filter(room -> isRoomAvailable(room.getId(), slot))
                 .collect(Collectors.toList());
     }

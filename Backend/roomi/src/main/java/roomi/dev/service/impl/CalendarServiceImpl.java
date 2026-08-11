@@ -62,7 +62,7 @@ public class CalendarServiceImpl implements CalendarService {
                                                           LocalDate checkOut) {
         TimeRangeValidator.validateDateOrder(checkIn, checkOut);
 
-        List<Room> rooms = roomRepository.findAll();
+        List<Room> rooms = roomRepository.findAllByOrderByFloorAscRoomNumberAsc();
         TimeSlot slot = TimeSlot.of(checkIn, checkOut);
 
         return rooms.stream()
@@ -83,7 +83,7 @@ public class CalendarServiceImpl implements CalendarService {
 
         validateRoomTypeExists(roomTypeId);
 
-        List<Room> rooms = roomRepository.findByRoomTypeId(roomTypeId);
+        List<Room> rooms = roomRepository.findByRoomTypeIdOrderByFloorAscRoomNumberAsc(roomTypeId);
         TimeSlot slot = TimeSlot.of(checkIn, checkOut);
 
         return rooms.stream()
@@ -108,8 +108,8 @@ public class CalendarServiceImpl implements CalendarService {
 
         // Lấy danh sách phòng (theo loại hoặc tất cả)
         List<Room> candidates = (roomTypeId != null)
-                ? roomRepository.findByRoomTypeId(roomTypeId)
-                : roomRepository.findAll();
+                ? roomRepository.findByRoomTypeIdOrderByFloorAscRoomNumberAsc(roomTypeId)
+                : roomRepository.findAllByOrderByFloorAscRoomNumberAsc();
 
         // Lọc phòng không bị trùng lịch + không đang MAINTENANCE
         List<Room> available = conflictChecker.filterAvailableRooms(candidates, slot)
@@ -146,6 +146,7 @@ public class CalendarServiceImpl implements CalendarService {
                 .bookingId(b.getId())
                 .guestName(b.getGuest().getFullName())
                 .guestPhone(b.getGuest().getPhone())
+                .guestIdNumber(b.getGuest().getIdNumber())
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .nights(nights)
@@ -165,6 +166,7 @@ public class CalendarServiceImpl implements CalendarService {
                 .floor(room.getFloor())
                 .roomTypeId(roomType.getId())
                 .roomTypeName(roomType.getName())
+                .roomTypeImg(roomType.getRoomTypeImg())
                 .capacity(roomType.getCapacity())
                 .amenities(roomType.getAmenities())
                 .expectedPrice(price)

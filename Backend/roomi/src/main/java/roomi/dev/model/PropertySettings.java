@@ -40,4 +40,14 @@ public class PropertySettings {
     @Builder.Default
     @Column(name = "cancel_fee_percent", nullable = false, precision = 5, scale = 2)
     private BigDecimal cancelFeePercent = BigDecimal.ZERO;
+
+    /**
+     * Tỷ lệ tích điểm thân thiết: mỗi X VNĐ thanh toán = 1 điểm.
+     * Ví dụ: 10000 = cứ 10.000 VNĐ được 1 điểm.
+     * Giá trị 0 = tắt tính năng tích điểm.
+     * Cho phép Chủ cơ sở cấu hình theo nghiệp vụ (NCL-04-CN-005).
+     */
+    @Builder.Default
+    @Column(name = "loyalty_points_per_amount", nullable = false)
+    private Integer loyaltyPointsPerAmount = 10000;
 }

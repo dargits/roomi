@@ -19,6 +19,7 @@ public class BookingSlotResponse {
     private Long        bookingId;
     private String      guestName;
     private String      guestPhone;
+    private String      guestIdNumber;
     private LocalDate   checkInDate;
     private LocalDate   checkOutDate;
     private Integer     nights;

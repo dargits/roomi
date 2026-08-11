@@ -18,6 +18,9 @@ public class RegisterRequest {
     @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
     private String password;
 
+    @NotBlank(message = "Số điện thoại không được để trống")
     @Size(max = 20, message = "Số điện thoại không được quá 20 ký tự")
     private String phone;
+
+    private String role;
 }
