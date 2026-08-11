@@ -86,11 +86,9 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
-          # Inject production API URL from GitHub Secret
-          # Set secret: Settings → Secrets → VITE_API_BASE_URL_PROD
-          # If secret is not set, Dockerfile falls back to /api/v1 (Nginx proxy)
+          # Inject production API URL — relative path, Nginx proxy handles routing
           build-args: |
-            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL_PROD }}
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL_PROD || '/api/v1' }}
 
       # ── Deployment Summary ─────────────────────────────────────
       - name: Write Job Summary
@@ -102,43 +100,67 @@ jobs:
           echo "|-------|------|" >> $GITHUB_STEP_SUMMARY
           echo "| **Backend** | \`${{ steps.meta-backend.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Frontend** | \`${{ steps.meta-frontend.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Package Registry" >> $GITHUB_STEP_SUMMARY
-          echo "- Backend: [ghcr.io/${{ github.repository }}/backend](https://ghcr.io/${{ github.repository }}/backend)" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontend: [ghcr.io/${{ github.repository }}/frontend](https://ghcr.io/${{ github.repository }}/frontend)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚀 Deploy lên server" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull" >> $GITHUB_STEP_SUMMARY
-          echo "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   # ──────────────────────────────────────────────────────────────
-  # Job 3: Deployment notification
-  # To enable SSH auto-deploy, configure secrets:
-  #   SERVER_HOST, SERVER_USER, SSH_PRIVATE_KEY
+  # Job 3: SSH Auto-Deploy to VPS
+  # Requires GitHub Secrets:
+  #   SERVER_HOST      — IP hoặc domain VPS (ví dụ: 13.236.183.211)
+  #   SERVER_USER      — SSH user (thường là: ubuntu)
+  #   SSH_PRIVATE_KEY  — Nội dung file .pem của EC2 (-----BEGIN OPENSSH PRIVATE KEY-----)
   # ──────────────────────────────────────────────────────────────
-  notify:
-    name: Deployment Notification
+  deploy:
+    name: 🚀 Deploy to VPS (roomi.website)
     needs: build-and-push-docker
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Deployment Ready
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 120s
+          script: |
+            set -e
+            echo "📦 Pulling latest Docker images from GHCR..."
+            cd ~/roomi
+
+            # Đăng nhập GHCR với token từ GitHub Actions (không cần credentials riêng)
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull images mới nhất
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+
+            # Restart services với zero-downtime (recreate only changed containers)
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Dọn dẹp images cũ không còn dùng (giải phóng disk)
+            docker image prune -f
+
+            echo "✅ Deploy hoàn tất! Website đang chạy tại https://roomi.website"
+
+      - name: Deployment Success Summary
+        if: success()
         run: |
-          echo "✅ Docker Images pushed to GHCR successfully!"
-          echo ""
-          echo "📦 Images available at:"
-          echo "  ghcr.io/${{ github.repository }}/backend:latest"
-          echo "  ghcr.io/${{ github.repository }}/frontend:latest"
-          echo ""
-          echo "💡 To deploy on your server:"
-          echo "  docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull"
-          echo "  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d"
-          echo ""
-          echo "🔐 To enable auto SSH deploy, add these GitHub Secrets:"
-          echo "  SERVER_HOST      — IP hoặc domain server"
-          echo "  SERVER_USER      — SSH user (ví dụ: ubuntu)"
-          echo "  SSH_PRIVATE_KEY  — Private key (-----BEGIN OPENSSH...)"
-          echo "  VITE_API_BASE_URL_PROD — URL backend API production"
+          echo "## ✅ Deploy Thành Công!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Thông tin | Giá trị |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 Website | https://roomi.website |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🖥️ Server | ${{ secrets.SERVER_HOST }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 👤 Triggered by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment Failed — Check Logs
+        if: failure()
+        run: |
+          echo "## ❌ Deploy Thất Bại!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Kiểm tra logs trên VPS:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "ssh ubuntu@${{ secrets.SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "cd ~/roomi && docker compose logs --tail=50" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
