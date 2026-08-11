@@ -20,5 +20,5 @@ COPY --from=builder /app/target/*.jar app.jar
 # Expose port
 EXPOSE 8080
 
-# Run Spring Boot application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run Spring Boot application with JVM memory limits suitable for VPS
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS:--Xms128m -Xmx256m} -jar app.jar"]

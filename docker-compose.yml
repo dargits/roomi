@@ -36,6 +36,7 @@ services:
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=root
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - JAVA_OPTS=-Xms128m -Xmx256m -XX:+UseG1GC
     depends_on:
       db:
         condition: service_healthy
