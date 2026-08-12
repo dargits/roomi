@@ -70,6 +70,9 @@ jobs:
       - name: Run Oxlint
         run: npm run lint
 
+      - name: Run Frontend Tests
+        run: npm run test
+
       - name: Build Frontend (Production Verify)
         # Sử dụng /api/v1 (relative path) để verify build pass
         # Giá trị thật sẽ được inject lúc docker build trong CD pipeline
