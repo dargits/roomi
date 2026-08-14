@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>StayGO Hotel - Landing Page</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Arimo:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "outline-variant": "#c0c7d4",
+                        "surface-variant": "#e4e2e1",
+                        "agoda-blue": "#5392F9",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-background": "#1b1c1c",
+                        "primary-fixed": "#d3e4ff",
+                        "inverse-primary": "#a2c9ff",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#004881",
+                        "border-grey": "#E0E0E0",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1b1c1c",
+                        "rating-gold": "#FFB800",
+                        "tertiary": "#8f4a00",
+                        "surface-blue-light": "#E1EDFF",
+                        "on-primary-fixed": "#001c38",
+                        "on-secondary-container": "#5f6161",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#fbf9f8",
+                        "on-tertiary-fixed": "#2f1400",
+                        "on-primary-container": "#fdfcff",
+                        "on-tertiary-fixed-variant": "#6f3800",
+                        "secondary-fixed": "#e2e2e2",
+                        "primary-container": "#0077ce",
+                        "inverse-surface": "#303030",
+                        "secondary-container": "#dcdddd",
+                        "outline": "#707783",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#5d5f5f",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#404752",
+                        "background": "#fbf9f8",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-tint": "#0060a8",
+                        "tertiary-container": "#b35e00",
+                        "on-tertiary-container": "#fffbff",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "alert-red": "#E53935",
+                        "tertiary-fixed": "#ffdcc4",
+                        "surface-container-high": "#eae8e7",
+                        "surface-dim": "#dcd9d9",
+                        "surface-container-highest": "#e4e2e1",
+                        "surface-container": "#f0eded",
+                        "primary": "#005ea4",
+                        "inverse-on-surface": "#f3f0f0",
+                        "surface": "#fbf9f8",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb780",
+                        "primary-fixed-dim": "#a2c9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-desktop": "24px",
+                        "gutter": "16px",
+                        "container-max-width": "1200px",
+                        "margin-mobile": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Arimo"],
+                        "body-lg": ["Arimo"],
+                        "body-md": ["Arimo"],
+                        "headline-md": ["Arimo"],
+                        "headline-lg": ["Arimo"],
+                        "label-md": ["Arimo"],
+                        "title-lg": ["Arimo"],
+                        "headline-lg-mobile": ["Arimo"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "title-lg": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Arimo', sans-serif; background-color: #F5F5F5; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-outlined.fill { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen pt-16">
+<!-- TopNavBar (Shared Component) -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop h-16 bg-surface-container-lowest border-b border-border-grey shadow-sm">
+<div class="flex items-center gap-gutter">
+<a class="flex items-center" href="#">
+<img alt="StayGO Logo" class="h-8 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpy8agw3EK7Oi-zMRyva8W7vx2GlaazzsJoVekXTEYiRhPW_78jOhEdIT7Kjopeh388LsDhr0k-hR0WbUuAGHGrxeeCNmFLFR8Q-mrA3OLvRgyGJ2QI5MNQiSAFnJUYJKC5yzwaCPDHjy5JOVnO50we6l-F_9iNVcfBFQVBFq4Y_mHpG_D5p9WzA7KfBnjNaO4xAkaUUYXzrfDKaltjNsEwZT4_uaRtJrIFETz9jSgEgEhBPTWKsry5Q"/>
+</a>
+<div class="hidden md:flex gap-6 ml-6">
+<a class="font-body-md text-body-md text-primary border-b-2 border-primary pb-1" href="#">Trang chủ</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Phòng &amp; Giá</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Tiện ích</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Ưu đãi &amp; Khuyến mãi</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Giới thiệu</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Liên hệ</a>
+</div>
+</div>
+<div class="flex items-center">
+<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors duration-200">Đăng nhập</button>
+</div>
+</nav>
+<!-- Hero Section -->
+<section class="relative w-full h-[500px] flex items-center justify-center">
+<div class="absolute inset-0 z-0">
+<div class="bg-cover bg-center w-full h-full" data-alt="A breathtaking view of a modern luxury hotel facade at sunset, bathed in warm golden-hour light. The architectural design features sleek lines, expansive glass windows reflecting the fiery orange and soft purple sky, and lush tropical landscaping at the base. The aesthetic is highly professional, clean, and aspirational, designed for a high-end hospitality booking platform in light mode." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCo1YHiL5se9gdga38ezOmfnhfIypx9vFPk7GdjIyxrYpTx8TNgDwhN4t4WAE7z9R3e2qAVepVSkpAJOYFyo7ItqUhS846P5DdAbYAdkE5Tzd-Lfl8XZLlo9qbQFRi-egz4gbP0DPln99NeynZJgOB9emHu4hX0Tdrg3owl65A6nyfL1Evgt6hubFC9f2nhX2MeXLr8GLvs4GlXUHjk-qx99047GkOSI2xp8r_PEFJXbYXo_cJrLOIrKQ')"></div>
+<div class="absolute inset-0 bg-black/40"></div>
+</div>
+<div class="relative z-10 text-center px-4 max-w-container-max-width mx-auto">
+<h1 class="font-display-lg text-display-lg text-white mb-4 drop-shadow-md">Chào mừng đến với StayGO</h1>
+<p class="font-title-lg text-title-lg text-white drop-shadow-md">Đặt phòng trực tiếp - Giá tốt nhất, ưu đãi độc quyền, miễn phí hủy phòng</p>
+</div>
+<!-- Floating Search Bar -->
+<div class="absolute bottom-0 translate-y-1/2 w-full max-w-4xl px-4 z-20">
+<div class="bg-surface-container-lowest p-2 rounded shadow-md border border-border-grey flex flex-col md:flex-row gap-2">
+<div class="flex-1 relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">calendar_today</span>
+</div>
+<input class="w-full pl-10 pr-3 py-3 border border-border-grey rounded font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-on-surface" placeholder="Nhận phòng" type="text"/>
+</div>
+<div class="flex-1 relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">calendar_month</span>
+</div>
+<input class="w-full pl-10 pr-3 py-3 border border-border-grey rounded font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-on-surface" placeholder="Trả phòng" type="text"/>
+</div>
+<div class="flex-1 relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">group</span>
+</div>
+<input class="w-full pl-10 pr-3 py-3 border border-border-grey rounded font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-on-surface" type="text" value="2 người lớn / 1 phòng"/>
+</div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded uppercase tracking-wide hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm">TÌM PHÒNG TRỐNG</button>
+</div>
+</div>
+</section>
+<!-- Main Content Area -->
+<main class="max-w-container-max-width mx-auto px-margin-desktop mt-24 mb-16 grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Sidebar Filters (3 Columns) -->
+<aside class="md:col-span-3">
+<div class="bg-surface-container-lowest border border-border-grey rounded p-4 sticky top-24">
+<h3 class="font-title-lg text-title-lg text-on-surface mb-4 pb-2 border-b border-border-grey">Lọc kết quả</h3>
+<!-- Filter Group: Room Type -->
+<div class="mb-6">
+<h4 class="font-label-md text-label-md text-on-surface-variant mb-2 uppercase">Loại phòng</h4>
+<div class="space-y-2">
+<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-surface-container-low rounded transition-colors">
+<input class="rounded-sm border-border-grey text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">Superior</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-1 bg-surface-blue-light rounded transition-colors">
+<input checked="" class="rounded-sm border-border-grey text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface font-semibold">Deluxe</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-surface-container-low rounded transition-colors">
+<input class="rounded-sm border-border-grey text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">Suite</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-surface-container-low rounded transition-colors">
+<input class="rounded-sm border-border-grey text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">Villa</span>
+</label>
+</div>
+</div>
+<!-- Filter Group: Amenities -->
+<div class="mb-6">
+<h4 class="font-label-md text-label-md text-on-surface-variant mb-2 uppercase">Tiện ích nổi bật</h4>
+<div class="space-y-2">
+<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-surface-container-low rounded transition-colors">
+<input class="rounded-sm border-border-grey text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">View biển</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-surface-container-low rounded transition-colors">
+<input class="rounded-sm border-border-grey text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">Bồn tắm</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-surface-container-low rounded transition-colors">
+<input class="rounded-sm border-border-grey text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">Ban công</span>
+</label>
+</div>
+</div>
+<!-- Filter Group: Price -->
+<div>
+<h4 class="font-label-md text-label-md text-on-surface-variant mb-2 uppercase">Khoảng giá (VND)</h4>
+<input class="w-full accent-primary" type="range"/>
+<div class="flex justify-between mt-2 font-body-md text-body-md text-on-surface-variant">
+<span>0</span>
+<span>10,000,000+</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Room List Area (9 Columns) -->
+<section class="md:col-span-9">
+<div class="flex items-center justify-between mb-6 border-b border-border-grey pb-2">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Các loại phòng tại StayGO</h2>
+</div>
+<!-- Sorting Tabs -->
+<div class="flex overflow-x-auto gap-2 mb-6 border-b border-border-grey">
+<button class="px-4 py-3 font-label-md text-label-md text-primary border-b-2 border-primary bg-surface-container-lowest">Lựa chọn hàng đầu</button>
+<button class="px-4 py-3 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">Giá thấp nhất trước</button>
+<button class="px-4 py-3 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">Diện tích phòng</button>
+<button class="px-4 py-3 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">Được đặt nhiều nhất</button>
+</div>
+<!-- Room Cards -->
+<div class="space-y-4">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<!-- Image Gallery -->
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" data-alt="A brightly lit, luxurious hotel room featuring a king-sized bed with crisp white linens, a large panoramic window offering a stunning ocean view, and contemporary wooden furniture. The styling is modern, clean, and highly professional, typical of a high-end digital booking platform in light mode. Subtle blue accents reflect the brand identity." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAoxTONYmiubiY2GNmC5oT07J-P37pwJs_KFmY1-CgU1u1FWmJy6pkh6YiKRUMS4AzFYtcIiWywH3UvnRQhsHCyvxQtlrr1lzQwEh1yyrCYziqh4PDNkHBCmnfw_QpqNnNnY80bnpKhlRCFhBBN6a1VpZ551GNLkbFx9iiqEYFlXiI7Y8tL0wSZIsfqO0Zr4gSOZB04JKnMYOzd2fkSKeb1fMy_fVKINOhBtbrD-PBwMm68nZjgePkN5g')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" data-alt="Detail shot of a modern, sparkling clean hotel bathroom with a freestanding white bathtub, sleek chrome fixtures, and large neutral-toned tiles. Bright, uniform lighting emphasizing hygiene and luxury." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD79XkXronm4K3lR_yfvqojYu3UgSF6IqujT_xNVbkK3nZgGqQQvvryhrSgtoS8v3eHOX6S4DvCYbmJ2-uL63edR_ecmoOq4lBzlKbaZs395EbIoQMUwVBMnElkLW6vVd3W5WfCX4v7O_q5TDAxWdFlw7bSoGuJ3zZbafKhuNwxsjEJuqtLjkuCrkPAEa9QqXdmOXbFtj-KO3DpogexSg0bZ14I96msus4SkPwfR_CowQhkPdQFdg3zDg')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" data-alt="Close up of a comfortable reading chair next to a window in a hotel room, with a small table holding a cup of coffee and a magazine. Warm natural light streaming in, conveying relaxation." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCIsG-OSMgYEWwgYVFh2W-OAANtvEDuh2O7lnpNQynMAv2186Z1vgjBDHQcJerhiM3QrgmtEfccyzZjXWd_EPd0LcRaK8uWyE69-_p65chLUuQNHdQWcgboR8fK4dHmB46ENCb4cRNFksI0xbn2DM0WC_xFvdhFdAIAJMStiF7RWYq7mw4O2C8B-Od3OYNYHP6zHbHKz5C8K2H1Y9z233oWR-ikauDDGumRAUFAbfiJqRion4pwm2JUOQ')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" data-alt="View from a hotel balcony looking out over a pristine beach and calm ocean, with two lounge chairs and a small glass table. Bright daylight, clear blue sky." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAzwNB9arFleBQsvnNxYovo-68U40O82idYbZWHgEssNMrVi57MNjFlHRUuN6-nng0lJwPADYn7qWXM7DC1bjbkuDqum2B4dPhhn1nhbbVr6n2xv7WM9ZRX375brJdznhUB6RGv_iTLVAdWnoJFYWi1ENJ6wK6_aXdIdMUYhJoN-m0NYlQrVbXMxIMn2SwIxCWr7ibQS0tKpikh6fn-3lnS0CzZ7P7MO9iAgTbSUAPd8pGzxIP7xSa0iA')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+<span class="text-white font-label-md text-label-md">+5</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Details & Action -->
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Deluxe View Biển</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined fill text-base">star_half</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">8.9 - Tuyệt vời</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">245 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface">
+<span class="material-symbols-outlined text-[16px]">wifi</span> Miễn phí Wi-Fi
+                            </span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface">
+<span class="material-symbols-outlined text-[16px]">restaurant</span> Bữa sáng miễn phí
+                            </span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface">
+<span class="material-symbols-outlined text-[16px]">square_foot</span> 45 m²
+                            </span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div>
+<span class="bg-red-100 text-alert-red font-label-md text-label-md px-2 py-1 rounded">Giảm giá đặc biệt</span>
+<div class="font-body-md text-body-md text-on-surface-variant line-through mt-1">3,500,000 VND</div>
+</div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">2,800,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" data-alt="A well-appointed standard hotel room with twin beds, warm lighting, wooden accents, and a city view through a large window. Clean, professional composition suitable for a booking site listing, adhering to a light mode corporate aesthetic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAFmwkzn-V5tSPJ20kO2n0uyQ6Zm_889CAxUHOYQRGneNBxCQIlJZdeVkoh6reOuT3myN2tk6o0YsZdNhufVgs3rkw1BuEwZC-wk0XBguj3BB44oWxlVI_32w3U7NtzaPfwCz0oCroQqH1ZZmXrDzTe6s8XnrAHnSITmH-BHQ2vilUfV8ajBtnBbf4Tt6BB9nHGAneoWZpC0vgslE3fZ5n1RIoX6No7X9UcfHVcFUd2nE-9bCLBvB7pXA')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" data-alt="A clean, functional hotel bathroom with a glass-enclosed shower, well-lit mirror, and neatly folded white towels. Professional hospitality styling." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCBLbJzBCulXlOpBOPhT-4sUr02C7eBNvFHKMN_-92aFnR9zhxAdiSxE4MCus-GPF232wNfCKqQzyHwYOPQWW5H5n7CFgczug2kXJtPDq_Bhx7PGLf3wHys8Hx1ZBzZXuwnFbbkJy5dOwfREBuPWE7aAN6izhZ-J9458Ksp-03jLklu2VGO1PS1WEXxYJi7VKQaFLAG7uHDLpy7wDVn4B1YP2wxeZIwXUb6ydGPaJ_7T9x_BBpcX6KcOA')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" data-alt="Close up of a sleek, modern hotel room work desk with a lamp, notepad, and comfortable chair. Focused on business travel utility." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDJ25yJckiuYYD1FQguZAZleiyPKfYo897Qzwenbtfuh6y2VR9e8qqxrHbGociqtmXZlHngmyl4kwNWdpSjLs04y8sLSa2zsVH-Mpy9ElE9st4673blKmZUBTswmdVEQ9t9jV5-brACBPMcaHFwusjAvHLsfd4SwF2ZCv0O3UGU0wrwuRoHEQqlpdXx4HccHVFn682l-wC5UqMRTCTtYPnj8FA1E8R6py4QLsbn26vqZ52J3yJ02bPjnw')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" data-alt="Detail shot of high-quality bedding and pillows on a hotel bed, emphasizing comfort and cleanliness. Soft, inviting lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuALSFYoaEF4ch4jyCLt7nohEjuNRIytsZNMtNNNYgyRj2SJbREeGd3DNsiQJIg1enc9UnnlwIX6ZnPOybJx-nKPnIEDoXuJ9wU6RtxHhDkgbftl99FtbGyZHryprcqNKEXQk0gdgyHIyhvgl3kySGk8gx7zjXcUX0OATN1sJWRKI0Uu3wKmN2Saw_l6n8ZfN-dr9GFtzRrcq9JEUwECGkxCGt7lxDZwb7llrO_uu9NG5KDmU3c6PhRQlQ')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+<span class="text-white font-label-md text-label-md">+3</span>
+</div>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Superior City View</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined fill text-base">star</span>
+<span class="material-symbols-outlined text-base">star_outline</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">8.2 - Rất tốt</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">128 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface">
+<span class="material-symbols-outlined text-[16px]">wifi</span> Miễn phí Wi-Fi
+                            </span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface">
+<span class="material-symbols-outlined text-[16px]">square_foot</span> 32 m²
+                            </span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div></div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">1,500,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAoxTONYmiubiY2GNmC5oT07J-P37pwJs_KFmY1-CgU1u1FWmJy6pkh6YiKRUMS4AzFYtcIiWywH3UvnRQhsHCyvxQtlrr1lzQwEh1yyrCYziqh4PDNkHBCmnfw_QpqNnNnY80bnpKhlRCFhBBN6a1VpZ551GNLkbFx9iiqEYFlXiI7Y8tL0wSZIsfqO0Zr4gSOZB04JKnMYOzd2fkSKeb1fMy_fVKINOhBtbrD-PBwMm68nZjgePkN5g')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD79XkXronm4K3lR_yfvqojYu3UgSF6IqujT_xNVbkK3nZgGqQQvvryhrSgtoS8v3eHOX6S4DvCYbmJ2-uL63edR_ecmoOq4lBzlKbaZs395EbIoQMUwVBMnElkLW6vVd3W5WfCX4v7O_q5TDAxWdFlw7bSoGuJ3zZbafKhuNwxsjEJuqtLjkuCrkPAEa9QqXdmOXbFtj-KO3DpogexSg0bZ14I96msus4SkPwfR_CowQhkPdQFdg3zDg')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCIsG-OSMgYEWwgYVFh2W-OAANtvEDuh2O7lnpNQynMAv2186Z1vgjBDHQcJerhiM3QrgmtEfccyzZjXWd_EPd0LcRaK8uWyE69-_p65chLUuQNHdQWcgboR8fK4dHmB46ENCb4cRNFksI0xbn2DM0WC_xFvdhFdAIAJMStiF7RWYq7mw4O2C8B-Od3OYNYHP6zHbHKz5C8K2H1Y9z233oWR-ikauDDGumRAUFAbfiJqRion4pwm2JUOQ')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAzwNB9arFleBQsvnNxYovo-68U40O82idYbZWHgEssNMrVi57MNjFlHRUuN6-nng0lJwPADYn7qWXM7DC1bjbkuDqum2B4dPhhn1nhbbVr6n2xv7WM9ZRX375brJdznhUB6RGv_iTLVAdWnoJFYWi1ENJ6wK6_aXdIdMUYhJoN-m0NYlQrVbXMxIMn2SwIxCWr7ibQS0tKpikh6fn-3lnS0CzZ7P7MO9iAgTbSUAPd8pGzxIP7xSa0iA')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center"><span class="text-white font-label-md text-label-md">+8</span></div>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Suite Hoàng Gia</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">9.5 - Xuất sắc</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">156 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">wifi</span> Miễn phí Wi-Fi</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">square_foot</span> 65 m²</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">bathtub</span> Bồn tắm riêng</span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div><span class="bg-red-100 text-alert-red font-label-md text-label-md px-2 py-1 rounded">Ưu đãi thành viên</span></div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">4,200,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAFmwkzn-V5tSPJ20kO2n0uyQ6Zm_889CAxUHOYQRGneNBxCQIlJZdeVkoh6reOuT3myN2tk6o0YsZdNhufVgs3rkw1BuEwZC-wk0XBguj3BB44oWxlVI_32w3U7NtzaPfwCz0oCroQqH1ZZmXrDzTe6s8XnrAHnSITmH-BHQ2vilUfV8ajBtnBbf4Tt6BB9nHGAneoWZpC0vgslE3fZ5n1RIoX6No7X9UcfHVcFUd2nE-9bCLBvB7pXA')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCBLbJzBCulXlOpBOPhT-4sUr02C7eBNvFHKMN_-92aFnR9zhxAdiSxE4MCus-GPF232wNfCKqQzyHwYOPQWW5H5n7CFgczug2kXJtPDq_Bhx7PGLf3wHys8Hx1ZBzZXuwnFbbkJy5dOwfREBuPWE7aAN6izhZ-J9458Ksp-03jLklu2VGO1PS1WEXxYJi7VKQaFLAG7uHDLpy7wDVn4B1YP2wxeZIwXUb6ydGPaJ_7T9x_BBpcX6KcOA')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDJ25yJckiuYYD1FQguZAZleiyPKfYo897Qzwenbtfuh6y2VR9e8qqxrHbGociqtmXZlHngmyl4kwNWdpSjLs04y8sLSa2zsVH-Mpy9ElE9st4673blKmZUBTswmdVEQ9t9jV5-brACBPMcaHFwusjAvHLsfd4SwF2ZCv0O3UGU0wrwuRoHEQqlpdXx4HccHVFn682l-wC5UqMRTCTtYPnj8FA1E8R6py4QLsbn26vqZ52J3yJ02bPjnw')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuALSFYoaEF4ch4jyCLt7nohEjuNRIytsZNMtNNNYgyRj2SJbREeGd3DNsiQJIg1enc9UnnlwIX6ZnPOybJx-nKPnIEDoXuJ9wU6RtxHhDkgbftl99FtbGyZHryprcqNKEXQk0gdgyHIyhvgl3kySGk8gx7zjXcUX0OATN1sJWRKI0Uu3wKmN2Saw_l6n8ZfN-dr9GFtzRrcq9JEUwECGkxCGt7lxDZwb7llrO_uu9NG5KDmU3c6PhRQlQ')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center"><span class="text-white font-label-md text-label-md">+4</span></div>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Family Ocean View</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined text-base">star_outline</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">8.7 - Tuyệt vời</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">89 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">group</span> 4 người</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">square_foot</span> 55 m²</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">balcony</span> Ban công rộng</span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div></div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">3,100,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 5 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCo1YHiL5se9gdga38ezOmfnhfIypx9vFPk7GdjIyxrYpTx8TNgDwhN4t4WAE7z9R3e2qAVepVSkpAJOYFyo7ItqUhS846P5DdAbYAdkE5Tzd-Lfl8XZLlo9qbQFRi-egz4gbP0DPln99NeynZJgOB9emHu4hX0Tdrg3owl65A6nyfL1Evgt6hubFC9f2nhX2MeXLr8GLvs4GlXUHjk-qx99047GkOSI2xp8r_PEFJXbYXo_cJrLOIrKQ')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD79XkXronm4K3lR_yfvqojYu3UgSF6IqujT_xNVbkK3nZgGqQQvvryhrSgtoS8v3eHOX6S4DvCYbmJ2-uL63edR_ecmoOq4lBzlKbaZs395EbIoQMUwVBMnElkLW6vVd3W5WfCX4v7O_q5TDAxWdFlw7bSoGuJ3zZbafKhuNwxsjEJuqtLjkuCrkPAEa9QqXdmOXbFtj-KO3DpogexSg0bZ14I96msus4SkPwfR_CowQhkPdQFdg3zDg')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCIsG-OSMgYEWwgYVFh2W-OAANtvEDuh2O7lnpNQynMAv2186Z1vgjBDHQcJerhiM3QrgmtEfccyzZjXWd_EPd0LcRaK8uWyE69-_p65chLUuQNHdQWcgboR8fK4dHmB46ENCb4cRNFksI0xbn2DM0WC_xFvdhFdAIAJMStiF7RWYq7mw4O2C8B-Od3OYNYHP6zHbHKz5C8K2H1Y9z233oWR-ikauDDGumRAUFAbfiJqRion4pwm2JUOQ')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAzwNB9arFleBQsvnNxYovo-68U40O82idYbZWHgEssNMrVi57MNjFlHRUuN6-nng0lJwPADYn7qWXM7DC1bjbkuDqum2B4dPhhn1nhbbVr6n2xv7WM9ZRX375brJdznhUB6RGv_iTLVAdWnoJFYWi1ENJ6wK6_aXdIdMUYhJoN-m0NYlQrVbXMxIMn2SwIxCWr7ibQS0tKpikh6fn-3lnS0CzZ7P7MO9iAgTbSUAPd8pGzxIP7xSa0iA')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center"><span class="text-white font-label-md text-label-md">+2</span></div>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Executive</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">9.2 - Xuất sắc</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">112 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">work</span> Bàn làm việc</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">square_foot</span> 40 m²</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">coffee_maker</span> Máy pha cà phê</span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div><span class="bg-red-100 text-alert-red font-label-md text-label-md px-2 py-1 rounded">Bán chạy nhất</span></div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">2,500,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 6 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAoxTONYmiubiY2GNmC5oT07J-P37pwJs_KFmY1-CgU1u1FWmJy6pkh6YiKRUMS4AzFYtcIiWywH3UvnRQhsHCyvxQtlrr1lzQwEh1yyrCYziqh4PDNkHBCmnfw_QpqNnNnY80bnpKhlRCFhBBN6a1VpZ551GNLkbFx9iiqEYFlXiI7Y8tL0wSZIsfqO0Zr4gSOZB04JKnMYOzd2fkSKeb1fMy_fVKINOhBtbrD-PBwMm68nZjgePkN5g')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCBLbJzBCulXlOpBOPhT-4sUr02C7eBNvFHKMN_-92aFnR9zhxAdiSxE4MCus-GPF232wNfCKqQzyHwYOPQWW5H5n7CFgczug2kXJtPDq_Bhx7PGLf3wHys8Hx1ZBzZXuwnFbbkJy5dOwfREBuPWE7aAN6izhZ-J9458Ksp-03jLklu2VGO1PS1WEXxYJi7VKQaFLAG7uHDLpy7wDVn4B1YP2wxeZIwXUb6ydGPaJ_7T9x_BBpcX6KcOA')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDJ25yJckiuYYD1FQguZAZleiyPKfYo897Qzwenbtfuh6y2VR9e8qqxrHbGociqtmXZlHngmyl4kwNWdpSjLs04y8sLSa2zsVH-Mpy9ElE9st4673blKmZUBTswmdVEQ9t9jV5-brACBPMcaHFwusjAvHLsfd4SwF2ZCv0O3UGU0wrwuRoHEQqlpdXx4HccHVFn682l-wC5UqMRTCTtYPnj8FA1E8R6py4QLsbn26vqZ52J3yJ02bPjnw')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuALSFYoaEF4ch4jyCLt7nohEjuNRIytsZNMtNNNYgyRj2SJbREeGd3DNsiQJIg1enc9UnnlwIX6ZnPOybJx-nKPnIEDoXuJ9wU6RtxHhDkgbftl99FtbGyZHryprcqNKEXQk0gdgyHIyhvgl3kySGk8gx7zjXcUX0OATN1sJWRKI0Uu3wKmN2Saw_l6n8ZfN-dr9GFtzRrcq9JEUwECGkxCGt7lxDZwb7llrO_uu9NG5KDmU3c6PhRQlQ')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center"><span class="text-white font-label-md text-label-md">+3</span></div>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Studio Garden</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined text-base">star_outline</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">8.5 - Rất tốt</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">64 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">park</span> View sân vườn</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">square_foot</span> 35 m²</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">kitchen</span> Bếp nhỏ</span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div></div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">1,800,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 7 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAFmwkzn-V5tSPJ20kO2n0uyQ6Zm_889CAxUHOYQRGneNBxCQIlJZdeVkoh6reOuT3myN2tk6o0YsZdNhufVgs3rkw1BuEwZC-wk0XBguj3BB44oWxlVI_32w3U7NtzaPfwCz0oCroQqH1ZZmXrDzTe6s8XnrAHnSITmH-BHQ2vilUfV8ajBtnBbf4Tt6BB9nHGAneoWZpC0vgslE3fZ5n1RIoX6No7X9UcfHVcFUd2nE-9bCLBvB7pXA')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD79XkXronm4K3lR_yfvqojYu3UgSF6IqujT_xNVbkK3nZgGqQQvvryhrSgtoS8v3eHOX6S4DvCYbmJ2-uL63edR_ecmoOq4lBzlKbaZs395EbIoQMUwVBMnElkLW6vVd3W5WfCX4v7O_q5TDAxWdFlw7bSoGuJ3zZbafKhuNwxsjEJuqtLjkuCrkPAEa9QqXdmOXbFtj-KO3DpogexSg0bZ14I96msus4SkPwfR_CowQhkPdQFdg3zDg')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCIsG-OSMgYEWwgYVFh2W-OAANtvEDuh2O7lnpNQynMAv2186Z1vgjBDHQcJerhiM3QrgmtEfccyzZjXWd_EPd0LcRaK8uWyE69-_p65chLUuQNHdQWcgboR8fK4dHmB46ENCb4cRNFksI0xbn2DM0WC_xFvdhFdAIAJMStiF7RWYq7mw4O2C8B-Od3OYNYHP6zHbHKz5C8K2H1Y9z233oWR-ikauDDGumRAUFAbfiJqRion4pwm2JUOQ')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAzwNB9arFleBQsvnNxYovo-68U40O82idYbZWHgEssNMrVi57MNjFlHRUuN6-nng0lJwPADYn7qWXM7DC1bjbkuDqum2B4dPhhn1nhbbVr6n2xv7WM9ZRX375brJdznhUB6RGv_iTLVAdWnoJFYWi1ENJ6wK6_aXdIdMUYhJoN-m0NYlQrVbXMxIMn2SwIxCWr7ibQS0tKpikh6fn-3lnS0CzZ7P7MO9iAgTbSUAPd8pGzxIP7xSa0iA')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center"><span class="text-white font-label-md text-label-md">+5</span></div>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Deluxe City</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined text-base">star_outline</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">8.3 - Rất tốt</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">192 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">location_city</span> View thành phố</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">square_foot</span> 30 m²</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">wifi</span> Wi-Fi tốc độ cao</span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div><span class="bg-red-100 text-alert-red font-label-md text-label-md px-2 py-1 rounded">Giá tốt nhất</span></div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">1,400,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 8 -->
+<div class="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+<div class="w-full md:w-1/3 p-2 flex flex-col gap-1">
+<div class="bg-cover bg-center w-full h-40 rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCo1YHiL5se9gdga38ezOmfnhfIypx9vFPk7GdjIyxrYpTx8TNgDwhN4t4WAE7z9R3e2qAVepVSkpAJOYFyo7ItqUhS846P5DdAbYAdkE5Tzd-Lfl8XZLlo9qbQFRi-egz4gbP0DPln99NeynZJgOB9emHu4hX0Tdrg3owl65A6nyfL1Evgt6hubFC9f2nhX2MeXLr8GLvs4GlXUHjk-qx99047GkOSI2xp8r_PEFJXbYXo_cJrLOIrKQ')"></div>
+<div class="flex gap-1 h-16">
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCBLbJzBCulXlOpBOPhT-4sUr02C7eBNvFHKMN_-92aFnR9zhxAdiSxE4MCus-GPF232wNfCKqQzyHwYOPQWW5H5n7CFgczug2kXJtPDq_Bhx7PGLf3wHys8Hx1ZBzZXuwnFbbkJy5dOwfREBuPWE7aAN6izhZ-J9458Ksp-03jLklu2VGO1PS1WEXxYJi7VKQaFLAG7uHDLpy7wDVn4B1YP2wxeZIwXUb6ydGPaJ_7T9x_BBpcX6KcOA')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDJ25yJckiuYYD1FQguZAZleiyPKfYo897Qzwenbtfuh6y2VR9e8qqxrHbGociqtmXZlHngmyl4kwNWdpSjLs04y8sLSa2zsVH-Mpy9ElE9st4673blKmZUBTswmdVEQ9t9jV5-brACBPMcaHFwusjAvHLsfd4SwF2ZCv0O3UGU0wrwuRoHEQqlpdXx4HccHVFn682l-wC5UqMRTCTtYPnj8FA1E8R6py4QLsbn26vqZ52J3yJ02bPjnw')"></div>
+<div class="bg-cover bg-center w-1/3 h-full rounded relative" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuALSFYoaEF4ch4jyCLt7nohEjuNRIytsZNMtNNNYgyRj2SJbREeGd3DNsiQJIg1enc9UnnlwIX6ZnPOybJx-nKPnIEDoXuJ9wU6RtxHhDkgbftl99FtbGyZHryprcqNKEXQk0gdgyHIyhvgl3kySGk8gx7zjXcUX0OATN1sJWRKI0Uu3wKmN2Saw_l6n8ZfN-dr9GFtzRrcq9JEUwECGkxCGt7lxDZwb7llrO_uu9NG5KDmU3c6PhRQlQ')">
+<div class="absolute inset-0 bg-black/50 rounded flex items-center justify-center"><span class="text-white font-label-md text-label-md">+6</span></div>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3 p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">Phòng Premier</h3>
+<div class="flex items-center gap-1 text-rating-gold text-sm mt-1">
+<span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star</span><span class="material-symbols-outlined fill text-base">star_half</span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-primary text-on-primary font-label-md text-label-md px-2 py-1 rounded inline-block">8.9 - Tuyệt vời</div>
+<div class="font-body-md text-body-md text-on-surface-variant mt-1">145 đánh giá</div>
+</div>
+</div>
+<div class="flex gap-2 mb-4 flex-wrap">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">king_bed</span> Giường King</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">square_foot</span> 48 m²</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-[16px]">restaurant</span> Ăn sáng buffet</span>
+</div>
+<div class="flex justify-between items-end border-t border-border-grey pt-4">
+<div></div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">2,950,000 VND <span class="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Đặt phòng ngay</button>
+</div>
+</div>
+</div>
+</div></div>
+</section>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full py-12 px-margin-desktop grid grid-cols-1 md:grid-cols-4 gap-gutter max-w-container-max-width mx-auto bg-surface-container border-t border-border-grey">
+<div class="col-span-1 md:col-span-1 flex flex-col gap-4">
+<img alt="StayGO Logo" class="h-10 object-contain self-start" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpy8agw3EK7Oi-zMRyva8W7vx2GlaazzsJoVekXTEYiRhPW_78jOhEdIT7Kjopeh388LsDhr0k-hR0WbUuAGHGrxeeCNmFLFR8Q-mrA3OLvRgyGJ2QI5MNQiSAFnJUYJKC5yzwaCPDHjy5JOVnO50we6l-F_9iNVcfBFQVBFq4Y_mHpG_D5p9WzA7KfBnjNaO4xAkaUUYXzrfDKaltjNsEwZT4_uaRtJrIFETz9jSgEgEhBPTWKsry5Q"/>
+<p class="font-body-md text-body-md text-on-surface-variant">Trải nghiệm lưu trú đẳng cấp, dịch vụ hoàn hảo cho mọi chuyến đi của bạn.</p>
+</div>
+<div class="col-span-1 flex flex-col gap-2">
+<h4 class="font-title-lg text-title-lg text-on-surface mb-2">Liên hệ</h4>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Địa chỉ: 123 Đường Du Lịch, TP. Đà Nẵng</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Hotline: 0236 123 4567</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Email: contact@staygo.vn</a>
+</div>
+<div class="col-span-1 flex flex-col gap-2">
+<h4 class="font-title-lg text-title-lg text-on-surface mb-2">Chính sách</h4>
+<span class="font-body-md text-body-md text-on-surface-variant">Chính sách nhận phòng: 14:00</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Chính sách trả phòng: 12:00</span>
+</div>
+<div class="col-span-1 flex flex-col gap-2">
+<h4 class="font-title-lg text-title-lg text-on-surface mb-2">Kết nối với chúng tôi</h4>
+<div class="flex gap-4">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Facebook</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Instagram</a>
+</div>
+</div>
+<div class="col-span-1 md:col-span-4 mt-8 pt-4 border-t border-border-grey text-center font-body-md text-body-md text-on-surface-variant">
+            © 2024 StayGO Hotel. All rights reserved.
+        </div>
+</footer>
+</body></html>

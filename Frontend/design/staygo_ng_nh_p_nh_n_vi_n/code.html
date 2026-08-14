@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>StayGO - Đăng nhập nhân viên</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Arimo:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "outline-variant": "#c0c7d4",
+                        "surface-variant": "#e4e2e1",
+                        "agoda-blue": "#5392F9",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-background": "#1b1c1c",
+                        "primary-fixed": "#d3e4ff",
+                        "inverse-primary": "#a2c9ff",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#004881",
+                        "border-grey": "#E0E0E0",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1b1c1c",
+                        "rating-gold": "#FFB800",
+                        "tertiary": "#8f4a00",
+                        "surface-blue-light": "#E1EDFF",
+                        "on-primary-fixed": "#001c38",
+                        "on-secondary-container": "#5f6161",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#fbf9f8",
+                        "on-tertiary-fixed": "#2f1400",
+                        "on-primary-container": "#fdfcff",
+                        "on-tertiary-fixed-variant": "#6f3800",
+                        "secondary-fixed": "#e2e2e2",
+                        "primary-container": "#0077ce",
+                        "inverse-surface": "#303030",
+                        "secondary-container": "#dcdddd",
+                        "outline": "#707783",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#5d5f5f",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#404752",
+                        "background": "#fbf9f8",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-tint": "#0060a8",
+                        "tertiary-container": "#b35e00",
+                        "on-tertiary-container": "#fffbff",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "alert-red": "#E53935",
+                        "tertiary-fixed": "#ffdcc4",
+                        "surface-container-high": "#eae8e7",
+                        "surface-dim": "#dcd9d9",
+                        "surface-container-highest": "#e4e2e1",
+                        "surface-container": "#f0eded",
+                        "primary": "#005ea4",
+                        "inverse-on-surface": "#f3f0f0",
+                        "surface": "#fbf9f8",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb780",
+                        "primary-fixed-dim": "#a2c9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-desktop": "24px",
+                        "gutter": "16px",
+                        "container-max-width": "1200px",
+                        "margin-mobile": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Arimo"],
+                        "body-lg": ["Arimo"],
+                        "body-md": ["Arimo"],
+                        "headline-md": ["Arimo"],
+                        "headline-lg": ["Arimo"],
+                        "label-md": ["Arimo"],
+                        "title-lg": ["Arimo"],
+                        "headline-lg-mobile": ["Arimo"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "title-lg": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Arimo', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface h-screen overflow-hidden flex flex-col md:flex-row">
+<!-- Left Side: Image (50%) -->
+<div class="hidden md:flex md:w-1/2 relative bg-surface-container-high h-full">
+<div class="absolute inset-0 bg-cover bg-center w-full h-full" data-alt="A luxurious hotel room interior during twilight, featuring a plush king-sized bed with crisp white linens, warm glowing bedside lamps, and a panoramic window overlooking a vibrant modern cityscape. The scene exudes a premium, corporate elegance consistent with high-end hospitality standards, using a sophisticated palette of deep twilight blues and soft warm gold lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDAGYGh5uSprtLZ0Ajn5eQ1MUjb5Bu_6qCP-B4gML3wMngrGNe2n7GTKkdAPKZrGFAmCHJdzb11z-zz-xfLMdSJ5PyjbDRnIIRrZ5S0frR4TCZC1fBgR7czsFRpndcEEOdKagyWx7UOpmprA3mH7SceN64aoJLHWZv3NZP6-1ncGvfOeHB5PA62Yp_1ifx34PnKPFXe_-xr_1xcfcCjGequX0Hlnw045H36w1BHc-i3afi9FwcoW0IfsA')">
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface to-transparent opacity-80"></div>
+</div>
+<div class="relative z-10 flex flex-col justify-end p-12 h-full w-full">
+<h1 class="font-display-lg text-display-lg text-on-primary max-w-lg mb-4">Trải nghiệm dịch vụ đẳng cấp cùng StayGO</h1>
+<p class="font-body-lg text-body-lg text-on-primary opacity-80">Hệ thống quản lý vận hành chuyên nghiệp.</p>
+</div>
+</div>
+<!-- Right Side: Login Form (50%) -->
+<div class="w-full md:w-1/2 flex items-center justify-center p-8 lg:p-16 h-full bg-surface-container-lowest overflow-y-auto">
+<div class="w-full max-w-md flex flex-col items-center">
+<!-- Logo -->
+<img alt="StayGO Logo" class="h-24 mb-8 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpy8agw3EK7Oi-zMRyva8W7vx2GlaazzsJoVekXTEYiRhPW_78jOhEdIT7Kjopeh388LsDhr0k-hR0WbUuAGHGrxeeCNmFLFR8Q-mrA3OLvRgyGJ2QI5MNQiSAFnJUYJKC5yzwaCPDHjy5JOVnO50we6l-F_9iNVcfBFQVBFq4Y_mHpG_D5p9WzA7KfBnjNaO4xAkaUUYXzrfDKaltjNsEwZT4_uaRtJrIFETz9jSgEgEhBPTWKsry5Q"/>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-8 text-center w-full">Đăng nhập hệ thống quản lý khách sạn StayGO</h2>
+<!-- Form -->
+<form class="w-full space-y-6">
+<!-- Username -->
+<div class="relative">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-1">Tài khoản</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-outline">person</span>
+<input class="w-full pl-10 pr-4 py-3 border border-border-grey rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors" placeholder="Nhập tài khoản" type="text"/>
+</div>
+</div>
+<!-- Password -->
+<div class="relative">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-1">Mật khẩu</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-outline">lock</span>
+<input class="w-full pl-10 pr-10 py-3 border border-border-grey rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors" placeholder="Nhập mật khẩu" type="password"/>
+<button class="absolute right-3 text-outline hover:text-primary transition-colors focus:outline-none" type="button">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember Me -->
+<div class="flex items-center">
+<input class="w-4 h-4 border-border-grey rounded-sm text-primary focus:ring-primary" id="remember" type="checkbox"/>
+<label class="ml-2 font-body-md text-body-md text-on-surface-variant cursor-pointer" for="remember">Ghi nhớ đăng nhập</label>
+</div>
+<!-- Login Button -->
+<button class="w-full bg-agoda-blue hover:bg-primary-container text-on-primary font-title-lg text-title-lg py-3 rounded-DEFAULT shadow-sm hover:shadow-md transition-all" type="submit">ĐĂNG NHẬP</button>
+</form>
+<div class="w-full my-8 border-t border-border-grey relative">
+<span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-surface-container-lowest px-4 font-label-md text-label-md text-outline">Hoặc</span>
+</div>
+<!-- Quick Login Section -->
+<div class="w-full bg-surface-container-low p-6 border border-border-grey rounded-DEFAULT">
+<h3 class="font-title-lg text-title-lg text-on-surface mb-4 text-center">Hoặc đăng nhập nhanh</h3>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-lowest border border-border-grey text-on-surface font-body-md text-body-md py-3 pl-4 pr-10 rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer">
+<option disabled="" selected="">Chọn vai trò...</option>
+<option>Quản trị viên</option>
+<option>Lễ tân</option>
+<option>Quản lý phòng</option>
+<option>Kế toán</option>
+<option>Nhân viên đặt phòng</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-outline">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Back to Booking -->
+<button class="mt-8 w-full border border-agoda-blue text-agoda-blue hover:bg-surface-blue-light font-title-lg text-title-lg py-3 rounded-DEFAULT transition-colors">
+                Không phải nhân viên? Quay lại cổng đặt phòng
+            </button>
+</div>
+</div>
+</body></html>
