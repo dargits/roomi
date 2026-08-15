@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import bookingApi from '../../services/bookingApi';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { IoCalendarOutline, IoChevronBackOutline, IoChevronForwardOutline } from 'react-icons/io5';
 
 const BookingCalendar = () => {
   const [calendarData, setCalendarData] = useState([]);
@@ -48,19 +48,19 @@ const BookingCalendar = () => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-title-lg text-on-surface flex items-center gap-2">
-          <CalendarIcon size={24} className="text-primary"/> 
+          <IoCalendarOutline size={24} className="text-primary"/> 
           Lịch Đặt Phòng (14 Ngày)
         </h3>
         
         <div className="flex gap-2">
           <button onClick={prevPeriod} className="p-2 bg-surface-container-low border border-border-grey rounded-lg hover:bg-surface-blue-light transition-colors">
-            <ChevronLeft size={20} className="text-on-surface-variant" />
+            <IoChevronBackOutline size={20} className="text-on-surface-variant" />
           </button>
           <div className="px-4 py-2 bg-surface-container-low border border-border-grey rounded-lg font-label-md text-on-surface">
             {viewStartDate.toLocaleDateString('vi-VN')}
           </div>
           <button onClick={nextPeriod} className="p-2 bg-surface-container-low border border-border-grey rounded-lg hover:bg-surface-blue-light transition-colors">
-            <ChevronRight size={20} className="text-on-surface-variant" />
+            <IoChevronForwardOutline size={20} className="text-on-surface-variant" />
           </button>
         </div>
       </div>

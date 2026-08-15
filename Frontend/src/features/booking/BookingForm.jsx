@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogIn, LogOut, FileText, CheckCircle, Search, Plus } from 'lucide-react';
+import { IoAddOutline, IoCheckmarkCircleOutline, IoDocumentOutline, IoLogInOutline, IoLogOutOutline, IoPersonOutline, IoSearchOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -119,7 +119,7 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
         {/* Guest Selection */}
         <div className="bg-surface-container-lowest p-4 rounded-lg border border-border-grey space-y-3 relative">
           <label className="font-label-md text-on-surface flex items-center gap-2">
-            <User size={18} className="text-primary"/> 
+            <IoPersonOutline size={18} className="text-primary"/> 
             Khách hàng <span className="text-error">*</span>
           </label>
           
@@ -134,7 +134,7 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
               }}
               className="w-full pl-10 pr-4 py-2 border border-border-grey rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors text-body-md"
             />
-            <Search className="absolute left-3 top-2.5 text-on-surface-variant/70" size={18} />
+            <IoSearchOutline className="absolute left-3 top-2.5 text-on-surface-variant/70" size={18} />
           </div>
 
           {/* Search Dropdown */}
@@ -180,7 +180,7 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
             label="Ngày nhận phòng" 
             type="date" 
             name="checkInDate" 
-            icon={LogIn} 
+            icon={IoLogInOutline} 
             value={formData.checkInDate} 
             onChange={handleInputChange} 
             required 
@@ -190,7 +190,7 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
             label="Ngày trả phòng" 
             type="date" 
             name="checkOutDate" 
-            icon={LogOut} 
+            icon={IoLogOutOutline} 
             value={formData.checkOutDate} 
             onChange={handleInputChange} 
             required 
@@ -200,7 +200,7 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
         <Input 
           label="Ghi chú thêm" 
           name="note" 
-          icon={FileText} 
+          icon={IoDocumentOutline} 
           value={formData.note} 
           onChange={handleInputChange} 
           placeholder="Yêu cầu đặc biệt..." 
@@ -210,7 +210,7 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
       
       <div className="flex justify-end gap-3 pt-6 border-t border-border-grey mt-6">
         <Button variant="ghost" onClick={onClose} disabled={loading}>Hủy</Button>
-        <Button type="submit" form="bookingForm" icon={CheckCircle} isLoading={loading}>Xác nhận Đặt phòng</Button>
+        <Button type="submit" form="bookingForm" icon={IoCheckmarkCircleOutline} isLoading={loading}>Xác nhận Đặt phòng</Button>
       </div>
     </Modal>
   );

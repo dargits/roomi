@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { extraServiceApi } from '../../services/extraServiceApi';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Edit, Trash2, AlertTriangle, Coffee } from 'lucide-react';
+import { IoAddOutline, IoCafeOutline, IoPencilOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -117,13 +117,13 @@ const ExtraServiceManagement = () => {
       <div className="p-6 border-b border-border-grey flex justify-between items-center bg-surface-container-lowest">
         <div>
           <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <Coffee size={28} className="text-primary" /> 
+            <IoCafeOutline size={28} className="text-primary" /> 
             Quản lý Dịch vụ Phụ thu
           </h2>
           <p className="text-on-surface-variant font-body-md mt-1">Danh sách các dịch vụ bán kèm (Giặt là, thuê xe, spa,...)</p>
         </div>
         {isOwner && (
-          <Button onClick={openAddModal} icon={Plus} className="px-5 py-2.5">
+          <Button onClick={openAddModal} icon={IoAddOutline} className="px-5 py-2.5">
             Thêm Dịch vụ
           </Button>
         )}
@@ -168,14 +168,14 @@ const ExtraServiceManagement = () => {
                           className="text-primary p-1.5 rounded-md hover:bg-surface-blue-light hover:shadow-sm transition-all"
                           title="Sửa"
                         >
-                          <Edit size={20} strokeWidth={1.5} />
+                          <IoPencilOutline size={20} strokeWidth={1.5} />
                         </button>
                         <button 
                           onClick={() => openDeleteModal(service)}
                           className="text-error p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm transition-all"
                           title="Xóa"
                         >
-                          <Trash2 size={20} strokeWidth={1.5} />
+                          <IoTrashOutline size={20} strokeWidth={1.5} />
                         </button>
                       </div>
                     </td>
@@ -232,7 +232,7 @@ const ExtraServiceManagement = () => {
         <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} maxWidth="max-w-md">
           <div className="flex flex-col items-center text-center pb-6">
             <div className="w-14 h-14 rounded-full bg-red-100 text-error flex items-center justify-center mb-5">
-              <AlertTriangle size={32} strokeWidth={1.5} />
+              <IoWarningOutline size={32} strokeWidth={1.5} />
             </div>
             <h3 className="font-title-lg text-on-surface mb-2">Xóa dịch vụ này?</h3>
             <p className="font-body-md text-on-surface-variant">Bạn có chắc chắn muốn xóa dịch vụ <strong>{itemToDelete?.name}</strong> không? Hành động này không thể hoàn tác.</p>

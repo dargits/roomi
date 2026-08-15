@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Info, ShoppingCart, FileText, CheckCircle, Clock, MapPin, User, Phone, X } from 'lucide-react';
+import { IoAlertCircleOutline, IoCallOutline, IoCartOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoDocumentOutline, IoInformationCircleOutline, IoLocationOutline, IoPersonOutline, IoSwapHorizontalOutline, IoTimeOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import bookingApi from '../../services/bookingApi';
+import { roomApi } from '../../services/roomApi';
 import BookingServicesTab from './BookingServicesTab';
 import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
@@ -12,6 +13,13 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [printingInvoice, setPrintingInvoice] = useState(null);
+  // === Đổi phòng ===
+  const [showChangeRoom, setShowChangeRoom] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [selectedNewRoom, setSelectedNewRoom] = useState(null);
+  const [changingRoom, setChangingRoom] = useState(false);
+  const [changeRoomError, setChangeRoomError] = useState('');
 
   useEffect(() => {
     if (isOpen && bookingId) {
@@ -29,6 +37,40 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
       console.error("Lỗi lấy chi tiết đặt phòng", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openChangeRoom = async () => {
+    setShowChangeRoom(true);
+    setSelectedNewRoom(null);
+    setChangeRoomError('');
+    setLoadingRooms(true);
+    try {
+      const rooms = await roomApi.getAllRooms();
+      // Lọc phòng AVAILABLE và khác phòng hiện tại
+      const filtered = rooms.filter(r =>
+        r.status === 'AVAILABLE' && r.id !== booking?.roomId
+      );
+      setAvailableRooms(filtered);
+    } catch {
+      setChangeRoomError('Không thể tải danh sách phòng.');
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  const handleChangeRoom = async () => {
+    if (!selectedNewRoom) return;
+    setChangingRoom(true);
+    setChangeRoomError('');
+    try {
+      await bookingApi.changeRoom(bookingId, selectedNewRoom.id);
+      setShowChangeRoom(false);
+      fetchBookingDetails();
+    } catch (err) {
+      setChangeRoomError(err.response?.data?.message || 'Không thể đổi phòng. Vui lòng thử lại.');
+    } finally {
+      setChangingRoom(false);
     }
   };
 
@@ -61,9 +103,9 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                 {getStatusBadge(booking.status)}
               </div>
               <div className="text-sm text-on-surface-variant flex items-center gap-4">
-                <span className="flex items-center gap-1"><Phone size={14}/> {booking.guestPhone}</span>
+                <span className="flex items-center gap-1"><IoCallOutline size={14}/> {booking.guestPhone}</span>
                 <span className="flex items-center gap-1">
-                  <MapPin size={14}/> {booking.roomTypeName} {booking.roomNumber ? `- Phòng ${booking.roomNumber}` : ''}
+                  <IoLocationOutline size={14}/> {booking.roomTypeName} {booking.roomNumber ? `- Phòng ${booking.roomNumber}` : ''}
                 </span>
               </div>
             </div>
@@ -81,21 +123,21 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
               onClick={() => setActiveTab('info')}
               className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'info' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
-              <Info size={18} /> Thông tin chung
+              <IoInformationCircleOutline size={18} /> Thông tin chung
               {activeTab === 'info' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
             </button>
             <button
               onClick={() => setActiveTab('services')}
               className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'services' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
-              <ShoppingCart size={18} /> Dịch vụ phụ thu
+              <IoCartOutline size={18} /> Dịch vụ phụ thu
               {activeTab === 'services' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
             </button>
             <button
               onClick={() => setActiveTab('invoice')}
               className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'invoice' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
-              <FileText size={18} /> Hóa đơn & Thanh toán
+              <IoDocumentOutline size={18} /> Hóa đơn & Thanh toán
               {activeTab === 'invoice' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
             </button>
           </div>
@@ -109,7 +151,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
                     <h4 className="font-title-md text-on-surface mb-4 flex items-center gap-2 border-b border-border-grey pb-2">
-                      <User size={18} className="text-primary"/> Chi tiết Khách hàng
+                      <IoPersonOutline size={18} className="text-primary"/> Chi tiết Khách hàng
                     </h4>
                     <div className="space-y-3 font-body-sm text-on-surface-variant">
                       <div className="flex justify-between"><span className="w-1/3">Họ tên:</span><span className="font-medium text-on-surface flex-1">{booking.guestName}</span></div>
@@ -119,10 +161,21 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                     </div>
                   </div>
 
-                  <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
-                    <h4 className="font-title-md text-on-surface mb-4 flex items-center gap-2 border-b border-border-grey pb-2">
-                      <MapPin size={18} className="text-primary"/> Chi tiết Phòng
-                    </h4>
+                   <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
+                    <div className="flex justify-between items-center mb-4 border-b border-border-grey pb-2">
+                      <h4 className="font-title-md text-on-surface flex items-center gap-2">
+                        <IoLocationOutline size={18} className="text-primary"/> Chi tiết Phòng
+                      </h4>
+                      {(booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN') && (
+                        <button
+                          type="button"
+                          onClick={openChangeRoom}
+                          className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
+                        >
+                          <IoSwapHorizontalOutline size={13}/> Đổi phòng
+                        </button>
+                      )}
+                    </div>
                     <div className="space-y-3 font-body-sm text-on-surface-variant">
                       <div className="flex justify-between"><span className="w-1/3">Loại phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomTypeName}</span></div>
                       <div className="flex justify-between"><span className="w-1/3">Phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomNumber || 'Chưa phân phòng'}</span></div>
@@ -159,9 +212,59 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
           </div>
 
           <div className="flex justify-end pt-4 mt-6 border-t border-border-grey">
-            <Button variant="ghost" onClick={onClose} icon={X}>Đóng</Button>
+            <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
           </div>
         </div>
+      )}
+
+      {/* === Modal Đổi Phòng === */}
+      {showChangeRoom && (
+        <Modal isOpen={showChangeRoom} onClose={() => setShowChangeRoom(false)} title="Đổi Phòng" maxWidth="max-w-md">
+          <div className="space-y-4">
+            <p className="text-sm text-on-surface-variant">
+              Phòng hiện tại: <strong className="text-on-surface">{booking?.roomNumber || 'Chưa gán'}</strong>. Chọn phòng mới:
+            </p>
+            {loadingRooms ? (
+              <div className="text-center py-8 text-on-surface-variant">Đang tải danh sách phòng...</div>
+            ) : availableRooms.length === 0 ? (
+              <div className="text-center py-8 text-on-surface-variant">Không có phòng trống khả dụng.</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                {availableRooms.map(room => (
+                  <button
+                    key={room.id}
+                    type="button"
+                    onClick={() => setSelectedNewRoom(room)}
+                    className={`p-3 rounded-lg border-2 text-left transition-all cursor-pointer ${
+                      selectedNewRoom?.id === room.id
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border-grey hover:border-primary/50 bg-surface-container-lowest text-on-surface'
+                    }`}
+                  >
+                    <div className="font-semibold text-sm">Phòng {room.roomNumber}</div>
+                    <div className="text-xs text-on-surface-variant mt-0.5">{room.roomTypeName}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {changeRoomError && (
+              <div className="flex items-center gap-2 text-sm text-error bg-red-50 border border-red-200 rounded-lg p-3">
+                <IoAlertCircleOutline size={16}/> {changeRoomError}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+              <Button variant="ghost" onClick={() => setShowChangeRoom(false)} icon={IoCloseOutline}>Hủy</Button>
+              <Button
+                variant="primary"
+                icon={IoSwapHorizontalOutline}
+                onClick={handleChangeRoom}
+                disabled={!selectedNewRoom || changingRoom}
+              >
+                {changingRoom ? 'Đang xử lý...' : 'Xác nhận đổi phòng'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {printingInvoice && (

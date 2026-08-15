@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Printer } from 'lucide-react';
+import { IoCloseOutline, IoPrintOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import { numberToWords } from '../../utils/numberToWords';
 import bookingApi from '../../services/bookingApi';
@@ -43,8 +43,8 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
         <div className="bg-surface-container-low p-4 flex justify-between items-center border-b border-border-grey print:hidden">
           <h2 className="font-title-md text-on-surface">Xuất Hóa đơn GTGT</h2>
           <div className="flex gap-3">
-            <Button variant="ghost" onClick={onClose} icon={X}>Đóng</Button>
-            <Button onClick={handlePrint} icon={Printer}>In Hóa đơn</Button>
+            <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
+            <Button onClick={handlePrint} icon={IoPrintOutline}>In Hóa đơn</Button>
           </div>
         </div>
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import QuickLoginDropdown from './QuickLoginDropdown';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { IoEyeOffOutline, IoEyeOutline, IoLockClosedOutline, IoPersonOutline } from 'react-icons/io5';
 import logoUrl from '../../assets/logo.png';
 
 const LoginPage = () => {
@@ -97,7 +97,7 @@ const LoginPage = () => {
             <div className="relative">
               <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Tài khoản</label>
               <div className="relative flex items-center">
-                <User className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
+                <IoPersonOutline className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
                 <input
                   className="w-full pl-10 pr-4 py-2.5 border border-border-grey rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors"
                   placeholder="Nhập tài khoản"
@@ -112,7 +112,7 @@ const LoginPage = () => {
             <div className="relative">
               <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Mật khẩu</label>
               <div className="relative flex items-center">
-                <Lock className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
+                <IoLockClosedOutline className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
                 <input
                   className="w-full pl-10 pr-10 py-2.5 border border-border-grey rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors"
                   placeholder="Nhập mật khẩu"
@@ -125,7 +125,7 @@ const LoginPage = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff size={20} strokeWidth={1.5} /> : <Eye size={20} strokeWidth={1.5} />}
+                  {showPassword ? <IoEyeOffOutline size={20} strokeWidth={1.5} /> : <IoEyeOutline size={20} strokeWidth={1.5} />}
                 </button>
               </div>
             </div>

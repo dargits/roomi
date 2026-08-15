@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { DateRange } from 'react-date-range';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Calendar, CalendarDays } from 'lucide-react';
+import { IoCalendarClearOutline, IoCalendarOutline } from 'react-icons/io5';
 import 'react-date-range/dist/styles.css'; 
 import 'react-date-range/dist/theme/default.css'; 
 
@@ -50,7 +50,7 @@ const SearchBar = ({ onSearch }) => {
         >
           {/* Check-in */}
           <div className="flex-1 flex items-center px-4 py-3 relative">
-            <Calendar className="text-outline mr-3" size={24} strokeWidth={1.5} />
+            <IoCalendarOutline className="text-outline mr-3" size={24} strokeWidth={1.5} />
             <div className="flex flex-col flex-1">
               {isSelected ? (
                 <span className="font-bold text-on-surface text-base">
@@ -66,7 +66,7 @@ const SearchBar = ({ onSearch }) => {
           
           {/* Check-out */}
           <div className="flex-1 flex items-center px-4 py-3">
-            <CalendarDays className="text-outline mr-3" size={24} strokeWidth={1.5} />
+            <IoCalendarClearOutline className="text-outline mr-3" size={24} strokeWidth={1.5} />
             <div className="flex flex-col flex-1">
               {isSelected ? (
                 <span className="font-bold text-on-surface text-base">

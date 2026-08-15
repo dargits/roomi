@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Edit, Trash2, X, Upload, AlertTriangle, Bed } from 'lucide-react';
+import { IoAddOutline, IoBedOutline, IoCashOutline, IoChevronDownOutline, IoCloseOutline, IoCloudUploadOutline, IoPencilOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import SeasonalPricing from '../rooms/SeasonalPricing';
 const RoomTypeManagement = () => {
   const { user } = useAuth();
   const [roomTypes, setRoomTypes] = useState([]);
@@ -25,6 +26,7 @@ const RoomTypeManagement = () => {
   const [formError, setFormError] = useState('');
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [expandedRoomTypeId, setExpandedRoomTypeId] = useState(null);
 
   // Delete confirm state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -43,7 +45,7 @@ const RoomTypeManagement = () => {
   };
 
   useEffect(() => {
-    if (user?.role === 'OWNER') {
+    if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
       fetchRoomTypes();
     }
   }, [user]);
@@ -124,12 +126,12 @@ const RoomTypeManagement = () => {
       <div className="p-6 border-b border-border-grey flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-lowest">
         <div>
           <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <Bed size={28} className="text-primary" /> 
+            <IoBedOutline size={28} className="text-primary" /> 
             Quản lý Loại phòng
           </h2>
           <p className="text-on-surface-variant font-body-md mt-1">Danh sách phân hạng phòng và cấu hình tiện nghi</p>
         </div>
-        <Button onClick={openAddModal} icon={Plus} className="uppercase px-5 py-2.5">
+        <Button onClick={openAddModal} icon={IoAddOutline} className="uppercase px-5 py-2.5">
           Thêm Loại phòng
         </Button>
       </div>
@@ -144,6 +146,7 @@ const RoomTypeManagement = () => {
               <th className="p-4 text-right font-semibold">Sức chứa</th>
               <th className="p-4 text-right font-semibold">Giá cơ bản</th>
               <th className="p-4 text-center font-semibold">Trạng thái</th>
+              <th className="p-4 text-center font-semibold">Giá mùa</th>
               <th className="p-4 text-center w-32 font-semibold">Thao tác</th>
             </tr>
           </thead>
@@ -154,42 +157,70 @@ const RoomTypeManagement = () => {
               <tr><td colSpan="7" className="p-8 text-center text-on-surface-variant">Chưa có dữ liệu loại phòng.</td></tr>
             ) : (
               roomTypes.map(room => (
-                <tr key={room.id} className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
-                  <td className="p-4 text-center text-on-surface-variant font-body-sm">{room.id}</td>
-                  <td className="p-4">
-                    {room.imageUrls && room.imageUrls.length > 0 ? (
-                      <img src={room.imageUrls[0]} alt={room.name} className="w-16 h-12 object-cover rounded shadow-sm border border-border-grey" />
-                    ) : (
-                      <div className="w-16 h-12 bg-surface-container rounded flex items-center justify-center text-outline text-xs">No img</div>
-                    )}
-                  </td>
-                  <td className="p-4 font-title-sm text-on-surface group-hover:text-primary transition-colors">{room.name}</td>
-                  <td className="p-4 text-right font-body-md">{room.maxCapacity} người</td>
-                  <td className="p-4 text-right font-body-md text-primary font-semibold">{formatPrice(room.basePrice)}</td>
-                  <td className="p-4 text-center">
-                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-label-md ${room.active ? 'bg-surface-container border border-border-grey text-green-600' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                      {room.active ? 'Hoạt động' : 'Tạm ẩn'}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => openEditModal(room)}
-                        className="text-primary p-1.5 rounded-md hover:bg-surface-blue-light hover:shadow-sm transition-all"
-                        title="Sửa"
+                <React.Fragment key={room.id}>
+                  <tr className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
+                    <td className="p-4 text-center text-on-surface-variant font-body-sm">{room.id}</td>
+                    <td className="p-4">
+                      {room.imageUrls && room.imageUrls.length > 0 ? (
+                        <img src={room.imageUrls[0]} alt={room.name} className="w-16 h-12 object-cover rounded shadow-sm border border-border-grey" />
+                      ) : (
+                        <div className="w-16 h-12 bg-surface-container rounded flex items-center justify-center text-outline text-xs">No img</div>
+                      )}
+                    </td>
+                    <td className="p-4 font-title-sm text-on-surface group-hover:text-primary transition-colors">{room.name}</td>
+                    <td className="p-4 text-right font-body-md">{room.maxCapacity} người</td>
+                    <td className="p-4 text-right font-body-md text-primary font-semibold">{formatPrice(room.basePrice)}</td>
+                    <td className="p-4 text-center">
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-label-md ${room.active ? 'bg-surface-container border border-border-grey text-green-600' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                        {room.active ? 'Hoạt động' : 'Tạm ẩn'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <button
+                        onClick={() => setExpandedRoomTypeId(expandedRoomTypeId === room.id ? null : room.id)}
+                        className={`flex items-center gap-1 mx-auto px-2 py-1 rounded text-xs font-medium transition-colors ${
+                          expandedRoomTypeId === room.id
+                            ? 'bg-tertiary/10 text-tertiary'
+                            : 'hover:bg-surface-container text-on-surface-variant'
+                        }`}
+                        title="Xem giá theo mùa"
                       >
-                        <Edit size={20} strokeWidth={1.5} />
+                        <IoCashOutline size={14} />
+                        <IoChevronDownOutline size={12} className={`transition-transform ${expandedRoomTypeId === room.id ? 'rotate-180' : ''}`} />
                       </button>
-                      <button 
-                        onClick={() => openDeleteModal(room)}
-                        className="text-error p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm transition-all"
-                        title="Xóa"
-                      >
-                        <Trash2 size={20} strokeWidth={1.5} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => openEditModal(room)}
+                          className="text-primary p-1.5 rounded-md hover:bg-surface-blue-light hover:shadow-sm transition-all"
+                          title="Sửa"
+                        >
+                          <IoPencilOutline size={20} strokeWidth={1.5} />
+                        </button>
+                        <button 
+                          onClick={() => openDeleteModal(room)}
+                          className="text-error p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm transition-all"
+                          title="Xóa"
+                        >
+                          <IoTrashOutline size={20} strokeWidth={1.5} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {/* Expandable row for SeasonalPricing */}
+                  {expandedRoomTypeId === room.id && (
+                    <tr className="bg-surface-container-low/40">
+                      <td colSpan="8" className="px-6 pb-4 pt-2">
+                        <SeasonalPricing
+                          roomTypeId={room.id}
+                          roomTypeName={room.name}
+                          basePrice={room.basePrice}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))
             )}
           </tbody>
@@ -234,7 +265,7 @@ const RoomTypeManagement = () => {
               />
               <div className="flex items-center gap-3">
                 <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-border-grey rounded-md transition-colors ${isUploadingImages ? 'opacity-50 pointer-events-none' : 'hover:bg-surface-container'}`}>
-                  <Upload size={18} strokeWidth={1.5} />
+                  <IoCloudUploadOutline size={18} strokeWidth={1.5} />
                   <span className="font-label-md text-sm">{isUploadingImages ? 'Đang tải...' : 'Tải ảnh lên'}</span>
                   <input 
                     type="file" 
@@ -286,7 +317,7 @@ const RoomTypeManagement = () => {
                         className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 flex items-center justify-center"
                         title="Xóa ảnh"
                       >
-                        <X size={14} strokeWidth={2} />
+                        <IoCloseOutline size={14} strokeWidth={2} />
                       </button>
                     </div>
                   ))}
@@ -310,7 +341,7 @@ const RoomTypeManagement = () => {
       <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} maxWidth="max-w-md">
         <div className="flex flex-col items-center text-center pb-6">
           <div className="w-14 h-14 rounded-full bg-red-100 text-error flex items-center justify-center mb-5">
-            <AlertTriangle size={32} strokeWidth={1.5} />
+            <IoWarningOutline size={32} strokeWidth={1.5} />
           </div>
           <h3 className="font-title-lg text-on-surface mb-2">Xóa loại phòng này?</h3>
           <p className="font-body-md text-on-surface-variant">Bạn có chắc chắn muốn xóa loại phòng <strong>{itemToDelete?.name}</strong> không? Hành động này không thể hoàn tác.</p>

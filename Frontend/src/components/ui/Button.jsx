@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { IoSyncOutline } from 'react-icons/io5';
 
 const Button = ({
   children,
@@ -28,7 +28,7 @@ const Button = ({
       {...props}
     >
       {isLoading ? (
-        <Loader2 size={20} className="animate-spin" />
+        <IoSyncOutline size={20} className="animate-spin" />
       ) : Icon ? (
         <Icon size={20} strokeWidth={1.5} />
       ) : null}

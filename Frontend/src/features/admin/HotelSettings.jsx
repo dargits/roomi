@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import hotelSettingApi from '../../services/hotelSettingApi';
-import { Building, Mail, Phone, MapPin, Camera, Clock, LogIn, LogOut, CheckCircle, AlertCircle, Save, Info, ImagePlus, ZoomIn, X } from 'lucide-react';
+import { IoAlertCircleOutline, IoBusinessOutline, IoCallOutline, IoCameraOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoImageOutline, IoInformationCircleOutline, IoLocationOutline, IoLogInOutline, IoLogOutOutline, IoMailOutline, IoSaveOutline, IoScanOutline, IoTimeOutline } from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
@@ -127,12 +127,12 @@ const HotelSettings = () => {
       <div className="p-6 border-b border-border-grey flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-lowest">
         <div>
           <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <Building size={28} className="text-primary" />
+            <IoBusinessOutline size={28} className="text-primary" />
             Cài đặt Khách sạn
           </h2>
           <p className="text-on-surface-variant font-body-md mt-1">Quản lý thông tin chung và quy định thời gian của cơ sở</p>
         </div>
-        <Button onClick={handleSubmit} isLoading={isSaving} icon={Save} className="uppercase shrink-0 px-5 py-2.5">
+        <Button onClick={handleSubmit} isLoading={isSaving} icon={IoSaveOutline} className="uppercase shrink-0 px-5 py-2.5">
           Lưu tất cả thay đổi
         </Button>
       </div>
@@ -142,7 +142,7 @@ const HotelSettings = () => {
 
           {message.text && (
             <div className={`p-4 rounded-lg flex items-center gap-3 shadow-sm transition-all animate-fade-in ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-error border border-red-200'}`}>
-              {message.type === 'success' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+              {message.type === 'success' ? <IoCheckmarkCircleOutline size={24} /> : <IoAlertCircleOutline size={24} />}
               <p className="font-body-md font-medium m-0">{message.text}</p>
             </div>
           )}
@@ -150,7 +150,7 @@ const HotelSettings = () => {
           {/* Thông tin cơ bản Section */}
           <section>
             <h3 className="font-title-lg text-primary flex items-center gap-2 mb-6 border-b border-border-grey pb-3">
-              <Building size={24} strokeWidth={1.5} />
+              <IoBusinessOutline size={24} strokeWidth={1.5} />
               Thông tin Khách sạn
             </h3>
 
@@ -178,11 +178,11 @@ const HotelSettings = () => {
                           onClick={() => setIsPreviewOpen(true)}
                           className="bg-white/90 text-on-surface px-4 py-2.5 rounded-none font-label-md shadow-lg hover:scale-105 transition-transform flex items-center gap-2"
                         >
-                          <ZoomIn size={20} strokeWidth={1.5} />
+                          <IoScanOutline size={20} strokeWidth={1.5} />
                           Xem ảnh lớn
                         </button>
                         <label className="cursor-pointer bg-primary text-on-primary px-4 py-2.5 rounded-none font-label-md shadow-lg hover:scale-105 transition-transform flex items-center gap-2">
-                          <Camera size={20} strokeWidth={1.5} />
+                          <IoCameraOutline size={20} strokeWidth={1.5} />
                           Đổi ảnh khác
                           <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
                         </label>
@@ -191,7 +191,7 @@ const HotelSettings = () => {
                   ) : (
                     <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors">
                       <div className="w-16 h-16 rounded-full bg-surface-blue-light text-primary flex items-center justify-center mb-3">
-                        <ImagePlus size={32} strokeWidth={1.5} />
+                        <IoImageOutline size={32} strokeWidth={1.5} />
                       </div>
                       <span className="font-label-md">Tải ảnh lên</span>
                       <span className="text-xs mt-1 opacity-70">Khuyên dùng ảnh tỷ lệ 16:9 chất lượng cao</span>
@@ -203,13 +203,13 @@ const HotelSettings = () => {
               </div>
 
               <div className="space-y-5">
-                <Input label="Tên khách sạn" icon={Building} name="propertyName" value={settings.propertyName} onChange={handleChange} required placeholder="VD: StayGO Hotel" error={errors.propertyName} />
-                <Input label="Email liên hệ" icon={Mail} type="email" name="email" value={settings.email} onChange={handleChange} required placeholder="contact@staygo.com" error={errors.email} />
+                <Input label="Tên khách sạn" icon={IoBusinessOutline} name="propertyName" value={settings.propertyName} onChange={handleChange} required placeholder="VD: StayGO Hotel" error={errors.propertyName} />
+                <Input label="Email liên hệ" icon={IoMailOutline} type="email" name="email" value={settings.email} onChange={handleChange} required placeholder="contact@staygo.com" error={errors.email} />
               </div>
 
               <div className="space-y-5">
-                <Input label="Số điện thoại" icon={Phone} name="phone" value={settings.phone} onChange={handleChange} required placeholder="0987654321" error={errors.phone} />
-                <Input label="Địa chỉ đầy đủ" icon={MapPin} name="address" value={settings.address} onChange={handleChange} required placeholder="123 Đường ABC, Quận XYZ..." error={errors.address} />
+                <Input label="Số điện thoại" icon={IoCallOutline} name="phone" value={settings.phone} onChange={handleChange} required placeholder="0987654321" error={errors.phone} />
+                <Input label="Địa chỉ đầy đủ" icon={IoLocationOutline} name="address" value={settings.address} onChange={handleChange} required placeholder="123 Đường ABC, Quận XYZ..." error={errors.address} />
               </div>
             </div>
           </section>
@@ -217,17 +217,17 @@ const HotelSettings = () => {
           {/* Quy định thời gian Section */}
           <section>
             <h3 className="font-title-lg text-primary flex items-center gap-2 mb-6 border-b border-border-grey pb-3">
-              <Clock size={24} strokeWidth={1.5} />
+              <IoTimeOutline size={24} strokeWidth={1.5} />
               Quy định Thời gian
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Input label="Giờ nhận phòng (Check-in)" icon={LogIn} type="time" name="defaultCheckinTime" value={settings.defaultCheckinTime} onChange={handleChange} required error={errors.defaultCheckinTime} />
+              <Input label="Giờ nhận phòng (Check-in)" icon={IoLogInOutline} type="time" name="defaultCheckinTime" value={settings.defaultCheckinTime} onChange={handleChange} required error={errors.defaultCheckinTime} />
 
               <div>
-                <Input label="Giờ trả phòng (Check-out)" icon={LogOut} type="time" name="defaultCheckoutTime" value={settings.defaultCheckoutTime} onChange={handleChange} required error={errors.defaultCheckoutTime} />
+                <Input label="Giờ trả phòng (Check-out)" icon={IoLogOutOutline} type="time" name="defaultCheckoutTime" value={settings.defaultCheckoutTime} onChange={handleChange} required error={errors.defaultCheckoutTime} />
                 <p className="text-on-surface-variant text-[11px] mt-1.5 opacity-80 flex items-center gap-1">
-                  <Info size={14} strokeWidth={1.5} />
+                  <IoInformationCircleOutline size={14} strokeWidth={1.5} />
                   Giờ trả phòng phải muộn hơn giờ nhận phòng
                 </p>
               </div>
@@ -245,7 +245,7 @@ const HotelSettings = () => {
               className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors z-10"
               title="Đóng"
             >
-              <X size={20} />
+              <IoCloseOutline size={20} />
             </button>
             <img src={settings.homeImage} alt="Cover Preview" className="max-w-full max-h-[80vh] object-contain rounded-md" />
           </div>

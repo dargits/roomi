@@ -48,6 +48,9 @@ public class Booking {
     @Column(name = "actual_price", precision = 12, scale = 2)
     private BigDecimal actualPrice; // Giá thực tế (cập nhật khi check-out)
 
+    @Column(name = "cancellation_fee", precision = 12, scale = 2)
+    private BigDecimal cancellationFee; // Phí hủy theo chính sách
+
     @Column(columnDefinition = "TEXT")
     private String note;
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { mockAccounts } from '../../mock/mockAccounts';
-import { Settings, ChevronDown } from 'lucide-react';
+import { IoChevronDownOutline, IoSettingsOutline } from 'react-icons/io5';
 
 const QuickLoginDropdown = ({ onSelectRole }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,10 +58,10 @@ const QuickLoginDropdown = ({ onSelectRole }) => {
         className="w-full flex items-center justify-between p-2 bg-surface-container-low hover:bg-surface-container transition-colors border-b border-border-grey"
       >
         <div className="flex items-center gap-1.5 text-on-surface font-label-md text-label-md">
-          <Settings className="text-primary" size={16} strokeWidth={1.5} />
+          <IoSettingsOutline className="text-primary" size={16} strokeWidth={1.5} />
           Tài khoản Demo (môi trường phát triển)
         </div>
-        <ChevronDown className="text-outline transition-transform duration-200" size={18} strokeWidth={1.5} style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+        <IoChevronDownOutline className="text-outline transition-transform duration-200" size={18} strokeWidth={1.5} style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
       </button>
 
       {isOpen && (

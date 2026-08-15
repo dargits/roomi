@@ -31,5 +31,13 @@ export const guestApi = {
   updateGuest: async (id, guestData) => {
     const response = await api.put(`/guests/${id}`, guestData);
     return response.data;
+  },
+
+  // Lấy toàn bộ danh sách (alias của searchGuests không từ khóa)
+  getGuests: async () => {
+    const response = await api.get('/guests');
+    return response.data;
   }
 };
+
+export default guestApi;

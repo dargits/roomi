@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, List, Plus, Search, Map, DoorOpen, LogIn, LogOut, XCircle, User, Edit } from 'lucide-react';
+import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPersonOutline, IoSearchOutline } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
@@ -17,7 +17,8 @@ const BookingManagement = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const hasAccess = user?.role === 'OWNER' || user?.role === 'RECEPTIONIST';
+  const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'].includes(user?.role);
+  const isAccountant = user?.role === 'ACCOUNTANT';
 
   if (!hasAccess) {
     return <div className="p-6 text-alert-red bg-red-50 rounded-md">Bạn không có quyền truy cập trang này.</div>;
@@ -38,7 +39,7 @@ const BookingManagement = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-              <CalendarIcon size={28} className="text-primary" />
+              <IoCalendarOutline size={28} className="text-primary" />
               Quản lý Đặt phòng
             </h2>
             <p className="text-on-surface-variant font-body-md mt-1">Quản lý danh sách đặt phòng và trạng thái phòng</p>
@@ -50,25 +51,31 @@ const BookingManagement = () => {
                 onClick={() => setActiveTab('list')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors ${activeTab === 'list' ? 'bg-white shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
               >
-                <List size={18} /> Danh sách
+                <IoListOutline size={18} /> Danh sách
               </button>
               <button
                 onClick={() => setActiveTab('calendar')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors ${activeTab === 'calendar' ? 'bg-white shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
               >
-                <Map size={18} /> Lịch phòng
+                <IoMapOutline size={18} /> Lịch phòng
               </button>
-              <button
-                onClick={() => setActiveTab('requests')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors ${activeTab === 'requests' ? 'bg-white shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                <User size={18} /> Yêu cầu từ Web
-              </button>
+              {/* Kế toán không xử lý yêu cầu từ web */}
+              {!isAccountant && (
+                <button
+                  onClick={() => setActiveTab('requests')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors ${activeTab === 'requests' ? 'bg-white shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+                >
+                  <IoPersonOutline size={18} /> Yêu cầu từ Web
+                </button>
+              )}
             </div>
             
-            <Button onClick={openAddForm} icon={Plus}>
-              Tạo Booking
-            </Button>
+            {/* Kế toán không được tự tạo đặt phòng */}
+            {!isAccountant && (
+              <Button onClick={openAddForm} icon={IoAddOutline}>
+                Tạo Booking
+              </Button>
+            )}
           </div>
         </div>
       </div>

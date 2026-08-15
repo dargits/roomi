@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgeCheck, CheckCircle2, Zap, Users, Info } from 'lucide-react';
+import { IoCheckmarkCircle, IoCheckmarkCircleOutline, IoFlashOutline, IoInformationCircleOutline, IoPeopleOutline } from 'react-icons/io5';
 
 const RoomCard = ({ room, onBookNow }) => {
   return (
@@ -46,17 +46,17 @@ const RoomCard = ({ room, onBookNow }) => {
               {room.name}
             </h3>
             <div className="flex items-center gap-1 text-primary text-sm mt-1 font-label-md">
-              <BadgeCheck className="text-[16px]" size={16} strokeWidth={1.5} />
+              <IoCheckmarkCircleOutline className="text-[16px]" size={16} strokeWidth={1.5} />
               Xác nhận tức thời
             </div>
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <span className="bg-surface-container border border-border-grey text-on-surface font-label-sm px-2 py-1 rounded flex items-center gap-1">
-              <CheckCircle2 className="text-green-600 text-[14px]" size={14} strokeWidth={1.5} />
+              <IoCheckmarkCircle className="text-green-600 text-[14px]" size={14} strokeWidth={1.5} />
               Còn phòng
             </span>
             <span className="bg-surface-container border border-border-grey text-on-surface font-label-sm px-2 py-1 rounded flex items-center gap-1">
-              <Zap className="text-primary text-[14px]" size={14} strokeWidth={1.5} />
+              <IoFlashOutline className="text-primary text-[14px]" size={14} strokeWidth={1.5} />
               Đặt nhanh chóng
             </span>
           </div>
@@ -65,12 +65,12 @@ const RoomCard = ({ room, onBookNow }) => {
         <div className="flex gap-2 mb-4 flex-col">
           <div className="flex gap-2">
             <span className="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface w-max">
-              <Users className="text-primary text-[16px]" size={16} strokeWidth={1.5} /> {room.maxCapacity} người
+              <IoPeopleOutline className="text-primary text-[16px]" size={16} strokeWidth={1.5} /> {room.maxCapacity} người
             </span>
           </div>
           {room.amenitiesDescription && (
              <div className="flex items-start gap-2 bg-surface-container-low p-3 border border-border-grey rounded text-body-md text-on-surface-variant leading-relaxed">
-               <Info className="mt-0.5 text-primary opacity-80 text-[18px]" size={18} strokeWidth={1.5} />
+               <IoInformationCircleOutline className="mt-0.5 text-primary opacity-80 text-[18px]" size={18} strokeWidth={1.5} />
                <p>{room.amenitiesDescription}</p>
              </div>
           )}

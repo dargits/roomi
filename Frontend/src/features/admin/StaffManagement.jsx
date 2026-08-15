@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import authApi from '../../services/authApi';
 import userApi from '../../services/userApi';
 import { useAuth } from '../../context/AuthContext';
-import { CheckCircle, AlertCircle, UserPlus, Edit, Shield, Lock, Unlock, BadgeInfo, User, KeyRound, Phone, Mail } from 'lucide-react';
+import { IoAlertCircleOutline, IoCallOutline, IoCheckmarkCircleOutline, IoInformationCircleOutline, IoKeyOutline, IoLockClosedOutline, IoLockOpenOutline, IoMailOutline, IoPencilOutline, IoPersonAddOutline, IoPersonOutline, IoShieldOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
@@ -198,19 +198,19 @@ const StaffManagement = () => {
       <div className="p-6 border-b border-border-grey flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-lowest">
         <div>
           <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <User size={28} className="text-primary" /> 
+            <IoPersonOutline size={28} className="text-primary" /> 
             Quản lý Nhân sự
           </h2>
           <p className="text-on-surface-variant font-body-md mt-1">Danh sách tài khoản và phân quyền cho nhân viên</p>
         </div>
-        <Button onClick={handleOpenCreateModal} icon={UserPlus} className="uppercase">
+        <Button onClick={handleOpenCreateModal} icon={IoPersonAddOutline} className="uppercase">
           Thêm nhân viên
         </Button>
       </div>
 
       {actionMessage.text && (
         <div className={`p-4 rounded-lg flex items-center gap-3 shadow-sm animate-fade-in ${actionMessage.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-error border border-red-200'}`}>
-          {actionMessage.type === 'success' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+          {actionMessage.type === 'success' ? <IoCheckmarkCircleOutline size={24} /> : <IoAlertCircleOutline size={24} />}
           <p className="font-body-md font-medium m-0">{actionMessage.text}</p>
         </div>
       )}
@@ -255,7 +255,7 @@ const StaffManagement = () => {
                         className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-blue-light rounded-md transition-colors"
                         title="Sửa thông tin"
                       >
-                        <Edit size={20} strokeWidth={1.5} />
+                        <IoPencilOutline size={20} strokeWidth={1.5} />
                       </button>
                       <button
                         onClick={() => handleOpenRoleModal(u)}
@@ -263,7 +263,7 @@ const StaffManagement = () => {
                         className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-blue-light rounded-md transition-colors disabled:opacity-30"
                         title="Đổi quyền"
                       >
-                        <Shield size={20} strokeWidth={1.5} />
+                        <IoShieldOutline size={20} strokeWidth={1.5} />
                       </button>
                       <button
                         onClick={() => handleToggleLock(u)}
@@ -271,7 +271,7 @@ const StaffManagement = () => {
                         className={`p-1.5 rounded-md transition-colors disabled:opacity-30 ${u.active ? 'text-on-surface-variant hover:text-error hover:bg-red-50' : 'text-error hover:bg-red-50'}`}
                         title={u.active ? "Khóa tài khoản" : "Mở khóa"}
                       >
-                        {u.active ? <Lock size={20} strokeWidth={1.5} /> : <Unlock size={20} strokeWidth={1.5} />}
+                        {u.active ? <IoLockClosedOutline size={20} strokeWidth={1.5} /> : <IoLockOpenOutline size={20} strokeWidth={1.5} />}
                       </button>
                     </div>
                   </td>
@@ -292,12 +292,12 @@ const StaffManagement = () => {
       <Modal isOpen={showCreateModal} onClose={handleCloseModal} title="Tạo Tài khoản mới" maxWidth="max-w-2xl">
         <form onSubmit={handleCreateSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <Input label="Tên nhân viên" icon={BadgeInfo} name="name" value={formData.name} onChange={handleChange} required error={errors.name} />
-            <Input label="Tên đăng nhập (Account)" icon={User} name="account" value={formData.account} onChange={handleChange} required minLength={4} error={errors.account} />
-            <Input label="Mật khẩu khởi tạo" icon={KeyRound} type="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} error={errors.password} />
-            <Select label="Vai trò (Role)" icon={Shield} name="role" value={formData.role} onChange={handleChange} options={roles} required />
-            <Input label="Số điện thoại" icon={Phone} name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} />
-            <Input label="Email" icon={Mail} type="email" name="email" value={formData.email} onChange={handleChange} error={errors.email} />
+            <Input label="Tên nhân viên" icon={IoInformationCircleOutline} name="name" value={formData.name} onChange={handleChange} required error={errors.name} />
+            <Input label="Tên đăng nhập (Account)" icon={IoPersonOutline} name="account" value={formData.account} onChange={handleChange} required minLength={4} error={errors.account} />
+            <Input label="Mật khẩu khởi tạo" icon={IoKeyOutline} type="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} error={errors.password} />
+            <Select label="Vai trò (Role)" icon={IoShieldOutline} name="role" value={formData.role} onChange={handleChange} options={roles} required />
+            <Input label="Số điện thoại" icon={IoCallOutline} name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} />
+            <Input label="Email" icon={IoMailOutline} type="email" name="email" value={formData.email} onChange={handleChange} error={errors.email} />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
@@ -312,9 +312,9 @@ const StaffManagement = () => {
         <Modal isOpen={showEditModal} onClose={handleCloseModal} title="Cập nhật thông tin" maxWidth="max-w-xl">
           <form onSubmit={handleEditSubmit} className="space-y-6">
             <div className="space-y-4">
-              <Input label="Tên hiển thị" icon={BadgeInfo} name="name" value={formData.name} onChange={handleChange} required error={errors.name} />
-              <Input label="Số điện thoại" icon={Phone} name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} />
-              <Input label="Email" icon={Mail} type="email" name="email" value={formData.email} onChange={handleChange} error={errors.email} />
+              <Input label="Tên hiển thị" icon={IoInformationCircleOutline} name="name" value={formData.name} onChange={handleChange} required error={errors.name} />
+              <Input label="Số điện thoại" icon={IoCallOutline} name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} />
+              <Input label="Email" icon={IoMailOutline} type="email" name="email" value={formData.email} onChange={handleChange} error={errors.email} />
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
@@ -331,7 +331,7 @@ const StaffManagement = () => {
           <form onSubmit={handleRoleSubmit} className="space-y-6">
             <div>
               <p className="font-body-md text-on-surface mb-4">Thay đổi quyền hạn cho tài khoản <span className="font-semibold text-primary">{selectedUser.account}</span>.</p>
-              <Select label="Chọn vai trò mới" icon={Shield} name="role" value={formData.role} onChange={handleChange} options={roles} required />
+              <Select label="Chọn vai trò mới" icon={IoShieldOutline} name="role" value={formData.role} onChange={handleChange} options={roles} required />
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">

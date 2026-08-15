@@ -24,7 +24,10 @@ public class BookingResponse {
     private BookingStatus status;
     private BigDecimal expectedPrice;
     private BigDecimal actualPrice;
+    private BigDecimal cancellationFee;
     private String note;
     private String source;
+    private String guestEmail;
+    private String guestIdNumber;
     private LocalDateTime createdAt;
 }

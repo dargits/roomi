@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { IoCheckmarkOutline, IoChevronDownOutline } from 'react-icons/io5';
 
 const Select = ({ 
   label, 
@@ -60,7 +60,7 @@ const Select = ({
           </span>
           
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <ChevronDown size={20} strokeWidth={1.5} className={`text-on-surface-variant/70 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            <IoChevronDownOutline size={20} strokeWidth={1.5} className={`text-on-surface-variant/70 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
           </div>
         </div>
 
@@ -74,7 +74,7 @@ const Select = ({
                   onClick={() => handleSelect(option.value)}
                 >
                   <span className="truncate">{option.label}</span>
-                  {option.value === value && <Check size={18} strokeWidth={2} />}
+                  {option.value === value && <IoCheckmarkOutline size={18} strokeWidth={2} />}
                 </li>
               ))}
             </ul>

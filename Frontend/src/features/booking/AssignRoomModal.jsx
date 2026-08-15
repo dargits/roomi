@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check } from 'lucide-react';
+import { IoCheckmarkOutline, IoCloseOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { roomApi } from '../../services/roomApi';
@@ -89,7 +89,7 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
             onClick={handleAssign} 
             disabled={rooms.length === 0 || !selectedRoomId || processing} 
             isLoading={processing}
-            icon={Check}
+            icon={IoCheckmarkOutline}
           >
             Lưu
           </Button>

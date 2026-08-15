@@ -30,7 +30,7 @@ public class RoomTypeController {
 
     @GetMapping
     public ResponseEntity<List<RoomTypeResponse>> getAll(HttpServletRequest request) {
-        checkOwner(request);
+        checkStaff(request);
         return ResponseEntity.ok(roomTypeService.getAllRoomTypes());
     }
 
@@ -41,7 +41,7 @@ public class RoomTypeController {
 
     @GetMapping("/{id}")
     public ResponseEntity<RoomTypeResponse> getById(@PathVariable Long id, HttpServletRequest request) {
-        checkOwner(request);
+        checkStaff(request);
         return ResponseEntity.ok(roomTypeService.getRoomTypeById(id));
     }
 
@@ -49,7 +49,7 @@ public class RoomTypeController {
     public ResponseEntity<RoomTypeResponse> create(
             @Valid @RequestBody RoomTypeRequest requestDto, 
             HttpServletRequest request) {
-        checkOwner(request);
+        checkAdminOrOwner(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(roomTypeService.createRoomType(requestDto));
     }
 
@@ -58,21 +58,29 @@ public class RoomTypeController {
             @PathVariable Long id,
             @Valid @RequestBody RoomTypeRequest requestDto, 
             HttpServletRequest request) {
-        checkOwner(request);
+        checkAdminOrOwner(request);
         return ResponseEntity.ok(roomTypeService.updateRoomType(id, requestDto));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<MessageResponse> delete(@PathVariable Long id, HttpServletRequest request) {
-        checkOwner(request);
+        checkAdminOrOwner(request);
         roomTypeService.deleteRoomType(id);
         return ResponseEntity.ok(new MessageResponse("Đã xóa loại phòng thành công"));
     }
 
-    private User checkOwner(HttpServletRequest request) {
+    private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || user.getRole() != Role.OWNER) {
-            throw new UnauthorizedException("Chỉ chủ sở hữu (OWNER) mới có quyền truy cập chức năng này.");
+        if (user == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập");
+        }
+        return user;
+    }
+
+    private User checkAdminOrOwner(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN)) {
+            throw new UnauthorizedException("Chỉ chủ cơ sở (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền thực hiện.");
         }
         return user;
     }

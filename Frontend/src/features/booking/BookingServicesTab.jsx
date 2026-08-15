@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { IoAddOutline, IoCartOutline, IoTrashOutline } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { extraServiceApi } from '../../services/extraServiceApi';
 import { invoiceApi } from '../../services/invoiceApi';
@@ -92,7 +92,7 @@ const BookingServicesTab = ({ bookingId, status }) => {
       {canEdit && (
         <div className="bg-surface-container-low p-4 rounded-lg border border-border-grey">
           <h4 className="font-title-md text-on-surface mb-4 flex items-center gap-2">
-            <ShoppingCart size={18} className="text-primary"/> Thêm dịch vụ phụ thu
+            <IoCartOutline size={18} className="text-primary"/> Thêm dịch vụ phụ thu
           </h4>
           <form onSubmit={handleAddService} className="flex flex-col md:flex-row gap-3 items-end">
             <div className="flex-1">
@@ -123,7 +123,7 @@ const BookingServicesTab = ({ bookingId, status }) => {
                 placeholder="Ghi chú thêm..."
               />
             </div>
-            <Button type="submit" isLoading={adding} icon={Plus}>Thêm</Button>
+            <Button type="submit" isLoading={adding} icon={IoAddOutline}>Thêm</Button>
           </form>
         </div>
       )}
@@ -167,7 +167,7 @@ const BookingServicesTab = ({ bookingId, status }) => {
                         className="p-1.5 text-on-surface-variant hover:text-error hover:bg-red-50 rounded transition-colors"
                         title="Xóa"
                       >
-                        <Trash2 size={16} />
+                        <IoTrashOutline size={16} />
                       </button>
                     </td>
                   )}

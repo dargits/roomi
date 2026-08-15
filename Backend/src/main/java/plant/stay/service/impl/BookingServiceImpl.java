@@ -12,7 +12,9 @@ import plant.stay.service.AuditLogService;
 import plant.stay.service.BookingService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,7 @@ public class BookingServiceImpl implements BookingService {
     private final SeasonalPriceRepository seasonalPriceRepository;
     private final InvoiceRepository invoiceRepository;
     private final AuditLogService auditLogService;
+    private final CancellationPolicyRepository cancellationPolicyRepository;
 
     @Override
     public List<BookingResponse> getAll() {
@@ -85,6 +88,7 @@ public class BookingServiceImpl implements BookingService {
                 .checkOutDate(request.getCheckOutDate())
                 .status(BookingStatus.NEW)
                 .expectedPrice(expectedPrice)
+                .actualPrice(expectedPrice)
                 .note(request.getNote())
                 .createdBy(actor)
                 .build();
@@ -124,6 +128,39 @@ public class BookingServiceImpl implements BookingService {
         }
         String oldStatus = booking.getStatus().name();
         booking.setStatus(BookingStatus.CANCELLED);
+
+        // === Áp dụng chính sách hủy (QTN-06) ===
+        String cancelNote = "Hủy từ trạng thái " + oldStatus;
+        try {
+            // Tìm chính sách theo loại phòng, fallback về chính sách chung (roomType = null)
+            CancellationPolicy policy = null;
+            if (booking.getRoomType() != null) {
+                policy = cancellationPolicyRepository
+                        .findFirstByRoomTypeId(booking.getRoomType().getId())
+                        .orElse(null);
+            }
+            if (policy == null) {
+                policy = cancellationPolicyRepository
+                        .findByRoomTypeIsNull()
+                        .orElse(null);
+            }
+            if (policy != null && booking.getExpectedPrice() != null) {
+                long hoursUntilCheckIn = ChronoUnit.HOURS.between(
+                        LocalDateTime.now(),
+                        booking.getCheckInDate().atTime(14, 0) // giờ nhận phòng mặc định 14:00
+                );
+                if (hoursUntilCheckIn < policy.getFreeCancelHours()) {
+                    BigDecimal penalty = booking.getExpectedPrice()
+                            .multiply(policy.getPenaltyPercent())
+                            .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                    cancelNote += String.format(" | Phí hủy: %s%% = %,.0fđ",
+                            policy.getPenaltyPercent().stripTrailingZeros().toPlainString(),
+                            penalty.doubleValue());
+                    booking.setCancellationFee(penalty);
+                }
+            }
+        } catch (Exception ignored) { /* Không để lỗi chặn hủy */ }
+
         // Trả phòng về AVAILABLE nếu đã gán
         if (booking.getRoom() != null) {
             Room room = booking.getRoom();
@@ -133,8 +170,7 @@ public class BookingServiceImpl implements BookingService {
             }
         }
         bookingRepository.save(booking);
-        auditLogService.log("Booking", booking.getId(), "CANCEL", actor,
-                "Hủy từ trạng thái " + oldStatus);
+        auditLogService.log("Booking", booking.getId(), "CANCEL", actor, cancelNote);
         return toResponse(booking);
     }
 
@@ -215,6 +251,12 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CHECKED_OUT);
+        if (invoice != null && invoice.getTotalAmount() != null) {
+            booking.setActualPrice(invoice.getTotalAmount());
+        } else if (booking.getExpectedPrice() != null) {
+            booking.setActualPrice(booking.getExpectedPrice());
+        }
+
         // Phòng chuyển sang DIRTY sau khi trả (QTN-05)
         if (booking.getRoom() != null) {
             booking.getRoom().setStatus(RoomStatus.DIRTY);
@@ -278,8 +320,11 @@ public class BookingServiceImpl implements BookingService {
                 .status(b.getStatus())
                 .expectedPrice(b.getExpectedPrice())
                 .actualPrice(b.getActualPrice())
+                .cancellationFee(b.getCancellationFee())
                 .note(b.getNote())
                 .source(b.getSource())
+                .guestEmail(b.getGuest().getEmail())
+                .guestIdNumber(b.getGuest().getIdNumber())
                 .createdAt(b.getCreatedAt())
                 .build();
     }

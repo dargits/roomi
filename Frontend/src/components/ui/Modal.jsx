@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { IoCloseOutline } from 'react-icons/io5';
 
 const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => {
   const [mounted, setMounted] = useState(false);
@@ -41,7 +41,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => 
               className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1.5 rounded-md transition-colors"
               title="Đóng"
             >
-              <X size={20} strokeWidth={2} />
+              <IoCloseOutline size={20} strokeWidth={2} />
             </button>
           </div>
         )}

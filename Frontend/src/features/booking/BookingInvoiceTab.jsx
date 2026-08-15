@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, DollarSign, PlusCircle, CheckCircle } from 'lucide-react';
+import { IoAddCircleOutline, IoAlertCircleOutline, IoCashOutline, IoCheckmarkCircleOutline, IoDocumentOutline, IoDocumentTextOutline } from 'react-icons/io5';
 import { invoiceApi } from '../../services/invoiceApi';
+import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
+import Modal from '../../components/ui/Modal';
 import bookingApi from '../../services/bookingApi';
 
 const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
+  const { user } = useAuth();
   const [invoice, setInvoice] = useState(null);
   const [payments, setPayments] = useState([]);
   const [provisionalServices, setProvisionalServices] = useState([]);
@@ -16,6 +19,13 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'CASH', note: '' });
   const [processing, setProcessing] = useState(false);
 
+  // Modal điều chỉnh hóa đơn
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustData, setAdjustData] = useState({ discountAmount: '', note: '' });
+  const [adjustError, setAdjustError] = useState('');
+
+  const canAdjust = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
+
   useEffect(() => {
     fetchInvoiceData();
   }, [bookingId]);
@@ -23,7 +33,6 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const fetchInvoiceData = async () => {
     setLoading(true);
     try {
-      // API có thể throw 404 nếu chưa lập hóa đơn
       const invData = await invoiceApi.getInvoiceByBooking(bookingId);
       setInvoice(invData);
       
@@ -50,7 +59,6 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
 
   const handleCreateInvoice = async () => {
     if (status !== 'CHECKED_IN') return;
-    if (!window.confirm("Khách đang ở phòng. Bạn có chắc chắn muốn chốt số liệu và Lập Hóa Đơn ngay bây giờ không?")) return;
     setProcessing(true);
     try {
       await invoiceApi.createInvoice(bookingId);
@@ -81,13 +89,45 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
     }
   };
 
+  const handleAdjustInvoice = async (e) => {
+    e.preventDefault();
+    setAdjustError('');
+    if (!adjustData.discountAmount || parseFloat(adjustData.discountAmount) < 0) {
+      setAdjustError('Vui lòng nhập số tiền điều chỉnh giảm hợp lệ.');
+      return;
+    }
+    if (parseFloat(adjustData.discountAmount) > invoice.totalAmount) {
+      setAdjustError('Số tiền điều chỉnh không thể vượt quá tổng hóa đơn gốc.');
+      return;
+    }
+    if (!adjustData.note.trim()) {
+      setAdjustError('Vui lòng ghi rõ lý do điều chỉnh hóa đơn.');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      await invoiceApi.adjustInvoice(invoice.id, {
+        discountAmount: parseFloat(adjustData.discountAmount),
+        note: adjustData.note.trim()
+      });
+      setShowAdjustModal(false);
+      setAdjustData({ discountAmount: '', note: '' });
+      alert('Đã lập hóa đơn điều chỉnh thành công!');
+      fetchInvoiceData();
+    } catch (error) {
+      setAdjustError(error.response?.data?.message || 'Có lỗi xảy ra khi điều chỉnh hóa đơn.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleCheckOut = async () => {
-    if (!window.confirm("Xác nhận Trả phòng cho khách?")) return;
     setProcessing(true);
     try {
       await bookingApi.checkOut(bookingId);
       alert("Trả phòng thành công!");
-      window.location.reload(); // Reload the page to reflect the new booking status
+      window.location.reload();
     } catch (error) {
       alert("Lỗi trả phòng: " + (error.response?.data?.message || error.message));
     } finally {
@@ -98,9 +138,9 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   if (loading) return <div className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu hóa đơn...</div>;
 
   if (!invoice) {
-    const roomAmount = booking?.actualPrice || booking?.expectedPrice || 0;
-    const serviceAmount = provisionalServices.reduce((sum, item) => sum + (item.total || (item.unitPriceSnapshot * item.quantity)), 0);
-    const totalAmount = roomAmount + serviceAmount;
+    const provisionalRoomAmount = booking?.expectedPrice || 0;
+    const provisionalServicesAmount = provisionalServices.reduce((sum, s) => sum + (s.unitPriceSnapshot * s.quantity), 0);
+    const provisionalTotal = provisionalRoomAmount + provisionalServicesAmount;
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -108,45 +148,37 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
             <div className="flex justify-between items-center mb-4 pb-4 border-b border-border-grey">
               <h3 className="font-title-lg text-on-surface flex items-center gap-2">
-                <FileText size={20} className="text-primary"/> Hóa đơn Tạm tính
+                <IoDocumentOutline size={20} className="text-primary"/> Chi phí Tạm tính
               </h3>
-              <span className="px-2 py-1 rounded-md text-xs font-bold bg-gray-100 text-gray-800">
-                CHƯA LẬP
+              <span className="px-2 py-1 bg-surface-container-high rounded text-xs text-on-surface-variant font-label-md">
+                Chưa lập hóa đơn
               </span>
             </div>
 
             <div className="space-y-3 font-body-md text-on-surface">
               <div className="flex justify-between">
-                <span className="text-on-surface-variant">Tiền phòng:</span>
-                <span>{roomAmount.toLocaleString('vi-VN')} đ</span>
+                <span className="text-on-surface-variant">Tiền phòng dự kiến:</span>
+                <span className="font-medium">{provisionalRoomAmount.toLocaleString('vi-VN')} đ</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-on-surface-variant">Tiền dịch vụ:</span>
-                <span>{serviceAmount.toLocaleString('vi-VN')} đ</span>
+                <span className="text-on-surface-variant">Dịch vụ phụ thu ({provisionalServices.length} món):</span>
+                <span>{provisionalServicesAmount.toLocaleString('vi-VN')} đ</span>
               </div>
               <div className="border-t border-border-grey mt-4 pt-4 flex justify-between items-end">
                 <span className="font-title-md text-on-surface">Tổng tạm tính:</span>
-                <span className="font-headline-sm text-primary">{totalAmount.toLocaleString('vi-VN')} đ</span>
+                <span className="font-headline-sm text-primary">{provisionalTotal.toLocaleString('vi-VN')} đ</span>
               </div>
             </div>
-            
-            <div className="mt-6 pt-4 border-t border-dashed border-border-grey">
-              <p className="text-sm text-on-surface-variant mb-4">
-                Lưu ý: Hóa đơn chưa được lập chính thức. Click <b>Chốt & Lập hóa đơn</b> để tạo hóa đơn và ghi nhận thanh toán.
-              </p>
-              <Button 
-                onClick={handleCreateInvoice} 
-                isLoading={processing} 
-                icon={FileText} 
-                className="w-full"
-                disabled={status !== 'CHECKED_IN'}
-              >
-                Chốt & Lập Hóa Đơn
-              </Button>
-              {status !== 'CHECKED_IN' && (
-                  <p className="text-xs text-error mt-2 text-center">
-                      Chỉ có thể lập hóa đơn khi khách đang ở phòng.
-                  </p>
+
+            <div className="mt-6 pt-4 border-t border-border-grey">
+              {status === 'CHECKED_IN' ? (
+                <Button onClick={handleCreateInvoice} isLoading={processing} icon={IoAddCircleOutline} className="w-full">
+                  Chốt & Lập Hóa Đơn
+                </Button>
+              ) : (
+                <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
+                  Chỉ có thể lập hóa đơn khi khách đang ở phòng (Trạng thái CHECKED_IN).
+                </div>
               )}
             </div>
           </div>
@@ -154,7 +186,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         
         <div className="space-y-4">
           <div className="bg-surface-container-lowest p-5 rounded-lg border border-dashed border-border-grey h-full flex flex-col justify-center items-center text-center">
-            <DollarSign size={40} className="text-on-surface-variant/30 mb-3" />
+            <IoCashOutline size={40} className="text-on-surface-variant/30 mb-3" />
             <div className="text-on-surface-variant font-medium">Chưa thể thanh toán</div>
             <div className="text-sm text-on-surface-variant/70 mt-1 max-w-xs">
               Vui lòng chốt & lập hóa đơn trước khi có thể ghi nhận thanh toán từ khách hàng.
@@ -175,18 +207,24 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
           <div className="flex justify-between items-center mb-4 pb-4 border-b border-border-grey">
             <h3 className="font-title-lg text-on-surface flex items-center gap-2">
-              <FileText size={20} className="text-primary"/> Chi tiết Hóa đơn
+              <IoDocumentOutline size={20} className="text-primary"/> Chi tiết Hóa đơn
             </h3>
-            <span className={`px-2 py-1 rounded-md text-xs font-bold ${invoice.status === 'PAID' ? 'bg-green-100 text-green-800' : invoice.status === 'ADJUSTED' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'}`}>
-              {invoice.status}
+            <span className={`px-2 py-1 rounded-md text-xs font-bold ${invoice.status === 'PAID' ? 'bg-green-100 text-green-800' : invoice.status === 'ADJUSTED' ? 'bg-purple-100 text-purple-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {invoice.status === 'PAID' ? 'ĐÃ THANH TOÁN' : invoice.status === 'ADJUSTED' ? 'ĐÃ ĐIỀU CHỈNH' : 'CHỜ THANH TOÁN'}
             </span>
           </div>
 
           <div className="space-y-3 font-body-md text-on-surface">
             <div className="flex justify-between">
               <span className="text-on-surface-variant">Mã hóa đơn:</span>
-              <span className="font-medium">INV-{invoice.id.toString().padStart(6, '0')}</span>
+              <span className="font-medium font-mono">INV-{invoice.id.toString().padStart(6, '0')}</span>
             </div>
+            {invoice.adjustmentOfId && (
+              <div className="flex justify-between text-xs text-purple-700 bg-purple-50 p-2 rounded">
+                <span>Điều chỉnh từ hóa đơn:</span>
+                <span className="font-mono font-bold">INV-{invoice.adjustmentOfId.toString().padStart(6, '0')}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-on-surface-variant">Ngày lập:</span>
               <span>{new Date(invoice.createdAt).toLocaleString('vi-VN')}</span>
@@ -201,9 +239,14 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               <span>{invoice.serviceAmount?.toLocaleString('vi-VN')} đ</span>
             </div>
             {invoice.discountAmount > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>Giảm giá:</span>
+              <div className="flex justify-between text-green-600 font-medium">
+                <span>Giảm giá / Điều chỉnh:</span>
                 <span>-{invoice.discountAmount?.toLocaleString('vi-VN')} đ</span>
+              </div>
+            )}
+            {invoice.note && (
+              <div className="text-xs text-on-surface-variant italic bg-surface-container-low p-2 rounded">
+                Ghi chú: {invoice.note}
               </div>
             )}
             <div className="border-t border-border-grey mt-4 pt-4 flex justify-between items-end">
@@ -214,23 +257,50 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         </div>
         
         {invoice.status === 'PAID' && (
-           <div className="space-y-4">
-             <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-green-800 flex items-center gap-3">
-               <CheckCircle size={24} />
-               <div>
-                 <div className="font-title-sm">Đã thanh toán đủ</div>
-                 <div className="text-sm">Hóa đơn này đã được thanh toán hoàn tất.</div>
-               </div>
-             </div>
-             <Button onClick={() => onPrintInvoice(invoice)} icon={FileText} className="w-full">
-               Xuất hóa đơn (In)
-             </Button>
-           </div>
+          <div className="space-y-3">
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-green-800 flex items-center gap-3">
+              <IoCheckmarkCircleOutline size={24} className="flex-shrink-0" />
+              <div>
+                <div className="font-title-sm">Đã thanh toán đủ</div>
+                <div className="text-xs text-green-700 mt-0.5">Hóa đơn này đã được thanh toán hoàn tất.</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button onClick={() => onPrintInvoice(invoice)} icon={IoDocumentOutline} className="w-full">
+                In Hóa Đơn
+              </Button>
+              {canAdjust && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setAdjustData({ discountAmount: '', note: '' });
+                    setAdjustError('');
+                    setShowAdjustModal(true);
+                  }}
+                  icon={IoDocumentTextOutline}
+                  className="w-full border border-border-grey text-on-surface hover:bg-surface-container-low"
+                >
+                  Điều chỉnh Hóa đơn
+                </Button>
+              )}
+            </div>
+          </div>
         )}
+
+        {invoice.status === 'ADJUSTED' && (
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 text-purple-900 flex items-start gap-3">
+            <IoAlertCircleOutline size={20} className="text-purple-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <p className="font-bold">Hóa đơn đã được điều chỉnh</p>
+              <p className="mt-0.5 text-purple-700">Hóa đơn gốc này đã đóng và được thay thế bằng bản điều chỉnh mới.</p>
+            </div>
+          </div>
+        )}
+
         {status === 'CHECKED_IN' && invoice.status === 'PAID' && (
           <div className="mt-4">
             <Button onClick={handleCheckOut} isLoading={processing} className="w-full bg-green-600 hover:bg-green-700 text-white">
-              Trả phòng
+              Xác nhận Trả phòng
             </Button>
           </div>
         )}
@@ -241,7 +311,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
           <div className="flex justify-between items-center mb-4 pb-4 border-b border-border-grey">
             <h3 className="font-title-lg text-on-surface flex items-center gap-2">
-              <DollarSign size={20} className="text-primary"/> Lịch sử Thanh toán
+              <IoCashOutline size={20} className="text-primary"/> Lịch sử Thanh toán
             </h3>
           </div>
 
@@ -258,73 +328,148 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                     <div className="font-title-sm text-on-surface flex items-center gap-2">
                       {p.method === 'CASH' ? 'Tiền mặt' : p.method === 'TRANSFER' ? 'Chuyển khoản' : 'Khác'}
                     </div>
-                    <div className="text-xs text-on-surface-variant mt-1">{new Date(p.paidAt || p.createdAt).toLocaleString('vi-VN')}</div>
+                    <div className="text-xs text-on-surface-variant mt-0.5">
+                      {new Date(p.paidAt).toLocaleString('vi-VN')} {p.collectedByName ? `• Thu bởi: ${p.collectedByName}` : ''}
+                    </div>
+                    {p.note && <div className="text-xs text-on-surface-variant/80 italic mt-0.5">"{p.note}"</div>}
                   </div>
-                  <div className="text-right">
-                    <div className="font-title-md text-green-600">+{p.amount?.toLocaleString('vi-VN')} đ</div>
-                    {p.note && <div className="text-xs text-on-surface-variant mt-1">{p.note}</div>}
+                  <div className="font-title-md text-green-600 font-bold">
+                    +{p.amount?.toLocaleString('vi-VN')} đ
                   </div>
                 </div>
               ))
             )}
           </div>
 
-          {/* Tổng quan Thu */}
-          <div className="bg-surface-blue-light p-4 rounded-lg border border-primary/20 space-y-2">
-            <div className="flex justify-between font-title-sm text-on-surface">
-              <span>Đã thu:</span>
-              <span className="text-green-600">{paidAmount?.toLocaleString('vi-VN')} đ</span>
+          {/* Tổng quan thanh toán & Form nạp tiền */}
+          <div className="border-t border-border-grey pt-4 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface-variant">Đã thanh toán:</span>
+              <span className="font-bold text-green-600">{paidAmount.toLocaleString('vi-VN')} đ</span>
             </div>
-            <div className="flex justify-between font-title-sm text-on-surface">
-              <span>Còn nợ:</span>
-              <span className="text-error">{remainingAmount > 0 ? remainingAmount.toLocaleString('vi-VN') : 0} đ</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface-variant">Còn lại:</span>
+              <span className={`font-bold ${remainingAmount <= 0 ? 'text-green-600' : 'text-error'}`}>
+                {remainingAmount.toLocaleString('vi-VN')} đ
+              </span>
             </div>
-          </div>
 
-          {/* Form thêm thanh toán */}
-          {invoice.status === 'PENDING' && (
-            <div className="mt-6">
-              {!showPaymentForm ? (
-                <Button onClick={() => {
-                  setNewPayment({ ...newPayment, amount: remainingAmount });
-                  setShowPaymentForm(true);
-                }} icon={PlusCircle} className="w-full">
-                  Ghi nhận thanh toán
-                </Button>
-              ) : (
-                <form onSubmit={handleAddPayment} className="p-4 bg-surface-container rounded-lg border border-border-grey space-y-3">
-                  <h4 className="font-title-sm text-on-surface mb-2">Thông tin giao dịch</h4>
-                  <Input 
-                    label="Số tiền thu" 
-                    type="number" 
-                    value={newPayment.amount} 
-                    onChange={e => setNewPayment({...newPayment, amount: e.target.value})}
-                    required
-                  />
-                  <Select 
-                    label="Phương thức"
-                    value={newPayment.paymentMethod}
-                    onChange={e => setNewPayment({...newPayment, paymentMethod: e.target.value})}
-                    options={[
-                      { value: 'CASH', label: 'Tiền mặt' },
-                      { value: 'TRANSFER', label: 'Chuyển khoản' }
-                    ]}
-                  />
-                  <Input 
-                    label="Ghi chú" 
-                    value={newPayment.note} 
-                    onChange={e => setNewPayment({...newPayment, note: e.target.value})}
-                  />
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="ghost" type="button" onClick={() => setShowPaymentForm(false)}>Hủy</Button>
-                    <Button type="submit" isLoading={processing}>Lưu</Button>
-                  </div>
-                </form>
-              )}
-            </div>
-          )}
+            {invoice.status !== 'PAID' && invoice.status !== 'ADJUSTED' && (
+              <div className="pt-3">
+                {!showPaymentForm ? (
+                  <Button onClick={() => setShowPaymentForm(true)} icon={IoAddCircleOutline} className="w-full">
+                    Thêm lượt thanh toán
+                  </Button>
+                ) : (
+                  <form onSubmit={handleAddPayment} className="space-y-3 bg-surface-container-low p-4 rounded-lg border border-border-grey">
+                    <div className="font-title-sm text-on-surface">Ghi nhận thanh toán mới</div>
+                    <Input
+                      label="Số tiền (VNĐ)"
+                      type="number"
+                      value={newPayment.amount}
+                      onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                      placeholder={`Ví dụ: ${remainingAmount}`}
+                      max={remainingAmount}
+                      required
+                    />
+                    <Select
+                      label="Hình thức thanh toán"
+                      value={newPayment.paymentMethod}
+                      onChange={(e) => setNewPayment({ ...newPayment, paymentMethod: e.target.value })}
+                      options={[
+                        { value: 'CASH', label: 'Tiền mặt' },
+                        { value: 'TRANSFER', label: 'Chuyển khoản' },
+                        { value: 'CREDIT_CARD', label: 'Thẻ tín dụng' }
+                      ]}
+                    />
+                    <Input
+                      label="Ghi chú"
+                      type="text"
+                      value={newPayment.note}
+                      onChange={(e) => setNewPayment({ ...newPayment, note: e.target.value })}
+                      placeholder="Mã chuẩn chi, tên người gửi..."
+                    />
+                    <div className="flex gap-2 pt-2">
+                      <Button variant="ghost" type="button" onClick={() => setShowPaymentForm(false)} className="flex-1">
+                        Hủy
+                      </Button>
+                      <Button type="submit" isLoading={processing} className="flex-1">
+                        Lưu
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Modal Lập hóa đơn điều chỉnh */}
+      <Modal
+        isOpen={showAdjustModal}
+        onClose={() => setShowAdjustModal(false)}
+        title="Lập Hóa Đơn Điều Chỉnh (QTN-11)"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleAdjustInvoice} className="space-y-4">
+          <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 leading-relaxed">
+            Hóa đơn đã thanh toán là bất biến. Khi điều chỉnh, hệ thống sẽ chuyển hóa đơn hiện tại sang <strong>ĐÃ ĐIỀU CHỈNH</strong> và tạo hóa đơn mới với số tiền khấu trừ.
+          </div>
+
+          <div className="bg-surface-container-low p-3 rounded-lg border border-border-grey text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-on-surface-variant">Tổng hóa đơn hiện tại:</span>
+              <span className="font-bold text-on-surface">{invoice.totalAmount?.toLocaleString('vi-VN')} đ</span>
+            </div>
+            {adjustData.discountAmount && parseFloat(adjustData.discountAmount) > 0 && (
+              <div className="flex justify-between text-primary font-bold">
+                <span>Tổng tiền sau điều chỉnh:</span>
+                <span>{Math.max(0, invoice.totalAmount - parseFloat(adjustData.discountAmount)).toLocaleString('vi-VN')} đ</span>
+              </div>
+            )}
+          </div>
+
+          {adjustError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-error rounded text-xs font-medium">
+              {adjustError}
+            </div>
+          )}
+
+          <Input
+            label="Số tiền giảm trừ / điều chỉnh (VNĐ)"
+            type="number"
+            min="1000"
+            max={invoice.totalAmount}
+            step="1000"
+            value={adjustData.discountAmount}
+            onChange={(e) => setAdjustData({ ...adjustData, discountAmount: e.target.value })}
+            placeholder="Ví dụ: 100000"
+            required
+          />
+
+          <div>
+            <label className="block font-label-md text-on-surface-variant mb-1.5 text-xs">Lý do điều chỉnh *</label>
+            <textarea
+              value={adjustData.note}
+              onChange={(e) => setAdjustData({ ...adjustData, note: e.target.value })}
+              placeholder="Ghi rõ lý do điều chỉnh: Sự cố phòng, Khuyến mãi bù, Khách trả phòng sớm..."
+              rows={3}
+              className="w-full px-3 py-2 border border-border-grey rounded-lg focus:outline-none focus:ring-1 focus:ring-primary font-body-md text-sm bg-white"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
+            <Button variant="ghost" type="button" onClick={() => setShowAdjustModal(false)}>
+              Hủy
+            </Button>
+            <Button type="submit" isLoading={processing}>
+              Xác nhận Điều chỉnh
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

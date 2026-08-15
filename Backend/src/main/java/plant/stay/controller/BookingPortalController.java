@@ -84,6 +84,7 @@ public class BookingPortalController {
     }
 
     // === STAFF: Duyệt yêu cầu ===
+    @org.springframework.transaction.annotation.Transactional
     @PutMapping("/api/v1/booking-requests/{id}/approve")
     public ResponseEntity<BookingRequestResponse> approve(@PathVariable Long id, HttpServletRequest request) {
         User actor = checkStaff(request);
@@ -107,6 +108,7 @@ public class BookingPortalController {
                 .checkInDate(req.getCheckInDate()).checkOutDate(req.getCheckOutDate())
                 .status(BookingStatus.CONFIRMED).source("ONLINE")
                 .expectedPrice(expectedPrice)
+                .actualPrice(expectedPrice)
                 .note(req.getNote()).createdBy(actor)
                 .build();
         booking = bookingRepository.save(booking);
@@ -120,6 +122,7 @@ public class BookingPortalController {
     }
 
     // === STAFF: Từ chối yêu cầu ===
+    @org.springframework.transaction.annotation.Transactional
     @PutMapping("/api/v1/booking-requests/{id}/reject")
     public ResponseEntity<BookingRequestResponse> reject(@PathVariable Long id,
                                                          @RequestParam(required = false) String reason,
@@ -143,7 +146,7 @@ public class BookingPortalController {
 
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ADMIN))
             throw new UnauthorizedException("Không có quyền truy cập");
         return user;
     }

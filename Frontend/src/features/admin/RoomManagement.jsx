@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { roomApi } from '../../services/roomApi';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Edit, Trash2, CheckCircle, AlertTriangle, Wrench, RefreshCw, DoorOpen, Brush } from 'lucide-react';
+import { IoAddOutline, IoBrushOutline, IoCheckmarkCircleOutline, IoConstructOutline, IoLogOutOutline, IoPencilOutline, IoRefreshOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
@@ -46,7 +46,7 @@ const RoomManagement = () => {
 
   const fetchRoomTypes = async () => {
     try {
-      if (user?.role === 'OWNER') {
+      if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
         const data = await roomTypeApi.getAllRoomTypes();
         setRoomTypes(data);
       } else {
@@ -184,7 +184,7 @@ const RoomManagement = () => {
       <div className="p-6 border-b border-border-grey flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-lowest">
         <div>
           <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <DoorOpen size={28} className="text-primary" />
+            <IoLogOutOutline size={28} className="text-primary" />
             Sơ đồ Phòng
           </h2>
           <p className="text-on-surface-variant font-body-md mt-1">Quản lý danh sách phòng và trạng thái hiện tại</p>
@@ -198,7 +198,7 @@ const RoomManagement = () => {
             className="bg-white"
           />
           {isOwner && (
-            <Button onClick={openAddModal} icon={Plus} className="uppercase shrink-0">
+            <Button onClick={openAddModal} icon={IoAddOutline} className="uppercase shrink-0">
               Thêm Phòng
             </Button>
           )}
@@ -241,12 +241,12 @@ const RoomManagement = () => {
                   <div className="flex gap-1">
                     {room.status === 'DIRTY' && canMarkClean && (
                       <button onClick={() => handleMarkClean(room.id)} className="p-2 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors tooltip-wrapper" title="Đã dọn sạch">
-                        <Brush size={18} />
+                        <IoBrushOutline size={18} />
                       </button>
                     )}
                     {room.status !== 'MAINTENANCE' && room.status !== 'OCCUPIED' && isOwner && (
                       <button onClick={() => handleMarkMaintenance(room.id)} className="p-2 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface-variant tooltip-wrapper" title="Bảo trì">
-                        <Wrench size={18} />
+                        <IoConstructOutline size={18} />
                       </button>
                     )}
                   </div>
@@ -254,10 +254,10 @@ const RoomManagement = () => {
                     {isOwner && (
                       <>
                         <button onClick={() => openEditModal(room)} className="p-2 rounded hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant" title="Sửa">
-                          <Edit size={18} />
+                          <IoPencilOutline size={18} />
                         </button>
                         <button onClick={() => openDeleteModal(room)} className="p-2 rounded hover:bg-red-50 hover:text-error transition-colors text-on-surface-variant" title="Xóa">
-                          <Trash2 size={18} />
+                          <IoTrashOutline size={18} />
                         </button>
                       </>
                     )}
@@ -308,7 +308,7 @@ const RoomManagement = () => {
         <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} maxWidth="max-w-md">
           <div className="flex flex-col items-center text-center pb-6">
             <div className="w-14 h-14 rounded-full bg-red-100 text-error flex items-center justify-center mb-5">
-              <AlertTriangle size={32} strokeWidth={1.5} />
+              <IoWarningOutline size={32} strokeWidth={1.5} />
             </div>
             <h3 className="font-title-lg text-on-surface mb-2">Xóa phòng này?</h3>
             <p className="font-body-md text-on-surface-variant">Bạn có chắc chắn muốn xóa phòng <strong>{itemToDelete?.roomNumber}</strong> không? Hành động này không thể hoàn tác.</p>

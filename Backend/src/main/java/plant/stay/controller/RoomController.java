@@ -95,8 +95,7 @@ public class RoomController {
 
     private User checkHousekeeping(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.HOUSEKEEPER
-                && user.getRole() != Role.RECEPTIONIST))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.HOUSEKEEPER))
             throw new UnauthorizedException("Không có quyền thực hiện chức năng này");
         return user;
     }

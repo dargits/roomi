@@ -30,13 +30,13 @@ public class BookingController {
 
     @GetMapping
     public ResponseEntity<List<BookingResponse>> getAll(HttpServletRequest request) {
-        checkStaff(request);
+        checkReadBooking(request);
         return ResponseEntity.ok(bookingService.getAll());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<BookingResponse> getById(@PathVariable Long id, HttpServletRequest request) {
-        checkStaff(request);
+        checkReadBooking(request);
         return ResponseEntity.ok(bookingService.getById(id));
     }
 
@@ -46,7 +46,7 @@ public class BookingController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletRequest request) {
-        checkStaff(request);
+        checkReadBooking(request);
         return ResponseEntity.ok(bookingService.getCalendar(from, to));
     }
 
@@ -100,7 +100,19 @@ public class BookingController {
 
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST))
+        if (user == null || (user.getRole() != Role.OWNER
+                && user.getRole() != Role.RECEPTIONIST
+                && user.getRole() != Role.ADMIN))
+            throw new UnauthorizedException("Không có quyền truy cập");
+        return user;
+    }
+
+    private User checkReadBooking(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || (user.getRole() != Role.OWNER
+                && user.getRole() != Role.RECEPTIONIST
+                && user.getRole() != Role.ADMIN
+                && user.getRole() != Role.ACCOUNTANT))
             throw new UnauthorizedException("Không có quyền truy cập");
         return user;
     }
