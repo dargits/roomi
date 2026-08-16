@@ -86,16 +86,16 @@ jobs:
 
             if [ -z "$PROJECT_DIR" ]; then
               echo "📁 Chưa có thư mục dự án trên VPS, tiến hành clone mới..."
-              mkdir -p /var/www/stayaway 2>/dev/null || mkdir -p ~/stayaway
-              PROJECT_DIR="/var/www/stayaway"
-              [ -d "$PROJECT_DIR" ] || PROJECT_DIR=~/stayaway
-              git clone https://github.com/dargits/StayAway.git "$PROJECT_DIR"
+              mkdir -p ~/roomi
+              PROJECT_DIR=~/roomi
+              git clone https://github.com/dargits/roomi.git "$PROJECT_DIR"
             fi
 
             cd "$PROJECT_DIR"
             echo "📂 Đang thực thi tại: $(pwd)"
 
-            # 2. Cập nhật mã nguồn mới nhất từ nhánh main
+            # 2. Đảm bảo remote trỏ đúng về repo dargits/roomi và cập nhật main
+            git remote set-url origin https://github.com/dargits/roomi.git || true
             git fetch origin main
             git reset --hard origin/main
 
