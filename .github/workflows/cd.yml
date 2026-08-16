@@ -94,16 +94,34 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # 3. Dừng triệt để các container cũ nếu có
+            # 3. Trích xuất mật khẩu và network của container roomi-db
+            DB_PASS=$(docker inspect roomi-db -f '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep MYSQL_ROOT_PASSWORD | head -n1 | cut -d= -f2)
+            DB_NET=$(docker inspect roomi-db -f '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' 2>/dev/null | head -n1)
+
+            cat <<EOF > .env
+            DB_URL=jdbc:mysql://roomi-db:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+            DB_USER=root
+            DB_PASS=${DB_PASS}
+            VITE_API_BASE_URL_PROD=https://roomi.website/api/v1
+            EOF
+
+            # 4. Dừng triệt để các container cũ nếu có
             docker stop roomi-frontend roomi-backend 2>/dev/null || true
             docker rm roomi-frontend roomi-backend 2>/dev/null || true
 
-            # 4. Tự động Build và Khởi chạy lại Docker Containers
+            # 5. Tự động Build và Khởi chạy lại Docker Containers
             echo "🐳 Đang đóng gói và khởi chạy Docker Containers mới..."
             docker compose down --remove-orphans 2>/dev/null || docker-compose down --remove-orphans 2>/dev/null || true
             docker compose up -d --build --remove-orphans || docker-compose up -d --build --remove-orphans
 
-            # 5. Dọn dẹp tài nguyên và các Docker image cũ
+            # 6. Kết nối backend container vào network của database nếu chưa có
+            if [ -n "$DB_NET" ]; then
+              echo "🔌 Kết nối Backend vào Docker network: $DB_NET..."
+              docker network connect "$DB_NET" stayaway_backend 2>/dev/null || true
+              docker restart stayaway_backend 2>/dev/null || true
+            fi
+
+            # 7. Dọn dẹp tài nguyên và các Docker image cũ
             echo "🧹 Dọn dẹp các image cũ..."
             docker image prune -f
 
