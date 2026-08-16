@@ -3,8 +3,8 @@ name: StayAway CD Pipeline (Continuous Deployment to VPS via Docker)
 on:
   push:
     branches:
-      - main # CHỈ TỰ ĐỘNG DEPLOY KHI PUSH/MERGE VÀO NHÁNH MAIN
-  workflow_dispatch: # Cho phép bấm nút "Run workflow" thủ công khi cần
+      - main # TỰ ĐỘNG TRIGGER KHI CÓ BẤT KỲ PUSH HOẶC MERGE NÀO VÀO NHÁNH MAIN
+  workflow_dispatch: # Cho phép bấm nút "Run workflow" thủ công trên GitHub khi cần
 
 jobs:
   # ==========================================
@@ -28,7 +28,7 @@ jobs:
         working-directory: ./Backend
         run: chmod +x mvnw || true
 
-      - name: Run Backend Tests
+      - name: Run Backend Tests (29 tests)
         working-directory: ./Backend
         run: ./mvnw test --batch-mode
 
@@ -43,7 +43,7 @@ jobs:
         working-directory: ./Frontend
         run: npm ci --legacy-peer-deps
 
-      - name: Run Frontend Tests (Vitest)
+      - name: Run Frontend Tests (14 tests)
         working-directory: ./Frontend
         run: npm test
 
@@ -63,7 +63,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: SSH and Deploy via Docker Compose
+      - name: SSH and Auto Deploy via Docker Compose
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -72,44 +72,39 @@ jobs:
           envs: VITE_API_BASE_URL_PROD
           script: |
             echo "=========================================================="
-            echo "🚀 [StayAway CD] Bắt đầu tự động Deploy bằng Docker..."
+            echo "🚀 [StayAway CD] Bắt đầu tự động Deploy bản cập nhật mới..."
             echo "=========================================================="
 
-            # 1. Tìm hoặc clone thư mục dự án trên VPS
-            PROJECT_DIR=""
-            for dir in /var/www/stayaway /var/www/StayAway ~/stayaway ~/StayAway /home/${{ secrets.SERVER_USER }}/stayaway /home/${{ secrets.SERVER_USER }}/StayAway; do
-              if [ -d "$dir" ]; then
-                PROJECT_DIR="$dir"
-                break
+            # 1. Xác định thư mục dự án trên VPS
+            PROJECT_DIR="$HOME/stayaway"
+            if [ ! -d "$PROJECT_DIR" ]; then
+              if [ -d "/var/www/stayaway" ]; then
+                PROJECT_DIR="/var/www/stayaway"
+              else
+                echo "📁 Chưa có thư mục, tiến hành clone mới..."
+                git clone https://github.com/dargits/roomi.git "$PROJECT_DIR"
               fi
-            done
-
-            if [ -z "$PROJECT_DIR" ]; then
-              echo "📁 Chưa có thư mục dự án trên VPS, tiến hành clone mới..."
-              mkdir -p ~/roomi
-              PROJECT_DIR=~/roomi
-              git clone https://github.com/dargits/roomi.git "$PROJECT_DIR"
             fi
 
             cd "$PROJECT_DIR"
-            echo "📂 Đang thực thi tại: $(pwd)"
+            echo "📂 Đang làm việc tại: $(pwd)"
 
-            # 2. Đảm bảo remote trỏ đúng về repo dargits/roomi và cập nhật main
-            git remote set-url origin https://github.com/dargits/roomi.git || true
+            # 2. Đồng bộ mã nguồn mới nhất 100% từ nhánh main
+            git remote set-url origin https://github.com/dargits/roomi.git 2>/dev/null || true
             git fetch origin main
             git reset --hard origin/main
 
-            # 3. Tạo file .env chứa các cấu hình Production
-            export VITE_API_BASE_URL_PROD="${{ secrets.VITE_API_BASE_URL_PROD }}"
-            echo "VITE_API_BASE_URL_PROD=${VITE_API_BASE_URL_PROD}" > .env
+            # 3. Dừng triệt để các container cũ nếu có
+            docker stop roomi-frontend roomi-backend 2>/dev/null || true
+            docker rm roomi-frontend roomi-backend 2>/dev/null || true
 
-            # 4. Build & Chạy lại các container với Docker Compose
-            echo "🐳 Đang build và khởi động lại Docker Containers..."
-            docker compose down --remove-orphans || docker-compose down --remove-orphans || true
+            # 4. Tự động Build và Khởi chạy lại Docker Containers
+            echo "🐳 Đang đóng gói và khởi chạy Docker Containers mới..."
+            docker compose down --remove-orphans 2>/dev/null || docker-compose down --remove-orphans 2>/dev/null || true
             docker compose up -d --build --remove-orphans || docker-compose up -d --build --remove-orphans
 
-            # 5. Dọn dẹp các Docker image cũ không còn sử dụng
-            echo "🧹 Dọn dẹp các image dangling cũ..."
+            # 5. Dọn dẹp tài nguyên và các Docker image cũ
+            echo "🧹 Dọn dẹp các image cũ..."
             docker image prune -f
 
             echo "=========================================================="
