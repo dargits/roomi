@@ -62,6 +62,12 @@ public class Booking {
     @JoinColumn(name = "created_by")
     private User createdBy; // Nhân viên tạo booking
 
+    @Column(name = "deposit_amount", precision = 12, scale = 2)
+    private BigDecimal depositAmount;
+
+    @Version
+    private Long version;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

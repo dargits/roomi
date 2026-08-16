@@ -4,6 +4,19 @@ import { useAuth } from '../../context/AuthContext';
 import reportApi from '../../services/reportApi';
 import { roomApi } from '../../services/roomApi';
 import { IoAlertCircleOutline, IoBarChartOutline, IoBrushOutline, IoCalendarOutline, IoCheckmarkCircleOutline, IoConstructOutline, IoHappyOutline, IoLogInOutline, IoLogOutOutline, IoPeopleOutline, IoRefreshOutline, IoTrendingUpOutline } from 'react-icons/io5';
+import { formatStayDateTime, formatDate } from '../../utils/formatDate';
+
+const getStatusBadge = (status) => {
+  switch(status) {
+    case 'NEW': return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded font-medium text-xs">Mới</span>;
+    case 'CONFIRMED': return <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-medium text-xs">Đã xác nhận</span>;
+    case 'CHECKED_IN': return <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded font-medium text-xs">Đang ở</span>;
+    case 'CHECKED_OUT': return <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-medium text-xs">Đã đi</span>;
+    case 'CANCELLED': return <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded font-medium text-xs">Đã hủy</span>;
+    case 'NO_SHOW': return <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded font-medium text-xs">Không đến</span>;
+    default: return <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-medium text-xs">{status}</span>;
+  }
+};
 
 const fmtCurrency = (amount) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount || 0);
@@ -138,8 +151,8 @@ const DashboardPage = () => {
 
           {/* Stats booking & doanh thu */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard icon={IoLogInOutline}       label="Check-in hôm nay"   value={dashboard.todayCheckIns}  color="bg-green-600" />
-            <StatCard icon={IoLogOutOutline}      label="Check-out hôm nay"  value={dashboard.todayCheckOuts} color="bg-blue-600" />
+            <StatCard icon={IoLogInOutline}       label="Nhận phòng hôm nay"   value={dashboard.todayCheckIns}  color="bg-green-600" />
+            <StatCard icon={IoLogOutOutline}      label="Trả phòng hôm nay"  value={dashboard.todayCheckOuts} color="bg-blue-600" />
             <StatCard icon={IoTrendingUpOutline}  label="Doanh thu tháng"
               value={dashboard.monthRevenue != null ? fmtCurrency(dashboard.monthRevenue) : '—'}
               color="bg-tertiary" />
@@ -151,16 +164,16 @@ const DashboardPage = () => {
       {!loading && user?.role === 'RECEPTIONIST' && !dashboard && (
         <div className="p-5 bg-surface-container-lowest border border-border-grey rounded-xl">
           <p className="font-title-md text-on-surface">Chào {user.name}!</p>
-          <p className="text-sm text-on-surface-variant mt-1">Xem danh sách check-in/out hôm nay bên dưới.</p>
+          <p className="text-sm text-on-surface-variant mt-1">Xem danh sách nhận/trả phòng hôm nay bên dưới.</p>
         </div>
       )}
 
-      {/* ── Bảng Check-in / Check-out hôm nay ── */}
+      {/* ── Bảng Nhận phòng / Trả phòng hôm nay ── */}
       {!loading && canSeeToday && (
         <div className="bg-surface-container-lowest border border-border-grey rounded-xl overflow-hidden">
           <div className="p-5 border-b border-border-grey flex items-center gap-3">
             <IoBarChartOutline size={20} className="text-primary" />
-            <h2 className="font-title-lg text-on-surface">Check-in / Check-out Hôm nay</h2>
+            <h2 className="font-title-lg text-on-surface">Nhận phòng & Trả phòng Hôm nay</h2>
             {todayEvents.length > 0 && (
               <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
                 {todayEvents.length}
@@ -171,7 +184,7 @@ const DashboardPage = () => {
           {todayEvents.length === 0 ? (
             <div className="py-16 text-center">
               <IoCalendarOutline size={36} className="text-on-surface-variant/25 mx-auto mb-3" />
-              <p className="text-sm text-on-surface-variant">Không có lịch check-in/out nào hôm nay.</p>
+              <p className="text-sm text-on-surface-variant">Không có lịch nhận/trả phòng nào hôm nay.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -182,7 +195,7 @@ const DashboardPage = () => {
                     <th className="p-4">Phòng</th>
                     <th className="p-4">Loại phòng</th>
                     <th className="p-4 text-center">Sự kiện</th>
-                    <th className="p-4">Ngày</th>
+                    <th className="p-4">Thời gian</th>
                     <th className="p-4 text-center">Trạng thái</th>
                   </tr>
                 </thead>
@@ -210,11 +223,11 @@ const DashboardPage = () => {
                           </span>
                         )}
                       </td>
-                      <td className="p-4 text-sm text-on-surface-variant">
-                        {ev.type === 'checkin' ? ev.checkInDate : ev.checkOutDate}
+                      <td className="p-4 text-sm text-on-surface-variant font-medium">
+                        {ev.type === 'checkin' ? formatStayDateTime(ev.checkInDate, 'checkin') : formatStayDateTime(ev.checkOutDate, 'checkout')}
                       </td>
                       <td className="p-4 text-center">
-                        <span className="text-xs text-on-surface-variant">{ev.status}</span>
+                        {getStatusBadge(ev.status)}
                       </td>
                     </tr>
                   ))}

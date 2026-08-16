@@ -222,10 +222,10 @@ const HotelSettings = () => {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Input label="Giờ nhận phòng (Check-in)" icon={IoLogInOutline} type="time" name="defaultCheckinTime" value={settings.defaultCheckinTime} onChange={handleChange} required error={errors.defaultCheckinTime} />
+              <Input label="Giờ nhận phòng tiêu chuẩn" icon={IoLogInOutline} type="time" name="defaultCheckinTime" value={settings.defaultCheckinTime} onChange={handleChange} required error={errors.defaultCheckinTime} />
 
               <div>
-                <Input label="Giờ trả phòng (Check-out)" icon={IoLogOutOutline} type="time" name="defaultCheckoutTime" value={settings.defaultCheckoutTime} onChange={handleChange} required error={errors.defaultCheckoutTime} />
+                <Input label="Giờ trả phòng tiêu chuẩn" icon={IoLogOutOutline} type="time" name="defaultCheckoutTime" value={settings.defaultCheckoutTime} onChange={handleChange} required error={errors.defaultCheckoutTime} />
                 <p className="text-on-surface-variant text-[11px] mt-1.5 opacity-80 flex items-center gap-1">
                   <IoInformationCircleOutline size={14} strokeWidth={1.5} />
                   Giờ trả phòng phải muộn hơn giờ nhận phòng

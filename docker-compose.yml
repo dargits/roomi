@@ -1,0 +1,46 @@
+services:
+  # ==========================================
+  # DỊCH VỤ 1: BACKEND SPRING BOOT
+  # ==========================================
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: stayaway_backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_DATASOURCE_URL=${DB_URL:-jdbc:mysql://host.docker.internal:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-root}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASS:-}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dnyemotdi}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-731499327571147}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-bSZWJxnQvsTeDygipIyYzKYeZ_M}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - stayaway_network
+
+  # ==========================================
+  # DỊCH VỤ 2: FRONTEND REACT + VITE + NGINX
+  # ==========================================
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL_PROD:-http://13.236.183.211:8080/api/v1}
+    container_name: stayaway_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - stayaway_network
+
+networks:
+  stayaway_network:
+    driver: bridge

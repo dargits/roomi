@@ -32,7 +32,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     public InvoiceResponse getByBooking(Long bookingId) {
         return invoiceRepository.findByBookingId(bookingId)
                 .map(this::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Chưa có hóa đơn cho booking này"));
+                .orElse(null);
     }
 
     @Override

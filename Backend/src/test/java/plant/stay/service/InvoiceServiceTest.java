@@ -1,0 +1,111 @@
+package plant.stay.service;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+import plant.stay.dto.request.PaymentRequest;
+import plant.stay.dto.response.InvoiceResponse;
+import plant.stay.dto.response.PaymentResponse;
+import plant.stay.model.*;
+import plant.stay.repository.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@Transactional
+public class InvoiceServiceTest {
+
+    @Autowired
+    private InvoiceService invoiceService;
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private GuestRepository guestRepository;
+
+    @Autowired
+    private RoomTypeRepository roomTypeRepository;
+
+    @Autowired
+    private RoomRepository roomRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private InvoiceRepository invoiceRepository;
+
+    private User testUser;
+    private Booking testBooking;
+
+    @BeforeEach
+    void setUp() {
+        testUser = userRepository.findByAccount("letan")
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .name("Lê Ngọc Hân")
+                        .account("letan_test")
+                        .password("pass123")
+                        .role(Role.RECEPTIONIST)
+                        .phone("0987654321")
+                        .build()));
+
+        Guest guest = guestRepository.save(Guest.builder()
+                .name("Khách Hàng Test")
+                .phone("0933445566")
+                .idNumber("998877665544")
+                .build());
+
+        RoomType roomType = roomTypeRepository.findAll().stream().findFirst().orElseThrow();
+        Room room = roomRepository.findAll().stream().findFirst().orElseThrow();
+
+        testBooking = bookingRepository.save(Booking.builder()
+                .guest(guest)
+                .roomType(roomType)
+                .room(room)
+                .checkInDate(LocalDate.now())
+                .checkOutDate(LocalDate.now().plusDays(2))
+                .status(BookingStatus.CHECKED_IN)
+                .expectedPrice(new BigDecimal("1000000"))
+                .actualPrice(new BigDecimal("1000000"))
+                .createdBy(testUser)
+                .build());
+    }
+
+    @Test
+    @DisplayName("Lập hóa đơn thành công khi khách đang ở phòng")
+    void testCreateInvoiceSuccess() {
+        InvoiceResponse response = invoiceService.createInvoice(testBooking.getId(), testUser);
+
+        assertNotNull(response);
+        assertEquals(InvoiceStatus.PENDING, response.getStatus());
+        assertEquals(0, new BigDecimal("1000000").compareTo(response.getRoomAmount()));
+        assertEquals(0, new BigDecimal("1000000").compareTo(response.getTotalAmount()));
+    }
+
+    @Test
+    @DisplayName("Ghi nhận thanh toán và tự động cập nhật hóa đơn sang PAID khi thanh toán đủ 100%")
+    void testAddPaymentFullAmount() {
+        InvoiceResponse invoiceRes = invoiceService.createInvoice(testBooking.getId(), testUser);
+
+        PaymentRequest paymentRequest = new PaymentRequest();
+        paymentRequest.setAmount(new BigDecimal("1000000"));
+        paymentRequest.setMethod(PaymentMethod.CASH);
+        paymentRequest.setNote("Thanh toán tiền mặt tại quầy");
+
+        PaymentResponse paymentRes = invoiceService.addPayment(invoiceRes.getId(), paymentRequest, testUser);
+
+        assertNotNull(paymentRes);
+        assertEquals(0, new BigDecimal("1000000").compareTo(paymentRes.getAmount()));
+
+        // Hóa đơn cập nhật sang PAID
+        Invoice updatedInvoice = invoiceRepository.findById(invoiceRes.getId()).orElseThrow();
+        assertEquals(InvoiceStatus.PAID, updatedInvoice.getStatus());
+    }
+}

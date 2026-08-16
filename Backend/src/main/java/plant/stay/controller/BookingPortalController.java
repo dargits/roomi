@@ -100,7 +100,10 @@ public class BookingPortalController {
 
         // Tính giá dự kiến cơ bản (tạm tính theo basePrice, chưa gồm seasonal price để đơn giản)
         long nights = java.time.temporal.ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
-        java.math.BigDecimal expectedPrice = req.getRoomType().getBasePrice().multiply(java.math.BigDecimal.valueOf(nights > 0 ? nights : 1));
+        java.math.BigDecimal basePrice = (req.getRoomType() != null && req.getRoomType().getBasePrice() != null)
+                ? req.getRoomType().getBasePrice()
+                : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal expectedPrice = basePrice.multiply(java.math.BigDecimal.valueOf(nights > 0 ? nights : 1));
 
         // Tạo booking từ request
         Booking booking = Booking.builder()
@@ -154,7 +157,8 @@ public class BookingPortalController {
     private BookingRequestResponse toResponse(BookingRequest r) {
         return BookingRequestResponse.builder()
                 .id(r.getId()).guestName(r.getGuestName()).phone(r.getPhone()).email(r.getEmail())
-                .roomTypeId(r.getRoomType().getId()).roomTypeName(r.getRoomType().getName())
+                .roomTypeId(r.getRoomType() != null ? r.getRoomType().getId() : null)
+                .roomTypeName(r.getRoomType() != null ? r.getRoomType().getName() : null)
                 .checkInDate(r.getCheckInDate()).checkOutDate(r.getCheckOutDate())
                 .note(r.getNote()).status(r.getStatus()).rejectReason(r.getRejectReason())
                 .convertedBookingId(r.getConvertedBooking() != null ? r.getConvertedBooking().getId() : null)

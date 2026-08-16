@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { IoCloseOutline, IoPrintOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import { numberToWords } from '../../utils/numberToWords';
+import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import bookingApi from '../../services/bookingApi';
 
 const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
@@ -146,13 +147,12 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
                 <tr>
                   <td className="border border-black py-2 px-2 text-center">1</td>
                   <td className="border border-black py-2 px-2">
-                    Dịch vụ lưu trú ({booking?.roomTypeName}) <br/>
-                    <span className="italic text-xs">Từ {booking?.checkInDate} đến {booking?.checkOutDate}</span>
+                    Dịch vụ lưu trú ({booking?.roomTypeName}) {booking?.roomNumber ? `- Phòng ${booking.roomNumber}` : ''} <br/>
+                    <span className="italic text-xs">Từ {formatStayDateTime(booking?.checkInDate, 'checkin')} đến {formatStayDateTime(booking?.checkOutDate, 'checkout')}</span>
                   </td>
                   <td className="border border-black py-2 px-2 text-center">Đêm</td>
                   <td className="border border-black py-2 px-2 text-right">
-                    {/* Tính số đêm gần đúng */}
-                    {Math.max(1, Math.ceil((new Date(booking?.checkOutDate) - new Date(booking?.checkInDate)) / (1000 * 60 * 60 * 24)))}
+                    {calculateNights(booking?.checkInDate, booking?.checkOutDate)}
                   </td>
                   <td className="border border-black py-2 px-2 text-right">
                     {Math.round((invoice.roomAmount || 0) / 1.1).toLocaleString('vi-VN')}
