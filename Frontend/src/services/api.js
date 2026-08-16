@@ -1,8 +1,20 @@
 import axios from 'axios';
 
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  // Nếu đang chạy dev cục bộ
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8080/api/v1';
+  }
+  // Trên production / mobile: Dùng relative path để tự động trỏ về domain hiện tại
+  return '/api/v1';
+};
+
 // Create an Axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api/v1',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },
