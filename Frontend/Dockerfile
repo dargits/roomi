@@ -4,15 +4,23 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Copy package.json và lockfile
 COPY package*.json ./
+
+# Cài đặt dependencies sạch sẽ
 RUN npm ci --legacy-peer-deps
 
+# Copy toàn bộ mã nguồn
 COPY . .
+
+# Đảm bảo quyền thực thi cho các file nhị phân trong node_modules/.bin
+RUN chmod -R +x node_modules/.bin || true
 
 # Truyền biến môi trường API URL khi build
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
+# Build ứng dụng
 RUN npm run build
 
 # ==========================================
