@@ -1,0 +1,58 @@
+name: StayAway CI Pipeline (Continuous Integration)
+
+on:
+  push:
+    branches:
+      - '**' # Chạy trên TẤT CẢ các nhánh (main, develop, feature/*, fix/*)
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  backend-test:
+    name: ☕ Backend (Spring Boot + JUnit 5 + H2)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Make mvnw executable
+        working-directory: ./Backend
+        run: chmod +x mvnw || true
+
+      - name: Run Backend Tests
+        working-directory: ./Backend
+        run: ./mvnw test --batch-mode
+
+  frontend-test:
+    name: ⚛️ Frontend (React + Vitest + Build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: './Frontend/package-lock.json'
+
+      - name: Install Frontend Dependencies
+        working-directory: ./Frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Frontend Tests (Vitest)
+        working-directory: ./Frontend
+        run: npm test
+
+      - name: Build Frontend (Vite)
+        working-directory: ./Frontend
+        run: npm run build

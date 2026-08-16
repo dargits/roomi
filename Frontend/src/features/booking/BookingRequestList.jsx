@@ -11,6 +11,7 @@ import {
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 
 const BookingRequestList = () => {
   const [requests, setRequests] = useState([]);
@@ -159,11 +160,16 @@ const BookingRequestList = () => {
                   </div>
                 </td>
                 <td className="p-4">
-                  <div className="font-body-sm text-on-surface-variant flex items-center gap-2">
-                    <IoArrowForwardOutline size={14} className="text-green-600" /> Nhận: {req.checkInDate}
+                  <div className="font-body-sm text-on-surface flex items-center gap-2">
+                    <IoArrowForwardOutline size={14} className="text-green-600 shrink-0" /> 
+                    <span>Nhận: <strong className="font-medium text-on-surface">{formatStayDateTime(req.checkInDate, 'checkin')}</strong></span>
                   </div>
-                  <div className="font-body-sm text-on-surface-variant flex items-center gap-2 mt-1">
-                    <IoArrowForwardOutline size={14} className="text-red-500 transform rotate-180" /> Trả: {req.checkOutDate}
+                  <div className="font-body-sm text-on-surface flex items-center gap-2 mt-1">
+                    <IoArrowForwardOutline size={14} className="text-red-500 transform rotate-180 shrink-0" /> 
+                    <span>Trả: <strong className="font-medium text-on-surface">{formatStayDateTime(req.checkOutDate, 'checkout')}</strong></span>
+                  </div>
+                  <div className="text-[11px] text-on-surface-variant font-medium mt-1 inline-block bg-surface-container px-2 py-0.5 rounded">
+                    🌙 {calculateNights(req.checkInDate, req.checkOutDate)} đêm
                   </div>
                 </td>
                 <td className="p-4 text-center">
@@ -229,7 +235,7 @@ const BookingRequestList = () => {
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Thời gian:</span>
                 <span className="font-semibold text-on-surface">
-                  {modalState.request.checkInDate} → {modalState.request.checkOutDate}
+                  {formatStayDateTime(modalState.request.checkInDate, 'checkin')} → {formatStayDateTime(modalState.request.checkOutDate, 'checkout')} ({calculateNights(modalState.request.checkInDate, modalState.request.checkOutDate)} đêm)
                 </span>
               </div>
               {modalState.request.note && (
@@ -242,7 +248,7 @@ const BookingRequestList = () => {
 
           {modalState.type === 'APPROVE' ? (
             <p className="text-sm text-on-surface">
-              Yêu cầu đặt phòng này sẽ được chuyển thành <strong>Đặt phòng chính thức (CONFIRMED)</strong>. Bạn có chắc chắn muốn duyệt?
+              Yêu cầu đặt phòng này sẽ được chuyển thành <strong>Đặt phòng chính thức (Đã xác nhận)</strong>. Bạn có chắc chắn muốn duyệt?
             </p>
           ) : (
             <div className="space-y-2">

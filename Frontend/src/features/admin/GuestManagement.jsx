@@ -5,6 +5,19 @@ import { IoAddOutline, IoCallOutline, IoDocumentOutline, IoMailOutline, IoPencil
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
+
+const getBookingStatusBadge = (status) => {
+  switch(status) {
+    case 'NEW': return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded font-medium text-xs">Mới</span>;
+    case 'CONFIRMED': return <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-medium text-xs">Đã xác nhận</span>;
+    case 'CHECKED_IN': return <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded font-medium text-xs">Đang ở</span>;
+    case 'CHECKED_OUT': return <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-medium text-xs">Đã đi</span>;
+    case 'CANCELLED': return <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded font-medium text-xs">Đã hủy</span>;
+    case 'NO_SHOW': return <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded font-medium text-xs">Không đến</span>;
+    default: return <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-medium text-xs">{status}</span>;
+  }
+};
 
 const GuestManagement = () => {
   const { user } = useAuth();
@@ -257,13 +270,13 @@ const GuestManagement = () => {
             {selectedGuestHistory.map((booking, idx) => (
               <div key={idx} className="p-4 border border-border-grey rounded-lg bg-surface-container-lowest flex justify-between items-center">
                 <div>
-                  <div className="font-title-sm text-on-surface">Phòng {booking.roomNumber} - {booking.roomTypeName}</div>
-                  <div className="text-sm text-on-surface-variant mt-1">{booking.checkInDate} đến {booking.checkOutDate}</div>
+                  <div className="font-title-sm text-on-surface">Phòng {booking.roomNumber || 'Chưa xếp'} - {booking.roomTypeName}</div>
+                  <div className="text-sm text-on-surface-variant mt-1">
+                    {formatStayDateTime(booking.checkInDate, 'checkin')} → {formatStayDateTime(booking.checkOutDate, 'checkout')} ({calculateNights(booking.checkInDate, booking.checkOutDate)} đêm)
+                  </div>
                 </div>
                 <div className="text-right">
-                  <span className={`px-2 py-1 rounded text-xs font-medium uppercase ${booking.status === 'CHECKED_OUT' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800'}`}>
-                    {booking.status}
-                  </span>
+                  {getBookingStatusBadge(booking.status)}
                 </div>
               </div>
             ))}

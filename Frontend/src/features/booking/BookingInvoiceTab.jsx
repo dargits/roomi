@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { IoAddCircleOutline, IoAlertCircleOutline, IoCashOutline, IoCheckmarkCircleOutline, IoDocumentOutline, IoDocumentTextOutline } from 'react-icons/io5';
+import { 
+  IoAddCircleOutline, 
+  IoAlertCircleOutline, 
+  IoCashOutline, 
+  IoCheckmarkCircleOutline, 
+  IoDocumentOutline, 
+  IoDocumentTextOutline,
+  IoQrCodeOutline,
+  IoCopyOutline,
+  IoCalculatorOutline,
+  IoCardOutline,
+  IoWalletOutline,
+  IoCheckmarkOutline
+} from 'react-icons/io5';
 import { invoiceApi } from '../../services/invoiceApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
@@ -17,6 +30,8 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'CASH', note: '' });
+  const [receivedCash, setReceivedCash] = useState('');
+  const [copiedField, setCopiedField] = useState('');
   const [processing, setProcessing] = useState(false);
 
   // Modal điều chỉnh hóa đơn
@@ -33,24 +48,28 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const fetchInvoiceData = async () => {
     setLoading(true);
     try {
-      const invData = await invoiceApi.getInvoiceByBooking(bookingId);
-      setInvoice(invData);
-      
-      if (invData && invData.id) {
-        const payData = await invoiceApi.getPayments(invData.id);
-        setPayments(payData);
-      }
-    } catch (error) {
-      if (error.response?.status === 404) {
-        setInvoice(null);
+      // Chỉ kiểm tra hóa đơn chính thức nếu booking đang/đã ở (CHECKED_IN / CHECKED_OUT)
+      if (status === 'CHECKED_IN' || status === 'CHECKED_OUT') {
         try {
-          const servicesData = await bookingApi.getBookingServices(bookingId);
-          setProvisionalServices(servicesData);
-        } catch (e) {
-          console.error("Lỗi lấy dịch vụ tạm tính", e);
+          const invData = await invoiceApi.getInvoiceByBooking(bookingId);
+          if (invData && invData.id) {
+            setInvoice(invData);
+            const payData = await invoiceApi.getPayments(invData.id);
+            setPayments(payData || []);
+            return;
+          }
+        } catch (error) {
+          // Chưa có hóa đơn -> chuyển sang hiển thị tạm tính bên dưới
         }
-      } else {
-        console.error("Lỗi tải hóa đơn:", error);
+      }
+      
+      // Mặc định: chưa lập hóa đơn (CONFIRMED, NEW, hoặc CHECKED_IN chưa lập)
+      setInvoice(null);
+      try {
+        const servicesData = await bookingApi.getBookingServices(bookingId);
+        setProvisionalServices(servicesData || []);
+      } catch (e) {
+        console.error("Lỗi lấy dịch vụ tạm tính", e);
       }
     } finally {
       setLoading(false);
@@ -68,6 +87,65 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const openPaymentForm = (remAmount) => {
+    const defaultAmt = remAmount > 0 ? remAmount : '';
+    setNewPayment({
+      amount: defaultAmt,
+      paymentMethod: 'CASH',
+      note: 'Thanh toán tiền mặt tại quầy'
+    });
+    setReceivedCash(defaultAmt);
+    setShowPaymentForm(true);
+  };
+
+  const handleMethodChange = (method) => {
+    let defaultNote = '';
+    if (method === 'CASH') {
+      defaultNote = 'Thanh toán tiền mặt tại quầy';
+    } else if (method === 'TRANSFER') {
+      defaultNote = `CK ngân hàng INV-${String(invoice?.id || '').padStart(6, '0')}`;
+    } else if (method === 'CREDIT_CARD') {
+      defaultNote = 'Quẹt thẻ POS';
+    }
+    setNewPayment(prev => ({
+      ...prev,
+      paymentMethod: method,
+      note: defaultNote
+    }));
+  };
+
+  const handleSetAmount = (amt, remAmount) => {
+    const validAmt = Math.min(Math.max(0, amt), remAmount);
+    setNewPayment(prev => ({ ...prev, amount: validAmt }));
+    if (newPayment.paymentMethod === 'CASH') {
+      setReceivedCash(validAmt);
+    }
+  };
+
+  const copyToClipboard = (text, fieldName) => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(''), 2000);
+  };
+
+  const getCashPresets = (payAmount) => {
+    if (!payAmount || payAmount <= 0) return [];
+    const presets = new Set();
+    presets.add(payAmount);
+
+    const step100k = Math.ceil(payAmount / 100000) * 100000;
+    if (step100k > payAmount) presets.add(step100k);
+
+    const step500k = Math.ceil(payAmount / 500000) * 500000;
+    if (step500k > payAmount) presets.add(step500k);
+
+    const step1M = Math.ceil(payAmount / 1000000) * 1000000;
+    if (step1M > payAmount) presets.add(step1M);
+
+    return Array.from(presets).sort((a, b) => a - b).slice(0, 4);
   };
 
   const handleAddPayment = async (e) => {
@@ -177,7 +255,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                 </Button>
               ) : (
                 <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
-                  Chỉ có thể lập hóa đơn khi khách đang ở phòng (Trạng thái CHECKED_IN).
+                  Chỉ có thể lập hóa đơn khi khách đang ở phòng (Trạng thái <strong>Đang ở</strong>).
                 </div>
               )}
             </div>
@@ -198,7 +276,12 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   }
 
   const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const remainingAmount = invoice.totalAmount - paidAmount;
+  const remainingAmount = Math.max(0, invoice.totalAmount - paidAmount);
+  const currentPayAmount = parseFloat(newPayment.amount) || 0;
+  const currentReceivedCash = parseFloat(receivedCash) || 0;
+  const cashChange = currentReceivedCash - currentPayAmount;
+  const invCode = `INV${String(invoice.id).padStart(6, '0')}`;
+  const qrImageUrl = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmount}&addInfo=${invCode}&accountName=STAY%20AWAY`;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -306,30 +389,33 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         )}
       </div>
 
-      {/* Cột Phải: Thanh toán */}
+      {/* Cột Phải: Lịch sử & Form Thanh toán nhanh */}
       <div className="space-y-4">
         <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
           <div className="flex justify-between items-center mb-4 pb-4 border-b border-border-grey">
             <h3 className="font-title-lg text-on-surface flex items-center gap-2">
               <IoCashOutline size={20} className="text-primary"/> Lịch sử Thanh toán
             </h3>
+            <span className="text-xs text-on-surface-variant">
+              {payments.length} lượt thanh toán
+            </span>
           </div>
 
           {/* Danh sách thanh toán */}
-          <div className="space-y-3 mb-6">
+          <div className="space-y-2.5 mb-5 max-h-48 overflow-y-auto">
             {payments.length === 0 ? (
               <div className="text-center py-4 text-on-surface-variant text-sm italic">
                 Chưa có giao dịch thanh toán nào.
               </div>
             ) : (
               payments.map((p, idx) => (
-                <div key={p.id || idx} className="flex justify-between items-center p-3 bg-surface-container-low rounded border border-border-grey">
+                <div key={p.id || idx} className="flex justify-between items-center p-3 bg-surface-container-low rounded-lg border border-border-grey">
                   <div>
                     <div className="font-title-sm text-on-surface flex items-center gap-2">
-                      {p.method === 'CASH' ? 'Tiền mặt' : p.method === 'TRANSFER' ? 'Chuyển khoản' : 'Khác'}
+                      {p.method === 'CASH' ? '💵 Tiền mặt' : p.method === 'TRANSFER' ? '📱 Chuyển khoản' : '💳 Thẻ POS'}
                     </div>
                     <div className="text-xs text-on-surface-variant mt-0.5">
-                      {new Date(p.paidAt).toLocaleString('vi-VN')} {p.collectedByName ? `• Thu bởi: ${p.collectedByName}` : ''}
+                      {new Date(p.paidAt).toLocaleString('vi-VN')} {p.collectedByName ? `• ${p.collectedByName}` : ''}
                     </div>
                     {p.note && <div className="text-xs text-on-surface-variant/80 italic mt-0.5">"{p.note}"</div>}
                   </div>
@@ -341,8 +427,8 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             )}
           </div>
 
-          {/* Tổng quan thanh toán & Form nạp tiền */}
-          <div className="border-t border-border-grey pt-4 space-y-3">
+          {/* Tổng quan thanh toán */}
+          <div className="border-t border-border-grey pt-4 space-y-2.5">
             <div className="flex justify-between text-sm">
               <span className="text-on-surface-variant">Đã thanh toán:</span>
               <span className="font-bold text-green-600">{paidAmount.toLocaleString('vi-VN')} đ</span>
@@ -357,44 +443,238 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             {invoice.status !== 'PAID' && invoice.status !== 'ADJUSTED' && (
               <div className="pt-3">
                 {!showPaymentForm ? (
-                  <Button onClick={() => setShowPaymentForm(true)} icon={IoAddCircleOutline} className="w-full">
+                  <Button onClick={() => openPaymentForm(remainingAmount)} icon={IoAddCircleOutline} className="w-full">
                     Thêm lượt thanh toán
                   </Button>
                 ) : (
-                  <form onSubmit={handleAddPayment} className="space-y-3 bg-surface-container-low p-4 rounded-lg border border-border-grey">
-                    <div className="font-title-sm text-on-surface">Ghi nhận thanh toán mới</div>
-                    <Input
-                      label="Số tiền (VNĐ)"
-                      type="number"
-                      value={newPayment.amount}
-                      onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-                      placeholder={`Ví dụ: ${remainingAmount}`}
-                      max={remainingAmount}
-                      required
-                    />
-                    <Select
-                      label="Hình thức thanh toán"
-                      value={newPayment.paymentMethod}
-                      onChange={(e) => setNewPayment({ ...newPayment, paymentMethod: e.target.value })}
-                      options={[
-                        { value: 'CASH', label: 'Tiền mặt' },
-                        { value: 'TRANSFER', label: 'Chuyển khoản' },
-                        { value: 'CREDIT_CARD', label: 'Thẻ tín dụng' }
-                      ]}
-                    />
-                    <Input
-                      label="Ghi chú"
-                      type="text"
-                      value={newPayment.note}
-                      onChange={(e) => setNewPayment({ ...newPayment, note: e.target.value })}
-                      placeholder="Mã chuẩn chi, tên người gửi..."
-                    />
-                    <div className="flex gap-2 pt-2">
+                  <form onSubmit={handleAddPayment} className="space-y-4 bg-surface-container-low p-4 rounded-xl border border-border-grey shadow-sm animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex justify-between items-center border-b border-border-grey pb-2">
+                      <div className="font-title-sm text-on-surface flex items-center gap-1.5">
+                        <IoWalletOutline size={17} className="text-primary" /> Ghi nhận thanh toán mới
+                      </div>
+                      <span className="text-xs text-on-surface-variant">
+                        Cần thu: <strong className="text-primary font-bold">{remainingAmount.toLocaleString('vi-VN')} đ</strong>
+                      </span>
+                    </div>
+
+                    {/* 1. Chọn phương thức thanh toán */}
+                    <div>
+                      <label className="block font-label-md text-on-surface-variant mb-1.5 text-xs">Phương thức thanh toán</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleMethodChange('CASH')}
+                          className={`py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${newPayment.paymentMethod === 'CASH' ? 'bg-primary text-white border-primary shadow-xs' : 'bg-white text-on-surface border-border-grey hover:bg-surface-container-lowest'}`}
+                        >
+                          <IoCashOutline size={16} /> Tiền mặt
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMethodChange('TRANSFER')}
+                          className={`py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${newPayment.paymentMethod === 'TRANSFER' ? 'bg-primary text-white border-primary shadow-xs' : 'bg-white text-on-surface border-border-grey hover:bg-surface-container-lowest'}`}
+                        >
+                          <IoQrCodeOutline size={16} /> Chuyển khoản
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMethodChange('CREDIT_CARD')}
+                          className={`py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${newPayment.paymentMethod === 'CREDIT_CARD' ? 'bg-primary text-white border-primary shadow-xs' : 'bg-white text-on-surface border-border-grey hover:bg-surface-container-lowest'}`}
+                        >
+                          <IoCardOutline size={16} /> Thẻ POS
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Nhập số tiền & Nút chọn nhanh (Preset chips) */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="font-label-md text-on-surface-variant text-xs">Số tiền thanh toán (VNĐ) *</label>
+                        {newPayment.amount > 0 && (
+                          <span className="text-[11px] text-primary font-medium">
+                            {parseInt(newPayment.amount).toLocaleString('vi-VN')} đ
+                          </span>
+                        )}
+                      </div>
+                      <Input
+                        type="number"
+                        min="1000"
+                        max={remainingAmount}
+                        step="1000"
+                        value={newPayment.amount}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setNewPayment({ ...newPayment, amount: val });
+                          if (newPayment.paymentMethod === 'CASH') setReceivedCash(val);
+                        }}
+                        placeholder={`Ví dụ: ${remainingAmount}`}
+                        required
+                      />
+
+                      {/* Nút bấm nhanh số tiền */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSetAmount(remainingAmount, remainingAmount)}
+                          className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-medium cursor-pointer transition-colors"
+                        >
+                          Trả hết (100%)
+                        </button>
+                        {remainingAmount > 100000 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetAmount(Math.round(remainingAmount / 2), remainingAmount)}
+                            className="px-2.5 py-1 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high border border-border-grey text-xs font-medium cursor-pointer transition-colors"
+                          >
+                            50% ({Math.round(remainingAmount / 2 / 1000).toLocaleString()}k)
+                          </button>
+                        )}
+                        {remainingAmount >= 500000 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetAmount(500000, remainingAmount)}
+                            className="px-2.5 py-1 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high border border-border-grey text-xs font-medium cursor-pointer transition-colors"
+                          >
+                            500k
+                          </button>
+                        )}
+                        {remainingAmount >= 1000000 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetAmount(1000000, remainingAmount)}
+                            className="px-2.5 py-1 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high border border-border-grey text-xs font-medium cursor-pointer transition-colors"
+                          >
+                            1 Tr
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleSetAmount(0, remainingAmount)}
+                          className="px-2 py-1 rounded text-xs text-on-surface-variant hover:text-error hover:bg-red-50 cursor-pointer ml-auto transition-colors"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. Máy tính tiền thừa khi chọn Tiền mặt */}
+                    {newPayment.paymentMethod === 'CASH' && currentPayAmount > 0 && (
+                      <div className="bg-white p-3 rounded-lg border border-border-grey/80 space-y-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="font-label-md text-xs text-on-surface flex items-center gap-1">
+                            <IoCalculatorOutline size={15} className="text-primary" /> Tiền khách đưa:
+                          </span>
+                          {currentReceivedCash > 0 && (
+                            <span className="text-xs font-semibold text-on-surface">
+                              {currentReceivedCash.toLocaleString('vi-VN')} đ
+                            </span>
+                          )}
+                        </div>
+
+                        <Input
+                          type="number"
+                          step="1000"
+                          value={receivedCash}
+                          onChange={(e) => setReceivedCash(e.target.value)}
+                          placeholder="Nhập số tiền khách đưa..."
+                        />
+
+                        {/* Gợi ý mệnh giá tiền mặt */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {getCashPresets(currentPayAmount).map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setReceivedCash(preset)}
+                              className={`px-2 py-0.5 rounded text-xs border transition-colors cursor-pointer ${currentReceivedCash === preset ? 'bg-primary text-white border-primary font-bold' : 'bg-surface-container-low text-on-surface border-border-grey hover:bg-surface-container'}`}
+                            >
+                              {preset === currentPayAmount ? `Đủ tiền (${(preset / 1000).toLocaleString()}k)` : `${(preset / 1000).toLocaleString()}k`}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Kết quả tiền thối lại */}
+                        {currentReceivedCash > 0 && (
+                          <div className={`p-2.5 rounded-md flex justify-between items-center text-xs font-bold ${cashChange >= 0 ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-amber-50 text-amber-900 border border-amber-200'}`}>
+                            <span>{cashChange >= 0 ? '👉 Tiền thối lại cho khách:' : '⚠️ Khách còn thiếu:'}</span>
+                            <span className="text-sm">{Math.abs(cashChange).toLocaleString('vi-VN')} đ</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 4. Thẻ VietQR động khi chọn Chuyển khoản */}
+                    {newPayment.paymentMethod === 'TRANSFER' && currentPayAmount > 0 && (
+                      <div className="bg-white p-3.5 rounded-lg border border-blue-200 bg-blue-50/30 space-y-3">
+                        <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                          <IoQrCodeOutline size={16} className="text-blue-600" /> Quét mã VietQR chuyển khoản nhanh
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                          <img
+                            src={qrImageUrl}
+                            alt="VietQR Payment"
+                            className="w-36 h-36 object-contain rounded-lg border border-border-grey bg-white p-1 shadow-xs shrink-0"
+                            loading="lazy"
+                          />
+                          <div className="space-y-1.5 text-xs text-on-surface flex-1 w-full">
+                            <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                              <span className="text-on-surface-variant">Ngân hàng:</span>
+                              <strong className="font-semibold">MBBank</strong>
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                              <span className="text-on-surface-variant">Số TK:</span>
+                              <div className="flex items-center gap-1">
+                                <strong className="font-mono font-bold text-primary">0365224245</strong>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard('0365224245', 'acc')}
+                                  className="text-on-surface-variant hover:text-primary p-0.5"
+                                  title="Sao chép số TK"
+                                >
+                                  {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                              <span className="text-on-surface-variant">Số tiền:</span>
+                              <strong className="text-green-600 font-bold">{currentPayAmount.toLocaleString('vi-VN')} đ</strong>
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                              <span className="text-on-surface-variant">Nội dung:</span>
+                              <div className="flex items-center gap-1">
+                                <strong className="font-mono font-bold text-primary">{invCode}</strong>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(invCode, 'memo')}
+                                  className="text-on-surface-variant hover:text-primary p-0.5"
+                                  title="Sao chép nội dung"
+                                >
+                                  {copiedField === 'memo' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 5. Ghi chú thông minh */}
+                    <div>
+                      <Input
+                        label="Ghi chú"
+                        type="text"
+                        value={newPayment.note}
+                        onChange={(e) => setNewPayment({ ...newPayment, note: e.target.value })}
+                        placeholder="Ghi chú giao dịch..."
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-border-grey">
                       <Button variant="ghost" type="button" onClick={() => setShowPaymentForm(false)} className="flex-1">
                         Hủy
                       </Button>
                       <Button type="submit" isLoading={processing} className="flex-1">
-                        Lưu
+                        Lưu thanh toán
                       </Button>
                     </div>
                   </form>

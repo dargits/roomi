@@ -16,7 +16,7 @@ const QuickLoginDropdown = ({ onSelectRole }) => {
     { 
       id: 'VT-02', 
       name: 'Lễ tân', 
-      desc: 'Thủ tục check-in/out, hỗ trợ khách', 
+      desc: 'Thủ tục nhận/trả phòng, hỗ trợ khách', 
       username: 'letan',
       tagColor: 'bg-green-100 text-green-700 border-green-200' 
     },

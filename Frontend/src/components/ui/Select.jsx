@@ -65,16 +65,17 @@ const Select = ({
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-surface border border-border-grey rounded-lg shadow-lg max-h-60 overflow-auto animate-in fade-in zoom-in-95 duration-100">
-            <ul className="py-1 m-0">
+          <div className="absolute z-50 w-full mt-1 bg-surface border border-border-grey rounded-lg shadow-xl max-h-52 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+            <ul className="py-1 m-0 divide-y divide-border-grey/30">
               {options.map((option) => (
                 <li
                   key={option.value}
-                  className={`px-4 py-2.5 cursor-pointer flex items-center justify-between hover:bg-surface-blue-light transition-colors font-body-md ${option.value === value ? 'text-primary font-medium bg-surface-blue-light/50' : 'text-on-surface'}`}
+                  title={option.label}
+                  className={`px-3.5 py-2 cursor-pointer flex items-center justify-between hover:bg-surface-blue-light transition-colors font-body-sm text-sm ${option.value === value ? 'text-primary font-medium bg-surface-blue-light/60' : 'text-on-surface'}`}
                   onClick={() => handleSelect(option.value)}
                 >
-                  <span className="truncate">{option.label}</span>
-                  {option.value === value && <IoCheckmarkOutline size={18} strokeWidth={2} />}
+                  <span className="truncate pr-2">{option.label}</span>
+                  {option.value === value && <IoCheckmarkOutline size={16} strokeWidth={2} className="shrink-0 text-primary" />}
                 </li>
               ))}
             </ul>

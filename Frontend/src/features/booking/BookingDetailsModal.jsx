@@ -10,6 +10,7 @@ import InvoicePrintTemplate from './InvoicePrintTemplate';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
+import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 
 const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
   const [activeTab, setActiveTab] = useState('info'); // info, services, invoice, deposit
@@ -117,8 +118,13 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
             </div>
             <div className="text-right">
               <div className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Thời gian lưu trú</div>
-              <div className="font-title-sm text-on-surface bg-surface-container-low px-3 py-1 rounded border border-border-grey">
-                {booking.checkInDate} <span className="mx-2 text-on-surface-variant">→</span> {booking.checkOutDate}
+              <div className="font-title-sm text-on-surface bg-surface-container-low px-3 py-1.5 rounded border border-border-grey flex items-center gap-2">
+                <span>{formatStayDateTime(booking.checkInDate, 'checkin')}</span>
+                <span className="text-on-surface-variant">→</span>
+                <span>{formatStayDateTime(booking.checkOutDate, 'checkout')}</span>
+                <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-0.5 rounded">
+                  {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
+                </span>
               </div>
             </div>
           </div>
@@ -214,9 +220,10 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                     </div>
                     <div className="space-y-3 font-body-sm text-on-surface-variant">
                       <div className="flex justify-between"><span className="w-1/3">Loại phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomTypeName}</span></div>
-                      <div className="flex justify-between"><span className="w-1/3">Phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomNumber || 'Chưa phân phòng'}</span></div>
-                      <div className="flex justify-between"><span className="w-1/3">Ngày nhận:</span><span className="font-medium text-on-surface flex-1">{booking.checkInDate}</span></div>
-                      <div className="flex justify-between"><span className="w-1/3">Ngày trả:</span><span className="font-medium text-on-surface flex-1">{booking.checkOutDate}</span></div>
+                      <div className="flex justify-between"><span className="w-1/3">Phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomNumber ? `Phòng ${booking.roomNumber}` : 'Chưa phân phòng'}</span></div>
+                      <div className="flex justify-between"><span className="w-1/3">Nhận phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkInDate, 'checkin')}</span></div>
+                      <div className="flex justify-between"><span className="w-1/3">Trả phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span></div>
+                      <div className="flex justify-between"><span className="w-1/3">Thời gian ở:</span><span className="font-semibold text-primary flex-1">{calculateNights(booking.checkInDate, booking.checkOutDate)} đêm</span></div>
                     </div>
                   </div>
                 </div>

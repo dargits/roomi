@@ -20,6 +20,7 @@ import AssignRoomModal from './AssignRoomModal';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 
 const BookingList = ({ onEditBooking }) => {
   const { user } = useAuth();
@@ -126,10 +127,10 @@ const BookingList = ({ onEditBooking }) => {
 
   const getActionTitle = () => {
     switch(actionConfirm.actionType) {
-      case 'CHECK_IN': return 'Xác nhận Nhận phòng (Check-in)';
-      case 'CHECK_OUT': return 'Xác nhận Trả phòng (Check-out)';
+      case 'CHECK_IN': return 'Xác nhận Nhận phòng';
+      case 'CHECK_OUT': return 'Xác nhận Trả phòng';
       case 'CANCEL': return 'Xác nhận Hủy đặt phòng';
-      case 'NO_SHOW': return 'Xác nhận Khách không đến (No-Show)';
+      case 'NO_SHOW': return 'Xác nhận Khách không đến';
       default: return 'Xác nhận thao tác';
     }
   };
@@ -175,11 +176,16 @@ const BookingList = ({ onEditBooking }) => {
                   </div>
                 </td>
                 <td className="p-4">
-                  <div className="font-body-sm text-on-surface-variant flex items-center gap-2">
-                    <IoArrowForwardOutline size={14} className="text-green-600" /> Nhận: {booking.checkInDate}
+                  <div className="font-body-sm text-on-surface flex items-center gap-2">
+                    <IoArrowForwardOutline size={14} className="text-green-600 shrink-0" /> 
+                    <span>Nhận: <strong className="font-medium text-on-surface">{formatStayDateTime(booking.checkInDate, 'checkin')}</strong></span>
                   </div>
-                  <div className="font-body-sm text-on-surface-variant flex items-center gap-2 mt-1">
-                    <IoArrowForwardOutline size={14} className="text-red-500 transform rotate-180" /> Trả: {booking.checkOutDate}
+                  <div className="font-body-sm text-on-surface flex items-center gap-2 mt-1">
+                    <IoArrowForwardOutline size={14} className="text-red-500 transform rotate-180 shrink-0" /> 
+                    <span>Trả: <strong className="font-medium text-on-surface">{formatStayDateTime(booking.checkOutDate, 'checkout')}</strong></span>
+                  </div>
+                  <div className="text-[11px] text-on-surface-variant font-medium mt-1 inline-block bg-surface-container px-2 py-0.5 rounded">
+                    🌙 {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
                   </div>
                 </td>
                 <td className="p-4 text-center">
@@ -310,7 +316,7 @@ const BookingList = ({ onEditBooking }) => {
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Thời gian:</span>
                 <span className="font-semibold text-on-surface">
-                  {actionConfirm.booking.checkInDate} → {actionConfirm.booking.checkOutDate}
+                  {formatStayDateTime(actionConfirm.booking.checkInDate, 'checkin')} → {formatStayDateTime(actionConfirm.booking.checkOutDate, 'checkout')} ({calculateNights(actionConfirm.booking.checkInDate, actionConfirm.booking.checkOutDate)} đêm)
                 </span>
               </div>
             </div>
@@ -318,19 +324,19 @@ const BookingList = ({ onEditBooking }) => {
 
           {actionConfirm.actionType === 'CHECK_IN' && (
             <p className="text-sm text-on-surface">
-              Xác nhận chuyển trạng thái sang <strong>Đang ở (CHECKED_IN)</strong> cho khách?
+              Xác nhận chuyển trạng thái sang <strong>Đang ở</strong> cho khách?
             </p>
           )}
 
           {actionConfirm.actionType === 'CHECK_OUT' && (
             <p className="text-sm text-on-surface">
-              Xác nhận khách trả phòng và chuyển trạng thái sang <strong>Đã đi (CHECKED_OUT)</strong>?
+              Xác nhận khách trả phòng và chuyển trạng thái sang <strong>Đã đi</strong>?
             </p>
           )}
 
           {actionConfirm.actionType === 'NO_SHOW' && (
             <p className="text-sm text-orange-700 bg-orange-50 p-3 rounded-lg border border-orange-200">
-              Đánh dấu khách <strong>Không đến (NO_SHOW)</strong>. Trạng thái phòng sẽ được cập nhật.
+              Đánh dấu khách <strong>Không đến</strong>. Trạng thái phòng sẽ được cập nhật.
             </p>
           )}
 

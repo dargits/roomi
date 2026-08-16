@@ -208,7 +208,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
                 onClick={() => { setShowNoShowModal(true); setNoShowError(''); setNoShowData({ reason: '', penaltyOverride: '' }); }}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-red-400/40 text-error hover:bg-red-50 transition-colors font-medium"
               >
-                <IoWarningOutline size={13} /> Xử lý No-show
+                <IoWarningOutline size={13} /> Khách không đến
               </button>
             )}
           </div>
@@ -448,7 +448,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
             </p>
           </div>
           <Input
-            label="Lý do (bắt buộc khi override)"
+            label="Lý do (bắt buộc khi điều chỉnh)"
             value={noShowData.reason}
             onChange={e => setNoShowData(p => ({ ...p, reason: e.target.value }))}
             placeholder="Ghi chú..."
@@ -456,7 +456,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
           {/* Chỉ OWNER được override phí phạt */}
           {isOwner && (
             <Input
-              label="Override phí phạt giữ lại (chỉ Chủ cơ sở)"
+              label="Mức phí phạt tùy chỉnh (chỉ Chủ cơ sở)"
               type="number"
               min="0"
               value={noShowData.penaltyOverride}
