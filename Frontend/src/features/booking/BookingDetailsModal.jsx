@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IoAlertCircleOutline, IoCallOutline, IoCartOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoDocumentOutline, IoInformationCircleOutline, IoLocationOutline, IoPersonOutline, IoSwapHorizontalOutline, IoTimeOutline } from 'react-icons/io5';
+import { IoAlertCircleOutline, IoCallOutline, IoCartOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoDocumentOutline, IoInformationCircleOutline, IoLocationOutline, IoMoonOutline, IoPersonOutline, IoSwapHorizontalOutline, IoSwapVerticalOutline, IoTimeOutline, IoCashOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import bookingApi from '../../services/bookingApi';
@@ -7,9 +7,12 @@ import { roomApi } from '../../services/roomApi';
 import BookingServicesTab from './BookingServicesTab';
 import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
+import DepositTab from './DepositTab';
+import ExtendStayModal from './ExtendStayModal';
+import UpgradeRoomModal from './UpgradeRoomModal';
 
 const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
-  const [activeTab, setActiveTab] = useState('info'); // info, services, invoice
+  const [activeTab, setActiveTab] = useState('info'); // info, services, invoice, deposit
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [printingInvoice, setPrintingInvoice] = useState(null);
@@ -20,6 +23,9 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
   const [selectedNewRoom, setSelectedNewRoom] = useState(null);
   const [changingRoom, setChangingRoom] = useState(false);
   const [changeRoomError, setChangeRoomError] = useState('');
+  // === NCL-04: Gia hạn & Nâng hạng ===
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && bookingId) {
@@ -118,7 +124,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex border-b border-border-grey mb-6">
+          <div className="flex border-b border-border-grey mb-6 flex-wrap">
             <button
               onClick={() => setActiveTab('info')}
               className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'info' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
@@ -139,6 +145,14 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
             >
               <IoDocumentOutline size={18} /> Hóa đơn & Thanh toán
               {activeTab === 'invoice' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
+            </button>
+            {/* NCL-11-CN-002 đến NCL-11-CN-006: Tab đặt cọc */}
+            <button
+              onClick={() => setActiveTab('deposit')}
+              className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'deposit' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+            >
+              <IoCashOutline size={18} /> Đặt cọc
+              {activeTab === 'deposit' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
             </button>
           </div>
 
@@ -166,15 +180,37 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                       <h4 className="font-title-md text-on-surface flex items-center gap-2">
                         <IoLocationOutline size={18} className="text-primary"/> Chi tiết Phòng
                       </h4>
-                      {(booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN') && (
-                        <button
-                          type="button"
-                          onClick={openChangeRoom}
-                          className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
-                        >
-                          <IoSwapHorizontalOutline size={13}/> Đổi phòng
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {(booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN') && (
+                          <button
+                            type="button"
+                            onClick={openChangeRoom}
+                            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
+                          >
+                            <IoSwapHorizontalOutline size={13}/> Đổi phòng
+                          </button>
+                        )}
+                        {/* NCL-04-CN-007: Gia hạn */}
+                        {booking.status === 'CHECKED_IN' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowExtendModal(true)}
+                            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-teal-400/40 text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          >
+                            <IoMoonOutline size={13}/> Gia hạn
+                          </button>
+                        )}
+                        {/* NCL-04-CN-008: Nâng hạng */}
+                        {booking.status === 'CHECKED_IN' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowUpgradeModal(true)}
+                            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-purple-400/40 text-purple-700 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          >
+                            <IoSwapVerticalOutline size={13}/> Nâng hạng
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-3 font-body-sm text-on-surface-variant">
                       <div className="flex justify-between"><span className="w-1/3">Loại phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomTypeName}</span></div>
@@ -209,12 +245,43 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
               />
             )}
 
+            {/* TAB DEPOSIT — NCL-11-CN-002 đến NCL-11-CN-006 */}
+            {activeTab === 'deposit' && (
+              <DepositTab
+                bookingId={bookingId}
+                booking={booking}
+                onRefresh={fetchBookingDetails}
+              />
+            )}
+
           </div>
 
           <div className="flex justify-end pt-4 mt-6 border-t border-border-grey">
             <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
           </div>
         </div>
+      )}
+
+      {/* === NCL-04-CN-007: Gia hạn thêm đêm === */}
+      {showExtendModal && (
+        <ExtendStayModal
+          isOpen={showExtendModal}
+          onClose={() => setShowExtendModal(false)}
+          bookingId={bookingId}
+          booking={booking}
+          onSuccess={fetchBookingDetails}
+        />
+      )}
+
+      {/* === NCL-04-CN-008: Nâng hạng phòng === */}
+      {showUpgradeModal && (
+        <UpgradeRoomModal
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          bookingId={bookingId}
+          booking={booking}
+          onSuccess={fetchBookingDetails}
+        />
       )}
 
       {/* === Modal Đổi Phòng === */}

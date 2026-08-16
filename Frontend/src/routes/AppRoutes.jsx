@@ -28,6 +28,8 @@ import ExtraServiceManagement from '../features/admin/ExtraServiceManagement';
 import ActivityLog from '../features/admin/ActivityLog';
 import InventoryManagement from '../features/admin/InventoryManagement';
 import LoyaltyTierManagement from '../features/admin/LoyaltyTierManagement';
+import DepositPolicyPage from '../features/admin/DepositPolicyPage';
+import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
@@ -54,57 +56,68 @@ const AppRoutes = () => {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Redirect old /admin paths */}
-            <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
+            {/* Redirect old /admin & /dashboard paths */}
+            <Route path="/admin" element={<Navigate to="/manage/dashboard" replace />} />
+            <Route path="/admin/*" element={<Navigate to="/manage/dashboard" replace />} />
+            <Route path="/dashboard" element={<Navigate to="/manage/dashboard" replace />} />
+            <Route path="/bookings" element={<Navigate to="/manage/bookings" replace />} />
+            <Route path="/housekeeping" element={<Navigate to="/manage/housekeeping" replace />} />
+            <Route path="/reports" element={<Navigate to="/manage/reports" replace />} />
+            <Route path="/manage" element={<Navigate to="/manage/dashboard" replace />} />
 
-            {/* === Protected Dashboard Routes === */}
+            {/* === Protected /manage Routes === */}
             <Route element={<ProtectedRoute />}>
               <Route element={<DashboardLayout />}>
                 {/* Tổng quan */}
-                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/manage/dashboard" element={<DashboardPage />} />
 
                 {/* Đặt phòng — OWNER / RECEPTIONIST */}
-                <Route path="/bookings" element={<BookingManagement />} />
+                <Route path="/manage/bookings" element={<BookingManagement />} />
 
                 {/* Phòng */}
-                <Route path="/rooms" element={<RoomManagement />} />
+                <Route path="/manage/rooms" element={<RoomManagement />} />
 
                 {/* Loại phòng — OWNER */}
-                <Route path="/room-types" element={<RoomTypeManagement />} />
+                <Route path="/manage/room-types" element={<RoomTypeManagement />} />
 
                 {/* Khách hàng — OWNER / RECEPTIONIST */}
-                <Route path="/guests" element={<GuestManagement />} />
+                <Route path="/manage/guests" element={<GuestManagement />} />
 
                 {/* Dịch vụ phụ thu — OWNER */}
-                <Route path="/extra-services" element={<ExtraServiceManagement />} />
+                <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
 
                 {/* Buồng phòng — OWNER / HOUSEKEEPER / RECEPTIONIST */}
-                <Route path="/housekeeping" element={<HousekeepingPage />} />
+                <Route path="/manage/housekeeping" element={<HousekeepingPage />} />
 
                 {/* Báo cáo — OWNER / ACCOUNTANT */}
-                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/manage/reports" element={<ReportsPage />} />
 
                 {/* Lịch sử hoạt động — OWNER / ADMIN */}
-                <Route path="/audit-logs" element={<ActivityLog />} />
+                <Route path="/manage/audit-logs" element={<ActivityLog />} />
 
                 {/* Nhân sự — OWNER / ADMIN */}
-                <Route path="/staff" element={<StaffManagement />} />
+                <Route path="/manage/staff" element={<StaffManagement />} />
 
                 {/* Cài đặt khách sạn — OWNER */}
-                <Route path="/settings" element={<HotelSettings />} />
+                <Route path="/manage/settings" element={<HotelSettings />} />
 
                 {/* Sao lưu & CSV — OWNER / ADMIN */}
-                <Route path="/backup" element={<BackupDataPage />} />
+                <Route path="/manage/backup" element={<BackupDataPage />} />
 
                 {/* Kho đồ dùng — OWNER */}
-                <Route path="/inventory" element={<InventoryManagement />} />
+                <Route path="/manage/inventory" element={<InventoryManagement />} />
 
                 {/* Khách hàng thân thiết — OWNER */}
-                <Route path="/loyalty" element={<LoyaltyTierManagement />} />
+                <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
+
+                {/* Chính sách đặt cọc — NCL-11 */}
+                <Route path="/manage/deposit-policies" element={<DepositPolicyPage />} />
+
+                {/* Kiểm soát đồng thời & Minh chứng — NCL-03 */}
+                <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />
 
                 {/* Hồ sơ cá nhân */}
-                <Route path="/profile" element={<ProfileSettings />} />
+                <Route path="/manage/profile" element={<ProfileSettings />} />
               </Route>
             </Route>
 

@@ -19,7 +19,7 @@ const LoginPage = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/admin');
+      navigate('/manage/dashboard');
     }
   }, [isAuthenticated, navigate]);
 
@@ -44,7 +44,7 @@ const LoginPage = () => {
     setIsLoading(false);
 
     if (result.success) {
-      navigate('/admin');
+      navigate('/manage/dashboard');
     } else {
       setErrorMsg(result.message || 'Đăng nhập thất bại.');
     }

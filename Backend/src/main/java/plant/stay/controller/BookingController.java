@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.BookingRequest;
+import plant.stay.dto.request.ExtendStayRequest;
+import plant.stay.dto.request.UpgradeRoomRequest;
 import plant.stay.dto.response.BookingResponse;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Role;
@@ -96,6 +98,33 @@ public class BookingController {
     public ResponseEntity<BookingResponse> checkOut(@PathVariable Long id, HttpServletRequest request) {
         User actor = checkStaff(request);
         return ResponseEntity.ok(bookingService.checkOut(id, actor));
+    }
+
+    // NCL-04-CN-007: Gia hạn thêm đêm giữa kỳ lưu trú (QTN-22)
+    @PutMapping("/{id}/extend-stay")
+    public ResponseEntity<BookingResponse> extendStay(@PathVariable Long id,
+                                                       @Valid @RequestBody ExtendStayRequest req,
+                                                       HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.extendStay(id, req, actor));
+    }
+
+    // NCL-04-CN-008: Nâng hạng phòng giữa kỳ lưu trú (QTN-22)
+    @PutMapping("/{id}/upgrade-room")
+    public ResponseEntity<BookingResponse> upgradeRoom(@PathVariable Long id,
+                                                        @Valid @RequestBody UpgradeRoomRequest req,
+                                                        HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.upgradeRoom(id, req, actor));
+    }
+
+    // NCL-04-CN-007: Kiểm tra khả dụng gia hạn
+    @GetMapping("/{id}/extend-availability")
+    public ResponseEntity<?> checkExtendAvailability(@PathVariable Long id,
+                                                      @RequestParam int nights,
+                                                      HttpServletRequest request) {
+        checkReadBooking(request);
+        return ResponseEntity.ok(bookingService.checkExtendAvailability(id, nights));
     }
 
     private User checkStaff(HttpServletRequest request) {

@@ -13,7 +13,7 @@ const NAV_GROUPS = [
     label: 'Tổng quan',
     icon: IoGridOutline,
     items: [
-      { path: '/dashboard', label: 'Tổng quan', allowedRoles: null }
+      { path: '/manage/dashboard', label: 'Tổng quan', allowedRoles: null }
     ]
   },
   {
@@ -21,7 +21,8 @@ const NAV_GROUPS = [
     label: 'Đặt phòng',
     icon: IoCalendarOutline,
     items: [
-      { path: '/bookings', label: 'Quản lý đặt phòng', allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] }
+      { path: '/manage/bookings', label: 'Quản lý đặt phòng', allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
+      { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
     ]
   },
   {
@@ -29,9 +30,9 @@ const NAV_GROUPS = [
     label: 'Phòng',
     icon: IoLogOutOutline,
     items: [
-      { path: '/rooms',        label: 'Sơ đồ phòng',   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/room-types',   label: 'Loại phòng',     allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/housekeeping', label: 'Buồng phòng',    allowedRoles: ['OWNER', 'HOUSEKEEPER'] }
+      { path: '/manage/rooms',        label: 'Sơ đồ phòng',   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/room-types',   label: 'Loại phòng',     allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/housekeeping', label: 'Buồng phòng',    allowedRoles: ['OWNER', 'HOUSEKEEPER'] }
     ]
   },
   {
@@ -39,9 +40,9 @@ const NAV_GROUPS = [
     label: 'Khách & Dịch vụ',
     icon: IoPeopleOutline,
     items: [
-      { path: '/guests',         label: 'Khách hàng',           allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/extra-services', label: 'Dịch vụ phụ thu',    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/loyalty',        label: 'Khách thân thiết',      allowedRoles: ['OWNER'] }
+      { path: '/manage/guests',         label: 'Khách hàng',           allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/extra-services', label: 'Dịch vụ phụ thu',    allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/loyalty',        label: 'Khách thân thiết',      allowedRoles: ['OWNER'] }
     ]
   },
   {
@@ -49,7 +50,7 @@ const NAV_GROUPS = [
     label: 'Tài chính',
     icon: IoStatsChartOutline,
     items: [
-      { path: '/reports', label: 'Báo cáo doanh thu & công suất', allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] }
+      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] }
     ]
   },
   {
@@ -57,11 +58,12 @@ const NAV_GROUPS = [
     label: 'Hệ thống',
     icon: IoSettingsOutline,
     items: [
-      { path: '/staff',      label: 'Nhân sự',               allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/inventory',  label: 'Kho đồ dùng',             allowedRoles: ['OWNER'] },
-      { path: '/audit-logs', label: 'Lịch sử hoạt động',    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/backup',     label: 'Sao lưu & CSV',         allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/settings',   label: 'Cài đặt khách sạn',      allowedRoles: ['OWNER', 'ADMIN'] }
+      { path: '/manage/staff',       label: 'Nhân sự',               allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/inventory',   label: 'Kho đồ dùng',             allowedRoles: ['OWNER'] },
+      { path: '/manage/concurrency', label: 'Kiểm soát đồng thời',   allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/audit-logs',  label: 'Lịch sử hoạt động',    allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/backup',      label: 'Sao lưu & CSV',         allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/settings',    label: 'Cài đặt khách sạn',      allowedRoles: ['OWNER', 'ADMIN'] }
     ]
   }
 ];
@@ -224,7 +226,7 @@ const DashboardLayout = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/manage/profile')}
               className="hidden sm:flex flex-col items-end cursor-pointer group bg-transparent border-none p-0 text-right"
             >
               <span className="font-title-sm text-on-surface group-hover:text-primary transition-colors leading-tight text-sm font-semibold normal-case">

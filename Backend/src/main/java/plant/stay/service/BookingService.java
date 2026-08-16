@@ -1,6 +1,8 @@
 package plant.stay.service;
 
 import plant.stay.dto.request.BookingRequest;
+import plant.stay.dto.request.ExtendStayRequest;
+import plant.stay.dto.request.UpgradeRoomRequest;
 import plant.stay.dto.response.BookingResponse;
 import plant.stay.model.User;
 
@@ -18,4 +20,10 @@ public interface BookingService {
     BookingResponse noShow(Long bookingId, User actor);
     BookingResponse checkIn(Long bookingId, User actor);
     BookingResponse checkOut(Long bookingId, User actor);
+    // NCL-04-CN-007: Gia hạn thêm đêm giữa kỳ lưu trú
+    BookingResponse extendStay(Long bookingId, ExtendStayRequest req, User actor);
+    // NCL-04-CN-008: Nâng/hạ hạng phòng giữa kỳ lưu trú
+    BookingResponse upgradeRoom(Long bookingId, UpgradeRoomRequest req, User actor);
+    // Trả về thông tin kiểm tra khả dụng gia hạn
+    java.util.Map<String, Object> checkExtendAvailability(Long bookingId, int nights);
 }

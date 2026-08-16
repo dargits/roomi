@@ -8,7 +8,7 @@ import React from 'react';
  * @param {string} [subtitle]      - Mô tả ngắn bên dưới tiêu đề
  * @param {React.ReactNode} [actions] - Nút/action bên phải header
  */
-const PageHeader = ({ icon: Icon, title, subtitle, actions }) => (
+const PageHeader = ({ icon: Icon, title, subtitle, actions, children }) => (
   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-5 mb-1 border-b border-border-grey">
     <div className="flex items-start gap-3">
       {Icon && (
@@ -24,9 +24,9 @@ const PageHeader = ({ icon: Icon, title, subtitle, actions }) => (
       </div>
     </div>
 
-    {actions && (
+    {(actions || children) && (
       <div className="flex items-center gap-2 flex-shrink-0">
-        {actions}
+        {actions || children}
       </div>
     )}
   </div>

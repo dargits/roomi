@@ -76,6 +76,26 @@ const bookingApi = {
   removeBookingService: async (id, usageId) => {
     const response = await api.delete(`/bookings/${id}/services/${usageId}`);
     return response.data;
+  },
+
+  // === NCL-04-CN-007: Gia hạn thêm đêm giữa kỳ lưu trú ===
+  extendStay: async (id, data) => {
+    // data = { additionalNights, note? }
+    const response = await api.put(`/bookings/${id}/extend-stay`, data);
+    return response.data;
+  },
+
+  // Kiểm tra khả dụng gia hạn trước khi thực hiện
+  getExtendAvailability: async (id, nights) => {
+    const response = await api.get(`/bookings/${id}/extend-availability`, { params: { nights } });
+    return response.data;
+  },
+
+  // === NCL-04-CN-008: Nâng/hạ hạng phòng giữa kỳ lưu trú ===
+  upgradeRoom: async (id, data) => {
+    // data = { newRoomId, reason? }
+    const response = await api.put(`/bookings/${id}/upgrade-room`, data);
+    return response.data;
   }
 };
 

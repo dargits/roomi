@@ -236,14 +236,14 @@ const DashboardPage = () => {
 
           {user?.role === 'ACCOUNTANT' && (
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
-               <Link to="/bookings" className="flex items-center gap-4 p-5 rounded-xl border border-border-grey bg-white hover:border-primary transition-colors hover:shadow-sm text-left">
+               <Link to="/manage/bookings" className="flex items-center gap-4 p-5 rounded-xl border border-border-grey bg-white hover:border-primary transition-colors hover:shadow-sm text-left">
                   <div className="bg-blue-50 text-blue-600 p-3 rounded-lg"><IoCalendarOutline size={28} /></div>
                   <div>
                     <p className="font-title-md text-on-surface">Quản lý Đặt phòng</p>
                     <p className="text-sm text-on-surface-variant mt-1">Xem chi tiết, lập và điều chỉnh hóa đơn, thanh toán</p>
                   </div>
                </Link>
-               <Link to="/reports" className="flex items-center gap-4 p-5 rounded-xl border border-border-grey bg-white hover:border-primary transition-colors hover:shadow-sm text-left">
+               <Link to="/manage/reports" className="flex items-center gap-4 p-5 rounded-xl border border-border-grey bg-white hover:border-primary transition-colors hover:shadow-sm text-left">
                   <div className="bg-green-50 text-green-600 p-3 rounded-lg"><IoBarChartOutline size={28} /></div>
                   <div>
                     <p className="font-title-md text-on-surface">Báo cáo Tài chính</p>
@@ -273,7 +273,7 @@ const DashboardPage = () => {
                  </div>
                )}
 
-               <Link to="/housekeeping" className="flex items-center gap-4 p-5 rounded-xl border border-border-grey bg-white hover:border-primary transition-colors hover:shadow-sm text-left">
+               <Link to="/manage/housekeeping" className="flex items-center gap-4 p-5 rounded-xl border border-border-grey bg-white hover:border-primary transition-colors hover:shadow-sm text-left">
                   <div className="bg-orange-50 text-orange-600 p-3 rounded-lg"><IoBrushOutline size={28} /></div>
                   <div>
                     <p className="font-title-md text-on-surface">Buồng phòng</p>

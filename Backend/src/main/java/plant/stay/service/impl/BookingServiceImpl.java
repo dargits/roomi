@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.BookingRequest;
+import plant.stay.dto.request.ExtendStayRequest;
+import plant.stay.dto.request.UpgradeRoomRequest;
 import plant.stay.dto.response.BookingResponse;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
@@ -271,6 +273,149 @@ public class BookingServiceImpl implements BookingService {
         }
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CHECK_OUT", actor, "Trả phòng");
+        return toResponse(booking);
+    }
+
+    // ===== NCL-04-CN-007: Gia hạn thêm đêm giữa kỳ lưu trú (QTN-22) =====
+    @Override
+    @Transactional
+    public BookingResponse extendStay(Long bookingId, ExtendStayRequest req, User actor) {
+        Booking booking = findById(bookingId);
+        // Chỉ gia hạn khi đang CHECKED_IN
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalArgumentException("Chỉ có thể gia hạn khi khách đang lưu trú (CHECKED_IN)");
+        }
+        if (booking.getRoom() == null) {
+            throw new IllegalArgumentException("Bắt phòng chưa được gán phòng");
+        }
+
+        LocalDate newCheckOut = booking.getCheckOutDate().plusDays(req.getAdditionalNights());
+
+        // Kiểm tra phòng còn trống các đêm nối tiếp (QTN-22)
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                booking.getRoom().getId(),
+                booking.getCheckOutDate(), // Từ ngày trả phòng hiện tại
+                newCheckOut,
+                bookingId
+        );
+        if (!conflicts.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Phòng đã có khách khác đặt từ ngày " + conflicts.get(0).getCheckInDate() +
+                ". Không thể gia hạn đến " + newCheckOut + "."
+            );
+        }
+
+        // Tính tiền phòng bổ sung theo giá từng đêm (có thể khác mùa) — NCL-04-CN-007-TC-04
+        BigDecimal additionalCost = calculatePrice(booking.getRoomType(),
+                booking.getCheckOutDate(), newCheckOut);
+
+        booking.setCheckOutDate(newCheckOut);
+        booking.setExpectedPrice(booking.getExpectedPrice().add(additionalCost));
+        booking.setActualPrice(booking.getExpectedPrice());
+        if (req.getNote() != null) {
+            booking.setNote((booking.getNote() != null ? booking.getNote() + "\n" : "") + req.getNote());
+        }
+        booking = bookingRepository.save(booking);
+        auditLogService.log("Booking", booking.getId(), "EXTEND_STAY", actor,
+                "Gia hạn " + req.getAdditionalNights() + " đêm đến " + newCheckOut +
+                ", tiền thêm: " + additionalCost + "đ");
+        return toResponse(booking);
+    }
+
+    // ===== NCL-04-CN-007: Kiểm tra khả dụng gia hạn =====
+    @Override
+    public Map<String, Object> checkExtendAvailability(Long bookingId, int nights) {
+        Booking booking = findById(bookingId);
+        if (booking.getRoom() == null) {
+            return Map.of("available", false, "reason", "Phòng chưa được gán");
+        }
+        LocalDate newCheckOut = booking.getCheckOutDate().plusDays(nights);
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                booking.getRoom().getId(), booking.getCheckOutDate(), newCheckOut, bookingId);
+
+        // Tính giá từng đêm trong kỳ gia hạn
+        List<Map<String, Object>> nightPrices = new java.util.ArrayList<>();
+        for (int i = 0; i < nights; i++) {
+            LocalDate night = booking.getCheckOutDate().plusDays(i);
+            List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(booking.getRoomType().getId(), night);
+            BigDecimal price = !seasonal.isEmpty()
+                    ? ((plant.stay.model.SeasonalPrice) seasonal.get(0)).getPricePerNight()
+                    : booking.getRoomType().getBasePrice();
+            nightPrices.add(Map.of("date", night.toString(), "price", price));
+        }
+        BigDecimal totalAdditional = calculatePrice(booking.getRoomType(), booking.getCheckOutDate(), newCheckOut);
+
+        return Map.of(
+                "available", conflicts.isEmpty(),
+                "conflictDate", conflicts.isEmpty() ? null : conflicts.get(0).getCheckInDate().toString(),
+                "newCheckOutDate", newCheckOut.toString(),
+                "nightPrices", nightPrices,
+                "totalAdditionalCost", totalAdditional
+        );
+    }
+
+    // ===== NCL-04-CN-008: Nâng hạng phòng giữa kỳ lưu trú (QTN-22) =====
+    @Override
+    @Transactional
+    public BookingResponse upgradeRoom(Long bookingId, UpgradeRoomRequest req, User actor) {
+        Booking booking = findById(bookingId);
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalArgumentException("Chỉ có thể nâng hạng khi khách đang lưu trú (CHECKED_IN)");
+        }
+
+        Room newRoom = roomRepository.findById(req.getNewRoomId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
+
+        // Ngày hôm nay trở đi là phần thời gian còn lại
+        LocalDate today = LocalDate.now();
+        LocalDate checkOut = booking.getCheckOutDate();
+
+        // Kiểm tra phòng mới trống TRỌN phần thời gian còn lại (QTN-22)
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                newRoom.getId(), today, checkOut, bookingId);
+        if (!conflicts.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Phòng " + newRoom.getRoomNumber() + " chỉ trống một phần. Phải trống trọn phần thời gian còn lại (đến " + checkOut + ")."
+            );
+        }
+
+        // Tính chênh lệch giá cho các đêm còn lại
+        BigDecimal oldPrice = calculatePrice(booking.getRoomType(), today, checkOut);
+        BigDecimal newPrice = calculatePrice(newRoom.getRoomType(), today, checkOut);
+        BigDecimal priceDiff = newPrice.subtract(oldPrice); // Dương = nâng hạng, âm = hạ hạng
+
+        // Hạ hạng bắt buộc nhập lý do (NCL-04-CN-008-TC-03)
+        if (priceDiff.compareTo(BigDecimal.ZERO) < 0 && (req.getReason() == null || req.getReason().isBlank())) {
+            throw new IllegalArgumentException("Vui lòng nhập lý do khi chuyển xuống hạng thấp hơn");
+        }
+
+        String oldRoomNumber = booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "Chưa gán";
+
+        // Chuyển phòng cũ sang DIRTY (vếa trống)
+        if (booking.getRoom() != null) {
+            booking.getRoom().setStatus(RoomStatus.DIRTY);
+            roomRepository.save(booking.getRoom());
+        }
+        // Phòng mới chuyển sang OCCUPIED
+        newRoom.setStatus(RoomStatus.OCCUPIED);
+        roomRepository.save(newRoom);
+
+        // Cập nhật booking
+        booking.setRoom(newRoom);
+        booking.setRoomType(newRoom.getRoomType());
+        // Cập nhật tiền: giữ phần đã nhận, cộng/trừ chênh lệch
+        if (booking.getExpectedPrice() != null) {
+            booking.setExpectedPrice(booking.getExpectedPrice().add(priceDiff));
+            booking.setActualPrice(booking.getExpectedPrice());
+        }
+        booking.setNote((booking.getNote() != null ? booking.getNote() + "\n" : "") +
+                (req.getReason() != null ? req.getReason() : ""));
+        booking = bookingRepository.save(booking);
+
+        String upgradeType = priceDiff.compareTo(BigDecimal.ZERO) >= 0 ? "Nâng hạng" : "Hạ hạng";
+        auditLogService.log("Booking", booking.getId(), "UPGRADE_ROOM", actor,
+                upgradeType + " từ phòng " + oldRoomNumber + " sang " + newRoom.getRoomNumber() +
+                ", chênh lệch: " + priceDiff + "đ");
         return toResponse(booking);
     }
 
