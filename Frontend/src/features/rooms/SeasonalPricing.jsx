@@ -4,6 +4,7 @@ import seasonalPriceApi from '../../services/seasonalPriceApi';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
+import { useToast } from '../../context/ToastContext';
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount || 0);
@@ -24,6 +25,7 @@ const EMPTY_FORM = {
  * Sử dụng như một panel có thể thu gọn bên dưới mỗi loại phòng.
  */
 const SeasonalPricing = ({ roomTypeId, roomTypeName, basePrice }) => {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [prices, setPrices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -53,26 +55,28 @@ const SeasonalPricing = ({ roomTypeId, roomTypeName, basePrice }) => {
   };
 
   useEffect(() => {
-    if (expanded) fetchPrices();
+    if (expanded && roomTypeId) {
+      fetchPrices();
+    }
   }, [expanded, roomTypeId]);
 
-  const openAddModal = () => {
+  const handleOpenCreate = () => {
     setFormData(EMPTY_FORM);
+    setFormError('');
     setIsEditing(false);
     setEditingId(null);
-    setFormError('');
     setIsModalOpen(true);
   };
 
-  const openEditModal = (price) => {
+  const handleOpenEdit = (price) => {
     setFormData({
       startDate: price.startDate || '',
       endDate: price.endDate || '',
       pricePerNight: price.pricePerNight?.toString() || ''
     });
+    setFormError('');
     setIsEditing(true);
     setEditingId(price.id);
-    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -81,6 +85,10 @@ const SeasonalPricing = ({ roomTypeId, roomTypeName, basePrice }) => {
     setFormError('');
     if (!formData.startDate || !formData.endDate || !formData.pricePerNight) {
       setFormError('Vui lòng điền đầy đủ thông tin.');
+      return;
+    }
+    if (parseFloat(formData.pricePerNight) <= 0) {
+      setFormError('Giá mỗi đêm phải lớn hơn 0.');
       return;
     }
     if (formData.startDate >= formData.endDate) {
@@ -96,8 +104,10 @@ const SeasonalPricing = ({ roomTypeId, roomTypeName, basePrice }) => {
       };
       if (isEditing) {
         await seasonalPriceApi.update(roomTypeId, editingId, payload);
+        toastSuccess('Cập nhật cấu hình giá theo mùa thành công!');
       } else {
         await seasonalPriceApi.create(roomTypeId, payload);
+        toastSuccess('Thêm cấu hình giá theo mùa thành công!');
       }
       setIsModalOpen(false);
       fetchPrices();
@@ -112,11 +122,12 @@ const SeasonalPricing = ({ roomTypeId, roomTypeName, basePrice }) => {
     setProcessing(true);
     try {
       await seasonalPriceApi.delete(roomTypeId, deletingId);
+      toastSuccess('Đã xóa cấu hình giá theo mùa!');
       setIsDeleteOpen(false);
       setDeletingId(null);
       fetchPrices();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa.');
+      toastError(err.response?.data?.message || 'Lỗi khi xóa.');
     } finally {
       setProcessing(false);
     }

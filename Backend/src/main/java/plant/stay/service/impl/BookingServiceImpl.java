@@ -1,6 +1,7 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.BookingRequest;
@@ -32,12 +33,15 @@ public class BookingServiceImpl implements BookingService {
     private final RoomRepository roomRepository;
     private final SeasonalPriceRepository seasonalPriceRepository;
     private final InvoiceRepository invoiceRepository;
+    private final PaymentRepository paymentRepository;
+    private final DepositRepository depositRepository;
     private final AuditLogService auditLogService;
     private final CancellationPolicyRepository cancellationPolicyRepository;
 
     @Override
     public List<BookingResponse> getAll() {
-        return bookingRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id"))
+                .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Override
@@ -186,6 +190,16 @@ public class BookingServiceImpl implements BookingService {
         Room newRoom = roomRepository.findById(newRoomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng mới"));
 
+        // Kiểm tra bắt buộc cùng loại phòng
+        if (!newRoom.getRoomType().getId().equals(booking.getRoomType().getId())) {
+            throw new IllegalArgumentException("Chỉ được đổi sang phòng cùng loại (" + booking.getRoomType().getName() + "). Để đổi khác loại phòng, vui lòng sử dụng tính năng Nâng hạng phòng.");
+        }
+
+        // Kiểm tra không được chọn lại chính phòng hiện tại
+        if (booking.getRoom() != null && booking.getRoom().getId().equals(newRoomId)) {
+            throw new IllegalArgumentException("Phòng mới được chọn trùng với phòng hiện tại!");
+        }
+
         // Kiểm tra chống trùng cho phòng mới (QTN-08)
         checkRoomConflict(newRoomId, booking.getCheckInDate(), booking.getCheckOutDate(), bookingId);
 
@@ -202,7 +216,7 @@ public class BookingServiceImpl implements BookingService {
         booking.setRoom(newRoom);
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CHANGE_ROOM", actor,
-                "Đổi từ phòng " + oldRoomNumber + " sang " + newRoom.getRoomNumber());
+                "Đổi từ phòng " + oldRoomNumber + " sang " + newRoom.getRoomNumber() + " (Cùng loại: " + newRoom.getRoomType().getName() + ")");
         return toResponse(booking);
     }
 
@@ -222,6 +236,12 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse checkIn(Long bookingId, User actor) {
+        return checkIn(bookingId, null, actor);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse checkIn(Long bookingId, String idNumber, User actor) {
         Booking booking = findById(bookingId);
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new IllegalArgumentException("Chỉ có thể nhận phòng khi đặt phòng ở trạng thái CONFIRMED");
@@ -229,12 +249,21 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getRoom() == null) {
             throw new IllegalArgumentException("Phải gán phòng trước khi nhận phòng");
         }
+
+        // Cập nhật số CCCD/CMND của khách nếu có truyền vào
+        if (idNumber != null && !idNumber.trim().isEmpty()) {
+            Guest guest = booking.getGuest();
+            guest.setIdNumber(idNumber.trim());
+            guestRepository.save(guest);
+        }
+
         booking.setStatus(BookingStatus.CHECKED_IN);
         booking.getRoom().setStatus(RoomStatus.OCCUPIED);
         roomRepository.save(booking.getRoom());
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CHECK_IN", actor,
-                "Nhận phòng " + booking.getRoom().getRoomNumber());
+                "Nhận phòng " + booking.getRoom().getRoomNumber() + 
+                (idNumber != null && !idNumber.trim().isEmpty() ? " (CCCD: " + idNumber.trim() + ")" : ""));
         return toResponse(booking);
     }
 
@@ -248,6 +277,42 @@ public class BookingServiceImpl implements BookingService {
         
         // Bắt buộc phải thanh toán hóa đơn xong mới được trả phòng
         Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        if (invoice != null && invoice.getStatus() == InvoiceStatus.PENDING) {
+            BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                    .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            boolean hasDepositPayment = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                    .anyMatch(p -> p.getNote() != null && (p.getNote().contains("đặt cọc") || p.getNote().contains("cọc") || p.getNote().contains("Deposit")));
+
+            if (!hasDepositPayment) {
+                List<Deposit> deposits = depositRepository.findByBookingIdOrderByCreatedAtDesc(bookingId);
+                for (Deposit d : deposits) {
+                    if (d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID) {
+                        BigDecimal effectiveDeposit = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                        if (d.getRefundedAmount() != null) effectiveDeposit = effectiveDeposit.subtract(d.getRefundedAmount());
+                        if (d.getPenaltyAmount() != null) effectiveDeposit = effectiveDeposit.subtract(d.getPenaltyAmount());
+                        if (effectiveDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                            Payment depositPayment = Payment.builder()
+                                    .invoice(invoice)
+                                    .amount(effectiveDeposit)
+                                    .method(d.getPaymentMethod() != null ? d.getPaymentMethod() : PaymentMethod.CASH)
+                                    .paidAt(d.getCollectedAt() != null ? d.getCollectedAt() : LocalDateTime.now())
+                                    .collectedBy(d.getCollectedBy() != null ? d.getCollectedBy() : actor)
+                                    .note("Trừ tiền đặt cọc đã thu (Mã cọc #" + d.getId() + ")")
+                                    .build();
+                            paymentRepository.save(depositPayment);
+                            totalPaid = totalPaid.add(effectiveDeposit);
+                        }
+                    }
+                }
+            }
+
+            if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
+                invoice.setStatus(InvoiceStatus.PAID);
+                invoiceRepository.save(invoice);
+            }
+        }
+
         if (invoice == null || invoice.getStatus() != InvoiceStatus.PAID) {
             throw new IllegalArgumentException("Phải lập hóa đơn và thanh toán đầy đủ trước khi trả phòng!");
         }
@@ -312,10 +377,22 @@ public class BookingServiceImpl implements BookingService {
         booking.setCheckOutDate(newCheckOut);
         booking.setExpectedPrice(booking.getExpectedPrice().add(additionalCost));
         booking.setActualPrice(booking.getExpectedPrice());
-        if (req.getNote() != null) {
-            booking.setNote((booking.getNote() != null ? booking.getNote() + "\n" : "") + req.getNote());
+        if (req.getNote() != null && !req.getNote().isBlank()) {
+            booking.setNote((booking.getNote() != null ? booking.getNote() + "\n" : "") +
+                    "[Gia hạn " + req.getAdditionalNights() + " đêm đến " + newCheckOut + "]: " + req.getNote());
         }
         booking = bookingRepository.save(booking);
+
+        // Cập nhật hóa đơn PENDING nếu có
+        Invoice pendingInvoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        if (pendingInvoice != null && pendingInvoice.getStatus() == InvoiceStatus.PENDING) {
+            pendingInvoice.setRoomAmount(booking.getActualPrice());
+            BigDecimal serviceAmt = pendingInvoice.getServiceAmount() != null ? pendingInvoice.getServiceAmount() : BigDecimal.ZERO;
+            BigDecimal discountAmt = pendingInvoice.getDiscountAmount() != null ? pendingInvoice.getDiscountAmount() : BigDecimal.ZERO;
+            pendingInvoice.setTotalAmount(booking.getActualPrice().add(serviceAmt).subtract(discountAmt));
+            invoiceRepository.save(pendingInvoice);
+        }
+
         auditLogService.log("Booking", booking.getId(), "EXTEND_STAY", actor,
                 "Gia hạn " + req.getAdditionalNights() + " đêm đến " + newCheckOut +
                 ", tiền thêm: " + additionalCost + "đ");
@@ -326,8 +403,14 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public Map<String, Object> checkExtendAvailability(Long bookingId, int nights) {
         Booking booking = findById(bookingId);
+        Map<String, Object> result = new java.util.HashMap<>();
         if (booking.getRoom() == null) {
-            return Map.of("available", false, "reason", "Phòng chưa được gán");
+            result.put("available", false);
+            result.put("reason", "Phòng chưa được gán");
+            return result;
+        }
+        if (nights <= 0) {
+            nights = 1;
         }
         LocalDate newCheckOut = booking.getCheckOutDate().plusDays(nights);
         List<Booking> conflicts = bookingRepository.findConflictingBookings(
@@ -340,18 +423,20 @@ public class BookingServiceImpl implements BookingService {
             List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(booking.getRoomType().getId(), night);
             BigDecimal price = !seasonal.isEmpty()
                     ? ((plant.stay.model.SeasonalPrice) seasonal.get(0)).getPricePerNight()
-                    : booking.getRoomType().getBasePrice();
-            nightPrices.add(Map.of("date", night.toString(), "price", price));
+                    : (booking.getRoomType().getBasePrice() != null ? booking.getRoomType().getBasePrice() : BigDecimal.ZERO);
+            Map<String, Object> np = new java.util.HashMap<>();
+            np.put("date", night.toString());
+            np.put("price", price);
+            nightPrices.add(np);
         }
         BigDecimal totalAdditional = calculatePrice(booking.getRoomType(), booking.getCheckOutDate(), newCheckOut);
 
-        return Map.of(
-                "available", conflicts.isEmpty(),
-                "conflictDate", conflicts.isEmpty() ? null : conflicts.get(0).getCheckInDate().toString(),
-                "newCheckOutDate", newCheckOut.toString(),
-                "nightPrices", nightPrices,
-                "totalAdditionalCost", totalAdditional
-        );
+        result.put("available", conflicts.isEmpty());
+        result.put("conflictDate", conflicts.isEmpty() ? null : conflicts.get(0).getCheckInDate().toString());
+        result.put("newCheckOutDate", newCheckOut.toString());
+        result.put("nightPrices", nightPrices);
+        result.put("totalAdditionalCost", totalAdditional != null ? totalAdditional : BigDecimal.ZERO);
+        return result;
     }
 
     // ===== NCL-04-CN-008: Nâng hạng phòng giữa kỳ lưu trú (QTN-22) =====
@@ -360,62 +445,107 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponse upgradeRoom(Long bookingId, UpgradeRoomRequest req, User actor) {
         Booking booking = findById(bookingId);
         if (booking.getStatus() != BookingStatus.CHECKED_IN) {
-            throw new IllegalArgumentException("Chỉ có thể nâng hạng khi khách đang lưu trú (CHECKED_IN)");
+            throw new IllegalArgumentException("Chỉ có thể nâng/hạ hạng khi khách đang lưu trú (CHECKED_IN)");
         }
 
-        Room newRoom = roomRepository.findById(req.getNewRoomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
+        RoomType newRoomType;
+        Room newRoom = null;
 
-        // Ngày hôm nay trở đi là phần thời gian còn lại
+        if (req.getNewRoomTypeId() != null) {
+            newRoomType = roomTypeRepository.findById(req.getNewRoomTypeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng mới"));
+        } else if (req.getNewRoomId() != null) {
+            newRoom = roomRepository.findById(req.getNewRoomId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
+            newRoomType = newRoom.getRoomType();
+        } else {
+            throw new IllegalArgumentException("Vui lòng chọn loại phòng mới để nâng hạng");
+        }
+
+        if (newRoomType.getId().equals(booking.getRoomType().getId())) {
+            throw new IllegalArgumentException("Loại phòng mới trùng với loại phòng hiện tại! Để đổi phòng cùng loại, vui lòng sử dụng tính năng Đổi phòng.");
+        }
+
         LocalDate today = LocalDate.now();
         LocalDate checkOut = booking.getCheckOutDate();
+        if (!today.isBefore(checkOut)) {
+            today = checkOut.minusDays(1);
+        }
 
-        // Kiểm tra phòng mới trống TRỌN phần thời gian còn lại (QTN-22)
-        List<Booking> conflicts = bookingRepository.findConflictingBookings(
-                newRoom.getId(), today, checkOut, bookingId);
-        if (!conflicts.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Phòng " + newRoom.getRoomNumber() + " chỉ trống một phần. Phải trống trọn phần thời gian còn lại (đến " + checkOut + ")."
-            );
+        // Tự động tìm phòng trống khả dụng thuộc loại phòng mới nếu chưa chỉ định phòng cụ thể
+        if (newRoom == null) {
+            List<Room> candidateRooms = roomRepository.findByRoomTypeId(newRoomType.getId());
+            for (Room candidate : candidateRooms) {
+                if (candidate.getStatus() == RoomStatus.AVAILABLE || candidate.getId().equals(booking.getRoom() != null ? booking.getRoom().getId() : null)) {
+                    List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                            candidate.getId(), today, checkOut, bookingId);
+                    if (conflicts.isEmpty()) {
+                        newRoom = candidate;
+                        break;
+                    }
+                }
+            }
+            if (newRoom == null) {
+                throw new IllegalArgumentException("Không còn phòng trống nào thuộc loại " + newRoomType.getName() + " trong khoảng thời gian còn lại (đến " + checkOut + ").");
+            }
+        } else {
+            List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                    newRoom.getId(), today, checkOut, bookingId);
+            if (!conflicts.isEmpty()) {
+                throw new IllegalArgumentException("Phòng " + newRoom.getRoomNumber() + " không trống trọn phần thời gian còn lại (đến " + checkOut + ").");
+            }
         }
 
         // Tính chênh lệch giá cho các đêm còn lại
         BigDecimal oldPrice = calculatePrice(booking.getRoomType(), today, checkOut);
-        BigDecimal newPrice = calculatePrice(newRoom.getRoomType(), today, checkOut);
+        BigDecimal newPrice = calculatePrice(newRoomType, today, checkOut);
         BigDecimal priceDiff = newPrice.subtract(oldPrice); // Dương = nâng hạng, âm = hạ hạng
 
         // Hạ hạng bắt buộc nhập lý do (NCL-04-CN-008-TC-03)
         if (priceDiff.compareTo(BigDecimal.ZERO) < 0 && (req.getReason() == null || req.getReason().isBlank())) {
-            throw new IllegalArgumentException("Vui lòng nhập lý do khi chuyển xuống hạng thấp hơn");
+            throw new IllegalArgumentException("Vui lòng nhập lý do khi chuyển xuống hạng phòng thấp hơn");
         }
 
         String oldRoomNumber = booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "Chưa gán";
 
-        // Chuyển phòng cũ sang DIRTY (vếa trống)
-        if (booking.getRoom() != null) {
-            booking.getRoom().setStatus(RoomStatus.DIRTY);
-            roomRepository.save(booking.getRoom());
+        // Chuyển phòng cũ sang DIRTY nếu khác phòng mới
+        if (booking.getRoom() != null && !booking.getRoom().getId().equals(newRoom.getId())) {
+            Room oldRoom = booking.getRoom();
+            oldRoom.setStatus(RoomStatus.DIRTY);
+            roomRepository.save(oldRoom);
         }
+
         // Phòng mới chuyển sang OCCUPIED
         newRoom.setStatus(RoomStatus.OCCUPIED);
         roomRepository.save(newRoom);
 
         // Cập nhật booking
         booking.setRoom(newRoom);
-        booking.setRoomType(newRoom.getRoomType());
-        // Cập nhật tiền: giữ phần đã nhận, cộng/trừ chênh lệch
+        booking.setRoomType(newRoomType);
         if (booking.getExpectedPrice() != null) {
             booking.setExpectedPrice(booking.getExpectedPrice().add(priceDiff));
             booking.setActualPrice(booking.getExpectedPrice());
         }
-        booking.setNote((booking.getNote() != null ? booking.getNote() + "\n" : "") +
-                (req.getReason() != null ? req.getReason() : ""));
+        if (req.getReason() != null && !req.getReason().isBlank()) {
+            booking.setNote((booking.getNote() != null ? booking.getNote() + "\n" : "") +
+                    "[Nâng/hạ hạng sang " + newRoomType.getName() + "]: " + req.getReason());
+        }
         booking = bookingRepository.save(booking);
+
+        // Cập nhật hóa đơn PENDING nếu có
+        Invoice pendingInvoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        if (pendingInvoice != null && pendingInvoice.getStatus() == InvoiceStatus.PENDING) {
+            pendingInvoice.setRoomAmount(booking.getActualPrice());
+            BigDecimal serviceAmt = pendingInvoice.getServiceAmount() != null ? pendingInvoice.getServiceAmount() : BigDecimal.ZERO;
+            BigDecimal discountAmt = pendingInvoice.getDiscountAmount() != null ? pendingInvoice.getDiscountAmount() : BigDecimal.ZERO;
+            pendingInvoice.setTotalAmount(booking.getActualPrice().add(serviceAmt).subtract(discountAmt));
+            invoiceRepository.save(pendingInvoice);
+        }
 
         String upgradeType = priceDiff.compareTo(BigDecimal.ZERO) >= 0 ? "Nâng hạng" : "Hạ hạng";
         auditLogService.log("Booking", booking.getId(), "UPGRADE_ROOM", actor,
                 upgradeType + " từ phòng " + oldRoomNumber + " sang " + newRoom.getRoomNumber() +
-                ", chênh lệch: " + priceDiff + "đ");
+                " (Loại: " + newRoomType.getName() + "), chênh lệch: " + priceDiff + "đ");
         return toResponse(booking);
     }
 
@@ -431,14 +561,20 @@ public class BookingServiceImpl implements BookingService {
 
     // Tính giá dự kiến: ưu tiên giá theo mùa, fallback về giá cơ bản
     private BigDecimal calculatePrice(RoomType roomType, LocalDate checkIn, LocalDate checkOut) {
+        if (roomType == null || checkIn == null || checkOut == null) {
+            return BigDecimal.ZERO;
+        }
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
+        if (nights <= 0) {
+            nights = 1;
+        }
         BigDecimal total = BigDecimal.ZERO;
         for (long i = 0; i < nights; i++) {
             LocalDate night = checkIn.plusDays(i);
             List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(roomType.getId(), night);
             if (!seasonal.isEmpty()) {
                 total = total.add(((plant.stay.model.SeasonalPrice) seasonal.get(0)).getPricePerNight());
-            } else {
+            } else if (roomType.getBasePrice() != null) {
                 total = total.add(roomType.getBasePrice());
             }
         }

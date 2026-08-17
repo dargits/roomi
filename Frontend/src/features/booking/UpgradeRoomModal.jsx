@@ -1,132 +1,171 @@
 import React, { useState, useEffect } from 'react';
 import {
   IoAlertCircleOutline, IoCheckmarkCircleOutline, IoCloseOutline,
-  IoArrowUpOutline, IoArrowDownOutline, IoSwapVerticalOutline
+  IoArrowUpOutline, IoArrowDownOutline, IoSwapVerticalOutline,
+  IoBedOutline, IoPeopleOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { roomApi } from '../../services/roomApi';
+import { roomTypeApi } from '../../services/roomTypeApi';
 import bookingApi from '../../services/bookingApi';
+import { useToast } from '../../context/ToastContext';
 
 const fmt = (n) => n != null ? Number(n).toLocaleString('vi-VN') + 'đ' : '—';
 
 /**
  * NCL-04-CN-008: Modal nâng/hạ hạng phòng giữa kỳ lưu trú (QTN-22)
  *
- * - Chỉ khi booking CHECKED_IN
- * - Hiển thị các phòng còn trống TRỌN phần thời gian còn lại + chênh lệch giá
+ * - Chỉ áp dụng khi booking CHECKED_IN
+ * - Lễ tân chỉ chọn LOẠI PHÒNG (Room Type), hệ thống tự động kiểm tra và gán phòng trống
+ * - Tự động tính chênh lệch giá giữa các loại phòng
  * - Hạ hạng: bắt buộc nhập lý do
- * - Từ chối nếu phòng chỉ trống một phần
+ * - Backend tự động xác minh phòng trống trọn vẹn và cập nhật trạng thái phòng cũ (DIRTY) / mới (OCCUPIED)
  */
 const UpgradeRoomModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) => {
-  const [rooms, setRooms] = useState([]);
-  const [loadingRooms, setLoadingRooms] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState(null);
+  const { success: toastSuccess } = useToast();
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedRoomType, setSelectedRoomType] = useState(null);
   const [reason, setReason] = useState('');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (isOpen && bookingId) {
-      fetchAvailableRooms();
-      setSelectedRoom(null);
+      fetchRoomTypes();
+      setSelectedRoomType(null);
       setReason('');
       setError('');
     }
   }, [isOpen, bookingId]);
 
-  const fetchAvailableRooms = async () => {
-    setLoadingRooms(true);
+  const fetchRoomTypes = async () => {
+    setLoading(true);
     try {
-      const allRooms = await roomApi.getAllRooms();
-      // Lọc phòng AVAILABLE, khác phòng hiện tại
-      const filtered = (allRooms || []).filter(r =>
-        r.status === 'AVAILABLE' && r.id !== booking?.roomId
+      const allTypes = await roomTypeApi.getAllRoomTypes();
+      // Lọc các loại phòng khác loại phòng hiện tại
+      const filtered = (allTypes || []).filter(rt =>
+        rt.id !== booking?.roomTypeId && String(rt.id) !== String(booking?.roomTypeId) && rt.active !== false
       );
-      setRooms(filtered);
+      setRoomTypes(filtered);
     } catch {
-      setError('Không thể tải danh sách phòng. Vui lòng thử lại.');
+      setError('Không thể tải danh sách loại phòng. Vui lòng thử lại.');
     } finally {
-      setLoadingRooms(false);
+      setLoading(false);
     }
   };
 
+  const currentBasePrice = Number(booking?.expectedPrice) > 0 ? null : 0;
+
   const handleUpgrade = async () => {
-    if (!selectedRoom) return;
-    const isDowngrade = selectedRoom.isDowngrade;
-    if (isDowngrade && !reason.trim()) {
-      setError('Vui lòng nhập lý do khi chuyển xuống hạng thấp hơn');
+    if (!selectedRoomType) {
+      setError('Vui lòng chọn loại phòng muốn nâng/hạ sang');
       return;
     }
-    setProcessing(true); setError('');
+
+    const isDowngrade = selectedRoomType.isDowngrade;
+    if (isDowngrade && !reason.trim()) {
+      setError('Vui lòng nhập lý do khi chuyển xuống hạng phòng thấp hơn!');
+      return;
+    }
+
+    setProcessing(true);
+    setError('');
     try {
-      await bookingApi.upgradeRoom(bookingId, {
-        newRoomId: selectedRoom.id,
-        reason: reason || undefined
+      const res = await bookingApi.upgradeRoom(bookingId, {
+        newRoomTypeId: selectedRoomType.id,
+        reason: reason.trim() || undefined
       });
+      toastSuccess(`Chuyển hạng phòng thành công sang ${selectedRoomType.name}${res?.roomNumber ? ` (Phòng mới: ${res.roomNumber})` : ''}!`);
       onSuccess?.();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể chuyển phòng. Vui lòng thử lại.');
+      setError(err.response?.data?.message || 'Không thể chuyển hạng phòng. Vui lòng thử lại.');
     } finally {
       setProcessing(false);
     }
   };
 
-  const isDowngradeSelected = selectedRoom?.isDowngrade;
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Nâng/Hạ hạng phòng giữa kỳ" maxWidth="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Nâng / Hạ Hạng Phòng" maxWidth="max-w-2xl">
       <div className="space-y-5">
-        {/* Thông tin phòng hiện tại */}
-        <div className="bg-surface-container-low rounded p-3 text-sm flex flex-wrap gap-4">
+        {/* Thông tin phòng & loại phòng hiện tại */}
+        <div className="bg-surface-container-low rounded-lg p-3.5 border border-border-grey text-xs flex flex-wrap gap-4 justify-between items-center">
           <div>
             <span className="text-on-surface-variant">Phòng hiện tại:</span>{' '}
-            <strong className="text-on-surface">{booking?.roomNumber || 'Chưa gán'}</strong>
+            <strong className="text-on-surface font-title-sm">Phòng {booking?.roomNumber || 'Chưa gán'}</strong>
           </div>
           <div>
-            <span className="text-on-surface-variant">Loại phòng:</span>{' '}
-            <strong className="text-on-surface">{booking?.roomTypeName}</strong>
+            <span className="text-on-surface-variant">Hạng hiện tại:</span>{' '}
+            <span className="bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">{booking?.roomTypeName}</span>
           </div>
           <div>
-            <span className="text-on-surface-variant">Trả phòng:</span>{' '}
-            <strong className="text-on-surface">{booking?.checkOutDate}</strong>
+            <span className="text-on-surface-variant">Thời gian còn lại:</span>{' '}
+            <strong className="text-on-surface">Đến {booking?.checkOutDate}</strong>
           </div>
         </div>
 
-        {/* Danh sách phòng */}
+        {/* Danh sách Loại phòng để chọn nâng/hạ */}
         <div>
-          <p className="text-sm font-medium text-on-surface mb-3">
-            Chọn phòng muốn chuyển đến{' '}
-            <span className="text-xs text-on-surface-variant font-normal">
-              (chỉ hiển thị phòng còn trống đến {booking?.checkOutDate})
+          <div className="flex justify-between items-center mb-2.5">
+            <p className="text-xs font-semibold text-on-surface">
+              Chọn hạng phòng muốn nâng / hạ sang:
+            </p>
+            <span className="text-[11px] text-on-surface-variant">
+              (Hệ thống tự động tìm và gán phòng trống khả dụng)
             </span>
-          </p>
-          {loadingRooms ? (
-            <div className="text-center py-8 text-on-surface-variant text-sm">Đang tải danh sách phòng...</div>
-          ) : rooms.length === 0 ? (
-            <div className="text-center py-8 text-on-surface-variant text-sm">
-              Không có phòng trống nào khả dụng cho khoảng thời gian còn lại.
+          </div>
+
+          {loading ? (
+            <div className="text-center py-8 text-on-surface-variant text-sm">Đang tải danh sách hạng phòng...</div>
+          ) : roomTypes.length === 0 ? (
+            <div className="text-center py-8 text-on-surface-variant text-sm bg-surface-container-lowest border border-border-grey rounded-lg">
+              Không có hạng phòng nào khác đang khả dụng trong hệ thống.
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
-              {rooms.map(room => {
-                const isSelected = selectedRoom?.id === room.id;
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
+              {roomTypes.map(rt => {
+                const isSelected = selectedRoomType?.id === rt.id;
+                // So sánh giá cơ bản nếu có
                 return (
                   <button
-                    key={room.id}
+                    key={rt.id}
                     type="button"
-                    onClick={() => setSelectedRoom(room)}
-                    className={`p-3 rounded border-2 text-left transition-all cursor-pointer ${
+                    onClick={() => {
+                      setSelectedRoomType(rt);
+                      if (error) setError('');
+                    }}
+                    className={`p-3.5 rounded-xl border-2 text-left transition-all cursor-pointer relative ${
                       isSelected
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border-grey hover:border-primary/50 bg-surface-container-lowest'
+                        ? 'border-primary bg-primary/5 shadow-xs'
+                        : 'border-border-grey hover:border-primary/40 bg-surface-container-lowest'
                     }`}
                   >
-                    <div className="font-semibold text-sm text-on-surface">Phòng {room.roomNumber}</div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">{room.roomTypeName}</div>
-                    <div className="text-xs text-on-surface-variant">Tầng {room.floor || '?'}</div>
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="font-bold text-sm text-on-surface flex items-center gap-1.5">
+                        <IoBedOutline className="text-primary text-base" />
+                        <span>{rt.name}</span>
+                      </div>
+                      {isSelected && (
+                        <IoCheckmarkCircleOutline size={18} className="text-primary shrink-0" />
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs text-on-surface-variant mt-1.5">
+                      <span className="font-bold text-primary">{fmt(rt.basePrice)}<span className="text-[10px] font-normal text-on-surface-variant">/đêm</span></span>
+                      {rt.maxCapacity && (
+                        <span className="flex items-center gap-1 text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded">
+                          <IoPeopleOutline size={13} /> {rt.maxCapacity} người
+                        </span>
+                      )}
+                    </div>
+
+                    {rt.amenitiesDescription && (
+                      <div className="text-[11px] text-on-surface-variant/80 mt-1 line-clamp-1 italic">
+                        {rt.amenitiesDescription}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -134,39 +173,42 @@ const UpgradeRoomModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) =>
           )}
         </div>
 
-        {/* NCL-04-CN-008-TC-02: Cảnh báo phòng chỉ trống một phần sẽ bị backend từ chối */}
-        {selectedRoom && (
-          <div className="bg-surface-blue-light border border-primary/20 rounded p-3 text-sm space-y-1">
-            <p className="text-on-surface font-medium">
-              Chuyển từ <strong>{booking?.roomNumber}</strong> → <strong>Phòng {selectedRoom.roomNumber}</strong>
-            </p>
-            <p className="text-xs text-on-surface-variant">
-              Hệ thống sẽ xác minh phòng mới còn trống trọn phần thời gian còn lại và tính chênh lệch giá.
+        {/* Thông báo chi tiết sau khi chọn loại phòng */}
+        {selectedRoomType && (
+          <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3 text-xs space-y-1.5">
+            <div className="flex items-center gap-2 text-blue-900 font-bold">
+              <IoSwapVerticalOutline size={16} className="text-primary" />
+              <span>Chuyển từ {booking?.roomTypeName} (Phòng {booking?.roomNumber}) → Hạng {selectedRoomType.name}</span>
+            </div>
+            <p className="text-blue-800 text-[11px] leading-relaxed">
+              • Backend sẽ tự động tìm 1 phòng trống khả dụng thuộc hạng <strong>{selectedRoomType.name}</strong>, tự động chuyển phòng cũ sang <strong>Cần dọn (DIRTY)</strong> và phòng mới sang <strong>Đang ở (OCCUPIED)</strong>.
+              <br />
+              • Chênh lệch tiền phòng cho các đêm còn lại sẽ được tự động tính và cập nhật vào hóa đơn.
             </p>
           </div>
         )}
 
-        {/* NCL-04-CN-008-TC-03: Hạ hạng → bắt buộc lý do */}
-        {isDowngradeSelected && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded p-3">
-              <IoArrowDownOutline size={16} />
-              <span>Đây là chuyển xuống hạng thấp hơn. Cần nhập lý do bắt buộc.</span>
-            </div>
+        {/* Lý do khi chuyển hạng phòng */}
+        {selectedRoomType && (
+          <div>
+            <label className="block text-xs font-semibold text-on-surface mb-1">
+              Lý do đổi hạng phòng {selectedRoomType.isDowngrade ? <span className="text-error">* (Bắt buộc khi hạ hạng)</span> : <span className="text-on-surface-variant font-normal">(Tùy chọn)</span>}
+            </label>
+            <Input
+              value={reason}
+              onChange={e => {
+                setReason(e.target.value);
+                if (error) setError('');
+              }}
+              placeholder="VD: Khách có nhu cầu không gian rộng hơn, đổi theo yêu cầu..."
+            />
           </div>
-        )}
-        {selectedRoom && (
-          <Input
-            label={isDowngradeSelected ? 'Lý do chuyển phòng (bắt buộc)' : 'Lý do / Ghi chú (tùy chọn)'}
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            placeholder="VD: Khách yêu cầu phòng view biển..."
-          />
         )}
 
         {error && (
-          <div className="flex items-center gap-2 text-sm text-error bg-red-50 border border-red-200 rounded p-3">
-            <IoAlertCircleOutline size={16} /> {error}
+          <div className="flex items-center gap-2 text-xs text-error bg-red-50 border border-red-200 rounded-lg p-3">
+            <IoAlertCircleOutline size={16} className="shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -174,12 +216,12 @@ const UpgradeRoomModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) =>
           <Button variant="ghost" icon={IoCloseOutline} onClick={onClose}>Đóng</Button>
           <Button
             variant="primary"
-            icon={isDowngradeSelected ? IoArrowDownOutline : IoArrowUpOutline}
+            icon={IoSwapVerticalOutline}
             onClick={handleUpgrade}
-            disabled={!selectedRoom}
+            disabled={!selectedRoomType}
             isLoading={processing}
           >
-            {isDowngradeSelected ? 'Xác nhận hạ hạng' : 'Xác nhận nâng hạng'}
+            Xác nhận Chuyển Hạng Phòng
           </Button>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import PublicBookingModal from './PublicBookingModal';
+import { toast } from '../../context/ToastContext';
 
 const LandingPage = () => {
   const { hotelSetting } = useAppConfig();
@@ -92,7 +93,7 @@ const LandingPage = () => {
 
   const handleBookNow = (room) => {
     if (!checkInDate || !checkOutDate) {
-      alert("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt!");
+      toast.warning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt!", "Chưa chọn thời gian");
       return;
     }
     setSelectedRoomToBook(room);

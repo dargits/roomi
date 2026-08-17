@@ -12,7 +12,8 @@ import {
   IoTimeOutline,
   IoAlertCircleOutline,
   IoLogOutOutline,
-  IoLogInOutline
+  IoLogInOutline,
+  IoCardOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import BookingDetailsModal from './BookingDetailsModal';
@@ -20,10 +21,12 @@ import AssignRoomModal from './AssignRoomModal';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 
 const BookingList = ({ onEditBooking }) => {
   const { user } = useAuth();
+  const { success: toastSuccess } = useToast();
   const isAccountant = user?.role === 'ACCOUNTANT';
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +39,7 @@ const BookingList = ({ onEditBooking }) => {
     actionType: null,
     booking: null
   });
+  const [idNumberInput, setIdNumberInput] = useState('');
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -47,7 +51,15 @@ const BookingList = ({ onEditBooking }) => {
     setLoading(true);
     try {
       const data = await bookingApi.getAllBookings();
-      setBookings(data || []);
+      // Sắp xếp người mới (đặt gần nhất / ID cao nhất) lên trên đầu
+      const sorted = (data || []).sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          const diff = new Date(b.createdAt) - new Date(a.createdAt);
+          if (diff !== 0) return diff;
+        }
+        return (b.id || 0) - (a.id || 0);
+      });
+      setBookings(sorted);
     } catch (error) {
       console.error("Failed to fetch bookings", error);
     } finally {
@@ -69,6 +81,7 @@ const BookingList = ({ onEditBooking }) => {
 
   const openActionModal = (actionType, booking) => {
     setErrorMsg('');
+    setIdNumberInput(booking?.guestIdNumber || '');
     setActionConfirm({
       isOpen: true,
       actionType,
@@ -83,6 +96,7 @@ const BookingList = ({ onEditBooking }) => {
       actionType: null,
       booking: null
     });
+    setIdNumberInput('');
     setErrorMsg('');
   };
 
@@ -90,25 +104,35 @@ const BookingList = ({ onEditBooking }) => {
     const { actionType, booking } = actionConfirm;
     if (!booking) return;
 
+    if (actionType === 'CHECK_IN' && (!idNumberInput || !idNumberInput.trim())) {
+      setErrorMsg("Vui lòng nhập số CCCD / CMND của khách trước khi nhận phòng!");
+      return;
+    }
+
     setProcessing(true);
     setErrorMsg('');
     try {
       let res;
       switch(actionType) {
         case 'CHECK_IN': 
-          await bookingApi.checkIn(booking.id); 
+          await bookingApi.checkIn(booking.id, idNumberInput.trim());
+          toastSuccess(`Đã Check-in thành công cho khách ${booking.guestName}!`);
           break;
         case 'CHECK_OUT': 
-          await bookingApi.checkOut(booking.id); 
+          await bookingApi.checkOut(booking.id);
+          toastSuccess(`Đã Check-out thành công cho khách ${booking.guestName}!`);
           break;
         case 'CANCEL': 
           res = await bookingApi.cancelBooking(booking.id); 
           if (res?.cancellationFee > 0) {
-            alert(`Đã hủy đặt phòng thành công. Phí hủy áp dụng: ${formatCurrency(res.cancellationFee)}`);
+            toastSuccess(`Đã hủy đặt phòng thành công. Phí hủy áp dụng: ${formatCurrency(res.cancellationFee)}`);
+          } else {
+            toastSuccess(`Đã hủy đặt phòng thành công!`);
           }
           break;
         case 'NO_SHOW': 
-          await bookingApi.noShow(booking.id); 
+          await bookingApi.noShow(booking.id);
+          toastSuccess(`Đã đánh dấu khách vắng mặt (No-Show)!`);
           break;
       }
       closeActionModal();
@@ -323,9 +347,33 @@ const BookingList = ({ onEditBooking }) => {
           )}
 
           {actionConfirm.actionType === 'CHECK_IN' && (
-            <p className="text-sm text-on-surface">
-              Xác nhận chuyển trạng thái sang <strong>Đang ở</strong> cho khách?
-            </p>
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface mb-1 flex items-center gap-1.5">
+                  <IoCardOutline className="text-primary text-base" />
+                  Số CCCD / CMND của khách <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={idNumberInput}
+                  onChange={(e) => {
+                    setIdNumberInput(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
+                  placeholder="Nhập 12 số CCCD (Ví dụ: 036098001234)..."
+                  className="w-full px-3.5 py-2.5 bg-surface-container-lowest border border-border-grey rounded-lg text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
+                  autoFocus
+                />
+                <p className="text-[11px] text-on-surface-variant mt-1">
+                  Yêu cầu lễ tân nhập số CCCD để lưu thông tin định danh lưu trú vào hệ thống.
+                </p>
+              </div>
+
+              <div className="text-xs text-on-surface-variant bg-blue-50/70 p-2.5 rounded-lg border border-blue-100 flex items-start gap-2">
+                <IoCheckmarkCircleOutline className="text-primary mt-0.5 shrink-0" size={16} />
+                <span>Xác nhận thông tin và chuyển trạng thái đặt phòng sang <strong>Đang ở (CHECKED_IN)</strong>.</span>
+              </div>
+            </div>
           )}
 
           {actionConfirm.actionType === 'CHECK_OUT' && (

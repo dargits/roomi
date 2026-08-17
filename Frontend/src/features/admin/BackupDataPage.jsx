@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import dataApi from '../../services/dataApi';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const EXPORT_ITEMS = [
   {
@@ -87,6 +88,8 @@ const BackupDataPage = () => {
     );
   }
 
+  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
+
   // Xử lý download file CSV từ API
   const handleExport = async (type, name) => {
     setExportingType(type);
@@ -100,8 +103,9 @@ const BackupDataPage = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      toastSuccess(`Xuất dữ liệu ${name || type} thành công!`);
     } catch (err) {
-      alert('Lỗi xuất dữ liệu: ' + (err.response?.data?.message || err.message));
+      toastError('Lỗi xuất dữ liệu: ' + (err.response?.data?.message || err.message));
     } finally {
       setExportingType(null);
     }
@@ -119,13 +123,14 @@ const BackupDataPage = () => {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
+    toastSuccess('Đã tải xuống file mẫu thành công!');
   };
 
   // Xử lý Import file CSV
   const handleImportSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFile) {
-      alert('Vui lòng chọn file CSV để nhập dữ liệu.');
+      toastWarning('Vui lòng chọn file CSV để nhập dữ liệu.', 'Chưa chọn file');
       return;
     }
     setImporting(true);
@@ -133,12 +138,14 @@ const BackupDataPage = () => {
     try {
       const res = await dataApi.importData(importType, selectedFile);
       setImportResult({ type: 'success', message: res.message || 'Nhập dữ liệu thành công!' });
+      toastSuccess(res.message || 'Nhập dữ liệu thành công!');
       setSelectedFile(null);
     } catch (err) {
       setImportResult({
         type: 'error',
         message: err.response?.data?.message || 'Có lỗi xảy ra khi xử lý file CSV.'
       });
+      toastError(err.response?.data?.message || 'Có lỗi xảy ra khi xử lý file CSV.');
     } finally {
       setImporting(false);
     }

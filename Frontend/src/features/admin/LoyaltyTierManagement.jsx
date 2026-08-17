@@ -1,7 +1,8 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { IoAddOutline, IoChevronUpOutline, IoCloseOutline, IoCreateOutline, IoPeopleOutline, IoSaveOutline, IoStarOutline, IoTrashOutline, IoTrophyOutline } from 'react-icons/io5';
 import loyaltyApi from "../../services/loyaltyApi";
 import guestApi from "../../services/guestApi";
+import { useToast, useConfirm } from "../../context/ToastContext";
 
 const TIER_COLORS = [
   "bg-amber-50 border-amber-200 text-amber-800",
@@ -57,13 +58,21 @@ const LoyaltyTierManagement = () => {
     setForm(prev => ({ ...prev, [name]: name === "minPoints" ? Number(value) : value }));
   };
 
+  const { success: toastSuccess, error: toastError } = useToast();
+  const confirm = useConfirm();
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { setError("Vui lòng nhập tên hạng."); return; }
     setSaving(true); setError("");
     try {
-      if (editingTier) { await loyaltyApi.updateTier(editingTier.id, form); }
-      else { await loyaltyApi.createTier(form); }
+      if (editingTier) { 
+        await loyaltyApi.updateTier(editingTier.id, form); 
+        toastSuccess(`Đã cập nhật hạng "${form.name}" thành công!`);
+      } else { 
+        await loyaltyApi.createTier(form); 
+        toastSuccess(`Đã tạo hạng "${form.name}" thành công!`);
+      }
       closeForm(); fetchData();
     } catch (err) {
       setError(err.response?.data?.message || "Lỗi lưu dữ liệu.");
@@ -71,9 +80,21 @@ const LoyaltyTierManagement = () => {
   };
 
   const handleDelete = async (tier) => {
-    if (!window.confirm(`Xóa hạng "${tier.name}"?`)) return;
-    try { await loyaltyApi.deleteTier(tier.id); fetchData(); }
-    catch (err) { alert(err.response?.data?.message || "Không thể xóa hạng này."); }
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa hạng thành viên',
+      message: `Bạn có chắc chắn muốn xóa hạng "${tier.name}"? Thao tác này không thể hoàn tác.`,
+      confirmText: 'Xóa hạng',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+
+    try { 
+      await loyaltyApi.deleteTier(tier.id); 
+      toastSuccess(`Đã xóa hạng "${tier.name}" thành công!`);
+      fetchData(); 
+    } catch (err) { 
+      toastError(err.response?.data?.message || "Không thể xóa hạng này."); 
+    }
   };
 
   return (
