@@ -66,11 +66,18 @@ public class RoomController {
         return ResponseEntity.ok(roomService.delete(id));
     }
 
-    // Housekeeping: đánh dấu phòng đã dọn sạch (OWNER hoặc HOUSEKEEPER)
+    // Housekeeping: đánh dấu phòng đã dọn sạch (OWNER, HOUSEKEEPER, RECEPTIONIST, ADMIN)
     @PutMapping("/{id}/mark-clean")
     public ResponseEntity<RoomResponse> markClean(@PathVariable Long id, HttpServletRequest request) {
         User actor = checkHousekeeping(request);
         return ResponseEntity.ok(roomService.markClean(id, actor));
+    }
+
+    // Housekeeping: đánh dấu phòng cần dọn dẹp
+    @PutMapping("/{id}/mark-dirty")
+    public ResponseEntity<RoomResponse> markDirty(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkHousekeeping(request);
+        return ResponseEntity.ok(roomService.markDirty(id, actor));
     }
 
     // Khóa phòng bảo trì (chỉ OWNER)
@@ -95,7 +102,7 @@ public class RoomController {
 
     private User checkHousekeeping(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.HOUSEKEEPER))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.HOUSEKEEPER && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ADMIN))
             throw new UnauthorizedException("Không có quyền thực hiện chức năng này");
         return user;
     }

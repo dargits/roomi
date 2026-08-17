@@ -1,11 +1,15 @@
 import api from './api';
 
 export const roomApi = {
-  // GET: Yêu cầu OWNER hoặc RECEPTIONIST
+  // GET: Lấy danh sách phòng (tất cả hoặc theo status)
   getAllRooms: async (status = null) => {
     const url = status ? `/rooms?status=${status}` : '/rooms';
     const response = await api.get(url);
     return response.data;
+  },
+
+  getRoomsByStatus: async (status) => {
+    return roomApi.getAllRooms(status);
   },
 
   getRoomById: async (id) => {
@@ -30,9 +34,14 @@ export const roomApi = {
   },
 
   // Đánh dấu phòng đã dọn sạch (Chỉ khi phòng DIRTY -> AVAILABLE)
-  // OWNER / HOUSEKEEPER / RECEPTIONIST
   markRoomClean: async (id) => {
     const response = await api.put(`/rooms/${id}/mark-clean`);
+    return response.data;
+  },
+
+  // Đánh dấu phòng cần dọn dẹp (AVAILABLE -> DIRTY)
+  markRoomDirty: async (id) => {
+    const response = await api.put(`/rooms/${id}/mark-dirty`);
     return response.data;
   },
 
@@ -42,3 +51,6 @@ export const roomApi = {
     return response.data;
   }
 };
+
+export default roomApi;
+
