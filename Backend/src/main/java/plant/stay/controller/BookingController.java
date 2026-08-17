@@ -89,9 +89,16 @@ public class BookingController {
     }
 
     @PutMapping("/{id}/check-in")
-    public ResponseEntity<BookingResponse> checkIn(@PathVariable Long id, HttpServletRequest request) {
+    public ResponseEntity<BookingResponse> checkIn(@PathVariable Long id,
+                                                  @RequestParam(required = false) String idNumber,
+                                                  @RequestBody(required = false) java.util.Map<String, String> body,
+                                                  HttpServletRequest request) {
         User actor = checkStaff(request);
-        return ResponseEntity.ok(bookingService.checkIn(id, actor));
+        String finalIdNumber = idNumber;
+        if ((finalIdNumber == null || finalIdNumber.trim().isEmpty()) && body != null) {
+            finalIdNumber = body.get("idNumber");
+        }
+        return ResponseEntity.ok(bookingService.checkIn(id, finalIdNumber, actor));
     }
 
     @PutMapping("/{id}/check-out")

@@ -12,10 +12,7 @@ import plant.stay.dto.response.DepositResponse;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.*;
-import plant.stay.repository.BookingRepository;
-import plant.stay.repository.CancellationPolicyRepository;
-import plant.stay.repository.DepositPolicyRepository;
-import plant.stay.repository.DepositRepository;
+import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.util.AuthUtil;
 
@@ -45,6 +42,8 @@ public class DepositController {
     private final DepositPolicyRepository policyRepo;
     private final BookingRepository bookingRepo;
     private final CancellationPolicyRepository cancellationPolicyRepo;
+    private final InvoiceRepository invoiceRepo;
+    private final PaymentRepository paymentRepo;
     private final AuditLogService auditLogService;
     private final AuthUtil authUtil;
 
@@ -109,6 +108,30 @@ public class DepositController {
                 .collectedAt(LocalDateTime.now())
                 .build();
         deposit = depositRepo.save(deposit);
+
+        // Nếu hóa đơn đã được lập trước đó và đang chờ thanh toán, tự động khấu trừ cọc vào hóa đơn
+        final Deposit savedDeposit = deposit;
+        invoiceRepo.findByBookingId(bookingId).ifPresent(inv -> {
+            if (inv.getStatus() == InvoiceStatus.PENDING) {
+                Payment depositPayment = Payment.builder()
+                        .invoice(inv)
+                        .amount(req.getAmount())
+                        .method(req.getPaymentMethod() != null ? req.getPaymentMethod() : PaymentMethod.CASH)
+                        .paidAt(LocalDateTime.now())
+                        .collectedBy(actor)
+                        .note("Trừ tiền đặt cọc đã thu (Mã cọc #" + savedDeposit.getId() + ")")
+                        .build();
+                paymentRepo.save(depositPayment);
+
+                BigDecimal totalPaid = paymentRepo.findByInvoiceId(inv.getId()).stream()
+                        .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (totalPaid.compareTo(inv.getTotalAmount()) >= 0) {
+                    inv.setStatus(InvoiceStatus.PAID);
+                    invoiceRepo.save(inv);
+                }
+            }
+        });
+
         auditLogService.log("Deposit", deposit.getId(), "RECORD", actor,
                 "Thu cọc " + req.getAmount() + "đ cho booking #" + bookingId
                 + (isShortPaid ? " (thu thiếu: " + req.getShortPaidReason() + ")" : ""));

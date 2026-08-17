@@ -1,6 +1,5 @@
 package plant.stay.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
@@ -9,8 +8,9 @@ import lombok.Data;
 @Data
 public class UpgradeRoomRequest {
 
-    @NotNull(message = "Phòng mới không được để trống")
-    private Long newRoomId;
+    private Long newRoomTypeId; // ID loại phòng mới muốn nâng/hạ sang
+
+    private Long newRoomId;     // Optional: ID phòng cụ thể nếu có
 
     // Lý do bắt buộc khi hạ hạng — NCL-04-CN-008-TC-03
     private String reason;

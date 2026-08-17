@@ -54,10 +54,14 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
     setLoadingRooms(true);
     try {
       const rooms = await roomApi.getAllRooms();
-      // Lọc phòng AVAILABLE và khác phòng hiện tại
-      const filtered = rooms.filter(r =>
-        r.status === 'AVAILABLE' && r.id !== booking?.roomId
-      );
+      // Chỉ cho phép đổi phòng CÙNG LOẠI PHÒNG và đang AVAILABLE (khác phòng hiện tại)
+      const targetRoomTypeId = booking?.roomTypeId;
+      const filtered = rooms.filter(r => {
+        const rTypeId = r.roomTypeId || r.roomType?.id;
+        return r.status === 'AVAILABLE' && 
+               r.id !== booking?.roomId && 
+               String(rTypeId) === String(targetRoomTypeId);
+      });
       setAvailableRooms(filtered);
     } catch {
       setChangeRoomError('Không thể tải danh sách phòng.');
@@ -67,13 +71,27 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
   };
 
   const handleChangeRoom = async () => {
-    if (!selectedNewRoom) return;
+    if (!selectedNewRoom) {
+      setChangeRoomError('Vui lòng chọn một phòng trống cùng loại để đổi.');
+      return;
+    }
+    if (selectedNewRoom.id === booking?.roomId) {
+      setChangeRoomError('Phòng mới không được trùng với phòng hiện tại.');
+      return;
+    }
+    const newRoomTypeId = selectedNewRoom.roomTypeId || selectedNewRoom.roomType?.id;
+    if (String(newRoomTypeId) !== String(booking?.roomTypeId)) {
+      setChangeRoomError(`Chỉ được đổi sang phòng cùng loại (${booking?.roomTypeName}).`);
+      return;
+    }
+
     setChangingRoom(true);
     setChangeRoomError('');
     try {
       await bookingApi.changeRoom(bookingId, selectedNewRoom.id);
       setShowChangeRoom(false);
-      fetchBookingDetails();
+      await fetchBookingDetails();
+      alert(`Đổi sang Phòng ${selectedNewRoom.roomNumber} (${booking?.roomTypeName}) thành công!`);
     } catch (err) {
       setChangeRoomError(err.response?.data?.message || 'Không thể đổi phòng. Vui lòng thử lại.');
     } finally {
@@ -291,41 +309,79 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
         />
       )}
 
-      {/* === Modal Đổi Phòng === */}
+      {/* === Modal Đổi Phòng (Chỉ cùng loại phòng) === */}
       {showChangeRoom && (
-        <Modal isOpen={showChangeRoom} onClose={() => setShowChangeRoom(false)} title="Đổi Phòng" maxWidth="max-w-md">
+        <Modal isOpen={showChangeRoom} onClose={() => setShowChangeRoom(false)} title="Đổi Phòng Cùng Loại" maxWidth="max-w-md">
           <div className="space-y-4">
-            <p className="text-sm text-on-surface-variant">
-              Phòng hiện tại: <strong className="text-on-surface">{booking?.roomNumber || 'Chưa gán'}</strong>. Chọn phòng mới:
-            </p>
+            <div className="bg-surface-container-low p-3.5 rounded-lg border border-border-grey space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Loại phòng:</span>
+                <span className="font-bold text-primary">{booking?.roomTypeName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Phòng hiện tại:</span>
+                <span className="font-semibold text-on-surface">Phòng {booking?.roomNumber || 'Chưa gán'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Trạng thái:</span>
+                <span className="font-medium text-on-surface">{booking?.status === 'CHECKED_IN' ? 'Đang ở (Đổi phòng trực tiếp)' : 'Đã xác nhận (Chờ nhận phòng)'}</span>
+              </div>
+            </div>
+
+            <div className="text-xs font-semibold text-on-surface">
+              Chọn phòng trống cùng loại <span className="text-primary font-bold">({booking?.roomTypeName})</span>:
+            </div>
+
             {loadingRooms ? (
-              <div className="text-center py-8 text-on-surface-variant">Đang tải danh sách phòng...</div>
+              <div className="text-center py-8 text-on-surface-variant text-sm">Đang tải danh sách phòng...</div>
             ) : availableRooms.length === 0 ? (
-              <div className="text-center py-8 text-on-surface-variant">Không có phòng trống khả dụng.</div>
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-2">
+                <div className="font-bold flex items-center gap-1.5">
+                  <IoAlertCircleOutline size={17} className="text-amber-600 shrink-0" />
+                  Không có phòng trống nào khác thuộc loại {booking?.roomTypeName}.
+                </div>
+                <p className="text-amber-800">
+                  Nếu khách muốn chuyển sang hạng phòng khác (Standard, Deluxe, Suite...), vui lòng sử dụng chức năng <strong>Nâng hạng phòng</strong>.
+                </p>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
                 {availableRooms.map(room => (
                   <button
                     key={room.id}
                     type="button"
-                    onClick={() => setSelectedNewRoom(room)}
+                    onClick={() => {
+                      setSelectedNewRoom(room);
+                      if (changeRoomError) setChangeRoomError('');
+                    }}
                     className={`p-3 rounded-lg border-2 text-left transition-all cursor-pointer ${
                       selectedNewRoom?.id === room.id
-                        ? 'border-primary bg-primary/10 text-primary'
+                        ? 'border-primary bg-primary/10 text-primary shadow-xs'
                         : 'border-border-grey hover:border-primary/50 bg-surface-container-lowest text-on-surface'
                     }`}
                   >
-                    <div className="font-semibold text-sm">Phòng {room.roomNumber}</div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">{room.roomTypeName}</div>
+                    <div className="font-bold text-sm flex items-center justify-between">
+                      <span>Phòng {room.roomNumber}</span>
+                      {selectedNewRoom?.id === room.id && <IoCheckmarkCircleOutline size={16} className="text-primary" />}
+                    </div>
+                    <div className="text-[11px] text-on-surface-variant mt-0.5">Tầng {room.floor || 1} • {room.roomTypeName}</div>
                   </button>
                 ))}
               </div>
             )}
-            {changeRoomError && (
-              <div className="flex items-center gap-2 text-sm text-error bg-red-50 border border-red-200 rounded-lg p-3">
-                <IoAlertCircleOutline size={16}/> {changeRoomError}
+
+            {selectedNewRoom && booking?.status === 'CHECKED_IN' && (
+              <div className="text-[11px] text-blue-700 bg-blue-50 p-2.5 rounded-lg border border-blue-100">
+                ℹ️ Sau khi đổi, phòng cũ ({booking.roomNumber}) sẽ chuyển sang trạng thái <strong>Cần dọn (DIRTY)</strong> và phòng mới ({selectedNewRoom.roomNumber}) chuyển sang <strong>Đang ở (OCCUPIED)</strong>.
               </div>
             )}
+
+            {changeRoomError && (
+              <div className="flex items-center gap-2 text-xs text-error bg-red-50 border border-red-200 rounded-lg p-3">
+                <IoAlertCircleOutline size={16} className="shrink-0"/> <span>{changeRoomError}</span>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
               <Button variant="ghost" onClick={() => setShowChangeRoom(false)} icon={IoCloseOutline}>Hủy</Button>
               <Button
