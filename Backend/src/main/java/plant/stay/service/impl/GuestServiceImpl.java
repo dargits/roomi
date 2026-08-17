@@ -1,6 +1,7 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.GuestRequest;
@@ -31,7 +32,7 @@ public class GuestServiceImpl implements GuestService {
         if (search != null && !search.isBlank()) {
             return guestRepository.search(search).stream().map(this::toResponse).collect(Collectors.toList());
         }
-        return guestRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return guestRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Override

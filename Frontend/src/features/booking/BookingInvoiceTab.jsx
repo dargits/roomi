@@ -21,9 +21,11 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
 import bookingApi from '../../services/bookingApi';
+import { useToast } from '../../context/ToastContext';
 
 const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const { user } = useAuth();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [invoice, setInvoice] = useState(null);
   const [payments, setPayments] = useState([]);
   const [deposits, setDeposits] = useState([]);
@@ -91,9 +93,10 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
     setProcessing(true);
     try {
       await invoiceApi.createInvoice(bookingId);
+      toastSuccess("Tạo hóa đơn thành công!");
       fetchInvoiceData();
     } catch (error) {
-      alert("Lỗi lập hóa đơn: " + (error.response?.data?.message || error.message));
+      toastError(error.response?.data?.message || error.message || "Lỗi lập hóa đơn");
     } finally {
       setProcessing(false);
     }
@@ -167,11 +170,12 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         method: newPayment.paymentMethod,
         note: newPayment.note
       });
+      toastSuccess("Ghi nhận thanh toán thành công!");
       setShowPaymentForm(false);
       setNewPayment({ amount: '', paymentMethod: 'CASH', note: '' });
       fetchInvoiceData();
     } catch (error) {
-      alert("Lỗi ghi nhận thanh toán: " + (error.response?.data?.message || error.message));
+      toastError(error.response?.data?.message || error.message || "Lỗi ghi nhận thanh toán");
     } finally {
       setProcessing(false);
     }
@@ -201,7 +205,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
       });
       setShowAdjustModal(false);
       setAdjustData({ discountAmount: '', note: '' });
-      alert('Đã lập hóa đơn điều chỉnh thành công!');
+      toastSuccess('Đã lập hóa đơn điều chỉnh thành công!');
       fetchInvoiceData();
     } catch (error) {
       setAdjustError(error.response?.data?.message || 'Có lỗi xảy ra khi điều chỉnh hóa đơn.');
@@ -214,10 +218,12 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
     setProcessing(true);
     try {
       await bookingApi.checkOut(bookingId);
-      alert("Trả phòng thành công!");
-      window.location.reload();
+      toastSuccess("Trả phòng thành công!");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
-      alert("Lỗi trả phòng: " + (error.response?.data?.message || error.message));
+      toastError(error.response?.data?.message || error.message || "Lỗi trả phòng");
     } finally {
       setProcessing(false);
     }

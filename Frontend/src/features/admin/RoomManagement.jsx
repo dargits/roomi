@@ -7,6 +7,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
+import { useToast } from '../../context/ToastContext';
 
 const RoomManagement = () => {
   const { user } = useAuth();
@@ -92,6 +93,8 @@ const RoomManagement = () => {
     setIsModalOpen(true);
   };
 
+  const { success: toastSuccess, error: toastError } = useToast();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -102,8 +105,10 @@ const RoomManagement = () => {
       };
       if (isEditing) {
         await roomApi.updateRoom(payload.id, payload);
+        toastSuccess(`Đã cập nhật Phòng ${formData.roomNumber} thành công!`);
       } else {
         await roomApi.createRoom(payload);
+        toastSuccess(`Đã thêm mới Phòng ${formData.roomNumber} thành công!`);
       }
       setIsModalOpen(false);
       fetchRooms();
@@ -121,29 +126,32 @@ const RoomManagement = () => {
   const confirmDelete = async () => {
     try {
       await roomApi.deleteRoom(itemToDelete.id);
+      toastSuccess(`Đã xóa Phòng ${itemToDelete.roomNumber} thành công!`);
       setIsDeleteModalOpen(false);
       fetchRooms();
     } catch (error) {
       console.error("Delete error", error);
-      alert(error.response?.data?.message || "Lỗi khi xóa phòng.");
+      toastError(error.response?.data?.message || "Lỗi khi xóa phòng.");
     }
   };
 
   const handleMarkClean = async (id) => {
     try {
       await roomApi.markRoomClean(id);
+      toastSuccess("Đã cập nhật phòng sang trạng thái Sạch sẽ!");
       fetchRooms();
     } catch (error) {
-      alert(error.response?.data?.message || "Lỗi thao tác.");
+      toastError(error.response?.data?.message || "Lỗi thao tác.");
     }
   };
 
   const handleMarkMaintenance = async (id) => {
     try {
       await roomApi.markRoomMaintenance(id);
+      toastSuccess("Đã chuyển phòng sang trạng thái Bảo trì!");
       fetchRooms();
     } catch (error) {
-      alert(error.response?.data?.message || "Lỗi thao tác.");
+      toastError(error.response?.data?.message || "Lỗi thao tác.");
     }
   };
 

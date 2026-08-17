@@ -1,6 +1,7 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.BookingRequest;
@@ -39,7 +40,8 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<BookingResponse> getAll() {
-        return bookingRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id"))
+                .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Override
