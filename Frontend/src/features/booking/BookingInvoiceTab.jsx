@@ -14,6 +14,7 @@ import {
   IoCheckmarkOutline
 } from 'react-icons/io5';
 import { invoiceApi } from '../../services/invoiceApi';
+import { depositApi } from '../../services/depositApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -25,6 +26,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const { user } = useAuth();
   const [invoice, setInvoice] = useState(null);
   const [payments, setPayments] = useState([]);
+  const [deposits, setDeposits] = useState([]);
   const [provisionalServices, setProvisionalServices] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -48,7 +50,15 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const fetchInvoiceData = async () => {
     setLoading(true);
     try {
-      // Chỉ kiểm tra hóa đơn chính thức nếu booking đang/đã ở (CHECKED_IN / CHECKED_OUT)
+      // 1. Tải danh sách đặt cọc của booking
+      try {
+        const depData = await depositApi.getDepositsByBooking(bookingId);
+        setDeposits(depData || []);
+      } catch (e) {
+        setDeposits([]);
+      }
+
+      // 2. Chỉ kiểm tra hóa đơn chính thức nếu booking đang/đã ở (CHECKED_IN / CHECKED_OUT)
       if (status === 'CHECKED_IN' || status === 'CHECKED_OUT') {
         try {
           const invData = await invoiceApi.getInvoiceByBooking(bookingId);
@@ -213,12 +223,38 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
     }
   };
 
+  // Tiền cọc đã thu thực tế từ khách (đã trừ hoàn/phạt)
+  const collectedDepositAmount = deposits.reduce((sum, d) => {
+    if (d.status === 'COLLECTED' || d.status === 'SHORT_PAID') {
+      const col = Number(d.collectedAmount) || 0;
+      const ref = Number(d.refundedAmount) || 0;
+      const pen = Number(d.penaltyAmount) || 0;
+      return sum + Math.max(0, col - ref - pen);
+    }
+    return sum;
+  }, 0);
+
+  // Kiểm tra xem trong danh sách payments đã có lượt thanh toán cọc chưa
+  const isDepositInPayments = payments.some(p =>
+    p.note?.includes('đặt cọc') || p.note?.includes('cọc') || p.note?.includes('Deposit')
+  );
+  const effectiveDepositDeduction = isDepositInPayments ? 0 : collectedDepositAmount;
+  const rawPaymentsTotal = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const paidAmount = rawPaymentsTotal + effectiveDepositDeduction;
+  const remainingAmount = invoice ? Math.max(0, Number(invoice.totalAmount) - paidAmount) : 0;
+  const currentPayAmount = parseFloat(newPayment.amount) || 0;
+  const currentReceivedCash = parseFloat(receivedCash) || 0;
+  const cashChange = currentReceivedCash - currentPayAmount;
+  const invCode = invoice ? `INV${String(invoice.id).padStart(6, '0')}` : '';
+  const qrImageUrl = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmount}&addInfo=${invCode}&accountName=STAY%20AWAY`;
+
   if (loading) return <div className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu hóa đơn...</div>;
 
   if (!invoice) {
-    const provisionalRoomAmount = booking?.expectedPrice || 0;
+    const provisionalRoomAmount = Number(booking?.expectedPrice) || 0;
     const provisionalServicesAmount = provisionalServices.reduce((sum, s) => sum + (s.unitPriceSnapshot * s.quantity), 0);
-    const provisionalTotal = provisionalRoomAmount + provisionalServicesAmount;
+    const provisionalGrossTotal = provisionalRoomAmount + provisionalServicesAmount;
+    const provisionalNetTotal = Math.max(0, provisionalGrossTotal - collectedDepositAmount);
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -242,16 +278,31 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                 <span className="text-on-surface-variant">Dịch vụ phụ thu ({provisionalServices.length} món):</span>
                 <span>{provisionalServicesAmount.toLocaleString('vi-VN')} đ</span>
               </div>
+              {collectedDepositAmount > 0 && (
+                <div className="flex justify-between text-green-700 font-semibold bg-green-50 p-2.5 rounded border border-green-200 text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <IoCashOutline size={16} /> Tiền đặt cọc đã thu:
+                  </span>
+                  <span>-{collectedDepositAmount.toLocaleString('vi-VN')} đ</span>
+                </div>
+              )}
               <div className="border-t border-border-grey mt-4 pt-4 flex justify-between items-end">
-                <span className="font-title-md text-on-surface">Tổng tạm tính:</span>
-                <span className="font-headline-sm text-primary">{provisionalTotal.toLocaleString('vi-VN')} đ</span>
+                <div>
+                  <span className="font-title-md text-on-surface block">Còn lại tạm tính:</span>
+                  {collectedDepositAmount > 0 && (
+                    <span className="text-xs text-on-surface-variant">
+                      Tổng tiền: {provisionalGrossTotal.toLocaleString('vi-VN')} đ
+                    </span>
+                  )}
+                </div>
+                <span className="font-headline-sm text-primary">{provisionalNetTotal.toLocaleString('vi-VN')} đ</span>
               </div>
             </div>
 
             <div className="mt-6 pt-4 border-t border-border-grey">
               {status === 'CHECKED_IN' ? (
                 <Button onClick={handleCreateInvoice} isLoading={processing} icon={IoAddCircleOutline} className="w-full">
-                  Chốt & Lập Hóa Đơn
+                  Chốt & Lập Hóa Đơn (Tự động trừ cọc)
                 </Button>
               ) : (
                 <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
@@ -275,13 +326,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
     );
   }
 
-  const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const remainingAmount = Math.max(0, invoice.totalAmount - paidAmount);
-  const currentPayAmount = parseFloat(newPayment.amount) || 0;
-  const currentReceivedCash = parseFloat(receivedCash) || 0;
-  const cashChange = currentReceivedCash - currentPayAmount;
-  const invCode = `INV${String(invoice.id).padStart(6, '0')}`;
-  const qrImageUrl = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmount}&addInfo=${invCode}&accountName=STAY%20AWAY`;
+  const isFullyPaid = invoice?.status === 'PAID' || (invoice && remainingAmount <= 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -292,8 +337,8 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             <h3 className="font-title-lg text-on-surface flex items-center gap-2">
               <IoDocumentOutline size={20} className="text-primary"/> Chi tiết Hóa đơn
             </h3>
-            <span className={`px-2 py-1 rounded-md text-xs font-bold ${invoice.status === 'PAID' ? 'bg-green-100 text-green-800' : invoice.status === 'ADJUSTED' ? 'bg-purple-100 text-purple-800' : 'bg-yellow-100 text-yellow-800'}`}>
-              {invoice.status === 'PAID' ? 'ĐÃ THANH TOÁN' : invoice.status === 'ADJUSTED' ? 'ĐÃ ĐIỀU CHỈNH' : 'CHỜ THANH TOÁN'}
+            <span className={`px-2 py-1 rounded-md text-xs font-bold ${isFullyPaid ? 'bg-green-100 text-green-800' : invoice.status === 'ADJUSTED' ? 'bg-purple-100 text-purple-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {isFullyPaid ? 'ĐÃ THANH TOÁN' : invoice.status === 'ADJUSTED' ? 'ĐÃ ĐIỀU CHỈNH' : 'CHỜ THANH TOÁN'}
             </span>
           </div>
 
@@ -333,19 +378,19 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               </div>
             )}
             <div className="border-t border-border-grey mt-4 pt-4 flex justify-between items-end">
-              <span className="font-title-md text-on-surface">Tổng cộng:</span>
+              <span className="font-title-md text-on-surface">Tổng cộng hóa đơn:</span>
               <span className="font-headline-sm text-primary">{invoice.totalAmount?.toLocaleString('vi-VN')} đ</span>
             </div>
           </div>
         </div>
         
-        {invoice.status === 'PAID' && (
+        {isFullyPaid && invoice.status !== 'ADJUSTED' && (
           <div className="space-y-3">
             <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-green-800 flex items-center gap-3">
               <IoCheckmarkCircleOutline size={24} className="flex-shrink-0" />
               <div>
                 <div className="font-title-sm">Đã thanh toán đủ</div>
-                <div className="text-xs text-green-700 mt-0.5">Hóa đơn này đã được thanh toán hoàn tất.</div>
+                <div className="text-xs text-green-700 mt-0.5">Hóa đơn này đã được thanh toán hoàn tất (đã khấu trừ tiền cọc).</div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -380,7 +425,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           </div>
         )}
 
-        {status === 'CHECKED_IN' && invoice.status === 'PAID' && (
+        {status === 'CHECKED_IN' && isFullyPaid && (
           <div className="mt-4">
             <Button onClick={handleCheckOut} isLoading={processing} className="w-full bg-green-600 hover:bg-green-700 text-white">
               Xác nhận Trả phòng
@@ -397,13 +442,31 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               <IoCashOutline size={20} className="text-primary"/> Lịch sử Thanh toán
             </h3>
             <span className="text-xs text-on-surface-variant">
-              {payments.length} lượt thanh toán
+              {payments.length + (effectiveDepositDeduction > 0 ? 1 : 0)} lượt thanh toán
             </span>
           </div>
 
           {/* Danh sách thanh toán */}
           <div className="space-y-2.5 mb-5 max-h-48 overflow-y-auto">
-            {payments.length === 0 ? (
+            {/* Nếu có cọc chưa hiển thị trong bảng payments */}
+            {effectiveDepositDeduction > 0 && (
+              <div className="flex justify-between items-center p-3 bg-green-50/80 rounded-lg border border-green-200">
+                <div>
+                  <div className="font-title-sm text-green-900 flex items-center gap-1.5 font-bold">
+                    <span>💵 Tiền đặt cọc</span>
+                    <span className="text-[11px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-normal">Đã thu trước</span>
+                  </div>
+                  <div className="text-xs text-green-700 mt-0.5">
+                    Đã tự động khấu trừ vào số tiền cần thanh toán
+                  </div>
+                </div>
+                <div className="font-title-md text-green-700 font-bold">
+                  +{effectiveDepositDeduction.toLocaleString('vi-VN')} đ
+                </div>
+              </div>
+            )}
+
+            {payments.length === 0 && effectiveDepositDeduction === 0 ? (
               <div className="text-center py-4 text-on-surface-variant text-sm italic">
                 Chưa có giao dịch thanh toán nào.
               </div>
@@ -430,17 +493,27 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           {/* Tổng quan thanh toán */}
           <div className="border-t border-border-grey pt-4 space-y-2.5">
             <div className="flex justify-between text-sm">
-              <span className="text-on-surface-variant">Đã thanh toán:</span>
+              <span className="text-on-surface-variant">Tổng hóa đơn:</span>
+              <span className="font-medium">{invoice.totalAmount?.toLocaleString('vi-VN')} đ</span>
+            </div>
+            {collectedDepositAmount > 0 && (
+              <div className="flex justify-between text-sm text-green-700 font-medium">
+                <span>Đã khấu trừ cọc:</span>
+                <span>-{collectedDepositAmount.toLocaleString('vi-VN')} đ</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface-variant">Đã thanh toán (tổng):</span>
               <span className="font-bold text-green-600">{paidAmount.toLocaleString('vi-VN')} đ</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-on-surface-variant">Còn lại:</span>
-              <span className={`font-bold ${remainingAmount <= 0 ? 'text-green-600' : 'text-error'}`}>
+            <div className="flex justify-between text-sm pt-1 border-t border-dashed border-border-grey">
+              <span className="text-on-surface-variant font-medium">Còn lại cần thanh toán:</span>
+              <span className={`font-bold ${remainingAmount <= 0 ? 'text-green-600' : 'text-error font-title-sm'}`}>
                 {remainingAmount.toLocaleString('vi-VN')} đ
               </span>
             </div>
 
-            {invoice.status !== 'PAID' && invoice.status !== 'ADJUSTED' && (
+            {!isFullyPaid && invoice.status !== 'ADJUSTED' && (
               <div className="pt-3">
                 {!showPaymentForm ? (
                   <Button onClick={() => openPaymentForm(remainingAmount)} icon={IoAddCircleOutline} className="w-full">

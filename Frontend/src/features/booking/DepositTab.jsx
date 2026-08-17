@@ -45,6 +45,10 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
   const [cancellationFee, setCancellationFee] = useState(null);
   const [feeLoading, setFeeLoading] = useState(false);
 
+  // Danh sách chính sách cọc
+  const [policies, setPolicies] = useState([]);
+  const [policyLoading, setPolicyLoading] = useState(false);
+
   // Modal thu cọc
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [recordForm, setRecordForm] = useState({ amount: '', paymentMethod: 'CASH', note: '', shortPaidReason: '' });
@@ -67,8 +71,24 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
   const [actionMsg, setActionMsg] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    if (bookingId) fetchDeposits();
+    if (bookingId) {
+      fetchDeposits();
+      fetchPolicies();
+    }
   }, [bookingId]);
+
+  const fetchPolicies = async () => {
+    setPolicyLoading(true);
+    try {
+      const data = await depositApi.getAllPolicies();
+      setPolicies(data || []);
+    } catch (err) {
+      console.error('Lỗi khi tải chính sách đặt cọc:', err);
+      setPolicies([]);
+    } finally {
+      setPolicyLoading(false);
+    }
+  };
 
   const fetchDeposits = async () => {
     setLoading(true);
@@ -79,6 +99,61 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
       setDeposits([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Xác định chính sách cọc áp dụng cho loại phòng hiện tại
+  const getApplicablePolicy = () => {
+    if (!policies || policies.length === 0) return null;
+    // 1. Tìm chính sách đúng loại phòng
+    if (booking?.roomTypeId != null) {
+      const specific = policies.find(
+        p => p.active !== false && p.roomTypeId != null && String(p.roomTypeId) === String(booking.roomTypeId)
+      );
+      if (specific) return specific;
+    }
+    // 2. Fallback: chính sách chung cho tất cả loại phòng
+    return policies.find(p => p.active !== false && p.roomTypeId == null) || null;
+  };
+
+  const applicablePolicy = getApplicablePolicy();
+
+  // Tự động tính số tiền cọc đề xuất dựa trên chính sách & giá dự kiến
+  const calculateSuggestedDeposit = () => {
+    if (!applicablePolicy || !booking?.expectedPrice) return null;
+    const percent = Number(applicablePolicy.depositPercent) || 0;
+    const expectedPrice = Number(booking.expectedPrice) || 0;
+    if (percent <= 0 || expectedPrice <= 0) return 0;
+    return Math.round((expectedPrice * percent) / 100);
+  };
+
+  const suggestedDepositAmount = calculateSuggestedDeposit();
+
+  const openRecordModal = () => {
+    const suggested = calculateSuggestedDeposit();
+    const initAmount = suggested != null ? String(suggested) : '';
+    setRecordForm({
+      amount: initAmount,
+      paymentMethod: 'CASH',
+      note: '',
+      shortPaidReason: ''
+    });
+    setRecordError('');
+    setShowShortPaidReason(false);
+    setShowRecordModal(true);
+  };
+
+  const handleAmountChange = (val) => {
+    setRecordForm(p => ({ ...p, amount: val }));
+    const numVal = parseFloat(val);
+    if (!isNaN(numVal) && suggestedDepositAmount != null && suggestedDepositAmount > 0) {
+      if (numVal < suggestedDepositAmount) {
+        setShowShortPaidReason(true);
+      } else {
+        if (!recordForm.shortPaidReason) {
+          setShowShortPaidReason(false);
+        }
+      }
     }
   };
 
@@ -189,7 +264,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
           <div className="flex gap-2">
             {canRecord_deposit && (
               <button
-                onClick={() => { setShowRecordModal(true); setRecordError(''); setShowShortPaidReason(false); }}
+                onClick={openRecordModal}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors font-medium"
               >
                 <IoCashOutline size={13} /> Thu tiền cọc
@@ -221,9 +296,17 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
             <IoCashOutline size={36} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">Chưa có khoản đặt cọc nào cho đặt phòng này.</p>
             {canRecord_deposit && (
-              <p className="text-xs mt-1 text-on-surface-variant">
-                Nhấn <strong>Thu tiền cọc</strong> để ghi nhận.
-              </p>
+              <div className="mt-2 space-y-1">
+                {applicablePolicy && (
+                  <p className="text-xs text-primary font-medium">
+                    Chính sách cọc {applicablePolicy.roomTypeName}: {applicablePolicy.depositPercent}%
+                    {suggestedDepositAmount != null && ` (${fmt(suggestedDepositAmount)})`}
+                  </p>
+                )}
+                <p className="text-xs text-on-surface-variant">
+                  Nhấn <strong>Thu tiền cọc</strong> để tự động tính và ghi nhận.
+                </p>
+              </div>
             )}
           </div>
         ) : (
@@ -316,37 +399,72 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
       {/* === Modal Thu tiền cọc (NCL-11-CN-002) === */}
       <Modal isOpen={showRecordModal} onClose={() => setShowRecordModal(false)} title="Thu tiền đặt cọc" maxWidth="max-w-md">
         <div className="space-y-4">
-          {booking?.expectedPrice && (
-            <div className="bg-surface-blue-light border border-primary/20 rounded p-3 text-sm">
-              <p className="text-on-surface font-medium">Tổng tiền phòng dự kiến: <strong>{fmt(booking.expectedPrice)}</strong></p>
-              <p className="text-on-surface-variant text-xs mt-1">Tiền cọc không được vượt quá tổng tiền phòng.</p>
+          {/* Thông tin tiền phòng & Chính sách cọc áp dụng */}
+          <div className="bg-surface-blue-light border border-primary/20 rounded p-3 text-sm space-y-1.5">
+            {booking?.expectedPrice && (
+              <div className="flex justify-between items-center text-on-surface">
+                <span>Tổng tiền phòng dự kiến:</span>
+                <strong>{fmt(booking.expectedPrice)}</strong>
+              </div>
+            )}
+            {applicablePolicy ? (
+              <div className="flex justify-between items-center text-primary font-medium text-xs pt-1 border-t border-primary/10">
+                <span>Chính sách cọc ({applicablePolicy.roomTypeName}):</span>
+                <span className="font-bold text-sm">{applicablePolicy.depositPercent}% ({fmt(suggestedDepositAmount)})</span>
+              </div>
+            ) : (
+              <div className="text-xs text-on-surface-variant italic pt-1 border-t border-border-grey">
+                Không tìm thấy chính sách cọc riêng (Áp dụng mức cọc tự do)
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-sm font-medium text-on-surface">Số tiền đặt cọc (đ)</label>
+              {suggestedDepositAmount != null && recordForm.amount !== String(suggestedDepositAmount) && (
+                <button
+                  type="button"
+                  onClick={() => handleAmountChange(String(suggestedDepositAmount))}
+                  className="text-xs text-primary hover:underline font-semibold"
+                >
+                  ↺ Theo chính sách ({fmt(suggestedDepositAmount)})
+                </button>
+              )}
             </div>
-          )}
-          <Input
-            label="Số tiền đặt cọc (đ)"
-            type="number"
-            min="0"
-            value={recordForm.amount}
-            onChange={e => {
-              setRecordForm(p => ({ ...p, amount: e.target.value }));
-              // Cảnh báo thu thiếu
-              const pct = booking?.expectedPrice;
-              setShowShortPaidReason(false); // reset
-            }}
-            placeholder="VD: 1080000"
-          />
+            <Input
+              type="number"
+              min="0"
+              value={recordForm.amount}
+              onChange={e => handleAmountChange(e.target.value)}
+              placeholder="VD: 500000"
+            />
+          </div>
+
           <Select
             label="Hình thức thanh toán"
             value={recordForm.paymentMethod}
             onChange={e => setRecordForm(p => ({ ...p, paymentMethod: e.target.value }))}
             options={PAYMENT_METHODS}
           />
+
           <Input
             label="Ghi chú (tùy chọn)"
             value={recordForm.note}
             onChange={e => setRecordForm(p => ({ ...p, note: e.target.value }))}
             placeholder="Ghi chú thêm..."
           />
+
+          {/* Cảnh báo thu thiếu so với chính sách & ô nhập lý do */}
+          {suggestedDepositAmount != null && parseFloat(recordForm.amount || 0) < suggestedDepositAmount && (
+            <div className="flex items-start gap-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded p-2.5">
+              <IoWarningOutline size={16} className="mt-0.5 flex-shrink-0 text-amber-600" />
+              <div>
+                Số tiền thu (<strong>{fmt(recordForm.amount || 0)}</strong>) thấp hơn mức chính sách yêu cầu (<strong>{fmt(suggestedDepositAmount)}</strong>). Hệ thống yêu cầu nhập lý do thu thiếu.
+              </div>
+            </div>
+          )}
+
           {/* NCL-11-CN-002-TC-03: Thu thiếu → nhập lý do */}
           <div>
             <label className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
@@ -363,7 +481,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
                 label="Lý do thu thiếu"
                 value={recordForm.shortPaidReason}
                 onChange={e => setRecordForm(p => ({ ...p, shortPaidReason: e.target.value }))}
-                placeholder="VD: Khách xin nộp bổ sung sau..."
+                placeholder="VD: Khách xin nộp bổ sung khi nhận phòng..."
                 className="mt-2"
               />
             )}
