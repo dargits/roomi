@@ -5,6 +5,7 @@ import { IoAddOutline, IoCafeOutline, IoPencilOutline, IoTrashOutline, IoWarning
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { useToast } from '../../context/ToastContext';
 
 const ExtraServiceManagement = () => {
   const { user } = useAuth();
@@ -73,14 +74,18 @@ const ExtraServiceManagement = () => {
     setIsModalOpen(true);
   };
 
+  const { success: toastSuccess, error: toastError } = useToast();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     try {
       if (isEditing) {
         await extraServiceApi.updateService(formData.id, formData);
+        toastSuccess(`Đã cập nhật dịch vụ "${formData.name}" thành công!`);
       } else {
         await extraServiceApi.createService(formData);
+        toastSuccess(`Đã tạo mới dịch vụ "${formData.name}" thành công!`);
       }
       setIsModalOpen(false);
       fetchServices();
@@ -98,11 +103,12 @@ const ExtraServiceManagement = () => {
   const confirmDelete = async () => {
     try {
       await extraServiceApi.deleteService(itemToDelete.id);
+      toastSuccess(`Đã xóa dịch vụ "${itemToDelete.name}" thành công!`);
       setIsDeleteModalOpen(false);
       fetchServices();
     } catch (error) {
       console.error("Delete error", error);
-      alert(error.response?.data?.message || "Lỗi khi xóa dịch vụ.");
+      toastError(error.response?.data?.message || "Lỗi khi xóa dịch vụ.");
     }
   };
 

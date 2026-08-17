@@ -21,10 +21,12 @@ import AssignRoomModal from './AssignRoomModal';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 
 const BookingList = ({ onEditBooking }) => {
   const { user } = useAuth();
+  const { success: toastSuccess } = useToast();
   const isAccountant = user?.role === 'ACCOUNTANT';
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,15 @@ const BookingList = ({ onEditBooking }) => {
     setLoading(true);
     try {
       const data = await bookingApi.getAllBookings();
-      setBookings(data || []);
+      // Sắp xếp người mới (đặt gần nhất / ID cao nhất) lên trên đầu
+      const sorted = (data || []).sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          const diff = new Date(b.createdAt) - new Date(a.createdAt);
+          if (diff !== 0) return diff;
+        }
+        return (b.id || 0) - (a.id || 0);
+      });
+      setBookings(sorted);
     } catch (error) {
       console.error("Failed to fetch bookings", error);
     } finally {
@@ -105,19 +115,24 @@ const BookingList = ({ onEditBooking }) => {
       let res;
       switch(actionType) {
         case 'CHECK_IN': 
-          await bookingApi.checkIn(booking.id, idNumberInput.trim()); 
+          await bookingApi.checkIn(booking.id, idNumberInput.trim());
+          toastSuccess(`Đã Check-in thành công cho khách ${booking.guestName}!`);
           break;
         case 'CHECK_OUT': 
-          await bookingApi.checkOut(booking.id); 
+          await bookingApi.checkOut(booking.id);
+          toastSuccess(`Đã Check-out thành công cho khách ${booking.guestName}!`);
           break;
         case 'CANCEL': 
           res = await bookingApi.cancelBooking(booking.id); 
           if (res?.cancellationFee > 0) {
-            alert(`Đã hủy đặt phòng thành công. Phí hủy áp dụng: ${formatCurrency(res.cancellationFee)}`);
+            toastSuccess(`Đã hủy đặt phòng thành công. Phí hủy áp dụng: ${formatCurrency(res.cancellationFee)}`);
+          } else {
+            toastSuccess(`Đã hủy đặt phòng thành công!`);
           }
           break;
         case 'NO_SHOW': 
-          await bookingApi.noShow(booking.id); 
+          await bookingApi.noShow(booking.id);
+          toastSuccess(`Đã đánh dấu khách vắng mặt (No-Show)!`);
           break;
       }
       closeActionModal();

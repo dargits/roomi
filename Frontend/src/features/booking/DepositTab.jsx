@@ -10,10 +10,11 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
+import { useToast } from '../../context/ToastContext';
 
 const PAYMENT_METHODS = [
   { value: 'CASH', label: 'Tiền mặt' },
-  { value: 'BANK_TRANSFER', label: 'Chuyển khoản' },
+  { value: 'TRANSFER', label: 'Chuyển khoản' },
 ];
 
 const STATUS_LABELS = {
@@ -37,6 +38,7 @@ const fmt = (n) => n != null ? Number(n).toLocaleString('vi-VN') + 'đ' : '—';
  */
 const DepositTab = ({ bookingId, booking, onRefresh }) => {
   const { user } = useAuth();
+  const { success: toastSuccess, error: toastError } = useToast();
   const isOwner = user?.role === 'OWNER' || user?.role === 'ADMIN';
   const canRecord = ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(user?.role);
 
@@ -187,6 +189,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
         shortPaidReason: recordForm.shortPaidReason || undefined
       });
       setShowRecordModal(false);
+      toastSuccess(`Đã ghi nhận tiền đặt cọc ${fmt(amount)} (${recordForm.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}) thành công!`);
       setActionMsg({ type: 'success', text: 'Đã ghi nhận tiền cọc thành công.' });
       fetchDeposits();
       onRefresh?.();
@@ -203,6 +206,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
     try {
       await depositApi.refundDeposit(bookingId, { reason: refundReason });
       setShowRefundModal(false);
+      toastSuccess('Đã xử lý hoàn tiền cọc thành công!');
       setActionMsg({ type: 'success', text: 'Đã xử lý hoàn tiền cọc.' });
       fetchDeposits();
     } catch (err) {
@@ -222,6 +226,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
       }
       await depositApi.noShowDeposit(bookingId, payload);
       setShowNoShowModal(false);
+      toastSuccess('Đã xử lý phạt tiền cọc khách vắng mặt (No-Show)!');
       setActionMsg({ type: 'success', text: 'Đã chuyển toàn bộ tiền cọc thành phí phạt no-show.' });
       fetchDeposits();
     } catch (err) {

@@ -7,6 +7,7 @@ import PublicBookingModal from '../landing/PublicBookingModal';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { toast } from '../../context/ToastContext';
 import { 
   IoCalendarOutline, 
   IoSearchOutline, 
@@ -69,11 +70,11 @@ const RoomsPage = () => {
   const handleSearchAvailability = async (e) => {
     e.preventDefault();
     if (!checkInDate || !checkOutDate) {
-      alert("Vui lòng chọn ngày nhận phòng và trả phòng!");
+      toast.warning("Vui lòng chọn ngày nhận phòng và trả phòng!", "Chưa chọn ngày");
       return;
     }
     if (new Date(checkOutDate) <= new Date(checkInDate)) {
-      alert("Ngày trả phòng phải sau ngày nhận phòng!");
+      toast.warning("Ngày trả phòng phải sau ngày nhận phòng!", "Ngày không hợp lệ");
       return;
     }
 

@@ -7,6 +7,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
+import { useToast, useConfirm } from '../../context/ToastContext';
 
 const StaffManagement = () => {
   const { user: currentUser } = useAuth();
@@ -152,26 +153,37 @@ const StaffManagement = () => {
     }
   };
 
+  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
+  const confirm = useConfirm();
+
   const handleToggleLock = async (u) => {
     if (u.id === currentUser?.id) {
-      alert("Bạn không thể khóa chính mình!");
+      toastWarning("Bạn không thể khóa chính mình!", "Không được phép");
       return;
     }
 
-    const confirmMsg = u.active ? `Bạn có chắc muốn KHÓA tài khoản ${u.account}?` : `Mở khóa tài khoản ${u.account}?`;
-    if (!window.confirm(confirmMsg)) return;
+    const isLocking = u.active;
+    const isConfirmed = await confirm({
+      title: isLocking ? 'Xác nhận khóa tài khoản' : 'Xác nhận mở khóa tài khoản',
+      message: isLocking 
+        ? `Bạn có chắc chắn muốn KHÓA tài khoản "${u.account}" (${u.fullName})? Nhân viên này sẽ không thể đăng nhập.`
+        : `Mở khóa và cho phép tài khoản "${u.account}" (${u.fullName}) đăng nhập lại vào hệ thống?`,
+      confirmText: isLocking ? 'Khóa tài khoản' : 'Mở khóa',
+      type: isLocking ? 'danger' : 'info'
+    });
+    if (!isConfirmed) return;
 
     try {
       if (u.active) {
         await userApi.lockUser(u.id);
-        showActionMessage('success', 'Đã khóa tài khoản!');
+        toastSuccess('Đã khóa tài khoản thành công!');
       } else {
         await userApi.unlockUser(u.id);
-        showActionMessage('success', 'Đã mở khóa tài khoản!');
+        toastSuccess('Đã mở khóa tài khoản thành công!');
       }
       fetchUsers();
     } catch (error) {
-      showActionMessage('error', 'Lỗi thao tác.');
+      toastError('Có lỗi xảy ra khi thao tác tài khoản.');
     }
   };
 
@@ -179,9 +191,9 @@ const StaffManagement = () => {
     if (error.response && error.response.status === 400 && error.response.data) {
       setErrors(error.response.data);
     } else if (error.response && error.response.status === 409) {
-      alert(error.response.data.message || 'Dữ liệu đã tồn tại.');
+      toastError(error.response.data.message || 'Dữ liệu đã tồn tại.');
     } else {
-      alert('Đã xảy ra lỗi.');
+      toastError('Đã xảy ra lỗi. Vui lòng thử lại.');
     }
   };
 

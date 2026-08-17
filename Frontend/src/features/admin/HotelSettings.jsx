@@ -5,6 +5,7 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
 import Modal from '../../components/ui/Modal';
+import { useToast } from '../../context/ToastContext';
 
 const HotelSettings = () => {
   const [settings, setSettings] = useState({
@@ -58,6 +59,8 @@ const HotelSettings = () => {
     }
   };
 
+  const { success: toastSuccess, error: toastError } = useToast();
+
   const handleImageUpload = async (e) => {
     if (e.target.files && e.target.files[0]) {
       setIsUploading(true);
@@ -67,9 +70,10 @@ const HotelSettings = () => {
         const res = await fileApi.uploadFile(e.target.files[0], setUploadProgress);
         setSettings(prev => ({ ...prev, homeImage: res.url }));
         if (errors.homeImage) setErrors(prev => ({ ...prev, homeImage: null }));
+        toastSuccess('Tải ảnh đại diện khách sạn thành công!');
       } catch (err) {
         console.error('Upload failed', err);
-        alert('Lỗi tải ảnh lên. Vui lòng thử lại.');
+        toastError('Lỗi tải ảnh lên. Vui lòng thử lại.');
       } finally {
         setIsUploading(false);
         setUploadProgress(0);
@@ -97,6 +101,7 @@ const HotelSettings = () => {
       };
 
       await hotelSettingApi.updateSetting(payload);
+      toastSuccess('Cấu hình khách sạn đã được lưu thành công!');
       setMessage({ type: 'success', text: 'Cấu hình đã được lưu thành công!' });
 
       // Auto-hide success message after 3 seconds
@@ -107,6 +112,7 @@ const HotelSettings = () => {
         setErrors(error.response.data);
         setMessage({ type: 'error', text: 'Vui lòng kiểm tra lại thông tin nhập.' });
       } else {
+        toastError(error.response?.data?.message || 'Có lỗi xảy ra khi lưu cấu hình.');
         setMessage({ type: 'error', text: error.response?.data?.message || 'Lỗi khi cập nhật cấu hình.' });
       }
     } finally {

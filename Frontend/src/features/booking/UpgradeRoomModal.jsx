@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import bookingApi from '../../services/bookingApi';
+import { useToast } from '../../context/ToastContext';
 
 const fmt = (n) => n != null ? Number(n).toLocaleString('vi-VN') + 'đ' : '—';
 
@@ -22,6 +23,7 @@ const fmt = (n) => n != null ? Number(n).toLocaleString('vi-VN') + 'đ' : '—';
  * - Backend tự động xác minh phòng trống trọn vẹn và cập nhật trạng thái phòng cũ (DIRTY) / mới (OCCUPIED)
  */
 const UpgradeRoomModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) => {
+  const { success: toastSuccess } = useToast();
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedRoomType, setSelectedRoomType] = useState(null);
@@ -75,7 +77,7 @@ const UpgradeRoomModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) =>
         newRoomTypeId: selectedRoomType.id,
         reason: reason.trim() || undefined
       });
-      alert(`Chuyển hạng phòng thành công sang ${selectedRoomType.name}${res?.roomNumber ? ` (Phòng mới: ${res.roomNumber})` : ''}!`);
+      toastSuccess(`Chuyển hạng phòng thành công sang ${selectedRoomType.name}${res?.roomNumber ? ` (Phòng mới: ${res.roomNumber})` : ''}!`);
       onSuccess?.();
       onClose();
     } catch (err) {

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
 import { AppConfigProvider } from '../context/AppConfigContext';
+import { ToastProvider } from '../context/ToastContext';
 
 // Public pages
 import LandingPage from '../features/landing/LandingPage';
@@ -45,86 +46,88 @@ const AppRoutes = () => {
   return (
     <AppConfigProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* === Public routes === */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/rooms" element={<RoomsPage />} />
-            <Route path="/amenities" element={<AmenitiesPage />} />
-            <Route path="/promotions" element={<PromotionsPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/login" element={<LoginPage />} />
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* === Public routes === */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/rooms" element={<RoomsPage />} />
+              <Route path="/amenities" element={<AmenitiesPage />} />
+              <Route path="/promotions" element={<PromotionsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Redirect old /admin & /dashboard paths */}
-            <Route path="/admin" element={<Navigate to="/manage/dashboard" replace />} />
-            <Route path="/admin/*" element={<Navigate to="/manage/dashboard" replace />} />
-            <Route path="/dashboard" element={<Navigate to="/manage/dashboard" replace />} />
-            <Route path="/bookings" element={<Navigate to="/manage/bookings" replace />} />
-            <Route path="/housekeeping" element={<Navigate to="/manage/housekeeping" replace />} />
-            <Route path="/reports" element={<Navigate to="/manage/reports" replace />} />
-            <Route path="/manage" element={<Navigate to="/manage/dashboard" replace />} />
+              {/* Redirect old /admin & /dashboard paths */}
+              <Route path="/admin" element={<Navigate to="/manage/dashboard" replace />} />
+              <Route path="/admin/*" element={<Navigate to="/manage/dashboard" replace />} />
+              <Route path="/dashboard" element={<Navigate to="/manage/dashboard" replace />} />
+              <Route path="/bookings" element={<Navigate to="/manage/bookings" replace />} />
+              <Route path="/housekeeping" element={<Navigate to="/manage/housekeeping" replace />} />
+              <Route path="/reports" element={<Navigate to="/manage/reports" replace />} />
+              <Route path="/manage" element={<Navigate to="/manage/dashboard" replace />} />
 
-            {/* === Protected /manage Routes === */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<DashboardLayout />}>
-                {/* Tổng quan */}
-                <Route path="/manage/dashboard" element={<DashboardPage />} />
+              {/* === Protected /manage Routes === */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<DashboardLayout />}>
+                  {/* Tổng quan */}
+                  <Route path="/manage/dashboard" element={<DashboardPage />} />
 
-                {/* Đặt phòng — OWNER / RECEPTIONIST */}
-                <Route path="/manage/bookings" element={<BookingManagement />} />
+                  {/* Đặt phòng — OWNER / RECEPTIONIST */}
+                  <Route path="/manage/bookings" element={<BookingManagement />} />
 
-                {/* Phòng */}
-                <Route path="/manage/rooms" element={<RoomManagement />} />
+                  {/* Phòng */}
+                  <Route path="/manage/rooms" element={<RoomManagement />} />
 
-                {/* Loại phòng — OWNER */}
-                <Route path="/manage/room-types" element={<RoomTypeManagement />} />
+                  {/* Loại phòng — OWNER */}
+                  <Route path="/manage/room-types" element={<RoomTypeManagement />} />
 
-                {/* Khách hàng — OWNER / RECEPTIONIST */}
-                <Route path="/manage/guests" element={<GuestManagement />} />
+                  {/* Khách hàng — OWNER / RECEPTIONIST */}
+                  <Route path="/manage/guests" element={<GuestManagement />} />
 
-                {/* Dịch vụ phụ thu — OWNER */}
-                <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
+                  {/* Dịch vụ phụ thu — OWNER */}
+                  <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
 
-                {/* Buồng phòng — OWNER / HOUSEKEEPER / RECEPTIONIST */}
-                <Route path="/manage/housekeeping" element={<HousekeepingPage />} />
+                  {/* Buồng phòng — OWNER / HOUSEKEEPER / RECEPTIONIST */}
+                  <Route path="/manage/housekeeping" element={<HousekeepingPage />} />
 
-                {/* Báo cáo — OWNER / ACCOUNTANT */}
-                <Route path="/manage/reports" element={<ReportsPage />} />
+                  {/* Báo cáo — OWNER / ACCOUNTANT */}
+                  <Route path="/manage/reports" element={<ReportsPage />} />
 
-                {/* Lịch sử hoạt động — OWNER / ADMIN */}
-                <Route path="/manage/audit-logs" element={<ActivityLog />} />
+                  {/* Lịch sử hoạt động — OWNER / ADMIN */}
+                  <Route path="/manage/audit-logs" element={<ActivityLog />} />
 
-                {/* Nhân sự — OWNER / ADMIN */}
-                <Route path="/manage/staff" element={<StaffManagement />} />
+                  {/* Nhân sự — OWNER / ADMIN */}
+                  <Route path="/manage/staff" element={<StaffManagement />} />
 
-                {/* Cài đặt khách sạn — OWNER */}
-                <Route path="/manage/settings" element={<HotelSettings />} />
+                  {/* Cài đặt khách sạn — OWNER */}
+                  <Route path="/manage/settings" element={<HotelSettings />} />
 
-                {/* Sao lưu & CSV — OWNER / ADMIN */}
-                <Route path="/manage/backup" element={<BackupDataPage />} />
+                  {/* Sao lưu & CSV — OWNER / ADMIN */}
+                  <Route path="/manage/backup" element={<BackupDataPage />} />
 
-                {/* Kho đồ dùng — OWNER */}
-                <Route path="/manage/inventory" element={<InventoryManagement />} />
+                  {/* Kho đồ dùng — OWNER */}
+                  <Route path="/manage/inventory" element={<InventoryManagement />} />
 
-                {/* Khách hàng thân thiết — OWNER */}
-                <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
+                  {/* Khách hàng thân thiết — OWNER */}
+                  <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
 
-                {/* Chính sách đặt cọc — NCL-11 */}
-                <Route path="/manage/deposit-policies" element={<DepositPolicyPage />} />
+                  {/* Chính sách đặt cọc — NCL-11 */}
+                  <Route path="/manage/deposit-policies" element={<DepositPolicyPage />} />
 
-                {/* Kiểm soát đồng thời & Minh chứng — NCL-03 */}
-                <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />
+                  {/* Kiểm soát đồng thời & Minh chứng — NCL-03 */}
+                  <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />
 
-                {/* Hồ sơ cá nhân */}
-                <Route path="/manage/profile" element={<ProfileSettings />} />
+                  {/* Hồ sơ cá nhân */}
+                  <Route path="/manage/profile" element={<ProfileSettings />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Catch-all fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+              {/* Catch-all fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
       </AuthProvider>
     </AppConfigProvider>
   );

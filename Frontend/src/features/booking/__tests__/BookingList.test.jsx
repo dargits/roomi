@@ -85,4 +85,24 @@ describe('BookingList Component', () => {
     expect(screen.getByText(/1 đêm/)).toBeInTheDocument();
     expect(screen.getByText(/2 đêm/)).toBeInTheDocument();
   });
+
+  it('orders newest bookings first (descending by id / createdAt)', async () => {
+    bookingApi.getAllBookings.mockResolvedValue(mockBookings);
+
+    const { container } = render(
+      <AuthProvider>
+        <BookingList />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Trần Thị Mai')).toBeInTheDocument();
+    });
+
+    const rows = container.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(2);
+    // id 2 (Trần Thị Mai) should be first row, id 1 (Phạm Văn Mạnh) should be second row
+    expect(rows[0].textContent).toContain('Trần Thị Mai');
+    expect(rows[1].textContent).toContain('Phạm Văn Mạnh');
+  });
 });

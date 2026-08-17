@@ -62,7 +62,8 @@ const GuestManagement = () => {
     setLoading(true);
     try {
       const data = await guestApi.searchGuests(debouncedSearch);
-      setGuests(data);
+      const sorted = (data || []).sort((a, b) => (b.id || 0) - (a.id || 0));
+      setGuests(sorted);
     } catch (error) {
       console.error("Failed to fetch guests", error);
     } finally {

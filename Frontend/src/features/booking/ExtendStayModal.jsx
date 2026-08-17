@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import bookingApi from '../../services/bookingApi';
+import { useToast } from '../../context/ToastContext';
 
 const fmt = (n) => n != null ? Number(n).toLocaleString('vi-VN') + 'đ' : '—';
 
@@ -20,6 +21,7 @@ const fmt = (n) => n != null ? Number(n).toLocaleString('vi-VN') + 'đ' : '—';
  * - Cảnh báo và ngăn chặn nếu phòng bị vướng lịch booking khác
  */
 const ExtendStayModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) => {
+  const { success: toastSuccess } = useToast();
   const [nights, setNights] = useState('1');
   const [availability, setAvailability] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -27,14 +29,15 @@ const ExtendStayModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) => 
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
 
+  // Reset state when opened
   useEffect(() => {
-    if (isOpen && bookingId) {
+    if (isOpen) {
       setNights('1');
+      setAvailability(null);
       setError('');
       setNote('');
-      checkNights(1);
     }
-  }, [isOpen, bookingId]);
+  }, [isOpen]);
 
   const checkNights = async (numNights) => {
     const n = parseInt(numNights);
@@ -77,7 +80,7 @@ const ExtendStayModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) => 
         additionalNights: n,
         note: note.trim() || undefined
       });
-      alert(`Gia hạn thành công thêm ${n} đêm! Ngày trả phòng mới: ${availability.newCheckOutDate}`);
+      toastSuccess(`Gia hạn thành công thêm ${n} đêm! Ngày trả phòng mới: ${availability.newCheckOutDate}`);
       onSuccess?.();
       onClose();
     } catch (err) {

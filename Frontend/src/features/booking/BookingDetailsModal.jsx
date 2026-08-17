@@ -11,8 +11,10 @@ import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
+import { useToast } from '../../context/ToastContext';
 
 const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
+  const { success: toastSuccess } = useToast();
   const [activeTab, setActiveTab] = useState('info'); // info, services, invoice, deposit
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
       await bookingApi.changeRoom(bookingId, selectedNewRoom.id);
       setShowChangeRoom(false);
       await fetchBookingDetails();
-      alert(`Đổi sang Phòng ${selectedNewRoom.roomNumber} (${booking?.roomTypeName}) thành công!`);
+      toastSuccess(`Đổi sang Phòng ${selectedNewRoom.roomNumber} (${booking?.roomTypeName}) thành công!`);
     } catch (err) {
       setChangeRoomError(err.response?.data?.message || 'Không thể đổi phòng. Vui lòng thử lại.');
     } finally {

@@ -4,8 +4,10 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { roomApi } from '../../services/roomApi';
 import bookingApi from '../../services/bookingApi';
+import { useToast } from '../../context/ToastContext';
 
 const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned }) => {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoomId, setSelectedRoomId] = useState('');
@@ -23,10 +25,11 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
       // Gọi API lấy toàn bộ phòng AVAILABLE
       const allRooms = await roomApi.getAllRooms('AVAILABLE');
       // Lọc các phòng khớp với roomTypeId của booking
-      const suitableRooms = allRooms.filter(r => r.roomTypeId === roomTypeId);
-      setRooms(suitableRooms);
-      if (suitableRooms.length > 0) {
-        setSelectedRoomId(suitableRooms[0].id);
+      if (roomTypeId) {
+        const filtered = allRooms.filter(r => r.roomTypeId === Number(roomTypeId));
+        setRooms(filtered);
+      } else {
+        setRooms(allRooms);
       }
     } catch (error) {
       console.error("Lỗi lấy danh sách phòng trống", error);
@@ -40,10 +43,11 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
     setProcessing(true);
     try {
       await bookingApi.assignRoom(bookingId, selectedRoomId);
+      toastSuccess("Xếp phòng thành công!");
       onAssigned();
       onClose();
     } catch (error) {
-      alert("Lỗi xếp phòng: " + (error.response?.data?.message || "Đã xảy ra lỗi"));
+      toastError(error.response?.data?.message || "Lỗi xếp phòng");
     } finally {
       setProcessing(false);
     }
