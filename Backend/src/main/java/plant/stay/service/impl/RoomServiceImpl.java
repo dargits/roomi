@@ -105,6 +105,16 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     @Transactional
+    public RoomResponse markDirty(Long id, User actor) {
+        Room room = findById(id);
+        room.setStatus(RoomStatus.DIRTY);
+        room = roomRepository.save(room);
+        auditLogService.log("Room", room.getId(), "MARK_DIRTY", actor, "Đánh dấu phòng " + room.getRoomNumber() + " cần dọn dẹp");
+        return toResponse(room);
+    }
+
+    @Override
+    @Transactional
     public RoomResponse setMaintenance(Long id, User actor) {
         Room room = findById(id);
         room.setStatus(RoomStatus.MAINTENANCE);
