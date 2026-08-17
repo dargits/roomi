@@ -16,5 +16,6 @@ public interface RoomService {
     RoomResponse update(Long id, RoomRequest request, User actor);
     MessageResponse delete(Long id);
     RoomResponse markClean(Long id, User actor);
+    RoomResponse markDirty(Long id, User actor);
     RoomResponse setMaintenance(Long id, User actor);
 }

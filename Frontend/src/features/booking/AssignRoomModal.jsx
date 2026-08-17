@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IoCheckmarkOutline, IoCloseOutline } from 'react-icons/io5';
+import { IoCheckmarkOutline, IoBedOutline, IoAlertCircleOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { roomApi } from '../../services/roomApi';
@@ -17,22 +17,27 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
     if (isOpen) {
       fetchRooms();
     }
-  }, [isOpen]);
+  }, [isOpen, roomTypeId]);
 
   const fetchRooms = async () => {
     setLoading(true);
     try {
       // Gọi API lấy toàn bộ phòng AVAILABLE
       const allRooms = await roomApi.getAllRooms('AVAILABLE');
-      // Lọc các phòng khớp với roomTypeId của booking
-      if (roomTypeId) {
-        const filtered = allRooms.filter(r => r.roomTypeId === Number(roomTypeId));
-        setRooms(filtered);
+      // Lọc các phòng khớp với roomTypeId của booking (nếu có)
+      const filtered = (roomTypeId && Array.isArray(allRooms))
+        ? allRooms.filter(r => Number(r.roomTypeId) === Number(roomTypeId))
+        : (Array.isArray(allRooms) ? allRooms : []);
+
+      setRooms(filtered);
+      if (filtered.length > 0) {
+        setSelectedRoomId(String(filtered[0].id));
       } else {
-        setRooms(allRooms);
+        setSelectedRoomId('');
       }
     } catch (error) {
       console.error("Lỗi lấy danh sách phòng trống", error);
+      toastError("Không thể tải danh sách phòng khả dụng");
     } finally {
       setLoading(false);
     }
@@ -44,7 +49,7 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
     try {
       await bookingApi.assignRoom(bookingId, selectedRoomId);
       toastSuccess("Xếp phòng thành công!");
-      onAssigned();
+      if (onAssigned) onAssigned();
       onClose();
     } catch (error) {
       toastError(error.response?.data?.message || "Lỗi xếp phòng");
@@ -57,45 +62,78 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Xếp Phòng Khách Sạn" maxWidth="max-w-md">
-      <div className="p-2">
-        <p className="text-body-md text-on-surface-variant mb-4">
-          Vui lòng chọn một phòng trống phù hợp với loại phòng khách đã đặt.
+      <div className="p-1 space-y-4">
+        <p className="text-body-md text-on-surface-variant text-xs leading-relaxed">
+          Chọn một phòng trống khả dụng (trạng thái Sẵn sàng) để gán cho đơn đặt phòng này:
         </p>
 
         {loading ? (
-          <div className="text-center p-4">Đang tải danh sách phòng...</div>
+          <div className="flex flex-col items-center justify-center py-8 space-y-3">
+            <span className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-on-surface-variant">Đang tải danh sách phòng trống...</p>
+          </div>
         ) : rooms.length === 0 ? (
-          <div className="text-center p-4 text-error bg-red-50 rounded border border-red-100">
-            Không có phòng trống nào thuộc loại phòng này!
+          <div className="p-5 text-center bg-red-50/70 border border-red-200 rounded-2xl space-y-2">
+            <IoAlertCircleOutline size={28} className="text-red-500 mx-auto" />
+            <p className="text-xs font-semibold text-red-800">
+              Không có phòng trống nào thuộc loại phòng này!
+            </p>
+            <p className="text-[11px] text-red-600">
+              Tất cả phòng thuộc hạng phòng này đang có khách hoặc đang chờ dọn dẹp.
+            </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex flex-col">
-              <label className="font-label-md text-on-surface mb-2">Chọn phòng trống</label>
-              <select 
-                value={selectedRoomId} 
-                onChange={(e) => setSelectedRoomId(e.target.value)}
-                className="w-full px-4 py-3 bg-surface-container-lowest border border-outline rounded-lg text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
-                {rooms.map(room => (
-                  <option key={room.id} value={room.id}>
-                    Phòng {room.roomNumber} - {room.floor}
-                  </option>
-                ))}
-              </select>
+          <div className="space-y-3">
+            <label className="block font-label-md text-on-surface text-xs font-medium">
+              Danh sách phòng trống ({rooms.length} phòng)
+            </label>
+            <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+              {rooms.map(room => {
+                const isSelected = String(selectedRoomId) === String(room.id);
+                return (
+                  <button
+                    key={room.id}
+                    type="button"
+                    onClick={() => setSelectedRoomId(String(room.id))}
+                    className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                      isSelected 
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                        : 'border-border-grey bg-white hover:bg-surface-container-low'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-primary text-white' : 'bg-surface-container-low text-on-surface-variant'}`}>
+                        <IoBedOutline size={16} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-xs text-on-surface">Phòng {room.roomNumber}</p>
+                        <p className="text-[11px] text-on-surface-variant">Tầng {room.floor || '—'} • {room.roomTypeName || 'Tiêu chuẩn'}</p>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        <div className="flex justify-end gap-3 mt-6">
-          <Button variant="ghost" onClick={onClose} disabled={processing}>Hủy</Button>
+        <div className="flex justify-end gap-2 pt-4 border-t border-border-grey">
+          <Button variant="ghost" onClick={onClose} disabled={processing} size="sm">
+            Hủy
+          </Button>
           <Button 
             onClick={handleAssign} 
             disabled={rooms.length === 0 || !selectedRoomId || processing} 
             isLoading={processing}
             icon={IoCheckmarkOutline}
+            size="sm"
           >
-            Lưu
+            Xác nhận xếp phòng
           </Button>
         </div>
       </div>
@@ -104,3 +142,4 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
 };
 
 export default AssignRoomModal;
+
