@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { roomApi } from '../../services/roomApi';
 import { useAuth } from '../../context/AuthContext';
+import { useToast, useConfirm } from '../../context/ToastContext';
 import { IoBrushOutline, IoCheckmarkCircleOutline, IoLogOutOutline, IoRefreshOutline, IoTimeOutline, IoWarningOutline } from 'react-icons/io5';
 
 const getStatusColor = (status) => {
@@ -29,19 +30,20 @@ const getStatusLabel = (status) => {
  */
 const CleaningTaskList = ({ onRoomCleaned }) => {
   const { user } = useAuth();
+  const { success, error } = useToast();
+  const confirm = useConfirm();
   const [dirtyRooms, setDirtyRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState(null);
-  const [error, setError] = useState(null);
+
+  const canMarkClean = ['OWNER', 'HOUSEKEEPER', 'RECEPTIONIST'].includes(user?.role);
 
   const fetchDirtyRooms = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const data = await roomApi.getAllRooms('DIRTY');
+      const data = await roomApi.getRoomsByStatus('DIRTY');
       setDirtyRooms(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Không thể tải danh sách phòng. Vui lòng thử lại.');
       console.error('Fetch dirty rooms error:', err);
     } finally {
       setLoading(false);
@@ -53,14 +55,22 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
   }, []);
 
   const handleMarkClean = async (room) => {
-    if (!window.confirm(`Xác nhận đánh dấu Phòng ${room.roomNumber} đã được dọn sạch?`)) return;
+    const isConfirmed = await confirm({
+      title: 'Xác nhận dọn phòng',
+      message: `Xác nhận đánh dấu Phòng ${room.roomNumber} đã được dọn sạch?`,
+      confirmText: 'Hoàn thành dọn phòng',
+      type: 'info'
+    });
+    if (!isConfirmed) return;
+
     setProcessingId(room.id);
     try {
       await roomApi.markRoomClean(room.id);
+      success(`Đã cập nhật Phòng ${room.roomNumber} sang trạng thái Sạch sẽ!`);
       setDirtyRooms((prev) => prev.filter((r) => r.id !== room.id));
       if (onRoomCleaned) onRoomCleaned();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái phòng.');
+      error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái phòng.');
     } finally {
       setProcessingId(null);
     }

@@ -26,18 +26,22 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final BookingRepository bookingRepository;
     private final BookingServiceUsageRepository usageRepository;
     private final PaymentRepository paymentRepository;
+    private final DepositRepository depositRepository;
     private final AuditLogService auditLogService;
 
     @Override
+    @Transactional
     public InvoiceResponse getByBooking(Long bookingId) {
         return invoiceRepository.findByBookingId(bookingId)
+                .map(this::syncInvoiceStatus)
                 .map(this::toResponse)
                 .orElse(null);
     }
 
     @Override
+    @Transactional
     public InvoiceResponse getById(Long invoiceId) {
-        return toResponse(findById(invoiceId));
+        return toResponse(syncInvoiceStatus(findById(invoiceId)));
     }
 
     @Override
@@ -78,8 +82,39 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .createdBy(actor)
                 .build();
         invoice = invoiceRepository.save(invoice);
+
+        // Tự động khấu trừ tiền đặt cọc đã thu trước đó thành một lượt thanh toán của hóa đơn
+        List<Deposit> deposits = depositRepository.findByBookingIdOrderByCreatedAtDesc(bookingId);
+        for (Deposit deposit : deposits) {
+            if (deposit.getStatus() == DepositStatus.COLLECTED || deposit.getStatus() == DepositStatus.SHORT_PAID) {
+                BigDecimal effectiveDeposit = deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
+                if (deposit.getRefundedAmount() != null) {
+                    effectiveDeposit = effectiveDeposit.subtract(deposit.getRefundedAmount());
+                }
+                if (effectiveDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                    Payment depositPayment = Payment.builder()
+                            .invoice(invoice)
+                            .amount(effectiveDeposit)
+                            .method(deposit.getPaymentMethod() != null ? deposit.getPaymentMethod() : PaymentMethod.CASH)
+                            .paidAt(deposit.getCollectedAt() != null ? deposit.getCollectedAt() : LocalDateTime.now())
+                            .collectedBy(deposit.getCollectedBy() != null ? deposit.getCollectedBy() : actor)
+                            .note("Trừ tiền đặt cọc đã thu (Mã cọc #" + deposit.getId() + ")")
+                            .build();
+                    paymentRepository.save(depositPayment);
+                }
+            }
+        }
+
+        // Kiểm tra nếu tổng thanh toán (bao gồm cọc) đã đủ thì chuyển sang PAID
+        BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            invoice = invoiceRepository.save(invoice);
+        }
+
         auditLogService.log("Invoice", invoice.getId(), "CREATE", actor,
-                "Lập hóa đơn cho booking #" + bookingId);
+                "Lập hóa đơn cho booking #" + bookingId + (totalPaid.compareTo(BigDecimal.ZERO) > 0 ? " (đã khấu trừ " + totalPaid + "đ cọc)" : ""));
         return toResponse(invoice);
     }
 
@@ -159,6 +194,48 @@ public class InvoiceServiceImpl implements InvoiceService {
         findById(invoiceId);
         return paymentRepository.findByInvoiceId(invoiceId).stream()
                 .map(this::toPaymentResponse).collect(Collectors.toList());
+    }
+
+    private Invoice syncInvoiceStatus(Invoice invoice) {
+        if (invoice == null || invoice.getStatus() != InvoiceStatus.PENDING) {
+            return invoice;
+        }
+
+        // 1. Kiểm tra xem cọc đã được tạo thành Payment chưa
+        boolean hasDepositPayment = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                .anyMatch(p -> p.getNote() != null && (p.getNote().contains("đặt cọc") || p.getNote().contains("cọc") || p.getNote().contains("Deposit")));
+
+        if (!hasDepositPayment && invoice.getBooking() != null) {
+            List<Deposit> deposits = depositRepository.findByBookingIdOrderByCreatedAtDesc(invoice.getBooking().getId());
+            for (Deposit d : deposits) {
+                if (d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID) {
+                    BigDecimal effectiveDeposit = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                    if (d.getRefundedAmount() != null) effectiveDeposit = effectiveDeposit.subtract(d.getRefundedAmount());
+                    if (d.getPenaltyAmount() != null) effectiveDeposit = effectiveDeposit.subtract(d.getPenaltyAmount());
+                    if (effectiveDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                        Payment depositPayment = Payment.builder()
+                                .invoice(invoice)
+                                .amount(effectiveDeposit)
+                                .method(d.getPaymentMethod() != null ? d.getPaymentMethod() : PaymentMethod.CASH)
+                                .paidAt(d.getCollectedAt() != null ? d.getCollectedAt() : LocalDateTime.now())
+                                .collectedBy(d.getCollectedBy() != null ? d.getCollectedBy() : invoice.getCreatedBy())
+                                .note("Trừ tiền đặt cọc đã thu (Mã cọc #" + d.getId() + ")")
+                                .build();
+                        paymentRepository.save(depositPayment);
+                    }
+                }
+            }
+        }
+
+        // 2. Tính tổng thanh toán từ tất cả Payment
+        BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            return invoiceRepository.save(invoice);
+        }
+        return invoice;
     }
 
     private Invoice findById(Long id) {

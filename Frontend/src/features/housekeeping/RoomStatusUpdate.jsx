@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { roomApi } from '../../services/roomApi';
 import { useAuth } from '../../context/AuthContext';
+import { useToast, useConfirm } from '../../context/ToastContext';
 import { IoBrushOutline, IoCheckmarkCircleOutline, IoConstructOutline, IoFilterOutline, IoLogOutOutline, IoPeopleOutline, IoRefreshOutline } from 'react-icons/io5';
 import Select from '../../components/ui/Select';
 
@@ -26,9 +27,11 @@ const STATUS_CONFIG = {
  */
 const RoomStatusUpdate = () => {
   const { user } = useAuth();
+  const { success, error } = useToast();
+  const confirm = useConfirm();
   const [rooms, setRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('DIRTY');
+  const [loading, setLoading] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('');
   const [processingId, setProcessingId] = useState(null);
 
   const canMarkClean = ['OWNER', 'HOUSEKEEPER', 'RECEPTIONIST'].includes(user?.role);
@@ -36,7 +39,7 @@ const RoomStatusUpdate = () => {
   const fetchRooms = async () => {
     setLoading(true);
     try {
-      const data = await roomApi.getAllRooms(filterStatus || null);
+      const data = await roomApi.getRoomsByStatus(filterStatus || null);
       setRooms(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Fetch rooms error:', err);
@@ -50,13 +53,21 @@ const RoomStatusUpdate = () => {
   }, [filterStatus]);
 
   const handleMarkClean = async (room) => {
-    if (!window.confirm(`Đánh dấu Phòng ${room.roomNumber} đã được dọn sạch?`)) return;
+    const isConfirmed = await confirm({
+      title: 'Xác nhận hoàn thành dọn phòng',
+      message: `Đánh dấu Phòng ${room.roomNumber} đã được dọn sạch và sẵn sàng đón khách?`,
+      confirmText: 'Xác nhận dọn xong',
+      type: 'info'
+    });
+    if (!isConfirmed) return;
+
     setProcessingId(room.id);
     try {
       await roomApi.markRoomClean(room.id);
+      success(`Đã đánh dấu Phòng ${room.roomNumber} sạch sẽ thành công!`);
       fetchRooms();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi cập nhật.');
+      error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái phòng.');
     } finally {
       setProcessingId(null);
     }

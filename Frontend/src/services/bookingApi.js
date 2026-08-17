@@ -49,9 +49,11 @@ const bookingApi = {
     return response.data;
   },
 
-  // Nhận phòng
-  checkIn: async (id) => {
-    const response = await api.put(`/bookings/${id}/check-in`);
+  // Nhận phòng (kèm số CCCD/CMND)
+  checkIn: async (id, idNumber) => {
+    const response = await api.put(`/bookings/${id}/check-in`, null, {
+      params: idNumber ? { idNumber } : {}
+    });
     return response.data;
   },
 

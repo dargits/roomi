@@ -1,6 +1,7 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { IoAddOutline, IoCloseOutline, IoCreateOutline, IoCubeOutline, IoRefreshOutline, IoSaveOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
 import inventoryApi from "../../services/inventoryApi";
+import { useToast, useConfirm } from "../../context/ToastContext";
 
 const fmtDate = (dt) => dt ? new Date(dt).toLocaleDateString("vi-VN") : "";
 
@@ -39,13 +40,21 @@ const InventoryManagement = () => {
     setForm(prev => ({ ...prev, [name]: name === "name" || name === "unit" ? value : Number(value) }));
   };
 
+  const { success: toastSuccess, error: toastError } = useToast();
+  const confirm = useConfirm();
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { setError("Vui lòng nhập tên mặt hàng."); return; }
     setSaving(true); setError("");
     try {
-      if (editingItem) { await inventoryApi.update(editingItem.id, form); }
-      else { await inventoryApi.create(form); }
+      if (editingItem) { 
+        await inventoryApi.update(editingItem.id, form); 
+        toastSuccess(`Đã cập nhật mặt hàng "${form.name}"!`);
+      } else { 
+        await inventoryApi.create(form); 
+        toastSuccess(`Đã thêm mặt hàng "${form.name}" vào kho!`);
+      }
       closeForm(); fetchItems();
     } catch (err) {
       setError(err.response?.data?.message || "Lỗi lưu dữ liệu.");
@@ -53,9 +62,21 @@ const InventoryManagement = () => {
   };
 
   const handleDelete = async (item) => {
-    if (!window.confirm(`Xóa mặt hàng "${item.name}"?`)) return;
-    try { await inventoryApi.delete(item.id); fetchItems(); }
-    catch (err) { alert(err.response?.data?.message || "Không thể xóa."); }
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa mặt hàng',
+      message: `Bạn có chắc chắn muốn xóa mặt hàng "${item.name}" khỏi kho đồ dùng?`,
+      confirmText: 'Xóa mặt hàng',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+
+    try { 
+      await inventoryApi.delete(item.id); 
+      toastSuccess(`Đã xóa mặt hàng "${item.name}"!`);
+      fetchItems(); 
+    } catch (err) { 
+      toastError(err.response?.data?.message || "Không thể xóa mặt hàng."); 
+    }
   };
 
   const lowStockCount = items.filter(i => i.lowStock).length;

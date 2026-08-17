@@ -6,6 +6,7 @@ import { invoiceApi } from '../../services/invoiceApi';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Input from '../../components/ui/Input';
+import { useToast, useConfirm } from '../../context/ToastContext';
 
 const BookingServicesTab = ({ bookingId, status }) => {
   const [services, setServices] = useState([]);
@@ -58,6 +59,9 @@ const BookingServicesTab = ({ bookingId, status }) => {
     }
   };
 
+  const { success: toastSuccess, error: toastError } = useToast();
+  const confirm = useConfirm();
+
   const handleAddService = async (e) => {
     e.preventDefault();
     if (!newService.serviceId) return;
@@ -69,22 +73,31 @@ const BookingServicesTab = ({ bookingId, status }) => {
         quantity: parseInt(newService.quantity) || 1,
         note: newService.note
       });
+      toastSuccess("Thêm dịch vụ thành công!");
       setNewService({ serviceId: '', quantity: 1, note: '' });
       fetchData();
     } catch (error) {
-      alert("Lỗi: " + (error.response?.data?.message || "Không thể thêm dịch vụ"));
+      toastError(error.response?.data?.message || "Không thể thêm dịch vụ");
     } finally {
       setAdding(false);
     }
   };
 
   const handleDelete = async (usageId) => {
-    if (!window.confirm("Xác nhận xóa dịch vụ này?")) return;
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa dịch vụ',
+      message: 'Bạn có chắc chắn muốn xóa dịch vụ này khỏi đặt phòng?',
+      confirmText: 'Xóa dịch vụ',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+    
     try {
       await bookingApi.removeBookingService(bookingId, usageId);
+      toastSuccess("Đã xóa dịch vụ thành công!");
       fetchData();
     } catch (error) {
-      alert("Lỗi xóa dịch vụ: " + (error.response?.data?.message || "Không thể xóa dịch vụ"));
+      toastError(error.response?.data?.message || "Không thể xóa dịch vụ");
     }
   };
 

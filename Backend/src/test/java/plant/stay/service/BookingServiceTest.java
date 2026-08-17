@@ -13,6 +13,7 @@ import plant.stay.repository.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -189,5 +190,138 @@ public class BookingServiceTest {
         // Phòng chuyển sang DIRTY sau khi trả
         Room updatedRoom = roomRepository.findById(testRoom.getId()).orElseThrow();
         assertEquals(RoomStatus.DIRTY, updatedRoom.getStatus());
+    }
+
+    @Test
+    @DisplayName("Đổi phòng cùng loại thành công")
+    void testChangeRoomSameTypeSuccess() {
+        // Tạo thêm phòng thứ 2 cùng testRoomType
+        Room anotherSameTypeRoom = roomRepository.save(Room.builder()
+                .roomNumber("102-TEST")
+                .roomType(testRoomType)
+                .floor("1")
+                .status(RoomStatus.AVAILABLE)
+                .build());
+
+        BookingRequest request = new BookingRequest();
+        request.setGuestId(testGuest.getId());
+        request.setRoomTypeId(testRoomType.getId());
+        request.setCheckInDate(LocalDate.now().plusDays(20));
+        request.setCheckOutDate(LocalDate.now().plusDays(22));
+
+        BookingResponse created = bookingService.create(request, testUser);
+        BookingResponse confirmed = bookingService.assignRoom(created.getId(), testRoom.getId(), testUser);
+        assertEquals(testRoom.getRoomNumber(), confirmed.getRoomNumber());
+
+        // Đổi sang anotherSameTypeRoom
+        BookingResponse changed = bookingService.changeRoom(confirmed.getId(), anotherSameTypeRoom.getId(), testUser);
+        assertNotNull(changed);
+        assertEquals(anotherSameTypeRoom.getRoomNumber(), changed.getRoomNumber());
+        assertEquals(testRoomType.getName(), changed.getRoomTypeName());
+    }
+
+    @Test
+    @DisplayName("Đổi sang phòng khác loại ném ngoại lệ IllegalArgumentException")
+    void testChangeRoomDifferentTypeThrowsException() {
+        // Tạo loại phòng khác và phòng thuộc loại đó
+        RoomType otherRoomType = roomTypeRepository.save(RoomType.builder()
+                .name("VIP-SUITE-TEST")
+                .basePrice(new BigDecimal("2000000"))
+                .maxCapacity(4)
+                .amenitiesDescription("Phòng VIP Suite")
+                .build());
+        Room differentTypeRoom = roomRepository.save(Room.builder()
+                .roomNumber("999-VIP")
+                .roomType(otherRoomType)
+                .floor("9")
+                .status(RoomStatus.AVAILABLE)
+                .build());
+
+        BookingRequest request = new BookingRequest();
+        request.setGuestId(testGuest.getId());
+        request.setRoomTypeId(testRoomType.getId());
+        request.setCheckInDate(LocalDate.now().plusDays(25));
+        request.setCheckOutDate(LocalDate.now().plusDays(27));
+
+        BookingResponse created = bookingService.create(request, testUser);
+        BookingResponse confirmed = bookingService.assignRoom(created.getId(), testRoom.getId(), testUser);
+
+        // Đổi sang phòng khác loại phòng -> Ném lỗi
+        assertThrows(IllegalArgumentException.class, () -> {
+            bookingService.changeRoom(confirmed.getId(), differentTypeRoom.getId(), testUser);
+        });
+    }
+
+    @Test
+    @DisplayName("Kiểm tra khả dụng gia hạn và thực hiện gia hạn thành công")
+    void testCheckExtendAvailabilityAndExtendStay() {
+        BookingRequest request = new BookingRequest();
+        request.setGuestId(testGuest.getId());
+        request.setRoomTypeId(testRoomType.getId());
+        request.setCheckInDate(LocalDate.now());
+        request.setCheckOutDate(LocalDate.now().plusDays(2));
+
+        BookingResponse created = bookingService.create(request, testUser);
+        BookingResponse confirmed = bookingService.assignRoom(created.getId(), testRoom.getId(), testUser);
+        BookingResponse checkedIn = bookingService.checkIn(confirmed.getId(), testUser);
+
+        // 1. Kiểm tra khả dụng gia hạn 1 đêm
+        Map<String, Object> avail = bookingService.checkExtendAvailability(checkedIn.getId(), 1);
+        assertNotNull(avail);
+        assertEquals(Boolean.TRUE, avail.get("available"));
+        assertEquals(LocalDate.now().plusDays(3).toString(), avail.get("newCheckOutDate"));
+
+        // 2. Thực hiện gia hạn 1 đêm
+        plant.stay.dto.request.ExtendStayRequest extendReq = new plant.stay.dto.request.ExtendStayRequest();
+        extendReq.setAdditionalNights(1);
+        extendReq.setNote("Khách ở thêm 1 ngày");
+        BookingResponse extended = bookingService.extendStay(checkedIn.getId(), extendReq, testUser);
+
+        assertNotNull(extended);
+        assertEquals(LocalDate.now().plusDays(3), extended.getCheckOutDate());
+    }
+
+    @Test
+    @DisplayName("Nâng hạng phòng theo loại phòng mới thành công")
+    void testUpgradeRoomByTypeSuccess() {
+        // Tạo loại phòng Deluxe có 1 phòng trống
+        RoomType deluxeType = roomTypeRepository.save(RoomType.builder()
+                .name("DELUXE-TEST")
+                .basePrice(new BigDecimal("1500000"))
+                .maxCapacity(3)
+                .amenitiesDescription("Phòng Deluxe rộng rãi")
+                .build());
+        Room deluxeRoom = roomRepository.save(Room.builder()
+                .roomNumber("301-DELUXE")
+                .roomType(deluxeType)
+                .floor("3")
+                .status(RoomStatus.AVAILABLE)
+                .build());
+
+        BookingRequest request = new BookingRequest();
+        request.setGuestId(testGuest.getId());
+        request.setRoomTypeId(testRoomType.getId());
+        request.setCheckInDate(LocalDate.now());
+        request.setCheckOutDate(LocalDate.now().plusDays(2));
+
+        BookingResponse created = bookingService.create(request, testUser);
+        BookingResponse confirmed = bookingService.assignRoom(created.getId(), testRoom.getId(), testUser);
+        BookingResponse checkedIn = bookingService.checkIn(confirmed.getId(), testUser);
+
+        // Nâng hạng sang deluxeType (chỉ truyền newRoomTypeId)
+        plant.stay.dto.request.UpgradeRoomRequest upgradeReq = new plant.stay.dto.request.UpgradeRoomRequest();
+        upgradeReq.setNewRoomTypeId(deluxeType.getId());
+        upgradeReq.setReason("Nâng hạng phòng view đẹp");
+
+        BookingResponse upgraded = bookingService.upgradeRoom(checkedIn.getId(), upgradeReq, testUser);
+        assertNotNull(upgraded);
+        assertEquals(deluxeType.getName(), upgraded.getRoomTypeName());
+        assertEquals(deluxeRoom.getRoomNumber(), upgraded.getRoomNumber());
+
+        // Kiểm tra phòng cũ sang DIRTY, phòng mới sang OCCUPIED
+        Room oldRoom = roomRepository.findById(testRoom.getId()).orElseThrow();
+        Room newRoom = roomRepository.findById(deluxeRoom.getId()).orElseThrow();
+        assertEquals(RoomStatus.DIRTY, oldRoom.getStatus());
+        assertEquals(RoomStatus.OCCUPIED, newRoom.getStatus());
     }
 }

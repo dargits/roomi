@@ -15,6 +15,7 @@ public interface GuestRepository extends JpaRepository<Guest, Long> {
     @Query("SELECT g FROM Guest g WHERE " +
            "LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "g.phone LIKE CONCAT('%', :keyword, '%') OR " +
-           "g.idNumber LIKE CONCAT('%', :keyword, '%')")
+           "g.idNumber LIKE CONCAT('%', :keyword, '%') " +
+           "ORDER BY g.id DESC")
     List<Guest> search(@Param("keyword") String keyword);
 }

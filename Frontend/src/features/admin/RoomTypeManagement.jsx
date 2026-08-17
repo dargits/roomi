@@ -6,6 +6,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import SeasonalPricing from '../rooms/SeasonalPricing';
+import { useToast } from '../../context/ToastContext';
 const RoomTypeManagement = () => {
   const { user } = useAuth();
   const [roomTypes, setRoomTypes] = useState([]);
@@ -84,14 +85,18 @@ const RoomTypeManagement = () => {
     setIsModalOpen(true);
   };
 
+  const { success: toastSuccess, error: toastError } = useToast();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     try {
       if (isEditing) {
         await roomTypeApi.updateRoomType(formData.id, formData);
+        toastSuccess(`Đã cập nhật loại phòng "${formData.name}" thành công!`);
       } else {
         await roomTypeApi.createRoomType(formData);
+        toastSuccess(`Đã tạo loại phòng "${formData.name}" thành công!`);
       }
       setIsModalOpen(false);
       fetchRoomTypes();
@@ -109,11 +114,12 @@ const RoomTypeManagement = () => {
   const confirmDelete = async () => {
     try {
       await roomTypeApi.deleteRoomType(itemToDelete.id);
+      toastSuccess(`Đã xóa loại phòng "${itemToDelete.name}" thành công!`);
       setIsDeleteModalOpen(false);
       fetchRoomTypes();
     } catch (error) {
       console.error("Delete error", error);
-      alert(error.response?.data?.message || "Lỗi khi xóa loại phòng.");
+      toastError(error.response?.data?.message || "Lỗi khi xóa loại phòng.");
     }
   };
 
@@ -283,7 +289,7 @@ const RoomTypeManagement = () => {
                           setFormData(prev => ({...prev, imageUrls: [...prev.imageUrls, ...res.urls]}));
                         } catch (err) {
                           console.error('Upload failed', err);
-                          alert('Lỗi tải ảnh lên. Vui lòng thử lại.');
+                          toastError('Lỗi tải ảnh lên. Vui lòng thử lại.');
                         } finally {
                           setIsUploadingImages(false);
                           setUploadProgress(0);
