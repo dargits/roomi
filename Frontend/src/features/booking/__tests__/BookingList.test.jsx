@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import BookingList from '../BookingList';
 import bookingApi from '../../../services/bookingApi';
 import { AuthProvider } from '../../../context/AuthContext';
@@ -50,9 +51,11 @@ describe('BookingList Component', () => {
     bookingApi.getAllBookings.mockReturnValue(new Promise(() => {}));
 
     render(
-      <AuthProvider>
-        <BookingList />
-      </AuthProvider>
+      <MemoryRouter>
+        <AuthProvider>
+          <BookingList />
+        </AuthProvider>
+      </MemoryRouter>
     );
 
     expect(screen.getByText(/Đang tải dữ liệu/i)).toBeInTheDocument();
@@ -62,9 +65,11 @@ describe('BookingList Component', () => {
     bookingApi.getAllBookings.mockResolvedValue(mockBookings);
 
     render(
-      <AuthProvider>
-        <BookingList />
-      </AuthProvider>
+      <MemoryRouter>
+        <AuthProvider>
+          <BookingList />
+        </AuthProvider>
+      </MemoryRouter>
     );
 
     await waitFor(() => {
@@ -90,9 +95,11 @@ describe('BookingList Component', () => {
     bookingApi.getAllBookings.mockResolvedValue(mockBookings);
 
     const { container } = render(
-      <AuthProvider>
-        <BookingList />
-      </AuthProvider>
+      <MemoryRouter>
+        <AuthProvider>
+          <BookingList />
+        </AuthProvider>
+      </MemoryRouter>
     );
 
     await waitFor(() => {

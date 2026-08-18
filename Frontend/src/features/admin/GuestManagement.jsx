@@ -302,7 +302,7 @@ const GuestManagement = () => {
             <p className="text-sm text-on-surface-variant mt-2 text-center">Tích lũy 1 điểm cho mỗi 100.000 VNĐ chi tiêu.</p>
           </div>
         ) : (
-          <div className="p-8 text-center text-on-surface-variant">Không tìm thấy dữ liệu Loyalty.</div>
+          <div className="p-8 text-center text-on-surface-variant">Không tìm thấy dữ liệu thành viên.</div>
         )}
         <div className="flex justify-end pt-4 mt-4 border-t border-border-grey">
           <Button variant="ghost" onClick={() => setIsLoyaltyModalOpen(false)}>Đóng</Button>

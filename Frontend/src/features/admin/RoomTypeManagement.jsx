@@ -52,7 +52,7 @@ const RoomTypeManagement = () => {
   }, [user]);
 
   if (user?.role !== 'OWNER') {
-    return <div className="p-6 text-alert-red bg-red-50 rounded-md">Bạn không có quyền truy cập trang này. Chỉ chủ sở hữu (OWNER) mới có quyền quản lý loại phòng.</div>;
+    return <div className="p-6 text-alert-red bg-red-50 rounded-md">Bạn không có quyền truy cập trang này. Chỉ chủ sở hữu mới có quyền quản lý loại phòng.</div>;
   }
 
   const handleInputChange = (e) => {
@@ -243,7 +243,7 @@ const RoomTypeManagement = () => {
         <form id="roomTypeForm" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="col-span-1 md:col-span-2">
-              <Input label="Tên loại phòng" name="name" required value={formData.name} onChange={handleInputChange} placeholder="Ví dụ: Deluxe Double" />
+              <Input label="Tên loại phòng" name="name" required value={formData.name} onChange={handleInputChange} placeholder="Ví dụ: Phòng Tiêu Chuẩn Giường Đôi" />
             </div>
             
             <div>
@@ -260,7 +260,7 @@ const RoomTypeManagement = () => {
             </div>
             
             <div className="col-span-1 md:col-span-2">
-              <label className="block font-label-md text-on-surface-variant mb-1.5">Link ảnh (URLs)</label>
+              <label className="block font-label-md text-on-surface-variant mb-1.5">Đường dẫn hình ảnh (URL)</label>
               <textarea 
                 name="imageUrls" 
                 rows="3" 
