@@ -1,50 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { roomApi } from '../../services/roomApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast, useConfirm } from '../../context/ToastContext';
-import { IoBrushOutline, IoCheckmarkCircleOutline, IoLogOutOutline, IoRefreshOutline, IoTimeOutline, IoWarningOutline } from 'react-icons/io5';
-
-const getStatusColor = (status) => {
-  switch (status) {
-    case 'AVAILABLE': return 'bg-green-100 text-green-800 border-green-300';
-    case 'OCCUPIED': return 'bg-blue-100 text-blue-800 border-blue-300';
-    case 'DIRTY': return 'bg-orange-100 text-orange-800 border-orange-300';
-    case 'MAINTENANCE': return 'bg-red-100 text-red-800 border-red-300';
-    default: return 'bg-gray-100 text-gray-800 border-gray-300';
-  }
-};
-
-const getStatusLabel = (status) => {
-  switch (status) {
-    case 'AVAILABLE': return 'Trống';
-    case 'OCCUPIED': return 'Đang ở';
-    case 'DIRTY': return 'Chưa dọn';
-    case 'MAINTENANCE': return 'Bảo trì';
-    default: return status;
-  }
-};
+import { 
+  IoBrushOutline, 
+  IoCheckmarkCircleOutline, 
+  IoRefreshOutline, 
+  IoSearchOutline, 
+  IoFilterOutline,
+  IoSparklesOutline,
+  IoLayersOutline,
+  IoDocumentTextOutline
+} from 'react-icons/io5';
 
 /**
  * Danh sách phòng cần dọn dẹp cho nhân viên buồng phòng.
- * Chỉ hiển thị phòng DIRTY + nút "Đánh dấu đã dọn".
+ * Hiển thị phòng DIRTY + hỗ trợ lọc/tìm kiếm + nút "Đã dọn xong".
  */
 const CleaningTaskList = ({ onRoomCleaned }) => {
   const { user } = useAuth();
-  const { success, error } = useToast();
+  const toast = useToast();
   const confirm = useConfirm();
   const [dirtyRooms, setDirtyRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
 
-  const canMarkClean = ['OWNER', 'HOUSEKEEPER', 'RECEPTIONIST'].includes(user?.role);
+  const canMarkClean = ['OWNER', 'HOUSEKEEPER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role);
 
   const fetchDirtyRooms = async () => {
     setLoading(true);
     try {
-      const data = await roomApi.getRoomsByStatus('DIRTY');
+      const data = await roomApi.getAllRooms('DIRTY');
       setDirtyRooms(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Fetch dirty rooms error:', err);
+      toast.error(err.response?.data?.message || 'Không thể tải danh sách phòng cần dọn');
     } finally {
       setLoading(false);
     }
@@ -57,7 +49,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
   const handleMarkClean = async (room) => {
     const isConfirmed = await confirm({
       title: 'Xác nhận dọn phòng',
-      message: `Xác nhận đánh dấu Phòng ${room.roomNumber} đã được dọn sạch?`,
+      message: `Xác nhận đánh dấu Phòng ${room.roomNumber} đã được dọn sạch và sẵn sàng đón khách?`,
       confirmText: 'Hoàn thành dọn phòng',
       type: 'info'
     });
@@ -66,108 +58,213 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
     setProcessingId(room.id);
     try {
       await roomApi.markRoomClean(room.id);
-      success(`Đã cập nhật Phòng ${room.roomNumber} sang trạng thái Sạch sẽ!`);
+      toast.success(`Đã cập nhật Phòng ${room.roomNumber} sang trạng thái Sạch sẽ!`);
       setDirtyRooms((prev) => prev.filter((r) => r.id !== room.id));
       if (onRoomCleaned) onRoomCleaned();
     } catch (err) {
-      error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái phòng.');
+      toast.error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái phòng.');
     } finally {
       setProcessingId(null);
     }
   };
 
+  const handleCleanAll = async () => {
+    if (filteredRooms.length === 0) return;
+    const isConfirmed = await confirm({
+      title: 'Xác nhận dọn tất cả',
+      message: `Bạn có chắc muốn đánh dấu tất cả ${filteredRooms.length} phòng đang hiển thị là đã dọn xong?`,
+      confirmText: 'Dọn tất cả',
+      type: 'warning'
+    });
+    if (!isConfirmed) return;
+
+    setLoading(true);
+    let successCount = 0;
+    for (const room of filteredRooms) {
+      try {
+        await roomApi.markRoomClean(room.id);
+        successCount++;
+      } catch (err) {
+        console.error(`Lỗi dọn phòng ${room.roomNumber}:`, err);
+      }
+    }
+    toast.success(`Đã đánh dấu hoàn tất dọn dẹp ${successCount} phòng!`);
+    await fetchDirtyRooms();
+    if (onRoomCleaned) onRoomCleaned();
+    setLoading(false);
+  };
+
+  // Danh sách các tầng có phòng cần dọn
+  const floors = useMemo(() => {
+    const floorSet = new Set(dirtyRooms.map(r => r.floor).filter(Boolean));
+    return Array.from(floorSet).sort((a, b) => a - b);
+  }, [dirtyRooms]);
+
+  // Lọc theo tìm kiếm và tầng
+  const filteredRooms = useMemo(() => {
+    return dirtyRooms.filter(room => {
+      const matchSearch = !searchTerm || 
+        room.roomNumber?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+        room.roomTypeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        room.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchFloor = !selectedFloor || room.floor?.toString() === selectedFloor.toString();
+
+      return matchSearch && matchFloor;
+    });
+  }, [dirtyRooms, searchTerm, selectedFloor]);
+
   return (
-    <div className="bg-surface-container-lowest border border-border-grey rounded-lg overflow-hidden">
+    <div className="bg-surface-container-lowest border border-border-grey rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="p-5 border-b border-border-grey flex items-center justify-between">
+      <div className="p-5 border-b border-border-grey flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-orange-50/50 to-transparent">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-            <IoBrushOutline size={20} className="text-orange-600" />
+          <div className="w-11 h-11 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 shadow-inner">
+            <IoBrushOutline size={22} />
           </div>
           <div>
-            <h2 className="font-title-lg text-on-surface">Phòng cần dọn dẹp</h2>
-            <p className="font-body-md text-on-surface-variant text-sm">
-              {loading ? 'Đang tải...' : `${dirtyRooms.length} phòng chờ dọn dẹp`}
+            <div className="flex items-center gap-2">
+              <h2 className="font-title-lg text-on-surface font-semibold text-lg">Phòng cần dọn dẹp</h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500 text-white">
+                {dirtyRooms.length}
+              </span>
+            </div>
+            <p className="font-body-md text-on-surface-variant text-xs mt-0.5">
+              {loading ? 'Đang tải danh sách...' : `${dirtyRooms.length} phòng đang chờ dọn vệ sinh`}
             </p>
           </div>
         </div>
-        <button
-          onClick={fetchDirtyRooms}
-          className="flex items-center gap-2 px-3 py-2 rounded border border-border-grey bg-surface-container-lowest hover:bg-surface-container-low transition-colors font-body-md text-on-surface-variant text-sm"
-        >
-          <IoRefreshOutline size={14} className={loading ? 'animate-spin' : ''} />
-          Làm mới
-        </button>
+
+        <div className="flex items-center gap-2">
+          {dirtyRooms.length > 1 && canMarkClean && (
+            <button
+              onClick={handleCleanAll}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 font-label-md text-xs font-medium transition-colors"
+            >
+              <IoSparklesOutline size={15} />
+              Dọn tất cả ({filteredRooms.length})
+            </button>
+          )}
+          <button
+            onClick={fetchDirtyRooms}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border-grey bg-white hover:bg-surface-container-low transition-colors font-body-md text-on-surface-variant text-xs font-medium shadow-sm"
+          >
+            <IoRefreshOutline size={15} className={loading ? 'animate-spin' : ''} />
+            Làm mới
+          </button>
+        </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="m-4 p-3 bg-red-50 border border-red-200 text-error rounded-md font-body-md text-sm">
-          {error}
+      {/* Filter & Search Bar */}
+      <div className="p-4 bg-surface-container-low/40 border-b border-border-grey flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <IoSearchOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/70" size={16} />
+          <input
+            type="text"
+            placeholder="Tìm theo số phòng, loại phòng..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-border-grey rounded-xl text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
+          />
         </div>
-      )}
+
+        {floors.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <IoFilterOutline size={15} className="text-on-surface-variant" />
+            <select
+              value={selectedFloor}
+              onChange={(e) => setSelectedFloor(e.target.value)}
+              className="px-3 py-2 text-xs bg-white border border-border-grey rounded-xl text-on-surface focus:outline-none focus:border-primary shadow-sm"
+            >
+              <option value="">Tất cả tầng ({dirtyRooms.length})</option>
+              {floors.map(floor => (
+                <option key={floor} value={floor}>Tầng {floor}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       {/* Content */}
-      <div className="p-4">
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="p-5">
+        {loading && dirtyRooms.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-28 bg-surface-container-low rounded-lg animate-pulse border border-border-grey" />
+              <div key={i} className="h-40 bg-surface-container-low rounded-2xl animate-pulse border border-border-grey" />
             ))}
           </div>
-        ) : dirtyRooms.length === 0 ? (
+        ) : filteredRooms.length === 0 ? (
           <div className="py-16 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <IoCheckmarkCircleOutline size={32} className="text-green-600" />
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 shadow-inner">
+              <IoCheckmarkCircleOutline size={34} />
             </div>
-            <h3 className="font-title-lg text-on-surface mb-1">Tất cả phòng đã sạch!</h3>
-            <p className="font-body-md text-on-surface-variant">Không có phòng nào cần dọn dẹp lúc này.</p>
+            <h3 className="font-title-lg text-on-surface font-semibold text-base mb-1">
+              {dirtyRooms.length === 0 ? 'Tất cả phòng đã sạch!' : 'Không tìm thấy phòng phù hợp'}
+            </h3>
+            <p className="font-body-md text-on-surface-variant text-xs max-w-sm mx-auto">
+              {dirtyRooms.length === 0 
+                ? 'Tuyệt vời! Hiện tại không có phòng nào trong danh sách cần dọn dẹp.'
+                : 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn bộ lọc tầng.'}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {dirtyRooms.map((room) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredRooms.map((room) => (
               <div
                 key={room.id}
-                className="flex flex-col bg-surface rounded-lg border-2 border-orange-300 overflow-hidden hover:shadow-sm transition-shadow"
+                className="flex flex-col bg-white rounded-2xl border border-orange-200 overflow-hidden hover:shadow-md hover:border-orange-300 transition-all duration-200"
               >
-                {/* Room header */}
-                <div className="px-4 py-3 bg-orange-50 border-b border-orange-200 flex items-center justify-between">
+                {/* Room card top */}
+                <div className="p-4 bg-orange-50/60 border-b border-orange-100 flex items-start justify-between">
                   <div>
-                    <h3 className="font-title-lg text-on-surface">Phòng {room.roomNumber}</h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5">{room.roomTypeName || 'N/A'}</p>
+                    <span className="text-[11px] font-semibold text-orange-600 tracking-wide uppercase">Phòng</span>
+                    <h3 className="font-headline-sm text-on-surface font-bold text-xl leading-tight">
+                      {room.roomNumber}
+                    </h3>
+                    <p className="text-xs text-on-surface-variant font-medium mt-0.5">
+                      {room.roomTypeName || 'Tiêu chuẩn'}
+                    </p>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 border border-orange-300">
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 border border-orange-200">
                     Chưa dọn
                   </span>
                 </div>
 
-                {/* Room info */}
-                <div className="px-4 py-3 flex-1">
-                  <div className="flex justify-between items-center font-body-md text-on-surface-variant">
-                    <span>Tầng:</span>
-                    <span className="font-medium text-on-surface">{room.floor || '—'}</span>
+                {/* Room card body */}
+                <div className="p-4 flex-1 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-on-surface-variant">
+                    <span className="flex items-center gap-1.5">
+                      <IoLayersOutline size={14} className="text-on-surface-variant/70" /> Tầng
+                    </span>
+                    <span className="font-semibold text-on-surface">{room.floor || '—'}</span>
                   </div>
+
                   {room.notes && (
-                    <p className="mt-2 text-xs text-on-surface-variant italic truncate" title={room.notes}>
-                      {room.notes}
-                    </p>
+                    <div className="pt-2 border-t border-dashed border-border-grey flex items-start gap-1.5 text-on-surface-variant">
+                      <IoDocumentTextOutline size={14} className="text-orange-500 shrink-0 mt-0.5" />
+                      <span className="italic line-clamp-2" title={room.notes}>{room.notes}</span>
+                    </div>
                   )}
                 </div>
 
-                {/* Action */}
-                <div className="px-4 pb-4">
-                  <button
-                    onClick={() => handleMarkClean(room)}
-                    disabled={processingId === room.id}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded font-label-md transition-colors"
-                  >
-                    {processingId === room.id ? (
-                      <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                    ) : (
-                      <IoCheckmarkCircleOutline size={16} />
-                    )}
-                    Đã dọn xong
-                  </button>
+                {/* Room card action */}
+                <div className="p-4 pt-0">
+                  {canMarkClean && (
+                    <button
+                      onClick={() => handleMarkClean(room)}
+                      disabled={processingId === room.id}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-400 text-white rounded-xl font-label-md text-xs font-semibold shadow-sm transition-colors"
+                    >
+                      {processingId === room.id ? (
+                        <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                      ) : (
+                        <IoCheckmarkCircleOutline size={16} />
+                      )}
+                      Đã dọn xong
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -179,3 +276,4 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
 };
 
 export default CleaningTaskList;
+

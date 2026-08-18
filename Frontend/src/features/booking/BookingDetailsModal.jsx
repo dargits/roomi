@@ -1,5 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { IoAlertCircleOutline, IoCallOutline, IoCartOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoDocumentOutline, IoInformationCircleOutline, IoLocationOutline, IoMoonOutline, IoPersonOutline, IoSwapHorizontalOutline, IoSwapVerticalOutline, IoTimeOutline, IoCashOutline } from 'react-icons/io5';
+import { useNavigate } from 'react-router-dom';
+import { 
+  IoAlertCircleOutline, 
+  IoCallOutline, 
+  IoCartOutline, 
+  IoCheckmarkCircleOutline, 
+  IoCloseOutline, 
+  IoDocumentOutline, 
+  IoInformationCircleOutline, 
+  IoLocationOutline, 
+  IoMoonOutline, 
+  IoPersonOutline, 
+  IoSwapHorizontalOutline, 
+  IoSwapVerticalOutline, 
+  IoTimeOutline, 
+  IoCashOutline,
+  IoCopyOutline,
+  IoShareSocialOutline,
+  IoOpenOutline
+} from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import bookingApi from '../../services/bookingApi';
@@ -14,11 +33,26 @@ import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 
 const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
+  const navigate = useNavigate();
   const { success: toastSuccess } = useToast();
   const [activeTab, setActiveTab] = useState('info'); // info, services, invoice, deposit
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [printingInvoice, setPrintingInvoice] = useState(null);
+
+  const copyPublicShareLink = () => {
+    const url = `${window.location.origin}/booking-detail/${bookingId}/${activeTab}`;
+    navigator.clipboard.writeText(url);
+    const tabName = activeTab === 'info' ? 'Thông tin chung' :
+                    activeTab === 'services' ? 'Dịch vụ phụ thu' :
+                    activeTab === 'invoice' ? 'Hóa đơn & Thanh toán' : 'Đặt cọc';
+    toastSuccess(`Đã sao chép link gửi bạn bè/khách cho phần "${tabName}"!`);
+  };
+
+  const openDedicatedPage = () => {
+    onClose();
+    navigate(`/manage/bookings/${bookingId}/${activeTab}`);
+  };
   // === Đổi phòng ===
   const [showChangeRoom, setShowChangeRoom] = useState(false);
   const [availableRooms, setAvailableRooms] = useState([]);
@@ -123,7 +157,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
       ) : (
         <div className="flex flex-col h-full max-h-[80vh]">
           {/* Header Thông tin tóm tắt */}
-          <div className="bg-surface-container-lowest p-4 rounded-lg border border-border-grey mb-6 shadow-sm flex flex-wrap gap-6 justify-between items-center">
+          <div className="bg-surface-container-lowest p-4 rounded-lg border border-border-grey mb-4 shadow-sm flex flex-wrap gap-4 justify-between items-center">
             <div>
               <div className="font-title-lg text-on-surface flex items-center gap-2 mb-1">
                 {booking.guestName}
@@ -283,7 +317,16 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
 
           </div>
 
-          <div className="flex justify-end pt-4 mt-6 border-t border-border-grey">
+          <div className="flex flex-wrap justify-between items-center gap-3 pt-4 mt-6 border-t border-border-grey">
+            <button
+              type="button"
+              onClick={openDedicatedPage}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
+              title="Mở toàn bộ trang chi tiết theo tab hiện tại"
+            >
+              <IoOpenOutline size={14} /> Mở trang riêng
+            </button>
+
             <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
           </div>
         </div>
@@ -343,7 +386,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                   Không có phòng trống nào khác thuộc loại {booking?.roomTypeName}.
                 </div>
                 <p className="text-amber-800">
-                  Nếu khách muốn chuyển sang hạng phòng khác (Standard, Deluxe, Suite...), vui lòng sử dụng chức năng <strong>Nâng hạng phòng</strong>.
+                  Nếu khách muốn chuyển sang hạng phòng khác, vui lòng sử dụng chức năng <strong>Nâng hạng phòng</strong>.
                 </p>
               </div>
             ) : (
@@ -374,7 +417,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
 
             {selectedNewRoom && booking?.status === 'CHECKED_IN' && (
               <div className="text-[11px] text-blue-700 bg-blue-50 p-2.5 rounded-lg border border-blue-100">
-                ℹ️ Sau khi đổi, phòng cũ ({booking.roomNumber}) sẽ chuyển sang trạng thái <strong>Cần dọn (DIRTY)</strong> và phòng mới ({selectedNewRoom.roomNumber}) chuyển sang <strong>Đang ở (OCCUPIED)</strong>.
+                ℹ️ Sau khi đổi, phòng cũ ({booking.roomNumber}) sẽ chuyển sang trạng thái <strong>Cần dọn</strong> và phòng mới ({selectedNewRoom.roomNumber}) chuyển sang <strong>Đang ở</strong>.
               </div>
             )}
 

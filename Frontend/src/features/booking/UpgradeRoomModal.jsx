@@ -181,7 +181,7 @@ const UpgradeRoomModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) =>
               <span>Chuyển từ {booking?.roomTypeName} (Phòng {booking?.roomNumber}) → Hạng {selectedRoomType.name}</span>
             </div>
             <p className="text-blue-800 text-[11px] leading-relaxed">
-              • Backend sẽ tự động tìm 1 phòng trống khả dụng thuộc hạng <strong>{selectedRoomType.name}</strong>, tự động chuyển phòng cũ sang <strong>Cần dọn (DIRTY)</strong> và phòng mới sang <strong>Đang ở (OCCUPIED)</strong>.
+              • Hệ thống sẽ tự động tìm 1 phòng trống khả dụng thuộc hạng <strong>{selectedRoomType.name}</strong>, tự động chuyển phòng cũ sang <strong>Cần dọn</strong> và phòng mới sang <strong>Đang ở</strong>.
               <br />
               • Chênh lệch tiền phòng cho các đêm còn lại sẽ được tự động tính và cập nhật vào hóa đơn.
             </p>

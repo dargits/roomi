@@ -162,9 +162,9 @@ const PublicBookingDetailPage = () => {
   const remainingDue = Math.max(0, invoiceTotal - totalPaid);
 
   // VietQR URL nếu còn tiền cần thanh toán
-  const bankAccount = hotelSetting?.bankAccount || '12005999999999';
-  const bankCode = hotelSetting?.bankCode || 'TCB';
-  const accountName = hotelSetting?.bankAccountName || 'STAY AWAY';
+  const bankAccount = hotelSetting?.bankAccount || '0339999888';
+  const bankCode = hotelSetting?.bankCode || 'MB';
+  const accountName = hotelSetting?.bankAccountName || 'STAYGO HOTEL';
   const qrTransferContent = `BK${bookingId} ${booking?.guestName || ''}`.replace(/[^a-zA-Z0-9 ]/g, '').trim();
   const vietQrUrl = `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact2.png?amount=${remainingDue}&addInfo=${encodeURIComponent(qrTransferContent)}&accountName=${encodeURIComponent(accountName)}`;
 

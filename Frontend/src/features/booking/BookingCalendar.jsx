@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   IoCalendarOutline, 
   IoChevronBackOutline, 
@@ -15,7 +16,6 @@ import {
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
-import BookingDetailsModal from './BookingDetailsModal';
 import AssignRoomModal from './AssignRoomModal';
 import { formatStayDateTime, formatDate, calculateNights } from '../../utils/formatDate';
 
@@ -72,6 +72,7 @@ const getRoomStatusLabel = (status) => {
 };
 
 const BookingCalendar = () => {
+  const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [calendarData, setCalendarData] = useState([]);
   const [unassignedBookings, setUnassignedBookings] = useState([]);
@@ -88,7 +89,6 @@ const BookingCalendar = () => {
   const [daysCount, setDaysCount] = useState(14); // 7, 14, 21 ngày
 
   // Modal states
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [assigningBooking, setAssigningBooking] = useState(null);
 
   useEffect(() => {
@@ -378,9 +378,9 @@ const BookingCalendar = () => {
                                 return (
                                   <div
                                     key={booking.bookingId}
-                                    onClick={() => setSelectedBookingId(booking.bookingId)}
+                                    onClick={() => navigate(`/manage/bookings/${booking.bookingId}/info`, { state: { from: '/manage/bookings/calendar' } })}
                                     className={`w-full rounded-md p-1.5 flex flex-col justify-center items-start text-left border cursor-pointer transition-all duration-150 hover:shadow-md hover:scale-[1.02] ${badgeStyle.bg}`}
-                                    title={`👤 Khách: ${booking.guestName}\n📅 Nhận: ${formatDate(booking.checkInDate)} (14:00)\n📅 Trả: ${formatDate(booking.checkOutDate)} (12:00)\n🏷️ Trạng thái: ${badgeStyle.label}`}
+                                    title={`👤 Khách: ${booking.guestName}\n📅 Nhận: ${formatDate(booking.checkInDate)} (14:00)\n📅 Trả: ${formatDate(booking.checkOutDate)} (12:00)\n🏷️ Trạng thái: ${badgeStyle.label}\n👉 Nhấp để xem Chi tiết & Hóa đơn`}
                                   >
                                     <div className="font-bold text-xs truncate w-full flex items-center gap-1">
                                       <IoPersonOutline size={11} className="shrink-0" />
@@ -434,22 +434,10 @@ const BookingCalendar = () => {
             </div>
           </div>
           <div className="text-on-surface-variant text-[11px] italic">
-            💡 Nhấp vào khối phòng của khách để mở ngay Chi tiết & Hóa đơn.
+            💡 Nhấp vào khối phòng của khách để mở ngay trang Chi tiết & Hóa đơn.
           </div>
         </div>
       </div>
-
-      {/* ── Modal Chi tiết & Hóa đơn ── */}
-      {selectedBookingId && (
-        <BookingDetailsModal
-          isOpen={true}
-          onClose={() => {
-            setSelectedBookingId(null);
-            loadData();
-          }}
-          bookingId={selectedBookingId}
-        />
-      )}
 
       {/* ── Modal Xếp phòng nhanh cho booking chưa gán ── */}
       {assigningBooking && (

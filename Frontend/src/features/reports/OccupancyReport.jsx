@@ -235,12 +235,14 @@ const OccupancyReport = () => {
               Xem báo cáo
             </Button>
             {rows.length > 0 && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={exportCSV}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-primary border border-primary/40 rounded-lg hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
+                icon={IoDownloadOutline}
               >
-                <IoDownloadOutline size={14}/> Xuất CSV
-              </button>
+                Xuất CSV
+              </Button>
             )}
           </div>
         </div>

@@ -8,14 +8,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.BookingRequestDto;
-import plant.stay.dto.response.BookingRequestResponse;
-import plant.stay.dto.response.MessageResponse;
-import plant.stay.dto.response.RoomTypeResponse;
+import plant.stay.dto.response.*;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
+import plant.stay.service.BookingService;
+import plant.stay.service.BookingServiceUsageService;
+import plant.stay.service.InvoiceService;
 import plant.stay.service.impl.GuestServiceImpl;
 import plant.stay.util.AuthUtil;
 
@@ -35,6 +36,67 @@ public class BookingPortalController {
     private final AuditLogService auditLogService;
     private final AuthUtil authUtil;
     private final GuestServiceImpl guestService;
+    private final BookingService bookingService;
+    private final BookingServiceUsageService usageService;
+    private final InvoiceService invoiceService;
+    private final DepositRepository depositRepository;
+
+    // === PUBLIC: Lấy thông tin đặt phòng chi tiết để chia sẻ ===
+    @GetMapping("/api/v1/public/bookings/{id}")
+    public ResponseEntity<BookingResponse> getPublicBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.getById(id));
+    }
+
+    // === PUBLIC: Lấy dịch vụ phụ thu của đặt phòng ===
+    @GetMapping("/api/v1/public/bookings/{id}/services")
+    public ResponseEntity<List<BookingServiceUsageResponse>> getPublicBookingServices(@PathVariable Long id) {
+        return ResponseEntity.ok(usageService.getByBooking(id));
+    }
+
+    // === PUBLIC: Lấy hóa đơn & các khoản thanh toán của đặt phòng ===
+    @GetMapping("/api/v1/public/bookings/{id}/invoice")
+    public ResponseEntity<?> getPublicBookingInvoice(@PathVariable Long id) {
+        try {
+            InvoiceResponse invoice = invoiceService.getByBooking(id);
+            List<PaymentResponse> payments = (invoice != null && invoice.getId() != null)
+                    ? invoiceService.getPayments(invoice.getId())
+                    : List.of();
+            return ResponseEntity.ok(java.util.Map.of(
+                    "invoice", invoice != null ? invoice : java.util.Map.of(),
+                    "payments", payments
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.ok(java.util.Map.of(
+                    "invoice", java.util.Map.of(),
+                    "payments", List.of()
+            ));
+        }
+    }
+
+    // === PUBLIC: Lấy thông tin cọc của đặt phòng ===
+    @GetMapping("/api/v1/public/bookings/{id}/deposits")
+    public ResponseEntity<List<DepositResponse>> getPublicBookingDeposits(@PathVariable Long id) {
+        List<DepositResponse> result = depositRepository.findByBookingIdOrderByCreatedAtDesc(id)
+                .stream().map(d -> DepositResponse.builder()
+                        .id(d.getId())
+                        .bookingId(d.getBooking() != null ? d.getBooking().getId() : id)
+                        .requiredAmount(d.getRequiredAmount())
+                        .collectedAmount(d.getCollectedAmount())
+                        .refundedAmount(d.getRefundedAmount())
+                        .penaltyAmount(d.getPenaltyAmount())
+                        .status(d.getStatus())
+                        .paymentMethod(d.getPaymentMethod())
+                        .shortPaidReason(d.getShortPaidReason())
+                        .note(d.getNote())
+                        .collectedByName(d.getCollectedBy() != null ? d.getCollectedBy().getName() : null)
+                        .processedByName(d.getProcessedBy() != null ? d.getProcessedBy().getName() : null)
+                        .collectedAt(d.getCollectedAt())
+                        .processedAt(d.getProcessedAt())
+                        .createdAt(d.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
 
     // === PUBLIC: Xem phòng trống ===
     @GetMapping("/api/v1/room-types/public/availability")

@@ -305,9 +305,9 @@ const StaffManagement = () => {
         <form onSubmit={handleCreateSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Input label="Tên nhân viên" icon={IoInformationCircleOutline} name="name" value={formData.name} onChange={handleChange} required error={errors.name} />
-            <Input label="Tên đăng nhập (Account)" icon={IoPersonOutline} name="account" value={formData.account} onChange={handleChange} required minLength={4} error={errors.account} />
+            <Input label="Tên đăng nhập" icon={IoPersonOutline} name="account" value={formData.account} onChange={handleChange} required minLength={4} error={errors.account} />
             <Input label="Mật khẩu khởi tạo" icon={IoKeyOutline} type="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} error={errors.password} />
-            <Select label="Vai trò (Role)" icon={IoShieldOutline} name="role" value={formData.role} onChange={handleChange} options={roles} required />
+            <Select label="Vai trò" icon={IoShieldOutline} name="role" value={formData.role} onChange={handleChange} options={roles} required />
             <Input label="Số điện thoại" icon={IoCallOutline} name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} />
             <Input label="Email" icon={IoMailOutline} type="email" name="email" value={formData.email} onChange={handleChange} error={errors.email} />
           </div>

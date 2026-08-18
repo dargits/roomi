@@ -84,7 +84,7 @@ const QuickLoginDropdown = ({ onSelectRole }) => {
               </div>
             </div>
           ))}
-          <p className="text-[10px] text-outline text-center mt-1 pb-1">Click vào tài khoản để tự động điền vào form</p>
+          <p className="text-[10px] text-outline text-center mt-1 pb-1">Nhấn vào tài khoản để tự động điền thông tin</p>
         </div>
       )}
     </div>
