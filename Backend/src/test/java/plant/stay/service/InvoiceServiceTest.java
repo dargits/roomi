@@ -108,4 +108,21 @@ public class InvoiceServiceTest {
         Invoice updatedInvoice = invoiceRepository.findById(invoiceRes.getId()).orElseThrow();
         assertEquals(InvoiceStatus.PAID, updatedInvoice.getStatus());
     }
+
+    @Test
+    @DisplayName("Ghi nhận thanh toán bằng Thẻ POS (CREDIT_CARD)")
+    void testAddPaymentWithCreditCard() {
+        InvoiceResponse invoiceRes = invoiceService.createInvoice(testBooking.getId(), testUser);
+
+        PaymentRequest paymentRequest = new PaymentRequest();
+        paymentRequest.setAmount(new BigDecimal("500000"));
+        paymentRequest.setMethod(PaymentMethod.CREDIT_CARD);
+        paymentRequest.setNote("Quẹt thẻ POS");
+
+        PaymentResponse paymentRes = invoiceService.addPayment(invoiceRes.getId(), paymentRequest, testUser);
+
+        assertNotNull(paymentRes);
+        assertEquals(0, new BigDecimal("500000").compareTo(paymentRes.getAmount()));
+        assertEquals(PaymentMethod.CREDIT_CARD, paymentRes.getMethod());
+    }
 }
