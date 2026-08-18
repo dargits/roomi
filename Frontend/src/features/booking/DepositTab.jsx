@@ -15,6 +15,7 @@ import { useToast } from '../../context/ToastContext';
 const PAYMENT_METHODS = [
   { value: 'CASH', label: 'Tiền mặt' },
   { value: 'TRANSFER', label: 'Chuyển khoản' },
+  { value: 'CREDIT_CARD', label: 'Thẻ POS' },
 ];
 
 const STATUS_LABELS = {
@@ -189,7 +190,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
         shortPaidReason: recordForm.shortPaidReason || undefined
       });
       setShowRecordModal(false);
-      toastSuccess(`Đã ghi nhận tiền đặt cọc ${fmt(amount)} (${recordForm.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}) thành công!`);
+      toastSuccess(`Đã ghi nhận tiền đặt cọc ${fmt(amount)} (${recordForm.paymentMethod === 'CASH' ? 'Tiền mặt' : recordForm.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : 'Thẻ POS'}) thành công!`);
       setActionMsg({ type: 'success', text: 'Đã ghi nhận tiền cọc thành công.' });
       fetchDeposits();
       onRefresh?.();
@@ -364,7 +365,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
                 </span>
                 {latestDeposit.paymentMethod && (
                   <span className="text-on-surface-variant text-xs">
-                    · {latestDeposit.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}
+                    · {latestDeposit.paymentMethod === 'CASH' ? 'Tiền mặt' : latestDeposit.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : 'Thẻ POS'}
                   </span>
                 )}
                 {latestDeposit.shortPaidReason && (

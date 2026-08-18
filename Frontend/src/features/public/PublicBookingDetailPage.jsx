@@ -669,7 +669,7 @@ const PublicBookingDetailPage = () => {
                             <div key={p.id || idx} className="p-3.5 bg-surface-container-lowest flex justify-between items-center hover:bg-surface-container-low/50">
                               <div>
                                 <div className="font-semibold text-on-surface">
-                                  {p.paymentMethod === 'CASH' ? 'Tiền mặt' : p.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : p.paymentMethod}
+                                  {(p.method === 'CASH' || p.paymentMethod === 'CASH') ? 'Tiền mặt' : (p.method === 'TRANSFER' || p.paymentMethod === 'TRANSFER') ? 'Chuyển khoản' : (p.method === 'CREDIT_CARD' || p.paymentMethod === 'CREDIT_CARD') ? 'Thẻ POS' : (p.method || p.paymentMethod)}
                                 </div>
                                 <div className="text-xs text-on-surface-variant mt-0.5">
                                   {p.createdAt ? new Date(p.createdAt).toLocaleString('vi-VN') : '—'} {p.note ? `• ${p.note}` : ''}
@@ -759,7 +759,7 @@ const PublicBookingDetailPage = () => {
                             )}
                             <div className="flex justify-between text-xs text-on-surface-variant pt-2 border-t border-border-grey">
                               <span>Hình thức:</span>
-                              <span>{dep.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span>
+                              <span>{dep.paymentMethod === 'CASH' ? 'Tiền mặt' : dep.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : dep.paymentMethod === 'CREDIT_CARD' ? 'Thẻ POS' : (dep.paymentMethod || '—')}</span>
                             </div>
                           </div>
                         </div>

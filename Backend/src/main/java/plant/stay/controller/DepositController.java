@@ -82,6 +82,25 @@ public class DepositController {
         User actor = checkReceptionistOrOwner(request);
         Booking booking = findBooking(bookingId);
 
+        // Không cho phép thu cọc nếu đặt phòng đã kết thúc hoặc bị hủy
+        if (booking.getStatus() == BookingStatus.CHECKED_OUT ||
+            booking.getStatus() == BookingStatus.CANCELLED ||
+            booking.getStatus() == BookingStatus.NO_SHOW) {
+            throw new IllegalArgumentException("Không thể thu cọc cho đặt phòng ở trạng thái " + booking.getStatus());
+        }
+
+        // Kiểm tra xem đặt phòng này đã được thu cọc trước đó chưa
+        List<Deposit> existingDeposits = depositRepo.findByBookingIdOrderByCreatedAtDesc(bookingId);
+        boolean alreadyCollected = existingDeposits.stream().anyMatch(d ->
+            d.getStatus() == DepositStatus.COLLECTED ||
+            d.getStatus() == DepositStatus.REFUNDED ||
+            d.getStatus() == DepositStatus.PARTIALLY_REFUNDED ||
+            d.getStatus() == DepositStatus.FORFEITED
+        );
+        if (alreadyCollected) {
+            throw new IllegalArgumentException("Đặt phòng này đã được thu đủ tiền cọc. Không thể thu cọc lần nữa.");
+        }
+
         // NCL-11-CN-002-TC-02: Số tiền cọc không được vượt tổng tiền phòng
         if (booking.getExpectedPrice() != null && req.getAmount().compareTo(booking.getExpectedPrice()) > 0) {
             throw new IllegalArgumentException("Số tiền cọc không được vượt quá tổng tiền phòng dự kiến");

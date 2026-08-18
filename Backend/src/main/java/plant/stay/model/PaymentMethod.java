@@ -3,8 +3,9 @@ package plant.stay.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 public enum PaymentMethod {
-    CASH,      // Tiền mặt
-    TRANSFER;  // Chuyển khoản
+    CASH,         // Tiền mặt
+    TRANSFER,     // Chuyển khoản
+    CREDIT_CARD;  // Thẻ POS / Thẻ tín dụng
 
     @JsonCreator
     public static PaymentMethod fromString(String value) {
@@ -15,6 +16,9 @@ public enum PaymentMethod {
         }
         if ("CASH".equals(val)) {
             return CASH;
+        }
+        if ("CREDIT_CARD".equals(val) || "CARD".equals(val) || "POS".equals(val) || "CREDIT".equals(val)) {
+            return CREDIT_CARD;
         }
         try {
             return PaymentMethod.valueOf(val);
