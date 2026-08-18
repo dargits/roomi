@@ -15,7 +15,6 @@ import { useToast } from '../../context/ToastContext';
 const PAYMENT_METHODS = [
   { value: 'CASH', label: 'Tiền mặt' },
   { value: 'TRANSFER', label: 'Chuyển khoản' },
-  { value: 'CREDIT_CARD', label: 'Thẻ POS' },
 ];
 
 const STATUS_LABELS = {
