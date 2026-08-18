@@ -681,7 +681,7 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 | `RoomStatus` | AVAILABLE, OCCUPIED, DIRTY, MAINTENANCE |
 | `BookingStatus` | NEW, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW |
 | `InvoiceStatus` | PENDING, PAID, ADJUSTED |
-| `PaymentMethod` | CASH, TRANSFER |
+| `PaymentMethod` | CASH, TRANSFER, CREDIT_CARD |
 | `BookingRequestStatus` | PENDING, APPROVED, REJECTED |
 
 ---
