@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import BookingCalendar from '../BookingCalendar';
 
 // Mock AuthContext
@@ -50,7 +51,11 @@ vi.mock('../../../services/roomApi', () => {
 
 describe('BookingCalendar Component', () => {
   it('renders header, title, and day range selector', () => {
-    render(<BookingCalendar onOpenDetail={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <BookingCalendar onOpenDetail={vi.fn()} />
+      </MemoryRouter>
+    );
 
     expect(screen.getByText('Sơ đồ Lịch Phòng')).toBeInTheDocument();
     expect(screen.getByText('7 ngày')).toBeInTheDocument();
@@ -59,7 +64,11 @@ describe('BookingCalendar Component', () => {
   });
 
   it('renders timeline legend and room data', async () => {
-    render(<BookingCalendar onOpenDetail={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <BookingCalendar onOpenDetail={vi.fn()} />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Trạng thái đặt phòng:')).toBeInTheDocument();

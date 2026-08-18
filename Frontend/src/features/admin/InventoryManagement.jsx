@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { IoAddOutline, IoCloseOutline, IoCreateOutline, IoCubeOutline, IoRefreshOutline, IoSaveOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
 import inventoryApi from "../../services/inventoryApi";
 import { useToast, useConfirm } from "../../context/ToastContext";
+import Button from "../../components/ui/Button";
 
 const fmtDate = (dt) => dt ? new Date(dt).toLocaleDateString("vi-VN") : "";
 
@@ -100,12 +101,11 @@ const InventoryManagement = () => {
               <IoWarningOutline size={15}/> {lowStockCount} mặt hàng sắp hết
             </span>
           )}
-          <button onClick={fetchItems} className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer border-none bg-transparent">
-            <IoRefreshOutline size={18}/>
-          </button>
-          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium text-sm cursor-pointer border-none">
-            <IoAddOutline size={16}/> Thêm mặt hàng
-          </button>
+          <Button variant="ghost" onClick={fetchItems} icon={IoRefreshOutline} className="!p-2.5">
+          </Button>
+          <Button onClick={openCreate} icon={IoAddOutline}>
+            Thêm mặt hàng
+          </Button>
         </div>
       </div>
 
@@ -205,11 +205,11 @@ const InventoryManagement = () => {
                   className="w-full border border-border-grey rounded-lg px-3 py-2 text-sm bg-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"/>
                 <p className="text-xs text-on-surface-variant mt-1">Hệ thống sẽ cảnh báo khi tồn kho ≤ mức này.</p>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={closeForm} className="px-4 py-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg text-sm font-medium transition-colors cursor-pointer border border-border-grey bg-transparent">Hủy</button>
-                <button type="submit" disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors cursor-pointer border-none">
-                  <IoSaveOutline size={15}/>{saving ? "Đang lưu..." : "Lưu"}
-                </button>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                <Button variant="ghost" type="button" onClick={closeForm} icon={IoCloseOutline}>Hủy</Button>
+                <Button type="submit" isLoading={saving} icon={IoSaveOutline}>
+                  {saving ? "Đang lưu..." : "Lưu"}
+                </Button>
               </div>
             </form>
           </div>

@@ -4,23 +4,36 @@ import Button from '../../components/ui/Button';
 import { numberToWords } from '../../utils/numberToWords';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import bookingApi from '../../services/bookingApi';
+import { useAppConfig } from '../../context/AppConfigContext';
 
 const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
+  const { config } = useAppConfig();
   const [services, setServices] = useState([]);
-  
-  // Fake hotel settings for now (or could be fetched from API)
+  const [loadingServices, setLoadingServices] = useState(true);
+
   const hotelInfo = {
-    name: 'STAY AWAY HOTEL',
-    address: '123 Đường Bờ Biển, Phường Cát Dài, TP. Vũng Tàu',
-    phone: '0988.777.666',
-    mst: '0101234567'
+    name: config?.hotelName || 'STAY AWAY HOTEL',
+    address: config?.hotelAddress || '123 Đường Bờ Biển, Phường Cát Dài, TP. Vũng Tàu',
+    phone: config?.hotelPhone || '0988.777.666',
+    email: config?.hotelEmail || 'contact@stayaway.com',
+    mst: config?.taxCode || '0101234567',
+    logoUrl: config?.logoUrl || null
   };
 
   useEffect(() => {
     if (booking?.id) {
-      bookingApi.getBookingServices(booking.id).then(data => {
-        setServices(data);
-      }).catch(console.error);
+      setLoadingServices(true);
+      bookingApi.getBookingServices(booking.id)
+        .then(data => {
+          setServices(Array.isArray(data) ? data : []);
+        })
+        .catch(err => {
+          console.error("Lỗi khi tải dịch vụ hóa đơn:", err);
+          setServices([]);
+        })
+        .finally(() => {
+          setLoadingServices(false);
+        });
     }
   }, [booking?.id]);
 
@@ -28,212 +41,299 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
     window.print();
   };
 
-  // Tính toán trước thuế và thuế GTGT (giả sử VAT 10% và tổng tiền đã bao gồm VAT)
-  const totalAmount = invoice.totalAmount || 0;
-  const subtotal = totalAmount / 1.1;
+  // Helper lấy đơn giá dịch vụ đã bao gồm VAT
+  const getSvcUnitPriceWithVat = (svc) => {
+    if (svc.unitPriceSnapshot != null && !isNaN(Number(svc.unitPriceSnapshot))) return Number(svc.unitPriceSnapshot);
+    if (svc.unitPrice != null && !isNaN(Number(svc.unitPrice))) return Number(svc.unitPrice);
+    if (svc.price != null && !isNaN(Number(svc.price))) return Number(svc.price);
+    if (svc.total != null && svc.quantity && !isNaN(Number(svc.total))) return Number(svc.total) / Number(svc.quantity);
+    return 0;
+  };
+
+  // Helper lấy thành tiền dịch vụ đã bao gồm VAT
+  const getSvcTotalWithVat = (svc) => {
+    if (svc.total != null && !isNaN(Number(svc.total))) return Number(svc.total);
+    const uPrice = getSvcUnitPriceWithVat(svc);
+    const qty = Number(svc.quantity) || 1;
+    return uPrice * qty;
+  };
+
+  // 1. Tiền phòng
+  const nights = calculateNights(booking?.checkInDate, booking?.checkOutDate) || 1;
+  const roomTotalWithVat = Number(invoice?.roomAmount != null ? invoice.roomAmount : (booking?.expectedPrice || 0));
+  const roomPreTax = Math.round(roomTotalWithVat / 1.1);
+  const roomUnitPricePreTax = nights > 0 ? Math.round(roomPreTax / nights) : roomPreTax;
+
+  // 2. Tiền dịch vụ
+  const servicesTotalWithVat = services.reduce((sum, s) => sum + getSvcTotalWithVat(s), 0);
+
+  // 3. Tổng cộng tiền (bao gồm VAT)
+  const calculatedTotalWithVat = roomTotalWithVat + servicesTotalWithVat;
+  const totalAmount = (invoice?.totalAmount != null && !isNaN(Number(invoice.totalAmount)) && Number(invoice.totalAmount) > 0)
+    ? Number(invoice.totalAmount)
+    : calculatedTotalWithVat;
+
+  const subtotal = Math.round(totalAmount / 1.1);
   const vatAmount = totalAmount - subtotal;
   
-  const discountAmount = invoice.discountAmount || 0;
-  const totalPayment = totalAmount - discountAmount;
+  const discountAmount = Number(invoice?.discountAmount || 0);
+  const totalPayment = Math.max(0, totalAmount - discountAmount);
+
+  // Ngày hóa đơn
+  const invoiceDate = invoice?.createdAt ? new Date(invoice.createdAt) : new Date();
+  const invoiceDay = String(invoiceDate.getDate()).padStart(2, '0');
+  const invoiceMonth = String(invoiceDate.getMonth() + 1).padStart(2, '0');
+  const invoiceYear = invoiceDate.getFullYear();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 invoice-modal-container">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 invoice-modal-container font-sans">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative border border-gray-200">
         
         {/* Thanh công cụ (ẩn khi in) */}
-        <div className="bg-surface-container-low p-4 flex justify-between items-center border-b border-border-grey print:hidden">
-          <h2 className="font-title-md text-on-surface">Xuất Hóa đơn GTGT</h2>
-          <div className="flex gap-3">
+        <div className="bg-slate-50 p-4 flex justify-between items-center border-b border-gray-200 print:hidden">
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-slate-800 text-base">Xem & Xuất Hóa đơn GTGT</h2>
+            <span className="text-xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded">
+              Số: #{String(invoice?.id || booking?.id || 1).padStart(7, '0')}
+            </span>
+          </div>
+          <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
-            <Button onClick={handlePrint} icon={IoPrintOutline}>In Hóa đơn</Button>
+            <Button onClick={handlePrint} icon={IoPrintOutline} className="bg-blue-600 hover:bg-blue-700 text-white">
+              In Hóa đơn
+            </Button>
           </div>
         </div>
 
-        {/* Khung Hóa đơn chuẩn để in */}
-        <div className="flex-1 overflow-y-auto p-8 md:p-12 print:p-0 print:overflow-visible bg-white" id="printable-invoice">
+        {/* Khung Hóa đơn chuẩn in ấn */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 print:p-0 print:overflow-visible bg-white text-slate-900 leading-normal" id="printable-invoice">
           
           <style>{`
             @media print {
+              @page {
+                size: A4 portrait;
+                margin: 15mm 15mm 15mm 15mm;
+              }
               body * {
-                visibility: hidden;
+                visibility: hidden !important;
               }
               #printable-invoice, #printable-invoice * {
-                visibility: visible;
+                visibility: visible !important;
               }
               #printable-invoice {
                 position: absolute;
                 left: 0;
                 top: 0;
                 width: 100%;
+                margin: 0;
+                padding: 0;
               }
               .invoice-modal-container {
-                position: static;
-                background: none;
+                position: static !important;
+                background: none !important;
+                padding: 0 !important;
               }
             }
           `}</style>
 
-          <div className="max-w-3xl mx-auto space-y-6 text-black font-serif">
-            {/* Header: Logo, Tên cty, Mẫu số, Ký hiệu */}
-            <div className="flex justify-between items-start border-b-2 border-black pb-4">
-              <div className="flex gap-4">
-                <div className="w-20 h-20 bg-gray-100 flex items-center justify-center font-bold text-2xl border border-gray-300">
-                  LOGO
-                </div>
+          <div className="max-w-3xl mx-auto space-y-5 text-slate-900 font-sans">
+            
+            {/* 1. Header Khách sạn & Số hóa đơn */}
+            <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 gap-4">
+              <div className="flex items-center gap-4">
+                {hotelInfo.logoUrl ? (
+                  <img src={hotelInfo.logoUrl} alt="Logo" className="w-16 h-16 object-contain rounded border border-gray-200" />
+                ) : (
+                  <div className="w-16 h-16 bg-blue-600 text-white rounded-lg flex items-center justify-center font-extrabold text-xl shadow-xs">
+                    STAY
+                  </div>
+                )}
                 <div>
-                  <h1 className="font-bold text-xl uppercase">{hotelInfo.name}</h1>
-                  <p className="text-sm">Địa chỉ: {hotelInfo.address}</p>
-                  <p className="text-sm">Điện thoại: {hotelInfo.phone}</p>
-                  <p className="text-sm font-bold mt-1">Mã số thuế: {hotelInfo.mst}</p>
+                  <h1 className="font-bold text-lg text-slate-900 uppercase tracking-wide">{hotelInfo.name}</h1>
+                  <p className="text-xs text-slate-600 mt-0.5">Địa chỉ: {hotelInfo.address}</p>
+                  <p className="text-xs text-slate-600">Điện thoại: {hotelInfo.phone} {hotelInfo.email ? `• Email: ${hotelInfo.email}` : ''}</p>
+                  <p className="text-xs text-slate-800 font-semibold mt-0.5">Mã số thuế: {hotelInfo.mst}</p>
                 </div>
               </div>
-              <div className="text-right text-sm">
-                <p>Mẫu số: <strong>01GTKT0/001</strong></p>
-                <p>Ký hiệu: <strong>AA/23E</strong></p>
-                <p>Số: <strong className="text-red-600 text-lg">{String(invoice.id).padStart(7, '0')}</strong></p>
+
+              <div className="text-right text-xs text-slate-700 shrink-0 space-y-1 bg-slate-50 p-2.5 rounded border border-slate-200">
+                <p>Mẫu số: <strong className="text-slate-900">01GTKT0/001</strong></p>
+                <p>Ký hiệu: <strong className="text-slate-900">AA/24E</strong></p>
+                <p>Số HĐ: <strong className="text-red-600 text-sm font-mono">{String(invoice?.id || booking?.id || 1).padStart(7, '0')}</strong></p>
               </div>
             </div>
 
-            {/* Tiêu đề hóa đơn */}
-            <div className="text-center py-4">
-              <h2 className="text-2xl font-bold uppercase mb-2">Hóa Đơn Giá Trị Gia Tăng</h2>
-              <p className="text-sm italic">
-                Ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
+            {/* 2. Tiêu đề Hóa Đơn */}
+            <div className="text-center py-2">
+              <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wider">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</h2>
+              <p className="text-xs text-slate-500 italic mt-1">
+                Ngày {invoiceDay} tháng {invoiceMonth} năm {invoiceYear}
               </p>
             </div>
 
-            {/* Thông tin người mua */}
-            <div className="space-y-2 text-sm border border-gray-300 p-4 rounded-md">
-              <div className="flex">
-                <span className="w-40 font-bold">Tên người mua hàng:</span>
-                <span className="flex-1 uppercase font-medium">{booking?.guestName}</span>
+            {/* 3. Thông tin người mua hàng */}
+            <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-3.5 text-xs space-y-1.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="flex">
+                  <span className="w-36 text-slate-600 font-semibold">Tên người mua hàng:</span>
+                  <span className="flex-1 font-bold text-slate-900 uppercase">{booking?.guestName || '—'}</span>
+                </div>
+                <div className="flex">
+                  <span className="w-32 text-slate-600 font-semibold">Số điện thoại:</span>
+                  <span className="flex-1 font-medium text-slate-900">{booking?.guestPhone || '—'}</span>
+                </div>
               </div>
-              <div className="flex">
-                <span className="w-40 font-bold">Số điện thoại:</span>
-                <span className="flex-1">{booking?.guestPhone}</span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="flex">
+                  <span className="w-36 text-slate-600 font-semibold">Căn cước công dân:</span>
+                  <span className="flex-1 text-slate-800">{booking?.guestIdNumber || '—'}</span>
+                </div>
+                <div className="flex">
+                  <span className="w-32 text-slate-600 font-semibold">Mã số thuế:</span>
+                  <span className="flex-1 text-slate-800">—</span>
+                </div>
               </div>
-              <div className="flex">
-                <span className="w-40 font-bold">Căn cước công dân:</span>
-                <span className="flex-1">{booking?.guestIdNumber || '—'}</span>
-              </div>
-              <div className="flex">
-                <span className="w-40 font-bold">Mã số thuế (nếu có):</span>
-                <span className="flex-1">—</span>
-              </div>
-              <div className="flex">
-                <span className="w-40 font-bold">Địa chỉ:</span>
-                <span className="flex-1">Khách lẻ</span>
-              </div>
-              <div className="flex">
-                <span className="w-40 font-bold">Hình thức thanh toán:</span>
-                <span className="flex-1">Tiền mặt / Chuyển khoản</span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="flex">
+                  <span className="w-36 text-slate-600 font-semibold">Địa chỉ:</span>
+                  <span className="flex-1 text-slate-800">Khách lẻ lưu trú</span>
+                </div>
+                <div className="flex">
+                  <span className="w-32 text-slate-600 font-semibold">Hình thức thanh toán:</span>
+                  <span className="flex-1 font-medium text-slate-900">Tiền mặt / Chuyển khoản</span>
+                </div>
               </div>
             </div>
 
-            {/* Chi tiết hàng hóa dịch vụ */}
-            <table className="w-full border-collapse border border-black text-sm">
-              <thead className="bg-gray-100 font-bold">
-                <tr>
-                  <th className="border border-black py-2 px-2 text-center w-12">STT</th>
-                  <th className="border border-black py-2 px-2 text-center">Tên hàng hóa, dịch vụ</th>
-                  <th className="border border-black py-2 px-2 text-center w-20">ĐVT</th>
-                  <th className="border border-black py-2 px-2 text-center w-20">Số lượng</th>
-                  <th className="border border-black py-2 px-2 text-center w-28">Đơn giá</th>
-                  <th className="border border-black py-2 px-2 text-center w-32">Thành tiền</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* 1. Tiền phòng */}
-                <tr>
-                  <td className="border border-black py-2 px-2 text-center">1</td>
-                  <td className="border border-black py-2 px-2">
-                    Dịch vụ lưu trú ({booking?.roomTypeName}) {booking?.roomNumber ? `- Phòng ${booking.roomNumber}` : ''} <br/>
-                    <span className="italic text-xs">Từ {formatStayDateTime(booking?.checkInDate, 'checkin')} đến {formatStayDateTime(booking?.checkOutDate, 'checkout')}</span>
-                  </td>
-                  <td className="border border-black py-2 px-2 text-center">Đêm</td>
-                  <td className="border border-black py-2 px-2 text-right">
-                    {calculateNights(booking?.checkInDate, booking?.checkOutDate)}
-                  </td>
-                  <td className="border border-black py-2 px-2 text-right">
-                    {Math.round((invoice.roomAmount || 0) / 1.1).toLocaleString('vi-VN')}
-                  </td>
-                  <td className="border border-black py-2 px-2 text-right font-medium">
-                    {Math.round((invoice.roomAmount || 0) / 1.1).toLocaleString('vi-VN')}
-                  </td>
-                </tr>
-                
-                {/* 2. Dịch vụ phát sinh */}
-                {services.map((svc, idx) => (
-                  <tr key={idx}>
-                    <td className="border border-black py-2 px-2 text-center">{idx + 2}</td>
-                    <td className="border border-black py-2 px-2">{svc.serviceName}</td>
-                    <td className="border border-black py-2 px-2 text-center">{svc.unit || 'Lần'}</td>
-                    <td className="border border-black py-2 px-2 text-right">{svc.quantity}</td>
-                    <td className="border border-black py-2 px-2 text-right">
-                      {Math.round((svc.unitPrice || 0) / 1.1).toLocaleString('vi-VN')}
+            {/* 4. Bảng Chi tiết Hàng hóa / Dịch vụ */}
+            <div className="overflow-hidden border border-slate-900 rounded-sm">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-slate-100 font-bold text-slate-900 border-b border-slate-900">
+                  <tr>
+                    <th className="border-r border-slate-900 py-2 px-2 text-center w-10">STT</th>
+                    <th className="border-r border-slate-900 py-2 px-3 text-left">Tên hàng hóa, dịch vụ</th>
+                    <th className="border-r border-slate-900 py-2 px-2 text-center w-14">ĐVT</th>
+                    <th className="border-r border-slate-900 py-2 px-2 text-center w-14">Số lượng</th>
+                    <th className="border-r border-slate-900 py-2 px-3 text-right w-28">Đơn giá (chưa thuế)</th>
+                    <th className="py-2 px-3 text-right w-32">Thành tiền (chưa thuế)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-300">
+                  {/* Mục 1: Tiền phòng */}
+                  <tr>
+                    <td className="border-r border-slate-900 py-2.5 px-2 text-center font-medium">1</td>
+                    <td className="border-r border-slate-900 py-2.5 px-3">
+                      <div className="font-semibold text-slate-900">
+                        Dịch vụ lưu trú ({booking?.roomTypeName || 'Phòng tiêu chuẩn'}) {booking?.roomNumber ? `— Phòng ${booking.roomNumber}` : ''}
+                      </div>
+                      <div className="text-[11px] text-slate-500 italic mt-0.5">
+                        Từ {formatStayDateTime(booking?.checkInDate, 'checkin')} đến {formatStayDateTime(booking?.checkOutDate, 'checkout')}
+                      </div>
                     </td>
-                    <td className="border border-black py-2 px-2 text-right font-medium">
-                      {Math.round((svc.unitPrice * svc.quantity) / 1.1).toLocaleString('vi-VN')}
+                    <td className="border-r border-slate-900 py-2.5 px-2 text-center">Đêm</td>
+                    <td className="border-r border-slate-900 py-2.5 px-2 text-center font-medium">{nights}</td>
+                    <td className="border-r border-slate-900 py-2.5 px-3 text-right font-mono">
+                      {roomUnitPricePreTax.toLocaleString('vi-VN')}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold font-mono text-slate-900">
+                      {roomPreTax.toLocaleString('vi-VN')}
                     </td>
                   </tr>
-                ))}
 
-              </tbody>
-            </table>
+                  {/* Mục 2..n: Dịch vụ phụ thu */}
+                  {services.map((svc, idx) => {
+                    const unitPriceWithVat = getSvcUnitPriceWithVat(svc);
+                    const totalWithVat = getSvcTotalWithVat(svc);
+                    const svcPreTaxUnitPrice = Math.round(unitPriceWithVat / 1.1);
+                    const svcPreTaxTotal = Math.round(totalWithVat / 1.1);
+                    const qty = Number(svc.quantity) || 1;
 
-            {/* Tổng cộng & Thuế */}
-            <div className="flex text-sm">
-              <div className="w-2/3 pr-4 border-t border-transparent pt-4">
-                <p className="mb-2 italic text-gray-700">Tỷ giá: 1 USD = .... VNĐ (Nếu thanh toán ngoại tệ)</p>
+                    return (
+                      <tr key={svc.id || idx}>
+                        <td className="border-r border-slate-900 py-2 px-2 text-center">{idx + 2}</td>
+                        <td className="border-r border-slate-900 py-2 px-3">
+                          <span className="font-medium text-slate-900">{svc.serviceName || 'Dịch vụ phụ thu'}</span>
+                          {svc.note && <span className="text-[11px] text-slate-500 italic ml-1.5">({svc.note})</span>}
+                        </td>
+                        <td className="border-r border-slate-900 py-2 px-2 text-center">{svc.unit || 'Lần'}</td>
+                        <td className="border-r border-slate-900 py-2 px-2 text-center font-medium">{qty}</td>
+                        <td className="border-r border-slate-900 py-2 px-3 text-right font-mono">
+                          {svcPreTaxUnitPrice.toLocaleString('vi-VN')}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold font-mono text-slate-900">
+                          {svcPreTaxTotal.toLocaleString('vi-VN')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 5. Tổng kết Tiền hàng, Thuế GTGT 10%, Tổng thanh toán */}
+            <div className="flex text-xs pt-1">
+              <div className="w-1/2 pr-4 space-y-1">
+                <p className="italic text-slate-600">Tỷ giá quy đổi: 1 USD = 25.450 VNĐ (Nếu thanh toán ngoại tệ)</p>
+                <p className="italic text-slate-500 text-[11px]">Đã bao gồm thuế giá trị gia tăng GTGT 10% theo quy định.</p>
               </div>
-              <div className="w-1/3 space-y-2">
-                <div className="flex justify-between border-b border-dotted border-gray-400 pb-1">
-                  <span className="font-bold">Cộng tiền hàng hóa:</span>
-                  <span>{Math.round(subtotal).toLocaleString('vi-VN')} đ</span>
+
+              <div className="w-1/2 space-y-1.5 bg-slate-50 p-3 rounded border border-slate-200 font-sans">
+                <div className="flex justify-between border-b border-dashed border-slate-300 pb-1">
+                  <span className="text-slate-600 font-semibold">Cộng tiền hàng hóa (chưa thuế):</span>
+                  <span className="font-bold font-mono text-slate-900">{subtotal.toLocaleString('vi-VN')} đ</span>
                 </div>
-                <div className="flex justify-between border-b border-dotted border-gray-400 pb-1">
-                  <span className="font-bold">Thuế suất GTGT:</span>
-                  <span>10%</span>
+                <div className="flex justify-between border-b border-dashed border-slate-300 pb-1">
+                  <span className="text-slate-600 font-semibold">Thuế suất GTGT:</span>
+                  <span className="font-semibold text-slate-900">10%</span>
                 </div>
-                <div className="flex justify-between border-b border-dotted border-gray-400 pb-1">
-                  <span className="font-bold">Tiền thuế GTGT:</span>
-                  <span>{Math.round(vatAmount).toLocaleString('vi-VN')} đ</span>
+                <div className="flex justify-between border-b border-dashed border-slate-300 pb-1">
+                  <span className="text-slate-600 font-semibold">Tiền thuế GTGT (10%):</span>
+                  <span className="font-bold font-mono text-slate-900">{vatAmount.toLocaleString('vi-VN')} đ</span>
                 </div>
                 {discountAmount > 0 && (
-                  <div className="flex justify-between border-b border-dotted border-gray-400 pb-1 text-red-600">
-                    <span className="font-bold">Giảm giá:</span>
-                    <span>- {discountAmount.toLocaleString('vi-VN')} đ</span>
+                  <div className="flex justify-between border-b border-dashed border-slate-300 pb-1 text-red-600">
+                    <span className="font-semibold">Chiết khấu / Giảm giá:</span>
+                    <span className="font-bold font-mono">- {discountAmount.toLocaleString('vi-VN')} đ</span>
                   </div>
                 )}
-                <div className="flex justify-between pb-1 pt-2">
-                  <span className="font-bold text-base">Tổng tiền thanh toán:</span>
-                  <span className="font-bold text-base">{Math.round(totalPayment).toLocaleString('vi-VN')} đ</span>
+                <div className="flex justify-between pt-1 text-sm font-bold text-slate-900">
+                  <span>Tổng tiền thanh toán:</span>
+                  <span className="text-blue-700 font-mono text-base">{totalPayment.toLocaleString('vi-VN')} đ</span>
                 </div>
               </div>
             </div>
 
-            {/* Bằng chữ */}
-            <div className="bg-gray-50 p-2 font-bold italic text-sm border-b border-gray-300">
-              Số tiền viết bằng chữ: {numberToWords(Math.round(totalPayment))}
+            {/* 6. Số tiền viết bằng chữ */}
+            <div className="bg-slate-100 p-2.5 rounded border border-slate-200 text-xs">
+              <span className="font-semibold text-slate-700">Số tiền viết bằng chữ: </span>
+              <strong className="text-slate-900 italic">{numberToWords(totalPayment)}</strong>
             </div>
 
-            {/* Chữ ký */}
-            <div className="flex justify-around pt-8 pb-20 text-center text-sm">
+            {/* 7. Chữ ký các bên */}
+            <div className="grid grid-cols-2 pt-6 pb-12 text-center text-xs">
               <div>
-                <p className="font-bold">Người mua hàng</p>
-                <p className="italic text-gray-500">(Ký, ghi rõ họ tên)</p>
+                <p className="font-bold uppercase text-slate-900">Người mua hàng</p>
+                <p className="italic text-slate-500 text-[11px] mt-0.5">(Ký, ghi rõ họ tên)</p>
+                <div className="h-16"></div>
+                <p className="font-semibold text-slate-800 uppercase">{booking?.guestName || ''}</p>
               </div>
               <div>
-                <p className="font-bold">Người bán hàng</p>
-                <p className="italic text-gray-500">(Ký, đóng dấu, ghi rõ họ tên)</p>
-                <div className="mt-16 font-bold uppercase text-blue-800">CÔNG TY TNHH STAY AWAY</div>
+                <p className="font-bold uppercase text-slate-900">Người bán hàng</p>
+                <p className="italic text-slate-500 text-[11px] mt-0.5">(Ký, đóng dấu, ghi rõ họ tên)</p>
+                <div className="h-16 flex items-center justify-center">
+                  <span className="text-[11px] border border-green-600 text-green-700 font-bold px-2 py-0.5 rounded rotate-[-5deg] inline-block uppercase">
+                    ✓ ĐÃ KÝ ĐIỆN TỬ
+                  </span>
+                </div>
+                <p className="font-bold uppercase text-blue-900">{hotelInfo.name}</p>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="text-center text-xs text-gray-500 border-t border-gray-300 pt-2 pb-8">
-              (Cần kiểm tra đối chiếu khi lập, giao nhận hóa đơn) <br/>
-              Giải pháp Hóa đơn Điện tử - StayGO PMS
+            {/* 8. Footer */}
+            <div className="text-center text-[11px] text-slate-500 border-t border-slate-200 pt-2 pb-4">
+              (Hóa đơn điện tử có giá trị pháp lý theo quy định hiện hành • Hệ thống StayGO PMS)
             </div>
 
           </div>

@@ -9,9 +9,6 @@ const ProfileSettings = () => {
   const [profile, setProfile] = useState({
     name: '',
     phone: '',
-    email: '',
-    name: '',
-    phone: '',
     email: ''
   });
 
@@ -42,8 +39,6 @@ const ProfileSettings = () => {
       if (data) {
         setProfile({
           name: data.name || '',
-          phone: data.phone || '',
-          email: data.email || '',
           phone: data.phone || '',
           email: data.email || ''
         });

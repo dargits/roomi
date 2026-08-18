@@ -237,7 +237,12 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
   };
 
   const latestDeposit = deposits[0];
-  const canRecord_deposit = canRecord && !['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(booking?.status);
+  const hasCollectedDeposit = deposits.some(d =>
+    ['COLLECTED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'FORFEITED'].includes(d.status)
+  );
+  const canRecord_deposit = canRecord &&
+    !['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(booking?.status) &&
+    !hasCollectedDeposit;
   const canRefund = canRecord && latestDeposit &&
     ['COLLECTED', 'SHORT_PAID'].includes(latestDeposit.status) &&
     ['CANCELLED', 'NO_SHOW'].includes(booking?.status) === false;
@@ -266,30 +271,42 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
           <h4 className="font-semibold text-on-surface flex items-center gap-2">
             <IoCashOutline size={18} className="text-primary" /> Thông tin đặt cọc
           </h4>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {hasCollectedDeposit && latestDeposit?.status === 'COLLECTED' && (
+              <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-md font-semibold text-xs flex items-center gap-1">
+                <IoCheckmarkCircleOutline size={14} className="text-green-700" /> Đã thu đủ tiền cọc
+              </span>
+            )}
             {canRecord_deposit && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={openRecordModal}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors font-medium"
+                icon={IoCashOutline}
               >
-                <IoCashOutline size={13} /> Thu tiền cọc
-              </button>
+                Thu tiền cọc
+              </Button>
             )}
             {canRefund && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => { fetchFee(); setShowRefundModal(true); setRefundError(''); }}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-orange-400/40 text-orange-600 hover:bg-orange-50 transition-colors font-medium"
+                icon={IoArrowUndoOutline}
+                className="text-orange-600 border-orange-300 hover:bg-orange-50"
               >
-                <IoArrowUndoOutline size={13} /> Hoàn / Phí hủy
-              </button>
+                Hoàn / Phí hủy
+              </Button>
             )}
             {canNoShow && (
-              <button
+              <Button
+                variant="dangerOutline"
+                size="sm"
                 onClick={() => { setShowNoShowModal(true); setNoShowError(''); setNoShowData({ reason: '', penaltyOverride: '' }); }}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-red-400/40 text-error hover:bg-red-50 transition-colors font-medium"
+                icon={IoWarningOutline}
               >
-                <IoWarningOutline size={13} /> Khách không đến
-              </button>
+                Khách không đến
+              </Button>
             )}
           </div>
         </div>
