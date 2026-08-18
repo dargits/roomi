@@ -539,7 +539,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                     {/* 1. Chọn phương thức thanh toán */}
                     <div>
                       <label className="block font-label-md text-on-surface-variant mb-1.5 text-xs">Phương thức thanh toán</label>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => handleMethodChange('CASH')}
@@ -553,13 +553,6 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                           className={`py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${newPayment.paymentMethod === 'TRANSFER' ? 'bg-primary text-white border-primary shadow-xs' : 'bg-white text-on-surface border-border-grey hover:bg-surface-container-lowest'}`}
                         >
                           <IoQrCodeOutline size={16} /> Chuyển khoản
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleMethodChange('CREDIT_CARD')}
-                          className={`py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${newPayment.paymentMethod === 'CREDIT_CARD' ? 'bg-primary text-white border-primary shadow-xs' : 'bg-white text-on-surface border-border-grey hover:bg-surface-container-lowest'}`}
-                        >
-                          <IoCardOutline size={16} /> Thẻ POS
                         </button>
                       </div>
                     </div>
