@@ -53,16 +53,16 @@ const EXPORT_ITEMS = [
 ];
 
 const IMPORT_TYPES = [
-  { value: 'rooms', label: 'Danh sách Phòng (roomNumber, roomTypeId, floor)' },
-  { value: 'guests', label: 'Khách hàng (name, phone, idNumber, email)' },
-  { value: 'room-types', label: 'Loại phòng (name, basePrice, maxCapacity, amenitiesDescription)' },
-  { value: 'extra-services', label: 'Dịch vụ phụ thu (name, price, unit)' }
+  { value: 'rooms', label: 'Danh sách Phòng (Số phòng, Mã loại phòng, Tầng)' },
+  { value: 'guests', label: 'Khách hàng (Tên, SĐT, CCCD, Email)' },
+  { value: 'room-types', label: 'Loại phòng (Tên, Giá cơ bản, Sức chứa, Tiện nghi)' },
+  { value: 'extra-services', label: 'Dịch vụ phụ thu (Tên dịch vụ, Đơn giá, Đơn vị tính)' }
 ];
 
 const SAMPLE_CSV = {
   rooms: "Số phòng,Mã loại phòng,Tầng\n101,1,1\n102,1,1\n201,2,2\n202,2,2",
   guests: "Tên khách hàng,Số điện thoại,CCCD,Email\nNguyễn Văn An,0912345678,001234567890,an.nguyen@gmail.com\nTrần Thị Bích,0987654321,001987654321,bich.tran@gmail.com",
-  'room-types': "Tên loại phòng,Giá cơ bản,Sức chứa,Mô tả tiện nghi\nPhòng Standard,500000,2,Giường đôi TV Điều hòa\nPhòng Deluxe VIP,1200000,4,View biển Ban công Bồn tắm",
+  'room-types': "Tên loại phòng,Giá cơ bản,Sức chứa,Mô tả tiện nghi\nPhòng Tiêu Chuẩn,500000,2,Giường đôi TV Điều hòa\nPhòng Cao Cấp VIP,1200000,4,View biển Ban công Bồn tắm",
   'extra-services': "Tên dịch vụ,Đơn giá,Đơn vị tính\nNước ngọt lon,15000,Lon\nGiặt là nhanh,50000,Kg\nThuê xe máy,150000,Ngày"
 };
 
@@ -170,7 +170,7 @@ const BackupDataPage = () => {
           }`}
         >
           <IoDownloadOutline size={16} />
-          Xuất Sao Lưu (Export CSV)
+          Xuất Dữ Liệu (CSV)
         </button>
         <button
           onClick={() => setActiveTab('import')}
@@ -181,7 +181,7 @@ const BackupDataPage = () => {
           }`}
         >
           <IoCloudUploadOutline size={16} />
-          Nhập Dữ Liệu (Import CSV)
+          Nhập Dữ Liệu (CSV)
         </button>
       </div>
 

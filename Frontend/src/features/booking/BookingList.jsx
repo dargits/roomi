@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   IoArrowForwardOutline, 
   IoCalendarOutline, 
@@ -13,7 +14,9 @@ import {
   IoAlertCircleOutline,
   IoLogOutOutline,
   IoLogInOutline,
-  IoCardOutline
+  IoCardOutline,
+  IoCloseOutline,
+  IoDocumentOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import BookingDetailsModal from './BookingDetailsModal';
@@ -180,10 +183,15 @@ const BookingList = ({ onEditBooking }) => {
             bookings.map(booking => (
               <tr key={booking.id} className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
                 <td className="p-4">
-                  <div className="font-title-sm text-on-surface flex items-center gap-2 font-medium">
-                    <IoPersonOutline size={16} className="text-on-surface-variant" />
-                    {booking.guestName}
-                  </div>
+                  <Link 
+                    to={`/manage/bookings/${booking.id}/info`}
+                    state={{ from: '/manage/bookings/list' }}
+                    className="font-title-sm text-on-surface hover:text-primary transition-colors flex items-center gap-2 font-semibold group-hover:text-primary"
+                    title="Bấm để mở trang chi tiết đặt phòng"
+                  >
+                    <IoPersonOutline size={16} className="text-primary shrink-0" />
+                    <span>{booking.guestName}</span>
+                  </Link>
                   <div className="text-sm text-on-surface-variant mt-1 flex items-center gap-2">
                     <IoCallOutline size={14} /> {booking.guestPhone}
                   </div>
@@ -219,14 +227,15 @@ const BookingList = ({ onEditBooking }) => {
                   </div>
                 </td>
                 <td className="p-4 text-center">
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button 
-                      type="button"
-                      onClick={() => setSelectedBookingId(booking.id)} 
-                      className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 cursor-pointer shadow-xs"
+                  <div className="flex flex-wrap justify-center items-center gap-1.5">
+                    <Link 
+                      to={`/manage/bookings/${booking.id}/info`}
+                      state={{ from: '/manage/bookings/list' }}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 cursor-pointer shadow-xs inline-flex items-center gap-1"
+                      title="Mở trang chi tiết đặt phòng"
                     >
-                      Chi tiết & Hóa đơn
-                    </button>
+                      <IoDocumentOutline size={14} /> Chi tiết & Hóa đơn
+                    </Link>
                     {!isAccountant && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && !booking.roomId && (
                       <button 
                         type="button"
@@ -371,7 +380,7 @@ const BookingList = ({ onEditBooking }) => {
 
               <div className="text-xs text-on-surface-variant bg-blue-50/70 p-2.5 rounded-lg border border-blue-100 flex items-start gap-2">
                 <IoCheckmarkCircleOutline className="text-primary mt-0.5 shrink-0" size={16} />
-                <span>Xác nhận thông tin và chuyển trạng thái đặt phòng sang <strong>Đang ở (CHECKED_IN)</strong>.</span>
+                <span>Xác nhận thông tin và chuyển trạng thái đặt phòng sang <strong>Đang ở</strong>.</span>
               </div>
             </div>
           )}
@@ -395,14 +404,14 @@ const BookingList = ({ onEditBooking }) => {
           )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={closeActionModal}
               disabled={processing}
-              className="px-4 py-2 text-sm rounded-lg border border-border-grey text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-50 cursor-pointer"
+              icon={IoCloseOutline}
             >
               Đóng
-            </button>
+            </Button>
             <Button
               type="button"
               variant={actionConfirm.actionType === 'CANCEL' ? 'danger' : 'primary'}

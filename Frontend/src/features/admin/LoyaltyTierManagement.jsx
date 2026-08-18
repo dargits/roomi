@@ -3,6 +3,7 @@ import { IoAddOutline, IoChevronUpOutline, IoCloseOutline, IoCreateOutline, IoPe
 import loyaltyApi from "../../services/loyaltyApi";
 import guestApi from "../../services/guestApi";
 import { useToast, useConfirm } from "../../context/ToastContext";
+import Button from "../../components/ui/Button";
 
 const TIER_COLORS = [
   "bg-amber-50 border-amber-200 text-amber-800",
@@ -108,9 +109,9 @@ const LoyaltyTierManagement = () => {
           </h1>
           <p className="text-sm text-on-surface-variant mt-1">Cấu hình hạng thành viên và điểm tích lũy</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium text-sm cursor-pointer border-none">
-          <IoAddOutline size={16}/> Thêm hạng mới
-        </button>
+          <Button onClick={openCreate} icon={IoAddOutline}>
+            Thêm hạng mới
+          </Button>
       </div>
 
       {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">{error}</div>}
@@ -122,9 +123,9 @@ const LoyaltyTierManagement = () => {
         <div className="p-12 text-center bg-surface-container-lowest border border-border-grey rounded-xl">
           <IoTrophyOutline size={48} className="mx-auto mb-3 text-amber-300"/>
           <p className="text-on-surface-variant">Chưa có hạng thành viên nào.</p>
-          <button onClick={openCreate} className="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium cursor-pointer border-none">
+          <Button onClick={openCreate} icon={IoAddOutline} className="mt-3">
             Tạo hạng đầu tiên
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -200,11 +201,11 @@ const LoyaltyTierManagement = () => {
                   className="w-full border border-border-grey rounded-lg px-3 py-2 text-sm bg-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
                   placeholder="VD: Giảm 10% tiền phòng, ưu tiên phòng cao cấp..."/>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={closeForm} className="px-4 py-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg text-sm font-medium transition-colors cursor-pointer border border-border-grey bg-transparent">Hủy</button>
-                <button type="submit" disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors cursor-pointer border-none">
-                  <IoSaveOutline size={15}/>{saving ? "Đang lưu..." : "Lưu"}
-                </button>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                <Button variant="ghost" type="button" onClick={closeForm} icon={IoCloseOutline}>Hủy</Button>
+                <Button type="submit" isLoading={saving} icon={IoSaveOutline}>
+                  {saving ? "Đang lưu..." : "Lưu"}
+                </Button>
               </div>
             </form>
           </div>

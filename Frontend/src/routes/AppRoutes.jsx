@@ -12,6 +12,7 @@ import AmenitiesPage from '../features/public/AmenitiesPage';
 import PromotionsPage from '../features/public/PromotionsPage';
 import AboutPage from '../features/public/AboutPage';
 import ContactPage from '../features/public/ContactPage';
+import PublicBookingDetailPage from '../features/public/PublicBookingDetailPage';
 
 // Layout
 import DashboardLayout from '../layouts/DashboardLayout';
@@ -34,6 +35,7 @@ import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
+import BookingDetailPage from '../features/booking/BookingDetailPage';
 
 // Housekeeping
 import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
@@ -58,6 +60,14 @@ const AppRoutes = () => {
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<LoginPage />} />
 
+              {/* Public Booking Details & Sharing */}
+              <Route path="/booking-detail/:bookingId" element={<PublicBookingDetailPage />} />
+              <Route path="/booking-detail/:bookingId/:tab" element={<PublicBookingDetailPage />} />
+              <Route path="/share/booking/:bookingId" element={<PublicBookingDetailPage />} />
+              <Route path="/share/booking/:bookingId/:tab" element={<PublicBookingDetailPage />} />
+              <Route path="/p/booking/:bookingId" element={<PublicBookingDetailPage />} />
+              <Route path="/p/booking/:bookingId/:tab" element={<PublicBookingDetailPage />} />
+
               {/* Redirect old /admin & /dashboard paths */}
               <Route path="/admin" element={<Navigate to="/manage/dashboard" replace />} />
               <Route path="/admin/*" element={<Navigate to="/manage/dashboard" replace />} />
@@ -75,6 +85,11 @@ const AppRoutes = () => {
 
                   {/* Đặt phòng — OWNER / RECEPTIONIST */}
                   <Route path="/manage/bookings" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/list" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/calendar" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/requests" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/:bookingId" element={<BookingDetailPage />} />
+                  <Route path="/manage/bookings/:bookingId/:tab" element={<BookingDetailPage />} />
 
                   {/* Phòng */}
                   <Route path="/manage/rooms" element={<RoomManagement />} />
