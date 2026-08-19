@@ -11,4 +11,6 @@ public interface StayDeclarationService {
     StayDeclarationResponseDTO getDeclarationsForDate(LocalDate date);
 
     void completeDeclaration(Long bookingId, User actor);
+
+    byte[] exportDeclarationsToExcel(LocalDate date);
 }

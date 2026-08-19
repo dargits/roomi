@@ -1,6 +1,7 @@
 package plant.stay.service;
 
 import org.junit.jupiter.api.Test;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +11,7 @@ import plant.stay.model.*;
 import plant.stay.repository.*;
 
 import java.math.BigDecimal;
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -101,5 +103,15 @@ class StayDeclarationServiceTest {
                 .orElseThrow();
         assertEquals("COMPLETED", completedGuest.getDeclarationStatus());
         assertNotNull(completedGuest.getDeclarationCompletedAt());
+
+                byte[] excelReport = stayDeclarationService.exportDeclarationsToExcel(LocalDate.now());
+                try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(excelReport))) {
+                        assertEquals("Khai bao luu tru", workbook.getSheetAt(0).getSheetName());
+                        assertEquals("BAO CAO KHAI BAO LUU TRU - "
+                                                        + LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                                        workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue());
+                } catch (Exception exception) {
+                        throw new AssertionError("Excel report must be readable", exception);
+                }
     }
 }

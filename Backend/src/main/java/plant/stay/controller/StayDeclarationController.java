@@ -2,6 +2,9 @@ package plant.stay.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.response.StayDeclarationResponseDTO;
@@ -10,6 +13,8 @@ import plant.stay.model.Role;
 import plant.stay.model.User;
 import plant.stay.service.StayDeclarationService;
 import plant.stay.util.AuthUtil;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/stay-declarations")
@@ -24,6 +29,21 @@ public class StayDeclarationController {
     public ResponseEntity<StayDeclarationResponseDTO> getToday(HttpServletRequest request) {
         checkReceptionStaff(request);
         return ResponseEntity.ok(stayDeclarationService.getTodayDeclarations());
+    }
+
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportExcel(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest request) {
+        checkReceptionStaff(request);
+        LocalDate reportDate = date != null ? date : LocalDate.now();
+        byte[] report = stayDeclarationService.exportDeclarationsToExcel(reportDate);
+        String filename = "stay_declarations_" + reportDate + ".xlsx";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(report);
     }
 
     @PutMapping("/{bookingId}/complete")
