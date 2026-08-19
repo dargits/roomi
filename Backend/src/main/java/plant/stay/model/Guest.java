@@ -6,6 +6,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "guests")
@@ -24,6 +26,10 @@ public class Guest {
 
     @Column(name = "id_number", length = 20)
     private String idNumber; // CMND/CCCD
+
+    @OneToMany(mappedBy = "guest", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<IdentityDocument> identityDocuments = new ArrayList<>();
 
     @Column(length = 150)
     private String email;

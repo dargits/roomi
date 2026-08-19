@@ -35,6 +35,7 @@ public class BookingServiceImpl implements BookingService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
+    private final StayDeclarationRepository stayDeclarationRepository;
     private final AuditLogService auditLogService;
     private final CancellationPolicyRepository cancellationPolicyRepository;
 
@@ -258,9 +259,15 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CHECKED_IN);
+        booking.setCheckedInAt(LocalDateTime.now());
         booking.getRoom().setStatus(RoomStatus.OCCUPIED);
         roomRepository.save(booking.getRoom());
         bookingRepository.save(booking);
+        StayDeclaration declaration = stayDeclarationRepository.save(StayDeclaration.builder()
+            .booking(booking)
+            .status(StayDeclarationStatus.PENDING)
+            .build());
+        booking.setStayDeclaration(declaration);
         auditLogService.log("Booking", booking.getId(), "CHECK_IN", actor,
                 "Nhận phòng " + booking.getRoom().getRoomNumber() + 
                 (idNumber != null && !idNumber.trim().isEmpty() ? " (CCCD: " + idNumber.trim() + ")" : ""));
