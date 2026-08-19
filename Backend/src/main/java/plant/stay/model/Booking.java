@@ -37,6 +37,12 @@ public class Booking {
     @Column(name = "check_out_date", nullable = false)
     private LocalDate checkOutDate;
 
+    @Column(name = "checked_in_at")
+    private LocalDateTime checkedInAt;
+
+    @OneToOne(mappedBy = "booking", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private StayDeclaration stayDeclaration;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
