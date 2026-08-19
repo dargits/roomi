@@ -1,6 +1,8 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.response.GuestStatusDTO;
@@ -14,6 +16,8 @@ import plant.stay.service.StayDeclarationService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -27,6 +31,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
 
     private static final String COMPLETE = "COMPLETE";
     private static final String MISSING = "MISSING";
+    private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final BookingRepository bookingRepository;
     private final IdentityDocumentRepository identityDocumentRepository;
@@ -94,6 +99,73 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         booking.setStayDeclaration(declaration);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportDeclarationsToExcel(LocalDate date) {
+        StayDeclarationResponseDTO report = getDeclarationsForDate(date);
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Khai bao luu tru");
+            CellStyle titleStyle = createTitleStyle(workbook);
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle missingStyle = createMissingStyle(workbook);
+
+            Row titleRow = sheet.createRow(0);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("BAO CAO KHAI BAO LUU TRU - " + date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            titleCell.setCellStyle(titleStyle);
+            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, 10));
+
+            Row summaryRow = sheet.createRow(2);
+            summaryRow.createCell(0).setCellValue("Tong khach: " + report.getTotalGuests());
+            summaryRow.createCell(3).setCellValue("Du du lieu: " + report.getCompleteGuests());
+            summaryRow.createCell(6).setCellValue("Thieu giay to: " + report.getMissingDocumentGuests());
+            summaryRow.createCell(8).setCellValue("Chua khai bao: " + report.getPendingDeclarations());
+
+            String[] headers = {"STT", "Ten khach", "CCCD/Ho chieu", "So dien thoai", "Phong",
+                    "Ngay check-in", "Gio check-in", "Trang thai giay to", "Da khai bao",
+                    "Gio hoan tat", "Thong tin con thieu"};
+            Row headerRow = sheet.createRow(4);
+            for (int index = 0; index < headers.length; index++) {
+                Cell cell = headerRow.createCell(index);
+                cell.setCellValue(headers[index]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowIndex = 5;
+            int sequence = 1;
+            for (GuestStatusDTO guest : report.getGuests()) {
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(sequence++);
+                row.createCell(1).setCellValue(valueOrEmpty(guest.getGuestName()));
+                row.createCell(2).setCellValue(valueOrEmpty(guest.getIdNumber()));
+                row.createCell(3).setCellValue(valueOrEmpty(guest.getPhone()));
+                row.createCell(4).setCellValue(valueOrEmpty(guest.getRoomNumber()));
+                row.createCell(5).setCellValue(guest.getCheckedInAt() != null
+                        ? guest.getCheckedInAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "");
+                row.createCell(6).setCellValue(formatDateTime(guest.getCheckedInAt()));
+                row.createCell(7).setCellValue(COMPLETE.equals(guest.getDocumentStatus()) ? "Du du lieu" : "Thieu giay to");
+                row.createCell(8).setCellValue(StayDeclarationStatus.COMPLETED.name().equals(guest.getDeclarationStatus())
+                        ? "Da khai bao" : "Chua khai bao");
+                row.createCell(9).setCellValue(formatDateTime(guest.getDeclarationCompletedAt()));
+                row.createCell(10).setCellValue(String.join(", ", guest.getMissingRequirements()));
+                if (MISSING.equals(guest.getDocumentStatus())) {
+                    for (int column = 0; column < headers.length; column++) {
+                        row.getCell(column).setCellStyle(missingStyle);
+                    }
+                }
+            }
+
+            for (int index = 0; index < headers.length; index++) {
+                sheet.autoSizeColumn(index);
+                sheet.setColumnWidth(index, Math.min(sheet.getColumnWidth(index) + 512, 18000));
+            }
+            workbook.write(output);
+            return output.toByteArray();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Khong the xuat bao cao khai bao luu tru", exception);
+        }
+    }
+
     private GuestStatusDTO toGuestStatus(Booking booking,
                                          List<IdentityDocument> identityDocuments,
                                          StayDeclaration declaration) {
@@ -143,5 +215,40 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private CellStyle createTitleStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 14);
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+
+    private CellStyle createMissingStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(IndexedColors.LIGHT_ORANGE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+
+    private String formatDateTime(LocalDateTime value) {
+        return value != null ? value.format(DATE_TIME_FORMAT) : "";
+    }
+
+    private String valueOrEmpty(String value) {
+        return value != null ? value : "";
     }
 }
