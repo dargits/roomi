@@ -80,23 +80,34 @@ class StayDeclarationServiceTest {
                 .imageUrl("https://example.test/back.jpg")
                 .build());
 
-        StayDeclarationResponseDTO pendingResponse = stayDeclarationService.getTodayDeclarations();
-        GuestStatusDTO pendingGuest = pendingResponse.getGuests().stream()
-                .filter(item -> item.getBookingId().equals(booking.getId()))
-                .findFirst()
-                .orElseThrow();
-        assertEquals("COMPLETE", pendingGuest.getDocumentStatus());
-        assertEquals("PENDING", pendingGuest.getDeclarationStatus());
-
         User receptionist = userRepository.save(User.builder()
                 .account("declaration-receptionist")
                 .name("Declaration Receptionist")
                 .password("test-password")
                 .role(Role.RECEPTIONIST)
                 .build());
+
+        StayDeclarationResponseDTO pendingResponse = stayDeclarationService.getTodayDeclarations(Role.RECEPTIONIST);
+        GuestStatusDTO pendingGuest = pendingResponse.getGuests().stream()
+                .filter(item -> item.getBookingId().equals(booking.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("COMPLETE", pendingGuest.getDocumentStatus());
+        assertEquals("PENDING", pendingGuest.getDeclarationStatus());
+        assertEquals("001000000001", pendingGuest.getIdNumber()); // RECEPTIONIST sees full
+
+        // Test mask for HOUSEKEEPER / ACCOUNTANT (QTN-24)
+        StayDeclarationResponseDTO maskedResponse = stayDeclarationService.getTodayDeclarations(Role.HOUSEKEEPER);
+        GuestStatusDTO maskedGuest = maskedResponse.getGuests().stream()
+                .filter(item -> item.getBookingId().equals(booking.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("********0001", maskedGuest.getIdNumber());
+        assertEquals(true, maskedGuest.isIdNumberMasked());
+
         stayDeclarationService.completeDeclaration(booking.getId(), receptionist);
 
-        StayDeclarationResponseDTO completedResponse = stayDeclarationService.getTodayDeclarations();
+        StayDeclarationResponseDTO completedResponse = stayDeclarationService.getTodayDeclarations(Role.RECEPTIONIST);
         GuestStatusDTO completedGuest = completedResponse.getGuests().stream()
                 .filter(item -> item.getBookingId().equals(booking.getId()))
                 .findFirst()
@@ -104,14 +115,14 @@ class StayDeclarationServiceTest {
         assertEquals("COMPLETED", completedGuest.getDeclarationStatus());
         assertNotNull(completedGuest.getDeclarationCompletedAt());
 
-                byte[] excelReport = stayDeclarationService.exportDeclarationsToExcel(LocalDate.now());
-                try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(excelReport))) {
-                        assertEquals("Khai bao luu tru", workbook.getSheetAt(0).getSheetName());
-                        assertEquals("BAO CAO KHAI BAO LUU TRU - "
-                                                        + LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                                        workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue());
-                } catch (Exception exception) {
-                        throw new AssertionError("Excel report must be readable", exception);
-                }
+        byte[] excelReport = stayDeclarationService.exportAndLogDeclarations(LocalDate.now(), receptionist);
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(excelReport))) {
+            assertEquals("Khai bao luu tru", workbook.getSheetAt(0).getSheetName());
+            assertEquals("DANH SACH KHAI BAO LUU TRU - "
+                            + LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue());
+        } catch (Exception exception) {
+            throw new AssertionError("Excel report must be readable", exception);
+        }
     }
 }

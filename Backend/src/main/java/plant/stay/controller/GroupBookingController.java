@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.GroupBookingRequest;
 import plant.stay.dto.request.GroupInvoiceCreateRequest;
 import plant.stay.dto.request.GroupRoomAssignmentRequest;
+import plant.stay.dto.request.PartialCancelRequest;
 import plant.stay.dto.response.GroupBookingResponse;
 import plant.stay.dto.response.GroupInvoiceResponse;
 import plant.stay.dto.response.GroupRoomAssignmentSuggestionResponse;
@@ -20,6 +21,7 @@ import plant.stay.service.InvoiceService;
 import plant.stay.util.AuthUtil;
 
 import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/group-bookings")
@@ -63,6 +65,19 @@ public class GroupBookingController {
                                                              HttpServletRequest httpRequest) {
         User actor = checkWriteAccess(httpRequest);
         return ResponseEntity.ok(groupBookingService.assignRooms(id, request, actor));
+    }
+
+    /**
+     * NCL-13-CN-004: Hủy một phần số phòng trong hồ sơ đặt phòng đoàn.
+     * Hủy từng phần không hủy cả đoàn — nếu chọn hủy hết thì service sẽ hướng dẫn.
+     */
+    @PostMapping("/{id}/cancel-partial")
+    public ResponseEntity<GroupBookingResponse> cancelPartialRooms(
+            @PathVariable Long id,
+            @Valid @RequestBody PartialCancelRequest request,
+            HttpServletRequest httpRequest) {
+        User actor = checkWriteAccess(httpRequest);
+        return ResponseEntity.ok(groupBookingService.cancelPartialRooms(id, request.getBookingIds(), actor));
     }
 
     @GetMapping("/{id}/invoices")

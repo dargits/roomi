@@ -17,10 +17,13 @@ import plant.stay.service.AuditLogService;
 import plant.stay.service.GroupBookingService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +35,9 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     private final RoomTypeRepository roomTypeRepository;
     private final RoomRepository roomRepository;
     private final SeasonalPriceRepository seasonalPriceRepository;
+    private final CancellationPolicyRepository cancellationPolicyRepository;
     private final AuditLogService auditLogService;
+
 
     @Override
     @Transactional
@@ -124,6 +129,88 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                                 .build())
                             .collect(Collectors.toList()))
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public GroupBookingResponse cancelPartialRooms(Long groupBookingId, List<Long> bookingIds, User actor) {
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> allBookings = bookingRepository.findByGroupBookingId(groupBookingId);
+
+        // Đếm booking active (chưa hủy / chưa no-show)
+        List<Booking> activeBookings = allBookings.stream()
+            .filter(b -> b.getStatus() != BookingStatus.CANCELLED
+                      && b.getStatus() != BookingStatus.NO_SHOW)
+            .toList();
+
+        // QTN-25: Nếu chọn hủy hết toàn bộ phòng active → hướng dẫn dùng luồng hủy cả đoàn
+        if (new HashSet<>(bookingIds).containsAll(activeBookings.stream().map(Booking::getId).toList())) {
+            throw new IllegalArgumentException(
+                "Bạn đang chọn hủy toàn bộ " + activeBookings.size() + " phòng của đoàn. "
+                + "Vui lòng dùng chức năng hủy cả hồ sơ đoàn thay vì hủy từng phòng.");
+        }
+
+        // Tìm các booking cần hủy — phải thuộc đoàn này và chưa nhận phòng
+        Map<Long, Booking> activeMap = activeBookings.stream()
+            .collect(Collectors.toMap(Booking::getId, b -> b));
+        List<Booking> toCancel = new ArrayList<>();
+        for (Long bookingId : bookingIds) {
+            Booking b = activeMap.get(bookingId);
+            if (b == null) {
+                throw new ResourceNotFoundException(
+                    "Booking #" + bookingId + " không thuộc đoàn này hoặc đã bị hủy");
+            }
+            if (b.getStatus() == BookingStatus.CHECKED_IN || b.getStatus() == BookingStatus.CHECKED_OUT) {
+                throw new IllegalArgumentException(
+                    "Booking #" + bookingId + " đã nhận phòng, không thể hủy từng phần");
+            }
+            toCancel.add(b);
+        }
+
+        // Tính phí hủy theo CancellationPolicy cho từng booking
+        LocalDate today = LocalDate.now();
+        StringBuilder logDetail = new StringBuilder("Hủy một phần đoàn #" + groupBookingId
+            + " — Hủy " + toCancel.size() + " phòng:");
+
+        for (Booking booking : toCancel) {
+            BigDecimal fee = calculateCancellationFee(booking, groupBooking.getCheckInDate(), today);
+            booking.setCancellationFee(fee);
+            booking.setStatus(BookingStatus.CANCELLED);
+            logDetail.append(" [Booking#").append(booking.getId())
+                .append(" phòng ").append(booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "chưa gán")
+                .append(" phí=").append(fee).append("]");
+        }
+
+        bookingRepository.saveAll(toCancel);
+
+        auditLogService.log("GroupBooking", groupBookingId, "CANCEL_PARTIAL_ROOMS", actor,
+            logDetail.toString());
+
+        return toResponse(groupBooking, bookingRepository.findByGroupBookingId(groupBookingId));
+    }
+
+    /**
+     * Tính phí hủy theo CancellationPolicy.
+     * - Nếu hủy trước freeCancelHours giờ so với checkIn: miễn phí (0)
+     * - Nếu hủy muộn hơn: penaltyPercent % nhân actualPrice của booking
+     */
+    private BigDecimal calculateCancellationFee(Booking booking, LocalDate checkInDate, LocalDate today) {
+        long hoursUntilCheckIn = ChronoUnit.HOURS.between(
+            today.atStartOfDay(), checkInDate.atStartOfDay());
+
+        // Ưu tiên chính sách theo loại phòng, sau đó dùng chính sách chung
+        CancellationPolicy policy = cancellationPolicyRepository
+            .findFirstByRoomTypeId(booking.getRoomType().getId())
+            .orElseGet(() -> cancellationPolicyRepository.findByRoomTypeIsNull().orElse(null));
+
+        if (policy == null || hoursUntilCheckIn >= policy.getFreeCancelHours()) {
+            return BigDecimal.ZERO; // Trong hạn miễn phí
+        }
+
+        BigDecimal price = booking.getActualPrice() != null ? booking.getActualPrice()
+            : (booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+        return price.multiply(policy.getPenaltyPercent())
+            .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
     }
 
     @Override
