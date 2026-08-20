@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { IoBedOutline, IoCallOutline, IoCheckmarkCircleOutline, IoPeopleOutline, IoRefreshOutline } from 'react-icons/io5';
+import { IoBedOutline, IoCallOutline, IoCheckmarkCircleOutline, IoDocumentOutline, IoPeopleOutline, IoRefreshOutline } from 'react-icons/io5';
 import groupBookingApi from '../../services/groupBookingApi';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
 
@@ -27,7 +28,13 @@ const GroupBookingList = ({ refreshKey }) => {
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
   const [assignmentError, setAssignmentError] = useState('');
+  const [invoiceState, setInvoiceState] = useState({ group: null, data: null, mode: 'COMBINED' });
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
+  const [invoiceError, setInvoiceError] = useState('');
   const { success } = useToast();
+  const { user } = useAuth();
+  const canManageInvoices = ['OWNER', 'ACCOUNTANT'].includes(user?.role);
 
   const loadGroups = async () => {
     setLoading(true);
@@ -104,6 +111,42 @@ const GroupBookingList = ({ refreshKey }) => {
     }
   };
 
+  const openInvoices = async (group) => {
+    setInvoiceState({ group, data: null, mode: 'COMBINED' });
+    setInvoiceError('');
+    setInvoiceLoading(true);
+    try {
+      const data = await groupBookingApi.getInvoices(group.id);
+      setInvoiceState((previous) => ({ ...previous, data }));
+    } catch (error) {
+      setInvoiceError(error.response?.data?.message || 'Không thể tải trạng thái hóa đơn đoàn.');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
+
+  const closeInvoices = () => {
+    if (invoiceSubmitting) return;
+    setInvoiceState({ group: null, data: null, mode: 'COMBINED' });
+    setInvoiceError('');
+  };
+
+  const createInvoices = async () => {
+    const { group, mode } = invoiceState;
+    if (!group) return;
+    setInvoiceSubmitting(true);
+    setInvoiceError('');
+    try {
+      const data = await groupBookingApi.createInvoices(group.id, { mode });
+      setInvoiceState((previous) => ({ ...previous, data }));
+      success(mode === 'COMBINED' ? 'Đã lập hóa đơn chung cho đoàn.' : 'Đã lập hóa đơn riêng cho từng phòng.');
+    } catch (error) {
+      setInvoiceError(error.response?.data?.message || 'Không thể lập hóa đơn đoàn.');
+    } finally {
+      setInvoiceSubmitting(false);
+    }
+  };
+
   if (loading) return <div className="p-10 text-center text-on-surface-variant"><IoRefreshOutline className="animate-spin mx-auto mb-2" size={24} />Đang tải hồ sơ đoàn...</div>;
 
   return (
@@ -119,7 +162,7 @@ const GroupBookingList = ({ refreshKey }) => {
               <td className="p-4"><div className="font-semibold text-on-surface flex items-center gap-1.5"><IoBedOutline size={16} className="text-primary" />{group.assignedRooms}/{group.totalRooms} đã xếp</div></td>
               <td className="p-4 font-semibold text-on-surface">{Number(group.expectedTotal || 0).toLocaleString('vi-VN')} đ</td>
               <td className="p-4 text-center"><span className={`px-2 py-1 rounded-md text-xs font-semibold ${STATUS_STYLES[group.status] || 'bg-gray-100 text-gray-800'}`}>{STATUS_LABELS[group.status] || group.status}</span></td>
-              <td className="p-4 text-center">{group.assignedRooms < group.totalRooms && <Button size="sm" variant="outline" icon={IoBedOutline} onClick={() => openAssignment(group)}>Gán phòng</Button>}</td>
+              <td className="p-4 text-center"><div className="flex flex-wrap justify-center gap-2">{group.assignedRooms < group.totalRooms && <Button size="sm" variant="outline" icon={IoBedOutline} onClick={() => openAssignment(group)}>Gán phòng</Button>}{canManageInvoices && <Button size="sm" variant="outline" icon={IoDocumentOutline} onClick={() => openInvoices(group)}>Hóa đơn</Button>}</div></td>
             </tr>
           ))}
         </tbody>
@@ -140,6 +183,17 @@ const GroupBookingList = ({ refreshKey }) => {
             })}</div>
             <div className="flex justify-end gap-3 border-t border-border-grey pt-4"><Button variant="secondary" onClick={closeAssignment} disabled={assignmentSubmitting}>Hủy</Button><Button variant="success" icon={IoCheckmarkCircleOutline} onClick={submitAssignment} isLoading={assignmentSubmitting}>Xác nhận gán tất cả</Button></div>
           </>}
+        </div>}
+      </Modal>
+      <Modal
+        isOpen={Boolean(invoiceState.group)}
+        onClose={closeInvoices}
+        title={invoiceState.group ? `Hóa đơn ĐOÀN-${String(invoiceState.group.id).padStart(5, '0')}` : ''}
+        maxWidth="max-w-2xl"
+      >
+        {invoiceLoading ? <div className="py-12 text-center text-on-surface-variant"><IoRefreshOutline className="mx-auto mb-2 animate-spin" size={24} />Đang tải hóa đơn...</div> : <div className="space-y-5">
+          {invoiceError && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{invoiceError}</div>}
+          {invoiceState.data?.invoices?.length ? <><div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><div className="font-semibold">{invoiceState.data.mode === 'COMBINED' ? 'Hóa đơn chung của đoàn' : 'Hóa đơn tách theo từng phòng'}</div><div className="mt-2 grid gap-2 sm:grid-cols-2"><span>Tổng: <strong>{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong></span><span>Còn phải thu: <strong>{Number(invoiceState.data.outstandingAmount || 0).toLocaleString('vi-VN')} đ</strong></span></div></div><div className="space-y-2">{invoiceState.data.invoices.map((invoice) => <div key={invoice.id} className="flex items-center justify-between rounded-md border border-border-grey p-3 text-sm"><span>Hóa đơn #{invoice.id}{invoice.bookingId ? ` - Booking #${invoice.bookingId}` : ''}</span><span className="font-semibold">{Number(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ</span></div>)}</div></> : <><div className="rounded-md border border-border-grey bg-surface-container-low p-4 text-sm text-on-surface-variant">Chỉ lập được khi tất cả phòng trong đoàn đã nhận phòng. Cách lập hóa đơn sẽ không thể thay đổi sau khi tạo.</div><div className="grid gap-3 md:grid-cols-2"><label className={`cursor-pointer rounded-md border p-4 ${invoiceState.mode === 'COMBINED' ? 'border-primary bg-primary/5' : 'border-border-grey'}`}><input className="sr-only" type="radio" name="invoice-mode" value="COMBINED" checked={invoiceState.mode === 'COMBINED'} onChange={(event) => setInvoiceState((previous) => ({ ...previous, mode: event.target.value }))} /><div className="font-semibold text-on-surface">Gộp toàn bộ đoàn</div><div className="mt-1 text-sm text-on-surface-variant">Một hóa đơn chung, tự trừ cọc của tất cả phòng.</div></label><label className={`cursor-pointer rounded-md border p-4 ${invoiceState.mode === 'SEPARATE' ? 'border-primary bg-primary/5' : 'border-border-grey'}`}><input className="sr-only" type="radio" name="invoice-mode" value="SEPARATE" checked={invoiceState.mode === 'SEPARATE'} onChange={(event) => setInvoiceState((previous) => ({ ...previous, mode: event.target.value }))} /><div className="font-semibold text-on-surface">Tách từng phòng</div><div className="mt-1 text-sm text-on-surface-variant">Một hóa đơn và cọc riêng cho mỗi booking.</div></label></div><div className="flex justify-end gap-3 border-t border-border-grey pt-4"><Button variant="secondary" onClick={closeInvoices} disabled={invoiceSubmitting}>Hủy</Button><Button icon={IoDocumentOutline} onClick={createInvoices} isLoading={invoiceSubmitting}>Lập hóa đơn</Button></div></>}
         </div>}
       </Modal>
     </div>
