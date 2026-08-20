@@ -13,6 +13,7 @@ import { bookingRequestApi } from '../../services/bookingRequestApi';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
+import PublicGroupBookingRequestList from './PublicGroupBookingRequestList';
 
 const BookingRequestList = () => {
   const [requests, setRequests] = useState([]);
@@ -113,6 +114,7 @@ const BookingRequestList = () => {
   };
 
   return (
+    <div>
     <div className="overflow-x-auto p-0">
       <table className="w-full text-left border-collapse">
         <thead>
@@ -203,6 +205,7 @@ const BookingRequestList = () => {
           )}
         </tbody>
       </table>
+    </div>
 
       {/* Modal xác nhận Duyệt / Từ chối */}
       <Modal
@@ -287,6 +290,7 @@ const BookingRequestList = () => {
           </div>
         </div>
       </Modal>
+      <PublicGroupBookingRequestList />
     </div>
   );
 };
