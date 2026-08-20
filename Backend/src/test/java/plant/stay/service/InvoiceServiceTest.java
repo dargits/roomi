@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import plant.stay.dto.request.GroupInvoiceCreateRequest;
 import plant.stay.dto.request.PaymentRequest;
+import plant.stay.dto.response.GroupInvoiceResponse;
 import plant.stay.dto.response.InvoiceResponse;
 import plant.stay.dto.response.PaymentResponse;
 import plant.stay.model.*;
@@ -41,6 +43,9 @@ public class InvoiceServiceTest {
 
     @Autowired
     private InvoiceRepository invoiceRepository;
+
+    @Autowired
+    private GroupBookingRepository groupBookingRepository;
 
     private User testUser;
     private Booking testBooking;
@@ -124,5 +129,107 @@ public class InvoiceServiceTest {
         assertNotNull(paymentRes);
         assertEquals(0, new BigDecimal("500000").compareTo(paymentRes.getAmount()));
         assertEquals(PaymentMethod.CREDIT_CARD, paymentRes.getMethod());
+    }
+
+    @Test
+    @DisplayName("Lập một hóa đơn gộp cho đoàn cộng đúng tiền của mọi phòng")
+    void createsCombinedInvoiceForCheckedInGroup() {
+        GroupBooking groupBooking = createCheckedInGroup();
+        GroupInvoiceCreateRequest request = groupInvoiceRequest(InvoiceMode.COMBINED);
+
+        GroupInvoiceResponse response = invoiceService.createGroupInvoices(groupBooking.getId(), request, testUser);
+
+        assertEquals(InvoiceMode.COMBINED, response.getMode());
+        assertEquals(1, response.getInvoices().size());
+        assertEquals(0, new BigDecimal("2400000").compareTo(response.getRoomAmount()));
+        assertEquals(0, new BigDecimal("2400000").compareTo(response.getTotalAmount()));
+        assertEquals(1, invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBooking.getId()).size());
+    }
+
+    @Test
+    @DisplayName("Lập hóa đơn tách tạo một invoice mỗi phòng và tổng tiền không đổi")
+    void createsSeparateInvoicesForCheckedInGroup() {
+        GroupBooking groupBooking = createCheckedInGroup();
+        GroupInvoiceCreateRequest request = groupInvoiceRequest(InvoiceMode.SEPARATE);
+
+        GroupInvoiceResponse response = invoiceService.createGroupInvoices(groupBooking.getId(), request, testUser);
+
+        assertEquals(InvoiceMode.SEPARATE, response.getMode());
+        assertEquals(2, response.getInvoices().size());
+        assertEquals(0, new BigDecimal("2400000").compareTo(response.getTotalAmount()));
+        assertTrue(response.getInvoices().stream().allMatch(invoice -> invoice.getMode() == InvoiceMode.SEPARATE));
+    }
+
+    @Test
+    @DisplayName("Không lập hóa đơn đoàn nếu còn phòng chưa nhận")
+    void rejectsGroupInvoiceWhenAnyRoomIsNotCheckedIn() {
+        GroupBooking groupBooking = createCheckedInGroup();
+        Booking notCheckedIn = bookingRepository.findByGroupBookingId(groupBooking.getId()).get(1);
+        notCheckedIn.setStatus(BookingStatus.CONFIRMED);
+        bookingRepository.save(notCheckedIn);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> invoiceService.createGroupInvoices(groupBooking.getId(), groupInvoiceRequest(InvoiceMode.COMBINED), testUser));
+
+        assertTrue(exception.getMessage().contains("tất cả phòng đang CHECKED_IN"));
+        assertTrue(invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBooking.getId()).isEmpty());
+    }
+
+    private GroupInvoiceCreateRequest groupInvoiceRequest(InvoiceMode mode) {
+        GroupInvoiceCreateRequest request = new GroupInvoiceCreateRequest();
+        request.setMode(mode);
+        request.setNote("Hóa đơn đoàn kiểm thử");
+        return request;
+    }
+
+    private GroupBooking createCheckedInGroup() {
+        GroupBooking groupBooking = new GroupBooking();
+        groupBooking.setRepresentativeGuest(testBooking.getGuest());
+        groupBooking.setCheckInDate(LocalDate.now());
+        groupBooking.setCheckOutDate(LocalDate.now().plusDays(2));
+        groupBooking.setCreatedBy(testUser);
+        groupBooking = groupBookingRepository.save(groupBooking);
+
+        RoomType roomType = testBooking.getRoomType();
+        Room firstRoom = testBooking.getRoom();
+        Room secondRoom = roomRepository.findAll().stream()
+                .filter(room -> !room.getId().equals(firstRoom.getId()))
+                .findFirst()
+                .orElseGet(() -> roomRepository.save(Room.builder()
+                        .roomNumber("GROUP-INV-" + System.nanoTime())
+                        .roomType(roomType)
+                        .floor("2")
+                        .status(RoomStatus.OCCUPIED)
+                        .build()));
+        Guest secondGuest = guestRepository.save(Guest.builder()
+                .name("Khách đoàn thứ hai")
+                .phone("091" + System.nanoTime())
+                .idNumber("ID" + System.nanoTime())
+                .build());
+        bookingRepository.save(Booking.builder()
+                .groupBooking(groupBooking)
+                .guest(testBooking.getGuest())
+                .roomType(roomType)
+                .room(firstRoom)
+                .checkInDate(LocalDate.now())
+                .checkOutDate(LocalDate.now().plusDays(2))
+                .status(BookingStatus.CHECKED_IN)
+                .expectedPrice(new BigDecimal("1000000"))
+                .actualPrice(new BigDecimal("1000000"))
+                .createdBy(testUser)
+                .build());
+        bookingRepository.save(Booking.builder()
+                .groupBooking(groupBooking)
+                .guest(secondGuest)
+                .roomType(secondRoom.getRoomType())
+                .room(secondRoom)
+                .checkInDate(LocalDate.now())
+                .checkOutDate(LocalDate.now().plusDays(2))
+                .status(BookingStatus.CHECKED_IN)
+                .expectedPrice(new BigDecimal("1400000"))
+                .actualPrice(new BigDecimal("1400000"))
+                .createdBy(testUser)
+                .build());
+        return groupBooking;
     }
 }
