@@ -88,6 +88,7 @@ const AppRoutes = () => {
                   <Route path="/manage/bookings/list" element={<BookingManagement />} />
                   <Route path="/manage/bookings/calendar" element={<BookingManagement />} />
                   <Route path="/manage/bookings/requests" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/groups" element={<BookingManagement />} />
                   <Route path="/manage/bookings/:bookingId" element={<BookingDetailPage />} />
                   <Route path="/manage/bookings/:bookingId/:tab" element={<BookingDetailPage />} />
 
