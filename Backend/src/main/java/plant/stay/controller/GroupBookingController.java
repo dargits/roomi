@@ -7,7 +7,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.GroupBookingRequest;
+import plant.stay.dto.request.GroupRoomAssignmentRequest;
 import plant.stay.dto.response.GroupBookingResponse;
+import plant.stay.dto.response.GroupRoomAssignmentSuggestionResponse;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Role;
 import plant.stay.model.User;
@@ -42,6 +44,21 @@ public class GroupBookingController {
                                                         HttpServletRequest httpRequest) {
         User actor = checkWriteAccess(httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(groupBookingService.create(request, actor));
+    }
+
+    @GetMapping("/{id}/assignment-suggestion")
+    public ResponseEntity<GroupRoomAssignmentSuggestionResponse> getAssignmentSuggestion(@PathVariable Long id,
+                                                                                           HttpServletRequest request) {
+        checkReadAccess(request);
+        return ResponseEntity.ok(groupBookingService.getAssignmentSuggestion(id));
+    }
+
+    @PutMapping("/{id}/assign-rooms")
+    public ResponseEntity<GroupBookingResponse> assignRooms(@PathVariable Long id,
+                                                             @Valid @RequestBody GroupRoomAssignmentRequest request,
+                                                             HttpServletRequest httpRequest) {
+        User actor = checkWriteAccess(httpRequest);
+        return ResponseEntity.ok(groupBookingService.assignRooms(id, request, actor));
     }
 
     private User checkWriteAccess(HttpServletRequest request) {

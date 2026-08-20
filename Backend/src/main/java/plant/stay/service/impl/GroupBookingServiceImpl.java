@@ -5,8 +5,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.GroupBookingRequest;
 import plant.stay.dto.request.GroupBookingRoomRequest;
+import plant.stay.dto.request.GroupRoomAssignmentItemRequest;
+import plant.stay.dto.request.GroupRoomAssignmentRequest;
 import plant.stay.dto.response.BookingResponse;
 import plant.stay.dto.response.GroupBookingResponse;
+import plant.stay.dto.response.GroupRoomAssignmentSuggestionResponse;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
@@ -87,6 +90,116 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         GroupBooking groupBooking = groupBookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ đặt phòng đoàn"));
         return toResponse(groupBooking, bookingRepository.findByGroupBookingId(id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GroupRoomAssignmentSuggestionResponse getAssignmentSuggestion(Long groupBookingId) {
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> unassignedBookings = bookingRepository.findUnassignedAssignableByGroupBookingId(groupBookingId);
+        Map<Long, List<Room>> roomsByType = new HashMap<>();
+
+        for (Booking booking : unassignedBookings) {
+            roomsByType.computeIfAbsent(booking.getRoomType().getId(), roomTypeId ->
+                    roomRepository.findAvailableWithoutConflicts(roomTypeId, RoomStatus.AVAILABLE,
+                            groupBooking.getCheckInDate(), groupBooking.getCheckOutDate()));
+        }
+
+        return GroupRoomAssignmentSuggestionResponse.builder()
+                .groupBookingId(groupBooking.getId())
+                .checkInDate(groupBooking.getCheckInDate())
+                .checkOutDate(groupBooking.getCheckOutDate())
+                .assignments(unassignedBookings.stream().map(booking ->
+                        GroupRoomAssignmentSuggestionResponse.AssignmentLine.builder()
+                                .bookingId(booking.getId())
+                                .roomTypeId(booking.getRoomType().getId())
+                                .roomTypeName(booking.getRoomType().getName())
+                                .availableRooms(roomsByType.get(booking.getRoomType().getId()).stream()
+                                        .map(room -> GroupRoomAssignmentSuggestionResponse.RoomOption.builder()
+                                                .id(room.getId())
+                                                .roomNumber(room.getRoomNumber())
+                                                .floor(room.getFloor())
+                                                .build())
+                                        .collect(Collectors.toList()))
+                                .build())
+                            .collect(Collectors.toList()))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public GroupBookingResponse assignRooms(Long groupBookingId, GroupRoomAssignmentRequest request, User actor) {
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> unassignedBookings = bookingRepository.findUnassignedAssignableByGroupBookingId(groupBookingId);
+        validateAssignmentCoverage(unassignedBookings, request.getAssignments());
+
+        List<Long> roomIds = request.getAssignments().stream()
+                .map(GroupRoomAssignmentItemRequest::getRoomId)
+                .sorted()
+                .collect(Collectors.toList());
+        if (new HashSet<>(roomIds).size() != roomIds.size()) {
+            throw new IllegalArgumentException("Một phòng không thể được gán cho nhiều booking trong cùng đoàn");
+        }
+
+        Map<Long, Room> lockedRooms = roomRepository.findByIdsForUpdate(roomIds).stream()
+                .collect(Collectors.toMap(Room::getId, room -> room));
+        if (lockedRooms.size() != roomIds.size()) {
+            throw new ResourceNotFoundException("Có phòng không tồn tại hoặc không thể khóa để gán");
+        }
+
+        Map<Long, Booking> bookingsById = unassignedBookings.stream()
+                .collect(Collectors.toMap(Booking::getId, booking -> booking));
+        for (GroupRoomAssignmentItemRequest assignment : request.getAssignments()) {
+            Booking booking = bookingsById.get(assignment.getBookingId());
+            Room room = lockedRooms.get(assignment.getRoomId());
+            validateRoomAssignment(booking, room, groupBooking);
+            booking.setRoom(room);
+            booking.setStatus(BookingStatus.CONFIRMED);
+        }
+
+        List<Booking> savedBookings = bookingRepository.saveAll(unassignedBookings);
+        auditLogService.log("GroupBooking", groupBooking.getId(), "ASSIGN_ROOMS", actor,
+                "Gán đồng loạt " + savedBookings.size() + " phòng cho đoàn " + groupBooking.getRepresentativeGuest().getName());
+        return toResponse(groupBooking, bookingRepository.findByGroupBookingId(groupBookingId));
+    }
+
+    private GroupBooking findGroupBooking(Long groupBookingId) {
+        return groupBookingRepository.findById(groupBookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ đặt phòng đoàn"));
+    }
+
+    private void validateAssignmentCoverage(List<Booking> unassignedBookings,
+                                            List<GroupRoomAssignmentItemRequest> assignments) {
+        if (unassignedBookings.isEmpty()) {
+            throw new IllegalArgumentException("Đoàn không còn booking nào cần gán phòng");
+        }
+        if (assignments == null || assignments.size() != unassignedBookings.size()) {
+            throw new IllegalArgumentException("Cần gán phòng cho tất cả booking chưa được gán của đoàn");
+        }
+        Set<Long> bookingIds = assignments.stream()
+                .map(GroupRoomAssignmentItemRequest::getBookingId)
+                .collect(Collectors.toSet());
+        Set<Long> expectedBookingIds = unassignedBookings.stream()
+                .map(Booking::getId)
+                .collect(Collectors.toSet());
+        if (bookingIds.size() != assignments.size() || !bookingIds.equals(expectedBookingIds)) {
+            throw new IllegalArgumentException("Danh sách booking cần gán không khớp với các booking chưa gán của đoàn");
+        }
+    }
+
+    private void validateRoomAssignment(Booking booking, Room room, GroupBooking groupBooking) {
+        if (room.getStatus() != RoomStatus.AVAILABLE) {
+            throw new IllegalArgumentException("Phòng " + room.getRoomNumber() + " hiện không ở trạng thái sẵn sàng");
+        }
+        if (!room.getRoomType().getId().equals(booking.getRoomType().getId())) {
+            throw new IllegalArgumentException("Phòng " + room.getRoomNumber() + " không đúng loại phòng "
+                    + booking.getRoomType().getName());
+        }
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(room.getId(),
+                groupBooking.getCheckInDate(), groupBooking.getCheckOutDate(), booking.getId());
+        if (!conflicts.isEmpty()) {
+            throw new IllegalArgumentException("Phòng " + room.getRoomNumber() + " đã được đặt trong thời gian lưu trú");
+        }
     }
 
     private Map<Long, Integer> aggregateRequestedRooms(List<GroupBookingRoomRequest> rooms) {
