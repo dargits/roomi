@@ -9,12 +9,24 @@ import plant.stay.model.Booking;
 import plant.stay.model.BookingStatus;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByGuestId(Long guestId);
     List<Booking> findByStatus(BookingStatus status);
     List<Booking> findByRoomId(Long roomId);
+
+       @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.guest g " +
+           "LEFT JOIN FETCH b.room " +
+           "LEFT JOIN FETCH b.stayDeclaration " +
+           "WHERE b.status = 'CHECKED_IN' " +
+           "AND b.checkedInAt >= :from " +
+           "AND b.checkedInAt < :to " +
+           "ORDER BY b.checkedInAt ASC")
+    List<Booking> findCheckedInWithGuestDocumentsBetween(@Param("from") LocalDateTime from,
+                                                         @Param("to") LocalDateTime to);
 
     // Lấy booking trong khoảng thời gian cho lịch phòng
     @Query("SELECT b FROM Booking b WHERE b.checkInDate <= :to AND b.checkOutDate >= :from " +

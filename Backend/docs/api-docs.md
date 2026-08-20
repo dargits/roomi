@@ -639,7 +639,15 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 
 ---
 
-## 19. Cong dat phong cho khach (Booking Portal)
+## 19. Khai bao luu tru - OWNER/ADMIN/RECEPTIONIST
+
+- `GET /api/v1/stay-declarations/today` - Danh sach khach da check-in trong ngay, kem trang thai giay to va khai bao.
+- `GET /api/v1/stay-declarations/export?date=YYYY-MM-DD` - Xuat bao cao khai bao luu tru ra file Excel; bo `date` de xuat ngay hien tai.
+- `PUT /api/v1/stay-declarations/{bookingId}/complete` - Danh dau khai bao luu tru cua booking da hoan tat.
+
+---
+
+## 20. Cong dat phong cho khach (Booking Portal)
 
 | Method | Endpoint | Auth | Mo ta |
 |--------|----------|------|-------|
