@@ -25,6 +25,16 @@ const groupBookingApi = {
     const response = await api.put(`/group-bookings/${id}/assign-rooms`, { assignments });
     return response.data;
   },
+
+  getInvoices: async (id) => {
+    const response = await api.get(`/group-bookings/${id}/invoices`);
+    return response.data;
+  },
+
+  createInvoices: async (id, data) => {
+    const response = await api.post(`/group-bookings/${id}/invoices`, data);
+    return response.data;
+  },
 };
 
 export default groupBookingApi;

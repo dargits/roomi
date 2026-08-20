@@ -623,6 +623,23 @@ Moi booking chua gan cua doan phai xuat hien dung mot lan. Phong duoc chon phai 
 | GET | `/api/v1/invoices/{id}/payments` | OWNER/ACCOUNTANT/RECEPTIONIST | Xem thanh toan | |
 | POST | `/api/v1/invoices/{id}/adjust` | OWNER/ACCOUNTANT | Hoa don dieu chinh | QTN-11 |
 
+### Hoa don doan: gop hoac tach theo phong
+
+| Method | Endpoint | Role | Mo ta |
+|--------|----------|------|-------|
+| GET | `/api/v1/group-bookings/{id}/invoices` | OWNER/ADMIN/ACCOUNTANT/RECEPTIONIST | Xem hoa don va tong tien cua doan |
+| POST | `/api/v1/group-bookings/{id}/invoices` | OWNER/ACCOUNTANT | Lap hoa don gop hoac tach |
+
+**Request body (`POST /api/v1/group-bookings/{id}/invoices`):**
+```json
+{
+  "mode": "COMBINED",
+  "note": "Cong ty thanh toan toan bo doan"
+}
+```
+
+`COMBINED` tao mot hoa don chung, gom toan bo tien phong, phu thu va cac khoan coc hop le cua moi phong trong doan. `SEPARATE` tao mot hoa don cho moi phong va chi tru coc cua phong do. Chi lap duoc khi tat ca booking trong doan dang `CHECKED_IN`; neu mot phong khong hop le hoac da co hoa don, toan bo thao tac bi tu choi. Khong the doi cach gop/tach sau khi lap hoa don. Khi hoa don chung da `PAID`, tung phong duoc phep tra phong; doanh thu va diem cua moi booking van chi tinh theo tien phong va phu thu cua chinh booking do.
+
 *(Hoa don PAID la immutable - moi sua phai tao hoa don dieu chinh moi)*
 
 ---
