@@ -5,10 +5,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.GroupBookingRequest;
 import plant.stay.dto.request.GroupBookingRoomRequest;
+import plant.stay.dto.request.GroupRoomAssignmentItemRequest;
+import plant.stay.dto.request.GroupRoomAssignmentRequest;
 import plant.stay.dto.response.GroupBookingResponse;
+import plant.stay.dto.response.GroupRoomAssignmentSuggestionResponse;
 import plant.stay.model.*;
 import plant.stay.repository.BookingRepository;
 import plant.stay.repository.RoomRepository;
@@ -22,7 +24,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@Transactional
 class GroupBookingServiceTest {
 
     @Autowired
@@ -100,6 +101,87 @@ class GroupBookingServiceTest {
         assertTrue(exception.getMessage().contains("chỉ còn 2 phòng trống"));
         assertEquals(bookingsBefore, bookingRepository.count());
     }
+
+        @Test
+        @DisplayName("Gợi ý và gán đồng loạt tất cả phòng còn thiếu cho đoàn")
+        void suggestsAndAssignsAllRemainingRooms() {
+        GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+
+        GroupRoomAssignmentSuggestionResponse suggestion = groupBookingService.getAssignmentSuggestion(group.getId());
+
+        assertEquals(2, suggestion.getAssignments().size());
+        assertEquals(2, suggestion.getAssignments().get(0).getAvailableRooms().size());
+        GroupRoomAssignmentRequest assignmentRequest = assignmentRequest(
+            assignment(suggestion.getAssignments().get(0).getBookingId(), suggestion.getAssignments().get(0).getAvailableRooms().get(0).getId()),
+            assignment(suggestion.getAssignments().get(1).getBookingId(), suggestion.getAssignments().get(1).getAvailableRooms().get(1).getId()));
+
+        GroupBookingResponse assigned = groupBookingService.assignRooms(group.getId(), assignmentRequest, receptionist);
+
+        assertEquals("CONFIRMED", assigned.getStatus());
+        assertEquals(2, assigned.getAssignedRooms());
+        assertTrue(assigned.getBookings().stream().allMatch(booking -> booking.getRoomId() != null));
+        assertTrue(assigned.getBookings().stream().allMatch(booking -> booking.getStatus() == BookingStatus.CONFIRMED));
+        }
+
+        @Test
+        @DisplayName("Từ chối toàn bộ gán đoàn khi một phòng được chọn hai lần")
+        void rejectsDuplicateRoomsWithoutAssigningAnyBooking() {
+        GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        GroupRoomAssignmentSuggestionResponse suggestion = groupBookingService.getAssignmentSuggestion(group.getId());
+        Long duplicateRoomId = suggestion.getAssignments().get(0).getAvailableRooms().get(0).getId();
+        GroupRoomAssignmentRequest assignmentRequest = assignmentRequest(
+            assignment(suggestion.getAssignments().get(0).getBookingId(), duplicateRoomId),
+            assignment(suggestion.getAssignments().get(1).getBookingId(), duplicateRoomId));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> groupBookingService.assignRooms(group.getId(), assignmentRequest, receptionist));
+
+        assertTrue(exception.getMessage().contains("Một phòng không thể"));
+        assertTrue(bookingRepository.findByGroupBookingId(group.getId()).stream()
+            .allMatch(booking -> booking.getRoom() == null && booking.getStatus() == BookingStatus.NEW));
+        }
+
+        @Test
+        @DisplayName("Từ chối gán phòng khác loại và không đổi các booking của đoàn")
+        void rejectsRoomOfDifferentTypeWithoutAssigningAnyBooking() {
+        GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        RoomType otherRoomType = roomTypeRepository.save(RoomType.builder()
+            .name("Other Group Type " + System.nanoTime())
+            .maxCapacity(2)
+            .basePrice(new BigDecimal("600000"))
+            .active(true)
+            .build());
+        Room otherRoom = roomRepository.save(Room.builder()
+            .roomNumber("OTHER-" + System.nanoTime())
+            .roomType(otherRoomType)
+            .floor("2")
+            .status(RoomStatus.AVAILABLE)
+            .build());
+        GroupRoomAssignmentSuggestionResponse suggestion = groupBookingService.getAssignmentSuggestion(group.getId());
+        GroupRoomAssignmentRequest assignmentRequest = assignmentRequest(
+            assignment(suggestion.getAssignments().get(0).getBookingId(), suggestion.getAssignments().get(0).getAvailableRooms().get(0).getId()),
+            assignment(suggestion.getAssignments().get(1).getBookingId(), otherRoom.getId()));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> groupBookingService.assignRooms(group.getId(), assignmentRequest, receptionist));
+
+        assertTrue(exception.getMessage().contains("không đúng loại phòng"));
+        assertTrue(bookingRepository.findByGroupBookingId(group.getId()).stream()
+            .allMatch(booking -> booking.getRoom() == null && booking.getStatus() == BookingStatus.NEW));
+        }
+
+        private GroupRoomAssignmentRequest assignmentRequest(GroupRoomAssignmentItemRequest... assignments) {
+        GroupRoomAssignmentRequest request = new GroupRoomAssignmentRequest();
+        request.setAssignments(List.of(assignments));
+        return request;
+        }
+
+        private GroupRoomAssignmentItemRequest assignment(Long bookingId, Long roomId) {
+        GroupRoomAssignmentItemRequest item = new GroupRoomAssignmentItemRequest();
+        item.setBookingId(bookingId);
+        item.setRoomId(roomId);
+        return item;
+        }
 
     private GroupBookingRequest requestFor(int quantity) {
         GroupBookingRoomRequest roomRequest = new GroupBookingRoomRequest();

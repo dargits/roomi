@@ -571,6 +571,27 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 | PUT | `/api/v1/bookings/{id}/check-in` | Nhan phong | QTN-02 |
 | PUT | `/api/v1/bookings/{id}/check-out` | Tra phong (phong -> DIRTY) | QTN-04,05 |
 
+### Gan phong hang loat cho doan
+
+| Method | Endpoint | Role | Mo ta |
+|--------|----------|------|-------|
+| GET | `/api/v1/group-bookings/{id}/assignment-suggestion` | OWNER/ADMIN/RECEPTIONIST/ACCOUNTANT | Lay booking doan chua gan va phong `AVAILABLE` khong trung lich theo tung loai |
+| PUT | `/api/v1/group-bookings/{id}/assign-rooms` | OWNER/ADMIN/RECEPTIONIST | Gan tat ca booking chua gan trong mot giao dich |
+
+`GET` tra ve tung booking can gan, loai phong va danh sach phong ung vien. Danh sach nay chi de goi y; he thong kiem tra lai khi xac nhan.
+
+**Request body (`PUT /api/v1/group-bookings/{id}/assign-rooms`):**
+```json
+{
+  "assignments": [
+    { "bookingId": 101, "roomId": 12 },
+    { "bookingId": 102, "roomId": 15 }
+  ]
+}
+```
+
+Moi booking chua gan cua doan phai xuat hien dung mot lan. Phong duoc chon phai khac nhau, dung loai, co trang thai `AVAILABLE`, va khong co booking `CONFIRMED` hoac `CHECKED_IN` chong ngay (`checkIn < checkOut` va `checkOut > checkIn`). He thong khoa tat ca phong duoc chon va kiem tra lai trong cung transaction; neu mot dong khong hop le, toan bo thao tac rollback va khong booking nao thay doi.
+
 **Request Body (BookingRequest):**
 ```json
 {
