@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { guestApi } from '../../services/guestApi';
 import { useAuth } from '../../context/AuthContext';
-import { IoAddOutline, IoCallOutline, IoDocumentOutline, IoMailOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoStarOutline, IoTimeOutline } from 'react-icons/io5';
+import { useToast } from '../../context/ToastContext';
+import { IoAddOutline, IoCallOutline, IoDocumentOutline, IoMailOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoStarOutline, IoTimeOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -21,6 +22,9 @@ const getBookingStatusBadge = (status) => {
 
 const GuestManagement = () => {
   const { user } = useAuth();
+  const { success: toastSuccess, error: toastError } = useToast();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,6 +49,11 @@ const GuestManagement = () => {
   const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState(false);
   const [selectedGuestLoyalty, setSelectedGuestLoyalty] = useState(null);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+
+  // NCL-12-CN-005: Modal xóa dữ liệu cá nhân
+  const [deleteDataModal, setDeleteDataModal] = useState({ open: false, guest: null });
+  const [deleteDataLoading, setDeleteDataLoading] = useState(false);
+  const [deleteDataError, setDeleteDataError] = useState('');
 
   // Debounce search
   useEffect(() => {
@@ -229,9 +238,23 @@ const GuestManagement = () => {
                       <button onClick={() => viewLoyalty(guest)} className="p-1.5 rounded-md hover:bg-yellow-50 hover:text-yellow-600 transition-colors text-on-surface-variant" title="Chi tiết Điểm/Hạng">
                         <IoStarOutline size={18} />
                       </button>
-                      <button onClick={() => openEditModal(guest)} className="p-1.5 rounded-md hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant" title="Sửa thông tin">
-                        <IoPencilOutline size={18} />
-                      </button>
+                      {guest.name !== '[Đã xóa]' && (
+                        <button onClick={() => openEditModal(guest)} className="p-1.5 rounded-md hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant" title="Sửa thông tin">
+                          <IoPencilOutline size={18} />
+                        </button>
+                      )}
+                      {isAdmin && guest.name !== '[Đã xóa]' && (
+                        <button
+                          onClick={() => {
+                            setDeleteDataModal({ open: true, guest });
+                            setDeleteDataError('');
+                          }}
+                          className="p-1.5 rounded-md hover:bg-red-50 hover:text-alert-red transition-colors text-on-surface-variant"
+                          title="Xóa dữ liệu cá nhân (Luật 91/2025)"
+                        >
+                          <IoTrashOutline size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -307,6 +330,68 @@ const GuestManagement = () => {
         <div className="flex justify-end pt-4 mt-4 border-t border-border-grey">
           <Button variant="ghost" onClick={() => setIsLoyaltyModalOpen(false)}>Đóng</Button>
         </div>
+      </Modal>
+
+      {/* Modal Xóa dữ liệu cá nhân theo yêu cầu khách (NCL-12-CN-005 / QTN-24) */}
+      <Modal
+        isOpen={deleteDataModal.open}
+        onClose={() => !deleteDataLoading && setDeleteDataModal({ open: false, guest: null })}
+        title="Xóa dữ liệu cá nhân khách hàng"
+        maxWidth="max-w-md"
+      >
+        {deleteDataModal.guest && (
+          <div className="space-y-4">
+            {deleteDataError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-error rounded-md text-sm">
+                {deleteDataError}
+              </div>
+            )}
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-900 text-sm flex items-start gap-2">
+              <IoWarningOutline size={18} className="text-amber-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong>Lưu ý pháp lý (Luật số 91/2025):</strong> Dữ liệu định danh của khách (tên, SĐT, CCCD, ảnh giấy tờ) sẽ bị ẩn danh vĩnh viễn. Lịch sử doanh thu và hóa đơn vẫn được lưu trữ theo quy định kế toán.
+              </div>
+            </div>
+
+            <p className="text-body-md text-on-surface">
+              Bạn có chắc chắn muốn xóa dữ liệu cá nhân của khách hàng <strong>{deleteDataModal.guest.name}</strong> (Mã #{deleteDataModal.guest.id})?
+            </p>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
+              <Button
+                variant="secondary"
+                disabled={deleteDataLoading}
+                onClick={() => setDeleteDataModal({ open: false, guest: null })}
+              >
+                Hủy
+              </Button>
+              <Button
+                variant="danger"
+                icon={IoTrashOutline}
+                isLoading={deleteDataLoading}
+                onClick={async () => {
+                  setDeleteDataLoading(true);
+                  setDeleteDataError('');
+                  try {
+                    await guestApi.deletePersonalData(deleteDataModal.guest.id);
+                    toastSuccess('Đã ẩn danh hóa dữ liệu cá nhân của khách thành công.');
+                    setDeleteDataModal({ open: false, guest: null });
+                    await fetchGuests();
+                  } catch (err) {
+                    setDeleteDataError(
+                      err.response?.data?.message || 'Không thể xóa dữ liệu. Vui lòng kiểm tra lại.'
+                    );
+                  } finally {
+                    setDeleteDataLoading(false);
+                  }
+                }}
+              >
+                Xác nhận xóa
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

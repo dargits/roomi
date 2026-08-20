@@ -14,5 +14,7 @@ public class StayDeclarationResponseDTO {
     private int completeGuests;
     private int missingDocumentGuests;
     private int pendingDeclarations;
+    /** true khi đã qua 22h mà vẫn còn khách chưa khai báo — nhắc lễ tân trước mốc 23h */
+    private boolean nearDeadlineWarning;
     private List<GuestStatusDTO> guests;
-}
+}

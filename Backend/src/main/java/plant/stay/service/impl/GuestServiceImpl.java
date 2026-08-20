@@ -8,16 +8,14 @@ import plant.stay.dto.request.GuestRequest;
 import plant.stay.dto.response.GuestResponse;
 import plant.stay.exception.DuplicateResourceException;
 import plant.stay.exception.ResourceNotFoundException;
-import plant.stay.model.Booking;
-import plant.stay.model.Guest;
-import plant.stay.model.LoyaltyTier;
-import plant.stay.repository.BookingRepository;
-import plant.stay.repository.GuestRepository;
-import plant.stay.repository.LoyaltyTierRepository;
+import plant.stay.model.*;
+import plant.stay.repository.*;
+import plant.stay.service.AuditLogService;
 import plant.stay.service.GuestService;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +24,10 @@ public class GuestServiceImpl implements GuestService {
     private final GuestRepository guestRepository;
     private final BookingRepository bookingRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final IdentityDocumentRepository identityDocumentRepository;
+    private final AuditLogService auditLogService;
+
 
     @Override
     public List<GuestResponse> getAll(String search) {
@@ -98,6 +100,44 @@ public class GuestServiceImpl implements GuestService {
         }
         guest.setLoyaltyTier(newTier);
         guestRepository.save(guest);
+    }
+
+    /**
+     * NCL-12-CN-005: Ẩn danh hóa (anonymize) dữ liệu cá nhân của khách theo yêu cầu xóa.
+     * Quy trình:
+     *   1. Kiểm tra không còn hóa đơn PENDING — nếu có thì từ chối và nêu rõ lý do.
+     *   2. Xóa tất cả IdentityDocument liên quan.
+     *   3. Anonymize in-place: name = "[Đã xóa]", phone/email/idNumber = null.
+     *   4. Ghi AuditLog action DELETE_PERSONAL_DATA.
+     */
+    @Override
+    @Transactional
+    public void deletePersonalData(Long guestId, User actor) {
+        Guest guest = findById(guestId);
+
+        // Kiểm tra hóa đơn chưa quyết toán — QTN-24: không xóa khi còn ràng buộc
+        List<Invoice> pendingInvoices = invoiceRepository.findByGuestIdAndStatusPending(guestId);
+        if (!pendingInvoices.isEmpty()) {
+            throw new IllegalStateException(
+                "Không thể xóa dữ liệu: khách còn " + pendingInvoices.size()
+                + " hóa đơn chưa quyết toán. Vui lòng hoàn tất thanh toán trước.");
+        }
+
+        // Xóa toàn bộ IdentityDocument (ảnh giấy tờ)
+        identityDocumentRepository.deleteAll(
+            identityDocumentRepository.findByGuestId(guestId));
+
+        // Anonymize in-place — giữ FK booking/invoice không bị lỗi
+        String oldName = guest.getName();
+        guest.setName("[Đã xóa]");
+        guest.setPhone(null);
+        guest.setEmail(null);
+        guest.setIdNumber(null);
+        guestRepository.save(guest);
+
+        // Ghi AuditLog — NCL-12-CN-006 trace được ai xóa
+        auditLogService.log("GuestPersonalData", guestId, "DELETE_PERSONAL_DATA", actor,
+            "Xóa dữ liệu cá nhân của khách #" + guestId + " (" + oldName + ") theo yêu cầu xóa dữ liệu cá nhân — Luật số 91/2025");
     }
 
     private Guest findById(Long id) {
