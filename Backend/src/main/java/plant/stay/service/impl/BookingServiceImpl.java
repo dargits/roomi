@@ -35,6 +35,7 @@ public class BookingServiceImpl implements BookingService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
+    private final BookingServiceUsageRepository bookingServiceUsageRepository;
     private final StayDeclarationRepository stayDeclarationRepository;
     private final AuditLogService auditLogService;
     private final CancellationPolicyRepository cancellationPolicyRepository;
@@ -283,7 +284,7 @@ public class BookingServiceImpl implements BookingService {
         }
         
         // Bắt buộc phải thanh toán hóa đơn xong mới được trả phòng
-        Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        Invoice invoice = invoiceRepository.findInvoicesCoveringBooking(bookingId).stream().findFirst().orElse(null);
         if (invoice != null && invoice.getStatus() == InvoiceStatus.PENDING) {
             BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
                     .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -325,7 +326,14 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CHECKED_OUT);
-        if (invoice != null && invoice.getTotalAmount() != null) {
+        if (invoice != null && invoice.getMode() == InvoiceMode.COMBINED) {
+            BigDecimal serviceAmount = bookingServiceUsageRepository.findByBookingId(bookingId).stream()
+                    .map(usage -> usage.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(usage.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal roomAmount = booking.getActualPrice() != null ? booking.getActualPrice()
+                    : (booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+            booking.setActualPrice(roomAmount.add(serviceAmount));
+        } else if (invoice != null && invoice.getTotalAmount() != null) {
             booking.setActualPrice(invoice.getTotalAmount());
         } else if (booking.getExpectedPrice() != null) {
             booking.setActualPrice(booking.getExpectedPrice());

@@ -571,6 +571,27 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 | PUT | `/api/v1/bookings/{id}/check-in` | Nhan phong | QTN-02 |
 | PUT | `/api/v1/bookings/{id}/check-out` | Tra phong (phong -> DIRTY) | QTN-04,05 |
 
+### Gan phong hang loat cho doan
+
+| Method | Endpoint | Role | Mo ta |
+|--------|----------|------|-------|
+| GET | `/api/v1/group-bookings/{id}/assignment-suggestion` | OWNER/ADMIN/RECEPTIONIST/ACCOUNTANT | Lay booking doan chua gan va phong `AVAILABLE` khong trung lich theo tung loai |
+| PUT | `/api/v1/group-bookings/{id}/assign-rooms` | OWNER/ADMIN/RECEPTIONIST | Gan tat ca booking chua gan trong mot giao dich |
+
+`GET` tra ve tung booking can gan, loai phong va danh sach phong ung vien. Danh sach nay chi de goi y; he thong kiem tra lai khi xac nhan.
+
+**Request body (`PUT /api/v1/group-bookings/{id}/assign-rooms`):**
+```json
+{
+  "assignments": [
+    { "bookingId": 101, "roomId": 12 },
+    { "bookingId": 102, "roomId": 15 }
+  ]
+}
+```
+
+Moi booking chua gan cua doan phai xuat hien dung mot lan. Phong duoc chon phai khac nhau, dung loai, co trang thai `AVAILABLE`, va khong co booking `CONFIRMED` hoac `CHECKED_IN` chong ngay (`checkIn < checkOut` va `checkOut > checkIn`). He thong khoa tat ca phong duoc chon va kiem tra lai trong cung transaction; neu mot dong khong hop le, toan bo thao tac rollback va khong booking nao thay doi.
+
 **Request Body (BookingRequest):**
 ```json
 {
@@ -601,6 +622,23 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 | POST | `/api/v1/invoices/{id}/payments` | OWNER/ACCOUNTANT/RECEPTIONIST | Ghi thanh toan | |
 | GET | `/api/v1/invoices/{id}/payments` | OWNER/ACCOUNTANT/RECEPTIONIST | Xem thanh toan | |
 | POST | `/api/v1/invoices/{id}/adjust` | OWNER/ACCOUNTANT | Hoa don dieu chinh | QTN-11 |
+
+### Hoa don doan: gop hoac tach theo phong
+
+| Method | Endpoint | Role | Mo ta |
+|--------|----------|------|-------|
+| GET | `/api/v1/group-bookings/{id}/invoices` | OWNER/ADMIN/ACCOUNTANT/RECEPTIONIST | Xem hoa don va tong tien cua doan |
+| POST | `/api/v1/group-bookings/{id}/invoices` | OWNER/ACCOUNTANT | Lap hoa don gop hoac tach |
+
+**Request body (`POST /api/v1/group-bookings/{id}/invoices`):**
+```json
+{
+  "mode": "COMBINED",
+  "note": "Cong ty thanh toan toan bo doan"
+}
+```
+
+`COMBINED` tao mot hoa don chung, gom toan bo tien phong, phu thu va cac khoan coc hop le cua moi phong trong doan. `SEPARATE` tao mot hoa don cho moi phong va chi tru coc cua phong do. Chi lap duoc khi tat ca booking trong doan dang `CHECKED_IN`; neu mot phong khong hop le hoac da co hoa don, toan bo thao tac bi tu choi. Khong the doi cach gop/tach sau khi lap hoa don. Khi hoa don chung da `PAID`, tung phong duoc phep tra phong; doanh thu va diem cua moi booking van chi tinh theo tien phong va phu thu cua chinh booking do.
 
 *(Hoa don PAID la immutable - moi sua phai tao hoa don dieu chinh moi)*
 
@@ -656,6 +694,10 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 | GET | `/api/v1/booking-requests` | OWNER/RECEPTIONIST | Xem danh sach yeu cau |
 | PUT | `/api/v1/booking-requests/{id}/approve` | OWNER/RECEPTIONIST | Duyet -> tao Booking |
 | PUT | `/api/v1/booking-requests/{id}/reject?reason=` | OWNER/RECEPTIONIST | Tu choi |
+| POST | `/api/v1/public/group-booking-requests` | Public | Gui yeu cau dat phong theo doan |
+| GET | `/api/v1/public/group-booking-requests` | OWNER/RECEPTIONIST | Xem yeu cau dat doan tu web |
+| PUT | `/api/v1/public/group-booking-requests/{id}/approve` | OWNER/RECEPTIONIST | Duyet va tao ho so dat doan |
+| PUT | `/api/v1/public/group-booking-requests/{id}/reject?reason=` | OWNER/RECEPTIONIST | Tu choi yeu cau dat doan |
 
 ---
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { IoCheckmarkCircle, IoCheckmarkCircleOutline, IoFlashOutline, IoInformationCircleOutline, IoPeopleOutline } from 'react-icons/io5';
 
-const RoomCard = ({ room, onBookNow }) => {
+const RoomCard = ({ room, onBookNow, onGroupBook }) => {
   return (
     <div className="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
       {/* Image Gallery */}
@@ -93,21 +93,12 @@ const RoomCard = ({ room, onBookNow }) => {
             <div className="font-headline-md text-headline-md text-on-surface mb-2">
               {room.price} <span className="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span>
             </div>
-            {room.primaryButton ? (
-              <button 
-                onClick={onBookNow}
-                className="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors"
-              >
+            <div className="flex flex-wrap justify-end gap-2">
+              {onGroupBook && <button onClick={onGroupBook} className="border border-primary bg-surface-container-lowest px-4 py-2 font-label-md text-label-md text-primary transition-colors hover:bg-surface-blue-light">Đặt theo đoàn</button>}
+              <button onClick={onBookNow} className={room.primaryButton ? 'bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors' : 'bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light transition-colors'}>
                 Đặt phòng ngay
               </button>
-            ) : (
-              <button 
-                onClick={onBookNow}
-                className="bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light transition-colors"
-              >
-                Đặt phòng ngay
-              </button>
-            )}
+            </div>
           </div>
         </div>
       </div>
