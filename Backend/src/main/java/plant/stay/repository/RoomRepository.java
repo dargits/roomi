@@ -15,6 +15,10 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     List<Room> findByRoomTypeId(Long roomTypeId);
     boolean existsByRoomNumber(String roomNumber);
     long countByStatus(RoomStatus status);
+    long countByRoomTypeId(Long roomTypeId);
+
+    @Query(value = "SELECT * FROM rooms WHERE room_type_id = :roomTypeId FOR UPDATE", nativeQuery = true)
+    List<Room> findByRoomTypeIdForUpdate(@Param("roomTypeId") Long roomTypeId);
 
     @Query("SELECT r FROM Room r WHERE r.roomType.id = :roomTypeId AND r.status = :status")
     List<Room> findByRoomTypeIdAndStatus(@Param("roomTypeId") Long roomTypeId, @Param("status") RoomStatus status);

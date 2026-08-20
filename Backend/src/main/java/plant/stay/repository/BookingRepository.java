@@ -16,6 +16,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByGuestId(Long guestId);
     List<Booking> findByStatus(BookingStatus status);
     List<Booking> findByRoomId(Long roomId);
+       List<Booking> findByGroupBookingId(Long groupBookingId);
 
        @Query("SELECT b FROM Booking b " +
            "JOIN FETCH b.guest g " +
@@ -42,6 +43,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                                           @Param("checkIn") LocalDate checkIn,
                                           @Param("checkOut") LocalDate checkOut,
                                           @Param("excludeId") Long excludeId);
+
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.roomType.id = :roomTypeId " +
+           "AND b.status IN ('NEW', 'CONFIRMED', 'CHECKED_IN') " +
+           "AND b.checkInDate < :checkOut AND b.checkOutDate > :checkIn")
+    long countActiveOverlappingByRoomType(@Param("roomTypeId") Long roomTypeId,
+                                          @Param("checkIn") LocalDate checkIn,
+                                          @Param("checkOut") LocalDate checkOut);
 
     // Lấy booking check-in/check-out trong ngày hôm nay
     @Query("SELECT b FROM Booking b WHERE (b.checkInDate = :today OR b.checkOutDate = :today) " +
