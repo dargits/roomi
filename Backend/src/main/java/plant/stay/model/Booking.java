@@ -31,6 +31,10 @@ public class Booking {
     @JoinColumn(name = "room_id")
     private Room room;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_booking_id")
+    private GroupBooking groupBooking;
+
     @Column(name = "check_in_date", nullable = false)
     private LocalDate checkInDate;
 
