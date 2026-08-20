@@ -656,6 +656,10 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 | GET | `/api/v1/booking-requests` | OWNER/RECEPTIONIST | Xem danh sach yeu cau |
 | PUT | `/api/v1/booking-requests/{id}/approve` | OWNER/RECEPTIONIST | Duyet -> tao Booking |
 | PUT | `/api/v1/booking-requests/{id}/reject?reason=` | OWNER/RECEPTIONIST | Tu choi |
+| POST | `/api/v1/public/group-booking-requests` | Public | Gui yeu cau dat phong theo doan |
+| GET | `/api/v1/public/group-booking-requests` | OWNER/RECEPTIONIST | Xem yeu cau dat doan tu web |
+| PUT | `/api/v1/public/group-booking-requests/{id}/approve` | OWNER/RECEPTIONIST | Duyet va tao ho so dat doan |
+| PUT | `/api/v1/public/group-booking-requests/{id}/reject?reason=` | OWNER/RECEPTIONIST | Tu choi yeu cau dat doan |
 
 ---
 
