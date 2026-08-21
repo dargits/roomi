@@ -35,9 +35,9 @@ public class StayDeclarationController {
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             HttpServletRequest request) {
-        checkReceptionStaff(request);
+        User actor = checkReceptionStaff(request);
         LocalDate reportDate = date != null ? date : LocalDate.now();
-        byte[] report = stayDeclarationService.exportDeclarationsToExcel(reportDate);
+        byte[] report = stayDeclarationService.exportDeclarationsToExcel(reportDate, actor);
         String filename = "stay_declarations_" + reportDate + ".xlsx";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
