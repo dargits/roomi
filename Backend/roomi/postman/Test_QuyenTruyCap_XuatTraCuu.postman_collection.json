@@ -1,0 +1,139 @@
+{
+	"info": {
+		"name": "Test Phân Quyền Xuất/Tra Cứu Thông Tin",
+		"description": "Kiểm tra quyền truy cập trước khi xuất (export) hoặc tra cứu thông tin khách hàng có giấy tờ",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Không có Token (Khách) - Bắt lỗi 401",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/khach-hang/xuat-du-lieu",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"khach-hang",
+						"xuat-du-lieu"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 401 (Unauthorized)\", function () {",
+							"    pm.response.to.have.status(401);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. User thường (Không đủ quyền) - Bắt lỗi 403",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{userToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/khach-hang/xuat-du-lieu",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"khach-hang",
+						"xuat-du-lieu"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 403 (Forbidden)\", function () {",
+							"    pm.response.to.have.status(403);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Admin/Quản lý (Đủ quyền) - Xuất/Tra cứu thành công",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{adminToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/khach-hang/xuat-du-lieu",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"khach-hang",
+						"xuat-du-lieu"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code là 200 OK (Thành công)\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Nếu là xuất file (Excel/CSV), phải có header Content-Disposition\", function () {",
+							"    // Thường API xuất file sẽ đính kèm header này",
+							"    var contentDisposition = pm.response.headers.get('Content-Disposition');",
+							"    if (contentDisposition) {",
+							"        pm.expect(contentDisposition.toLowerCase()).to.include('attachment');",
+							"    }",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "userToken",
+			"value": "token_cua_user_thuong_khong_co_quyen",
+			"type": "string"
+		},
+		{
+			"key": "adminToken",
+			"value": "token_cua_admin_hoac_quan_ly",
+			"type": "string"
+		}
+	]
+}
