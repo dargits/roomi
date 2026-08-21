@@ -271,7 +271,7 @@ public class BookingServiceImpl implements BookingService {
         booking.setStayDeclaration(declaration);
         auditLogService.log("Booking", booking.getId(), "CHECK_IN", actor,
                 "Nhận phòng " + booking.getRoom().getRoomNumber() + 
-                (idNumber != null && !idNumber.trim().isEmpty() ? " (CCCD: " + idNumber.trim() + ")" : ""));
+            (idNumber != null && !idNumber.trim().isEmpty() ? " (đã cập nhật giấy tờ tùy thân)" : ""));
         return toResponse(booking);
     }
 

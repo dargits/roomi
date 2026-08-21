@@ -13,6 +13,7 @@ import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.util.AuthUtil;
+import plant.stay.util.PersonalDataMasker;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -174,7 +175,7 @@ public class DataController {
                             g.getId(),
                             g.getName(),
                             g.getPhone() != null ? g.getPhone() : "",
-                            g.getIdNumber() != null ? g.getIdNumber() : "",
+                            PersonalDataMasker.displayIdentifier(g.getIdNumber(), actor.getRole()),
                             g.getEmail() != null ? g.getEmail() : "",
                             g.getLoyaltyPoints())));
         } else if ("rooms".equalsIgnoreCase(type)) {

@@ -13,6 +13,7 @@ import plant.stay.repository.BookingRepository;
 import plant.stay.repository.IdentityDocumentRepository;
 import plant.stay.repository.StayDeclarationRepository;
 import plant.stay.service.StayDeclarationService;
+import plant.stay.util.PersonalDataMasker;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -101,7 +102,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
 
     @Override
     @Transactional(readOnly = true)
-    public byte[] exportDeclarationsToExcel(LocalDate date) {
+    public byte[] exportDeclarationsToExcel(LocalDate date, User actor) {
         StayDeclarationResponseDTO report = getDeclarationsForDate(date);
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Khai bao luu tru");
@@ -137,7 +138,8 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
                 Row row = sheet.createRow(rowIndex++);
                 row.createCell(0).setCellValue(sequence++);
                 row.createCell(1).setCellValue(valueOrEmpty(guest.getGuestName()));
-                row.createCell(2).setCellValue(valueOrEmpty(guest.getIdNumber()));
+                row.createCell(2).setCellValue(valueOrEmpty(
+                    PersonalDataMasker.displayIdentifier(guest.getIdNumber(), actor.getRole())));
                 row.createCell(3).setCellValue(valueOrEmpty(guest.getPhone()));
                 row.createCell(4).setCellValue(valueOrEmpty(guest.getRoomNumber()));
                 row.createCell(5).setCellValue(guest.getCheckedInAt() != null
