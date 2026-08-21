@@ -1,0 +1,142 @@
+{
+	"info": {
+		"name": "Test Phân quyền và Ẩn thông tin",
+		"description": "Collection mẫu dùng để test phân quyền và ẩn thông tin cá nhân",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Test Không có Token (Bắt lỗi 401)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/danh-sach",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"danh-sach"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 401 (Unauthorized)\", function () {",
+							"    pm.response.to.have.status(401);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Test User không đủ quyền (Bắt lỗi 403)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{userToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/danh-sach",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"danh-sach"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 403 (Forbidden)\", function () {",
+							"    pm.response.to.have.status(403);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Test Admin xem danh sách (Test Ẩn thông tin)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{adminToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/danh-sach",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"danh-sach"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Trạng thái thành công 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Kiểm tra Ẩn thông tin cá nhân (SĐT, Email phải có dấu *)\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    var list = jsonData.data || jsonData;",
+							"    pm.expect(Array.isArray(list)).to.be.true;",
+							"    list.forEach(function(item, index) {",
+							"        if(item.phone) {",
+							"            pm.expect(item.phone).to.match(/\\*/, `Dòng ${index}: Số điện thoại chưa làm mờ`);",
+							"        }",
+							"        if(item.email) {",
+							"            pm.expect(item.email).to.match(/\\*/, `Dòng ${index}: Email chưa làm mờ`);",
+							"        }",
+							"    });",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "userToken",
+			"value": "nhap_token_cua_user_thuong_vao_day",
+			"type": "string"
+		},
+		{
+			"key": "adminToken",
+			"value": "nhap_token_cua_admin_vao_day",
+			"type": "string"
+		}
+	]
+}
