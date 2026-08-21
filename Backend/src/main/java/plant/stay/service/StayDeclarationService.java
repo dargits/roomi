@@ -12,5 +12,5 @@ public interface StayDeclarationService {
 
     void completeDeclaration(Long bookingId, User actor);
 
-    byte[] exportDeclarationsToExcel(LocalDate date);
+    byte[] exportDeclarationsToExcel(LocalDate date, User actor);
 }

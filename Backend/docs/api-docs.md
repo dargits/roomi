@@ -743,3 +743,13 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 
 **Dat phong online (QTN-13):**
 `GET availability -> POST booking-requests (PENDING) -> PUT approve (CONFIRMED Booking)`
+
+---
+
+## 24. Che thong tin ca nhan theo vai tro (QTN-24)
+
+- `OWNER` va `RECEPTIONIST` xem day du CCCD/CMND/ho chieu.
+- Tat ca vai tro khac, bao gom `ADMIN`, `ACCOUNTANT`, khach hang va request chua dang nhap, chi nhan `****` kem bon ky tu cuoi. Gia tri rong van giu rong va ma dinh danh ngan khong lo ky tu goc.
+- Quy tac ap dung cho JSON guest, booking, khai bao luu tru va cac danh sach long nhau; du lieu luu tru va request tao/cap nhat khong bi thay doi.
+- `GET /api/v1/stay-declarations/export` va `GET /api/v1/data/export?type=guests` ap dung cung quy tac theo vai tro nguoi xuat file.
+- Audit check-in chi ghi nhan viec cap nhat giay to, khong luu lai so dinh danh trong noi dung log.
