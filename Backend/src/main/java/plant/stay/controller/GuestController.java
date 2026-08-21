@@ -72,4 +72,19 @@ public class GuestController {
             throw new UnauthorizedException("Không có quyền truy cập");
         return user;
     }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        User actor = authUtil.getUserFromRequest(request);
+
+        // Kiểm tra phân quyền: Không phải OWNER/ADMIN thì chặn ngay lập tức
+        if (actor == null || (actor.getRole() != Role.OWNER && actor.getRole() != Role.ADMIN)) {
+            throw new UnauthorizedException("Chỉ OWNER hoặc ADMIN mới có quyền xóa khách hàng");
+        }
+
+        // Gọi xuống tầng Service để xóa (và tự động kiểm tra Booking ở dưới đó)
+        guestService.delete(id);
+
+        return ResponseEntity.ok().build();
+    }
+
 }
