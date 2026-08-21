@@ -118,4 +118,14 @@ public class GuestServiceImpl implements GuestService {
                 .createdAt(guest.getCreatedAt())
                 .build();
     }
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void delete(Long id) {
+        plant.stay.model.Guest guest = findById(id);
+        if (!bookingRepository.findByGuestId(id).isEmpty()) {
+            throw new IllegalArgumentException("Khách hàng đang có lịch sử đặt phòng, không thể xóa");
+        }
+        guestRepository.delete(guest);
+    }
+
 }
