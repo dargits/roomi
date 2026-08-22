@@ -1,0 +1,181 @@
+{
+	"info": {
+		"name": "Test Hiển thị Số Giấy Tờ theo Vai trò",
+		"description": "Collection mẫu dùng để test việc hiển thị số CMND/CCCD (số giấy tờ) theo từng quyền của user",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Vai trò Quản trị viên (Admin) - Thấy Full Số Giấy Tờ",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{adminToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/ho-so",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"ho-so"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code là 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Admin phải thấy đầy đủ số giấy tờ (Không có dấu *)\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    var list = jsonData.data || jsonData;",
+							"    // Nếu API trả về 1 object thay vì mảng thì chuyển thành mảng 1 phần tử",
+							"    if (!Array.isArray(list)) list = [list];",
+							"    ",
+							"    list.forEach(function(item, index) {",
+							"        // Tuỳ tên trường trong dự án của bạn (vd: identityNumber, cccd, idCard)",
+							"        var idNumber = item.identityNumber || item.cccd || item.idCard;",
+							"        if(idNumber) {",
+							"            // Không được chứa dấu *",
+							"            pm.expect(idNumber).to.not.match(/\\*/, `Dòng ${index}: Admin mà số giấy tờ lại bị làm mờ`);",
+							"        }",
+							"    });",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Vai trò Nhân viên/User thường - Thấy Số Giấy Tờ bị làm mờ",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{staffToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/ho-so",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"ho-so"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code là 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"User thường phải thấy số giấy tờ BỊ LÀM MỜ (Có chứa dấu *)\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    var list = jsonData.data || jsonData;",
+							"    if (!Array.isArray(list)) list = [list];",
+							"    ",
+							"    list.forEach(function(item, index) {",
+							"        var idNumber = item.identityNumber || item.cccd || item.idCard;",
+							"        if(idNumber) {",
+							"            // Phải chứa dấu *",
+							"            pm.expect(idNumber).to.match(/\\*/, `Dòng ${index}: Lỗi bảo mật! User thường nhìn thấy full số giấy tờ`);",
+							"        }",
+							"    });",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Vai trò Khách (Guest) - Không thấy Số Giấy Tờ / Bị chặn",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{guestToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/ho-so",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"ho-so"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Guest sẽ bị chặn (403) HOẶC trường số giấy tờ phải trống\", function () {",
+							"    if(pm.response.code === 403 || pm.response.code === 401) {",
+							"        pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+							"    } else {",
+							"        var jsonData = pm.response.json();",
+							"        var list = jsonData.data || jsonData;",
+							"        if (!Array.isArray(list)) list = [list];",
+							"        ",
+							"        list.forEach(function(item, index) {",
+							"            var idNumber = item.identityNumber || item.cccd || item.idCard;",
+							"            // Giá trị trả về phải là null, rỗng hoặc undefined",
+							"            pm.expect(idNumber).to.be.oneOf([null, undefined, '']);",
+							"        });",
+							"    }",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "adminToken",
+			"value": "token_cua_admin_full_quyen",
+			"type": "string"
+		},
+		{
+			"key": "staffToken",
+			"value": "token_cua_nhan_vien_thuong",
+			"type": "string"
+		},
+		{
+			"key": "guestToken",
+			"value": "token_cua_khach_hoac_chua_dang_nhap",
+			"type": "string"
+		}
+	]
+}

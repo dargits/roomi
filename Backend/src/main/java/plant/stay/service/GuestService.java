@@ -11,4 +11,8 @@ public interface GuestService {
     GuestResponse create(GuestRequest request);
     GuestResponse update(Long id, GuestRequest request);
     List<?> getHistory(Long guestId);
+
+
+    void delete(Long id);
+
 }
