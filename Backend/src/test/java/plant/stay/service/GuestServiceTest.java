@@ -112,8 +112,11 @@ public class GuestServiceTest {
         GuestRepository mockGuestRepo = Mockito.mock(GuestRepository.class);
         BookingRepository mockBookingRepo = Mockito.mock(BookingRepository.class);
         LoyaltyTierRepository mockLoyaltyRepo = Mockito.mock(LoyaltyTierRepository.class);
+        plant.stay.repository.InvoiceRepository mockInvoiceRepo = Mockito.mock(plant.stay.repository.InvoiceRepository.class);
+        plant.stay.repository.IdentityDocumentRepository mockDocRepo = Mockito.mock(plant.stay.repository.IdentityDocumentRepository.class);
+        plant.stay.service.AuditLogService mockAuditLogService = Mockito.mock(plant.stay.service.AuditLogService.class);
 
-        GuestServiceImpl mockGuestService = new GuestServiceImpl(mockGuestRepo, mockBookingRepo, mockLoyaltyRepo);
+        GuestServiceImpl mockGuestService = new GuestServiceImpl(mockGuestRepo, mockBookingRepo, mockLoyaltyRepo, mockInvoiceRepo, mockDocRepo, mockAuditLogService);
 
         // Cài đặt kịch bản: Tìm thấy khách hàng ID = 99
         Guest mockGuest = new Guest();
