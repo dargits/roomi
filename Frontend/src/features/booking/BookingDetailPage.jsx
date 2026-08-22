@@ -29,6 +29,7 @@ import ExtendStayModal from './ExtendStayModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 const VALID_TABS = ['info', 'services', 'invoice', 'deposit'];
 
@@ -37,6 +38,18 @@ const BookingDetailPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { success: toastSuccess, error: toastError } = useToast();
+  const { user } = useAuth();
+
+  const formatCCCD = (cccd) => {
+    if (!cccd) return 'Chưa cập nhật';
+    if (['OWNER', 'RECEPTIONIST'].includes(user?.role)) {
+      return cccd;
+    }
+    if (cccd.length > 4) {
+      return '*'.repeat(cccd.length - 4) + cccd.slice(-4);
+    }
+    return cccd;
+  };
 
   const fromUrl = location.state?.from || '/manage/bookings/list';
   const backLabel = fromUrl.includes('calendar') ? 'Lịch phòng' :
@@ -147,6 +160,7 @@ const BookingDetailPage = () => {
       case 'CHECKED_IN': return <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-md font-semibold text-xs">Đang ở</span>;
       case 'CHECKED_OUT': return <span className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded-md font-semibold text-xs">Đã đi</span>;
       case 'CANCELLED': return <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-md font-semibold text-xs">Đã hủy</span>;
+      case 'NO_SHOW': return <span className="px-2.5 py-1 bg-orange-100 text-orange-800 rounded-md font-semibold text-xs">Không đến</span>;
       default: return <span className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded-md font-semibold text-xs">{status}</span>;
     }
   };
@@ -289,8 +303,8 @@ const BookingDetailPage = () => {
                   <div className="space-y-3 font-body-sm text-on-surface-variant">
                     <div className="flex justify-between"><span className="w-1/3">Họ tên:</span><span className="font-medium text-on-surface flex-1">{booking.guestName}</span></div>
                     <div className="flex justify-between"><span className="w-1/3">Số điện thoại:</span><span className="font-medium text-on-surface flex-1">{booking.guestPhone}</span></div>
-                    {booking.guestEmail && <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail}</span></div>}
-                    {booking.guestIdNumber && <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{booking.guestIdNumber}</span></div>}
+                    <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail || 'Chưa cập nhật'}</span></div>
+                    <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber)}</span></div>
                   </div>
                 </div>
 

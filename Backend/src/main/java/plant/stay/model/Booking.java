@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "bookings")
@@ -34,6 +36,15 @@ public class Booking {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_booking_id")
     private GroupBooking groupBooking;
+
+    @ManyToMany
+    @JoinTable(
+        name = "booking_staying_guests",
+        joinColumns = @JoinColumn(name = "booking_id"),
+        inverseJoinColumns = @JoinColumn(name = "guest_id")
+    )
+    @Builder.Default
+    private List<Guest> stayingGuests = new ArrayList<>();
 
     @Column(name = "check_in_date", nullable = false)
     private LocalDate checkInDate;

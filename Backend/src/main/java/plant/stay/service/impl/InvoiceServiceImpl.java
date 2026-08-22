@@ -137,15 +137,28 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalArgumentException("Hóa đơn đoàn chỉ hỗ trợ gộp hoặc tách theo từng phòng");
         }
         GroupBooking groupBooking = findGroupBooking(groupBookingId);
-        List<Booking> bookings = bookingRepository.findByGroupBookingId(groupBookingId);
+        List<Booking> bookings = bookingRepository.findByGroupBookingId(groupBookingId).stream()
+                .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
+                .collect(Collectors.toList());
         if (bookings.isEmpty()) {
             throw new IllegalArgumentException("Hồ sơ đoàn chưa có phòng để lập hóa đơn");
         }
         if (bookings.stream().anyMatch(booking -> booking.getStatus() != BookingStatus.CHECKED_IN)) {
-            throw new IllegalArgumentException("Chỉ có thể lập hóa đơn đoàn khi tất cả phòng đang CHECKED_IN");
+            throw new IllegalArgumentException("Chỉ có thể lập hóa đơn đoàn khi tất cả phòng đều đã nhận phòng (đang ở)");
         }
-        if (bookings.stream().anyMatch(booking -> !invoiceRepository.findInvoicesCoveringBooking(booking.getId()).isEmpty())) {
-            throw new IllegalArgumentException("Đoàn này đã có hóa đơn, không thể đổi cách gộp hoặc tách");
+        for (Booking booking : bookings) {
+            List<Invoice> existingInvoices = invoiceRepository.findInvoicesCoveringBooking(booking.getId());
+            if (!existingInvoices.isEmpty()) {
+                Invoice existing = existingInvoices.get(0);
+                if (existing.getMode() == InvoiceMode.COMBINED) {
+                    throw new IllegalArgumentException("Đoàn này đã được lập hóa đơn gộp chung, không thể đổi cách gộp hoặc tách.");
+                } else if (existing.getMode() == InvoiceMode.SEPARATE) {
+                    throw new IllegalArgumentException("Đoàn này đã được lập hóa đơn tách riêng từng phòng, không thể đổi cách gộp hoặc tách.");
+                } else {
+                    String roomNum = booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "chưa gán";
+                    throw new IllegalArgumentException("Phòng " + roomNum + " trong đoàn đã được lập hóa đơn cá nhân, không thể lập hóa đơn cho toàn đoàn. Nếu muốn gộp hóa đơn, vui lòng kiểm tra lại hóa đơn của phòng này.");
+                }
+            }
         }
 
         List<Invoice> invoices = new ArrayList<>();

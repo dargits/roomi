@@ -49,11 +49,17 @@ const bookingApi = {
     return response.data;
   },
 
-  // Nhận phòng (kèm số CCCD/CMND)
-  checkIn: async (id, idNumber) => {
-    const response = await api.put(`/bookings/${id}/check-in`, null, {
-      params: idNumber ? { idNumber } : {}
-    });
+  // Nhận phòng (kèm danh sách khách lưu trú - Khởi tạo từ CheckInRequest)
+  checkIn: async (id, checkInData) => {
+    // checkInData = { guests: [{ name: "...", idNumber: "..." }, ...] }
+    const response = await api.put(`/bookings/${id}/check-in`, checkInData);
+    return response.data;
+  },
+
+  // Nhận phòng theo đoàn (Bulk Check-in)
+  bulkCheckIn: async (bulkData) => {
+    // bulkData = { rooms: [{ bookingId: 1, guests: [...] }, ...] }
+    const response = await api.put('/bookings/bulk-check-in', bulkData);
     return response.data;
   },
 

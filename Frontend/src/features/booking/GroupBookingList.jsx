@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { IoBedOutline, IoCallOutline, IoCheckmarkCircleOutline, IoDocumentOutline, IoPeopleOutline, IoRefreshOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
+import { IoBedOutline, IoCallOutline, IoCheckmarkCircleOutline, IoDocumentOutline, IoPeopleOutline, IoRefreshOutline, IoTrashOutline, IoWarningOutline, IoPrintOutline } from 'react-icons/io5';
 import groupBookingApi from '../../services/groupBookingApi';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import BulkCheckInModal from './BulkCheckInModal';
+import InvoicePrintTemplate from './InvoicePrintTemplate';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
@@ -33,11 +35,15 @@ const GroupBookingList = ({ refreshKey }) => {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
   const [invoiceError, setInvoiceError] = useState('');
+  const [printInvoice, setPrintInvoice] = useState(null);
 
   // NCL-13-CN-004: State cho modal hủy một phần
   const [cancelPartialState, setCancelPartialState] = useState({ group: null, selectedIds: new Set() });
   const [cancelPartialSubmitting, setCancelPartialSubmitting] = useState(false);
   const [cancelPartialError, setCancelPartialError] = useState('');
+  
+  // Bulk Check-in State
+  const [bulkCheckInGroup, setBulkCheckInGroup] = useState(null);
 
   const { success } = useToast();
   const { user } = useAuth();
@@ -213,19 +219,29 @@ const GroupBookingList = ({ refreshKey }) => {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse">
-        <thead><tr className="bg-surface-container-low border-b-2 border-border-grey text-xs uppercase text-on-surface-variant"><th className="p-4">Mã đoàn</th><th className="p-4">Người đại diện</th><th className="p-4">Thời gian</th><th className="p-4">Phòng</th><th className="p-4">Dự kiến</th><th className="p-4 text-center">Trạng thái</th><th className="p-4 text-center">Thao tác</th></tr></thead>
+        <thead><tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider"><th className="p-4 font-semibold">Mã đoàn</th><th className="p-4 font-semibold">Người đại diện</th><th className="p-4 font-semibold">Thời gian</th><th className="p-4 font-semibold">Phòng</th><th className="p-4 font-semibold">Dự kiến</th><th className="p-4 font-semibold text-center">Trạng thái</th><th className="p-4 font-semibold text-center">Thao tác</th></tr></thead>
         <tbody>
           {groups.length === 0 ? <tr><td colSpan="7" className="p-10 text-center text-on-surface-variant">Chưa có hồ sơ đặt phòng đoàn.</td></tr> : groups.map((group) => (
-            <tr key={group.id} className="border-b border-border-grey hover:bg-surface-container-low/60">
-              <td className="p-4 font-semibold text-primary">ĐOÀN-{String(group.id).padStart(5, '0')}</td>
-              <td className="p-4"><div className="font-semibold text-on-surface flex items-center gap-1.5"><IoPeopleOutline size={16} className="text-primary" />{group.representativeName}</div><div className="text-xs text-on-surface-variant flex items-center gap-1 mt-1"><IoCallOutline size={13} />{group.representativePhone || 'Chưa có SĐT'}</div></td>
+            <tr key={group.id} className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
+              <td className="p-4 font-title-sm font-semibold text-primary">ĐOÀN-{String(group.id).padStart(5, '0')}</td>
+              <td className="p-4"><div className="font-title-sm font-semibold text-on-surface flex items-center gap-1.5"><IoPeopleOutline size={16} className="text-primary" />{group.representativeName}</div><div className="text-sm text-on-surface-variant flex items-center gap-1 mt-1"><IoCallOutline size={14} />{group.representativePhone || 'Chưa có SĐT'}</div></td>
               <td className="p-4 text-sm text-on-surface-variant">{formatDate(group.checkInDate)} - {formatDate(group.checkOutDate)}</td>
               <td className="p-4"><div className="font-semibold text-on-surface flex items-center gap-1.5"><IoBedOutline size={16} className="text-primary" />{group.assignedRooms}/{group.totalRooms} đã xếp</div></td>
               <td className="p-4 font-semibold text-on-surface">{Number(group.expectedTotal || 0).toLocaleString('vi-VN')} đ</td>
               <td className="p-4 text-center"><span className={`px-2 py-1 rounded-md text-xs font-semibold ${STATUS_STYLES[group.status] || 'bg-gray-100 text-gray-800'}`}>{STATUS_LABELS[group.status] || group.status}</span></td>
               <td className="p-4 text-center"><div className="flex flex-wrap justify-center gap-2">
-                {group.assignedRooms < group.totalRooms && <Button size="sm" variant="outline" icon={IoBedOutline} onClick={() => openAssignment(group)}>Gán phòng</Button>}
-                {canCancelPartial && ['NEW','CONFIRMED','PARTIALLY_ASSIGNED'].includes(group.status) && (
+                {['NEW', 'PARTIALLY_ASSIGNED'].includes(group.status) && <Button size="sm" variant="outline" icon={IoBedOutline} onClick={() => openAssignment(group)}>Gán phòng</Button>}
+                
+                {/* Nút Nhận phòng đoàn */}
+                {group.bookings?.some(b => b.status === 'CONFIRMED' && b.roomId) && (
+                  <Button size="sm" variant="outline" icon={IoCheckmarkCircleOutline}
+                    className="border-green-200 text-green-700 hover:bg-green-50"
+                    onClick={() => setBulkCheckInGroup(group)}>
+                    Nhận phòng
+                  </Button>
+                )}
+
+                {canCancelPartial && ['NEW', 'PARTIALLY_ASSIGNED'].includes(group.status) && (
                   <Button size="sm" variant="outline" icon={IoTrashOutline}
                     className="border-red-200 text-red-700 hover:bg-red-50"
                     onClick={() => setCancelPartialState({ group, selectedIds: new Set() })}>
@@ -250,7 +266,7 @@ const GroupBookingList = ({ refreshKey }) => {
             <div className="rounded-md border border-border-grey bg-surface-container-low p-3 text-sm text-on-surface-variant">Chọn một phòng riêng cho từng booking. Hệ thống sẽ kiểm tra lại tình trạng trống khi xác nhận.</div>
             <div className="space-y-3">{assignmentState.suggestion.assignments.map((line, index) => {
               const selectedRoomId = assignmentState.selections[line.bookingId] || '';
-              return <div key={line.bookingId} className="grid gap-3 rounded-md border border-border-grey p-4 md:grid-cols-[1fr_1.4fr] md:items-center"><div><div className="font-semibold text-on-surface">Phòng {index + 1}: {line.roomTypeName}</div><div className="mt-1 text-xs text-on-surface-variant">Booking #{line.bookingId}</div></div><select value={selectedRoomId} onChange={(event) => updateSelection(line.bookingId, event.target.value)} className="w-full rounded-md border border-border-grey bg-surface px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"><option value="">Chọn phòng trống</option>{line.availableRooms.map((room) => { const roomIsSelectedElsewhere = Object.entries(assignmentState.selections).some(([bookingId, roomId]) => Number(bookingId) !== line.bookingId && String(room.id) === roomId); return <option key={room.id} value={room.id} disabled={roomIsSelectedElsewhere}>{room.roomNumber}{room.floor ? ` - Tầng ${room.floor}` : ''}</option>; })}</select>{line.availableRooms.length === 0 && <div className="md:col-start-2 text-xs text-red-600">Không còn phòng trống phù hợp.</div>}</div>;
+              return <div key={line.bookingId} className="grid gap-3 rounded-md border border-border-grey p-4 md:grid-cols-[1fr_1.4fr] md:items-center"><div><div className="font-semibold text-on-surface">Phòng {index + 1}: {line.roomTypeName}</div><div className="mt-1 text-xs text-on-surface-variant">Mã #{line.bookingId}</div></div><select value={selectedRoomId} onChange={(event) => updateSelection(line.bookingId, event.target.value)} className="w-full rounded-md border border-border-grey bg-surface px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"><option value="">Chọn phòng trống</option>{line.availableRooms.map((room) => { const roomIsSelectedElsewhere = Object.entries(assignmentState.selections).some(([bookingId, roomId]) => Number(bookingId) !== line.bookingId && String(room.id) === roomId); return <option key={room.id} value={room.id} disabled={roomIsSelectedElsewhere}>{room.roomNumber}{room.floor ? ` - Tầng ${room.floor}` : ''}</option>; })}</select>{line.availableRooms.length === 0 && <div className="md:col-start-2 text-xs text-red-600">Không còn phòng trống phù hợp.</div>}</div>;
             })}</div>
             <div className="flex justify-end gap-3 border-t border-border-grey pt-4"><Button variant="secondary" onClick={closeAssignment} disabled={assignmentSubmitting}>Hủy</Button><Button variant="success" icon={IoCheckmarkCircleOutline} onClick={submitAssignment} isLoading={assignmentSubmitting}>Xác nhận gán tất cả</Button></div>
           </>}
@@ -264,7 +280,7 @@ const GroupBookingList = ({ refreshKey }) => {
       >
         {invoiceLoading ? <div className="py-12 text-center text-on-surface-variant"><IoRefreshOutline className="mx-auto mb-2 animate-spin" size={24} />Đang tải hóa đơn...</div> : <div className="space-y-5">
           {invoiceError && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{invoiceError}</div>}
-          {invoiceState.data?.invoices?.length ? <><div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><div className="font-semibold">{invoiceState.data.mode === 'COMBINED' ? 'Hóa đơn chung của đoàn' : 'Hóa đơn tách theo từng phòng'}</div><div className="mt-2 grid gap-2 sm:grid-cols-2"><span>Tổng: <strong>{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong></span><span>Còn phải thu: <strong>{Number(invoiceState.data.outstandingAmount || 0).toLocaleString('vi-VN')} đ</strong></span></div></div><div className="space-y-2">{invoiceState.data.invoices.map((invoice) => <div key={invoice.id} className="flex items-center justify-between rounded-md border border-border-grey p-3 text-sm"><span>Hóa đơn #{invoice.id}{invoice.bookingId ? ` - Booking #${invoice.bookingId}` : ''}</span><span className="font-semibold">{Number(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ</span></div>)}</div></> : <><div className="rounded-md border border-border-grey bg-surface-container-low p-4 text-sm text-on-surface-variant">Chỉ lập được khi tất cả phòng trong đoàn đã nhận phòng. Cách lập hóa đơn sẽ không thể thay đổi sau khi tạo.</div><div className="grid gap-3 md:grid-cols-2"><label className={`cursor-pointer rounded-md border p-4 ${invoiceState.mode === 'COMBINED' ? 'border-primary bg-primary/5' : 'border-border-grey'}`}><input className="sr-only" type="radio" name="invoice-mode" value="COMBINED" checked={invoiceState.mode === 'COMBINED'} onChange={(event) => setInvoiceState((previous) => ({ ...previous, mode: event.target.value }))} /><div className="font-semibold text-on-surface">Gộp toàn bộ đoàn</div><div className="mt-1 text-sm text-on-surface-variant">Một hóa đơn chung, tự trừ cọc của tất cả phòng.</div></label><label className={`cursor-pointer rounded-md border p-4 ${invoiceState.mode === 'SEPARATE' ? 'border-primary bg-primary/5' : 'border-border-grey'}`}><input className="sr-only" type="radio" name="invoice-mode" value="SEPARATE" checked={invoiceState.mode === 'SEPARATE'} onChange={(event) => setInvoiceState((previous) => ({ ...previous, mode: event.target.value }))} /><div className="font-semibold text-on-surface">Tách từng phòng</div><div className="mt-1 text-sm text-on-surface-variant">Một hóa đơn và cọc riêng cho mỗi booking.</div></label></div><div className="flex justify-end gap-3 border-t border-border-grey pt-4"><Button variant="secondary" onClick={closeInvoices} disabled={invoiceSubmitting}>Hủy</Button><Button icon={IoDocumentOutline} onClick={createInvoices} isLoading={invoiceSubmitting}>Lập hóa đơn</Button></div></>}
+          {invoiceState.data?.invoices?.length ? <><div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><div className="font-semibold">{invoiceState.data.mode === 'COMBINED' ? 'Hóa đơn chung của đoàn' : 'Hóa đơn tách theo từng phòng'}</div><div className="mt-2 grid gap-2 sm:grid-cols-2"><span>Tổng: <strong>{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong></span><span>Còn phải thu: <strong>{Number(invoiceState.data.outstandingAmount || 0).toLocaleString('vi-VN')} đ</strong></span></div></div><div className="space-y-2">{invoiceState.data.invoices.map((invoice) => <div key={invoice.id} className="flex items-center justify-between rounded-md border border-border-grey p-3 text-sm"><span>Hóa đơn #{invoice.id}{invoice.bookingId ? ` - Mã #${invoice.bookingId}` : ''}</span><div className="flex items-center gap-4"><span className="font-semibold">{Number(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ</span><Button size="sm" variant="outline" icon={IoPrintOutline} onClick={() => setPrintInvoice(invoice)}>In</Button></div></div>)}</div></> : <><div className="rounded-md border border-border-grey bg-surface-container-low p-4 text-sm text-on-surface-variant">Chỉ lập được khi tất cả phòng trong đoàn đã nhận phòng. Cách lập hóa đơn sẽ không thể thay đổi sau khi tạo.</div><div className="grid gap-3 md:grid-cols-2"><label className={`cursor-pointer rounded-md border p-4 ${invoiceState.mode === 'COMBINED' ? 'border-primary bg-primary/5' : 'border-border-grey'}`}><input className="sr-only" type="radio" name="invoice-mode" value="COMBINED" checked={invoiceState.mode === 'COMBINED'} onChange={(event) => setInvoiceState((previous) => ({ ...previous, mode: event.target.value }))} /><div className="font-semibold text-on-surface">Gộp toàn bộ đoàn</div><div className="mt-1 text-sm text-on-surface-variant">Một hóa đơn chung, tự trừ cọc của tất cả phòng.</div></label><label className={`cursor-pointer rounded-md border p-4 ${invoiceState.mode === 'SEPARATE' ? 'border-primary bg-primary/5' : 'border-border-grey'}`}><input className="sr-only" type="radio" name="invoice-mode" value="SEPARATE" checked={invoiceState.mode === 'SEPARATE'} onChange={(event) => setInvoiceState((previous) => ({ ...previous, mode: event.target.value }))} /><div className="font-semibold text-on-surface">Tách từng phòng</div><div className="mt-1 text-sm text-on-surface-variant">Một hóa đơn và cọc riêng cho mỗi phòng.</div></label></div><div className="flex justify-end gap-3 border-t border-border-grey pt-4"><Button variant="secondary" onClick={closeInvoices} disabled={invoiceSubmitting}>Hủy</Button><Button icon={IoDocumentOutline} onClick={createInvoices} isLoading={invoiceSubmitting}>Lập hóa đơn</Button></div></>}
         </div>}
       </Modal>
 
@@ -356,6 +372,26 @@ const GroupBookingList = ({ refreshKey }) => {
           </div>
         )}
       </Modal>
+
+      {/* Modal Nhận phòng đoàn */}
+      <BulkCheckInModal
+        isOpen={Boolean(bulkCheckInGroup)}
+        onClose={() => setBulkCheckInGroup(null)}
+        group={bulkCheckInGroup}
+        onSuccess={() => {
+          loadGroups();
+        }}
+      />
+      
+      {/* Modal In Hóa đơn */}
+      {printInvoice && (
+        <InvoicePrintTemplate 
+          invoice={printInvoice} 
+          group={invoiceState.group} 
+          booking={invoiceState.group?.bookings?.find(b => b.id === printInvoice.bookingId)}
+          onClose={() => setPrintInvoice(null)} 
+        />
+      )}
     </div>
   );
 };

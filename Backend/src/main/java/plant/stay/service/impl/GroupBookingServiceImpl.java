@@ -333,7 +333,24 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         if (request.getRepresentativePhone() != null && !request.getRepresentativePhone().isBlank()) {
             Optional<Guest> existing = guestRepository.findByPhone(request.getRepresentativePhone().trim());
             if (existing.isPresent()) {
-                return existing.get();
+                Guest guest = existing.get();
+                boolean updated = false;
+                if (request.getRepresentativeEmail() != null && !request.getRepresentativeEmail().isBlank() && !request.getRepresentativeEmail().trim().equals(guest.getEmail())) {
+                    guest.setEmail(request.getRepresentativeEmail().trim());
+                    updated = true;
+                }
+                if (request.getRepresentativeName() != null && !request.getRepresentativeName().isBlank() && !request.getRepresentativeName().equals(guest.getName())) {
+                    guest.setName(request.getRepresentativeName().trim());
+                    updated = true;
+                }
+                if (request.getRepresentativeIdNumber() != null && !request.getRepresentativeIdNumber().isBlank() && !request.getRepresentativeIdNumber().trim().equals(guest.getIdNumber())) {
+                    guest.setIdNumber(request.getRepresentativeIdNumber().trim());
+                    updated = true;
+                }
+                if (updated) {
+                    guest = guestRepository.save(guest);
+                }
+                return guest;
             }
         }
         return guestRepository.save(Guest.builder()

@@ -4,9 +4,10 @@ import Button from '../../components/ui/Button';
 import { numberToWords } from '../../utils/numberToWords';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import bookingApi from '../../services/bookingApi';
+import groupBookingApi from '../../services/groupBookingApi';
 import { useAppConfig } from '../../context/AppConfigContext';
 
-const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
+const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
   const { config } = useAppConfig();
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
@@ -20,8 +21,35 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
     logoUrl: config?.logoUrl || null
   };
 
+  const [fetchedGroup, setFetchedGroup] = useState(null);
+  const activeGroup = group || fetchedGroup;
+
+  const isCombined = invoice?.mode === 'COMBINED' && activeGroup?.bookings?.length > 0;
+
   useEffect(() => {
-    if (booking?.id) {
+    // Nếu là hóa đơn COMBINED nhưng component cha không truyền `group`, ta cần tự fetch
+    if (invoice?.mode === 'COMBINED' && !group && invoice?.groupBookingId && !fetchedGroup) {
+      groupBookingApi.getById(invoice.groupBookingId)
+        .then(data => setFetchedGroup(data))
+        .catch(err => console.error("Lỗi khi tải thông tin đoàn cho hóa đơn:", err));
+    }
+  }, [invoice, group, fetchedGroup]);
+
+  useEffect(() => {
+    if (isCombined) {
+      setLoadingServices(true);
+      Promise.all(activeGroup.bookings.map(b => bookingApi.getBookingServices(b.id)))
+        .then(results => {
+          setServices(results.flat());
+        })
+        .catch(err => {
+          console.error("Lỗi khi tải dịch vụ hóa đơn đoàn:", err);
+          setServices([]);
+        })
+        .finally(() => {
+          setLoadingServices(false);
+        });
+    } else if (booking?.id) {
       setLoadingServices(true);
       bookingApi.getBookingServices(booking.id)
         .then(data => {
@@ -35,7 +63,7 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
           setLoadingServices(false);
         });
     }
-  }, [booking?.id]);
+  }, [booking?.id, invoice?.mode, activeGroup?.bookings, isCombined]);
 
   const handlePrint = () => {
     window.print();
@@ -176,11 +204,11 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="flex">
                   <span className="w-36 text-slate-600 font-semibold">Tên người mua hàng:</span>
-                  <span className="flex-1 font-bold text-slate-900 uppercase">{booking?.guestName || '—'}</span>
+                  <span className="flex-1 font-bold text-slate-900 uppercase">{isCombined ? (activeGroup?.representativeName || '—') : (booking?.guestName || '—')}</span>
                 </div>
                 <div className="flex">
                   <span className="w-32 text-slate-600 font-semibold">Số điện thoại:</span>
-                  <span className="flex-1 font-medium text-slate-900">{booking?.guestPhone || '—'}</span>
+                  <span className="flex-1 font-medium text-slate-900">{isCombined ? (activeGroup?.representativePhone || '—') : (booking?.guestPhone || '—')}</span>
                 </div>
               </div>
 
@@ -222,25 +250,34 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-300">
                   {/* Mục 1: Tiền phòng */}
-                  <tr>
-                    <td className="border-r border-slate-900 py-2.5 px-2 text-center font-medium">1</td>
-                    <td className="border-r border-slate-900 py-2.5 px-3">
-                      <div className="font-semibold text-slate-900">
-                        Dịch vụ lưu trú ({booking?.roomTypeName || 'Phòng tiêu chuẩn'}) {booking?.roomNumber ? `— Phòng ${booking.roomNumber}` : ''}
-                      </div>
-                      <div className="text-[11px] text-slate-500 italic mt-0.5">
-                        Từ {formatStayDateTime(booking?.checkInDate, 'checkin')} đến {formatStayDateTime(booking?.checkOutDate, 'checkout')}
-                      </div>
-                    </td>
-                    <td className="border-r border-slate-900 py-2.5 px-2 text-center">Đêm</td>
-                    <td className="border-r border-slate-900 py-2.5 px-2 text-center font-medium">{nights}</td>
-                    <td className="border-r border-slate-900 py-2.5 px-3 text-right font-mono">
-                      {roomUnitPricePreTax.toLocaleString('vi-VN')}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-bold font-mono text-slate-900">
-                      {roomPreTax.toLocaleString('vi-VN')}
-                    </td>
-                  </tr>
+                  {(isCombined ? activeGroup.bookings : [booking]).map((b, bIdx) => {
+                    const bNights = calculateNights(b?.checkInDate, b?.checkOutDate) || 1;
+                    const bRoomTotalWithVat = Number(b?.actualPrice != null ? b.actualPrice : (b?.expectedPrice || 0));
+                    const bRoomPreTax = Math.round(bRoomTotalWithVat / 1.1);
+                    const bRoomUnitPricePreTax = bNights > 0 ? Math.round(bRoomPreTax / bNights) : bRoomPreTax;
+                    
+                    return (
+                      <tr key={`room-${b?.id || bIdx}`}>
+                        <td className="border-r border-slate-900 py-2.5 px-2 text-center font-medium">{bIdx + 1}</td>
+                        <td className="border-r border-slate-900 py-2.5 px-3">
+                          <div className="font-semibold text-slate-900">
+                            Dịch vụ lưu trú ({b?.roomTypeName || 'Phòng tiêu chuẩn'}) {b?.roomNumber ? `— Phòng ${b.roomNumber}` : ''}
+                          </div>
+                          <div className="text-[11px] text-slate-500 italic mt-0.5">
+                            Từ {formatStayDateTime(b?.checkInDate, 'checkin')} đến {formatStayDateTime(b?.checkOutDate, 'checkout')}
+                          </div>
+                        </td>
+                        <td className="border-r border-slate-900 py-2.5 px-2 text-center">Đêm</td>
+                        <td className="border-r border-slate-900 py-2.5 px-2 text-center font-medium">{bNights}</td>
+                        <td className="border-r border-slate-900 py-2.5 px-3 text-right font-mono">
+                          {bRoomUnitPricePreTax.toLocaleString('vi-VN')}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold font-mono text-slate-900">
+                          {bRoomPreTax.toLocaleString('vi-VN')}
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {/* Mục 2..n: Dịch vụ phụ thu */}
                   {services.map((svc, idx) => {
@@ -252,7 +289,7 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
 
                     return (
                       <tr key={svc.id || idx}>
-                        <td className="border-r border-slate-900 py-2 px-2 text-center">{idx + 2}</td>
+                        <td className="border-r border-slate-900 py-2 px-2 text-center">{(isCombined ? group.bookings.length : 1) + idx + 1}</td>
                         <td className="border-r border-slate-900 py-2 px-3">
                           <span className="font-medium text-slate-900">{svc.serviceName || 'Dịch vụ phụ thu'}</span>
                           {svc.note && <span className="text-[11px] text-slate-500 italic ml-1.5">({svc.note})</span>}
@@ -317,7 +354,7 @@ const InvoicePrintTemplate = ({ invoice, booking, onClose }) => {
                 <p className="font-bold uppercase text-slate-900">Người mua hàng</p>
                 <p className="italic text-slate-500 text-[11px] mt-0.5">(Ký, ghi rõ họ tên)</p>
                 <div className="h-16"></div>
-                <p className="font-semibold text-slate-800 uppercase">{booking?.guestName || ''}</p>
+                <p className="font-semibold text-slate-800 uppercase">{isCombined ? (group?.representativeName || '') : (booking?.guestName || '')}</p>
               </div>
               <div>
                 <p className="font-bold uppercase text-slate-900">Người bán hàng</p>

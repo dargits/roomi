@@ -14,8 +14,11 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import PublicGroupBookingRequestList from './PublicGroupBookingRequestList';
+import { useToast } from '../../context/ToastContext';
 
 const BookingRequestList = () => {
+  const { success: toastSuccess } = useToast();
+  const [activeTab, setActiveTab] = useState('ROOM'); // 'ROOM' or 'GROUP'
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -91,8 +94,10 @@ const BookingRequestList = () => {
     try {
       if (type === 'APPROVE') {
         await bookingRequestApi.approveRequest(request.id);
+        toastSuccess(`Đã duyệt yêu cầu đặt phòng của ${request.guestName} thành công!`);
       } else if (type === 'REJECT') {
         await bookingRequestApi.rejectRequest(request.id, reason);
+        toastSuccess(`Đã từ chối yêu cầu đặt phòng của ${request.guestName} thành công!`);
       }
       closeModal();
       await fetchRequests();
@@ -115,8 +120,25 @@ const BookingRequestList = () => {
 
   return (
     <div>
-    <div className="overflow-x-auto p-0">
-      <table className="w-full text-left border-collapse">
+      <div className="flex border-b border-border-grey mb-4">
+        <button
+          className={`py-2 px-4 font-semibold text-sm focus:outline-none transition-colors ${activeTab === 'ROOM' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+          onClick={() => setActiveTab('ROOM')}
+        >
+          Yêu cầu đặt phòng
+        </button>
+        <button
+          className={`py-2 px-4 font-semibold text-sm focus:outline-none transition-colors ${activeTab === 'GROUP' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+          onClick={() => setActiveTab('GROUP')}
+        >
+          Yêu cầu đặt đoàn
+        </button>
+      </div>
+
+      {activeTab === 'ROOM' && (
+        <>
+          <div className="overflow-x-auto p-0">
+            <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
             <th className="p-4 font-semibold">Khách Hàng</th>
@@ -197,6 +219,11 @@ const BookingRequestList = () => {
                           <IoCloseCircleOutline size={15} /> Từ chối
                         </button>
                       </>
+                    )}
+                    {req.convertedBookingId && (
+                      <span className="text-xs font-medium text-primary">
+                        Phòng #{req.convertedBookingId}
+                      </span>
                     )}
                   </div>
                 </td>
@@ -290,7 +317,12 @@ const BookingRequestList = () => {
           </div>
         </div>
       </Modal>
-      <PublicGroupBookingRequestList />
+    </>
+    )}
+      
+      {activeTab === 'GROUP' && (
+        <PublicGroupBookingRequestList />
+      )}
     </div>
   );
 };

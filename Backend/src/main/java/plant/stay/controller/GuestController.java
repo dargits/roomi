@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.GuestRequest;
+import plant.stay.dto.request.IdentityDocumentRequest;
 import plant.stay.dto.response.GuestResponse;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Role;
@@ -39,6 +40,12 @@ public class GuestController {
         return ResponseEntity.ok(guestService.getById(id));
     }
 
+    @GetMapping("/by-id-number/{idNumber}")
+    public ResponseEntity<GuestResponse> getByIdNumber(@PathVariable String idNumber, HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(guestService.getByIdNumber(idNumber));
+    }
+
     @GetMapping("/{id}/history")
     public ResponseEntity<?> getHistory(@PathVariable Long id, HttpServletRequest request) {
         checkStaff(request);
@@ -65,6 +72,15 @@ public class GuestController {
                                                 HttpServletRequest request) {
         checkStaff(request);
         return ResponseEntity.ok(guestService.update(id, req));
+    }
+
+    @PostMapping("/{id}/documents")
+    public ResponseEntity<Void> addIdentityDocument(@PathVariable Long id,
+                                                    @Valid @RequestBody IdentityDocumentRequest req,
+                                                    HttpServletRequest request) {
+        checkStaff(request);
+        guestService.addIdentityDocument(id, req);
+        return ResponseEntity.noContent().build();
     }
 
     /**

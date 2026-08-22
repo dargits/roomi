@@ -238,12 +238,12 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse checkIn(Long bookingId, User actor) {
-        return checkIn(bookingId, null, actor);
+        return checkIn(bookingId, (plant.stay.dto.request.CheckInRequest) null, actor);
     }
 
     @Override
     @Transactional
-    public BookingResponse checkIn(Long bookingId, String idNumber, User actor) {
+    public BookingResponse checkIn(Long bookingId, plant.stay.dto.request.CheckInRequest req, User actor) {
         Booking booking = findById(bookingId);
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new IllegalArgumentException("Chỉ có thể nhận phòng khi đặt phòng ở trạng thái CONFIRMED");
@@ -252,12 +252,44 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Phải gán phòng trước khi nhận phòng");
         }
 
-        // Cập nhật số CCCD/CMND của khách nếu có truyền vào
-        if (idNumber != null && !idNumber.trim().isEmpty()) {
-            Guest guest = booking.getGuest();
-            guest.setIdNumber(idNumber.trim());
-            guestRepository.save(guest);
+        List<Guest> stayingGuests = new java.util.ArrayList<>();
+        if (req != null && req.getGuests() != null) {
+            for (plant.stay.dto.request.GuestCheckInDto dto : req.getGuests()) {
+                Guest guest = null;
+
+                if (dto.getName() != null && booking.getGuest().getName() != null && 
+                    dto.getName().trim().equalsIgnoreCase(booking.getGuest().getName().trim())) {
+                    guest = booking.getGuest();
+                }
+
+                if (guest == null && dto.getIdNumber() != null && !dto.getIdNumber().trim().isEmpty()) {
+                    guest = guestRepository.findFirstByIdNumberOrderByIdDesc(dto.getIdNumber().trim()).orElse(null);
+                }
+                
+                if (guest == null) {
+                    guest = Guest.builder()
+                            .name(dto.getName())
+                            .idNumber(dto.getIdNumber() != null ? dto.getIdNumber().trim() : null)
+                            .build();
+                    guest = guestRepository.save(guest);
+                } else {
+                    boolean updated = false;
+                    if (dto.getName() != null && !dto.getName().trim().isEmpty() && !dto.getName().equals(guest.getName())) {
+                        guest.setName(dto.getName().trim());
+                        updated = true;
+                    }
+                    if (dto.getIdNumber() != null && !dto.getIdNumber().trim().isEmpty() && !dto.getIdNumber().trim().equals(guest.getIdNumber())) {
+                        guest.setIdNumber(dto.getIdNumber().trim());
+                        updated = true;
+                    }
+                    if (updated) {
+                        guest = guestRepository.save(guest);
+                    }
+                }
+                stayingGuests.add(guest);
+            }
         }
+        booking.setStayingGuests(stayingGuests);
 
         booking.setStatus(BookingStatus.CHECKED_IN);
         booking.setCheckedInAt(LocalDateTime.now());
@@ -271,8 +303,20 @@ public class BookingServiceImpl implements BookingService {
         booking.setStayDeclaration(declaration);
         auditLogService.log("Booking", booking.getId(), "CHECK_IN", actor,
                 "Nhận phòng " + booking.getRoom().getRoomNumber() + 
-            (idNumber != null && !idNumber.trim().isEmpty() ? " (đã cập nhật giấy tờ tùy thân)" : ""));
+            (req != null && req.getGuests() != null && !req.getGuests().isEmpty() ? " (" + req.getGuests().size() + " khách lưu trú)" : ""));
         return toResponse(booking);
+    }
+
+    @Override
+    @Transactional
+    public List<BookingResponse> bulkCheckIn(plant.stay.dto.request.BulkCheckInRequest req, User actor) {
+        List<BookingResponse> responses = new java.util.ArrayList<>();
+        for (plant.stay.dto.request.BulkCheckInRoomRequest roomReq : req.getRooms()) {
+            plant.stay.dto.request.CheckInRequest checkInReq = new plant.stay.dto.request.CheckInRequest();
+            checkInReq.setGuests(roomReq.getGuests());
+            responses.add(checkIn(roomReq.getBookingId(), checkInReq, actor));
+        }
+        return responses;
     }
 
     @Override
