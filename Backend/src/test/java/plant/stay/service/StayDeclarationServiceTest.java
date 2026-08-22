@@ -115,12 +115,33 @@ class StayDeclarationServiceTest {
         assertEquals("COMPLETED", completedGuest.getDeclarationStatus());
         assertNotNull(completedGuest.getDeclarationCompletedAt());
 
-        byte[] excelReport = stayDeclarationService.exportAndLogDeclarations(LocalDate.now(), receptionist);
+        byte[] receptionistReport = stayDeclarationService.exportAndLogDeclarations(LocalDate.now(), receptionist);
+        assertExcelIdentifier(receptionistReport, "001000000001");
+
+        User admin = userRepository.save(User.builder()
+                .account("declaration-admin")
+                .name("Declaration Admin")
+                .password("test-password")
+                .role(Role.ADMIN)
+                .build());
+        byte[] adminReport = stayDeclarationService.exportAndLogDeclarations(LocalDate.now(), admin);
+        assertExcelIdentifier(adminReport, "********0001");
+    }
+
+    private void assertExcelIdentifier(byte[] excelReport, String expectedIdentifier) {
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(excelReport))) {
             assertEquals("Khai bao luu tru", workbook.getSheetAt(0).getSheetName());
             assertEquals("DANH SACH KHAI BAO LUU TRU - "
                             + LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue());
+            boolean identifierFound = false;
+            for (int rowIndex = 5; rowIndex <= workbook.getSheetAt(0).getLastRowNum(); rowIndex++) {
+                if (expectedIdentifier.equals(workbook.getSheetAt(0).getRow(rowIndex).getCell(2).getStringCellValue())) {
+                    identifierFound = true;
+                    break;
+                }
+            }
+            assertEquals(true, identifierFound);
         } catch (Exception exception) {
             throw new AssertionError("Excel report must be readable", exception);
         }
