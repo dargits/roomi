@@ -36,6 +36,7 @@ import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
 import BookingDetailPage from '../features/booking/BookingDetailPage';
+import StayDeclarationPage from '../features/booking/StayDeclarationPage';
 
 // Housekeeping
 import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
@@ -43,6 +44,7 @@ import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
 // Reports & Backup
 import ReportsPage from '../features/reports/ReportsPage';
 import BackupDataPage from '../features/admin/BackupDataPage';
+import PersonalDataAuditLogPage from '../features/booking/PersonalDataAuditLogPage';
 
 const AppRoutes = () => {
   return (
@@ -92,6 +94,9 @@ const AppRoutes = () => {
                   <Route path="/manage/bookings/:bookingId" element={<BookingDetailPage />} />
                   <Route path="/manage/bookings/:bookingId/:tab" element={<BookingDetailPage />} />
 
+                  {/* Khai báo lưu trú — NCL-12 */}
+                  <Route path="/manage/stay-declarations" element={<StayDeclarationPage />} />
+
                   {/* Phòng */}
                   <Route path="/manage/rooms" element={<RoomManagement />} />
 
@@ -112,6 +117,9 @@ const AppRoutes = () => {
 
                   {/* Lịch sử hoạt động — OWNER / ADMIN */}
                   <Route path="/manage/audit-logs" element={<ActivityLog />} />
+
+                  {/* Nhật ký truy cập dữ liệu cá nhân — NCL-12 */}
+                  <Route path="/manage/personal-data-audit" element={<PersonalDataAuditLogPage />} />
 
                   {/* Nhân sự — OWNER / ADMIN */}
                   <Route path="/manage/staff" element={<StaffManagement />} />

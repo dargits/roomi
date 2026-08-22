@@ -132,6 +132,30 @@ public class GuestServiceTest {
         assertEquals("Khách hàng đang có lịch sử đặt phòng, không thể xóa", exception.getMessage());
     }
 
+    @Test
+    @DisplayName("NCL-12-CN-005: Ẩn danh hóa dữ liệu cá nhân của khách theo Luật 91/2025")
+    void testDeletePersonalDataSuccess() {
+        GuestRequest req = new GuestRequest();
+        req.setName("Nguyễn Văn An");
+        req.setPhone("0912345678");
+        req.setIdNumber("001099001234");
+        req.setEmail("an.nguyen@example.com");
+        GuestResponse created = guestService.create(req);
 
+        plant.stay.model.User admin = plant.stay.model.User.builder()
+                .account("admin_test_delete")
+                .name("Admin Tester")
+                .password("password")
+                .role(plant.stay.model.Role.ADMIN)
+                .build();
+
+        guestService.deletePersonalData(created.getId(), admin);
+
+        GuestResponse anonymized = guestService.getById(created.getId());
+        assertEquals("[Đã xóa]", anonymized.getName());
+        assertNull(anonymized.getPhone());
+        assertNull(anonymized.getIdNumber());
+        assertNull(anonymized.getEmail());
+    }
 }
 

@@ -14,4 +14,11 @@ public interface GroupBookingService {
     GroupBookingResponse getById(Long id);
     GroupRoomAssignmentSuggestionResponse getAssignmentSuggestion(Long groupBookingId);
     GroupBookingResponse assignRooms(Long groupBookingId, GroupRoomAssignmentRequest request, User actor);
-}
+
+    /**
+     * NCL-13-CN-004: Hủy một phần số phòng trong hồ sơ đoàn.
+     * Áp phí hủy theo chính sách nếu trong hạn, không hủy được toàn bộ đoàn qua endpoint này.
+     * Thực hiện theo nguyên tắc QTN-25: atomic — thành công toàn bộ hoặc rollback.
+     */
+    GroupBookingResponse cancelPartialRooms(Long groupBookingId, List<Long> bookingIds, User actor);
+}

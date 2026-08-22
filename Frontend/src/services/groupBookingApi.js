@@ -35,6 +35,16 @@ const groupBookingApi = {
     const response = await api.post(`/group-bookings/${id}/invoices`, data);
     return response.data;
   },
+
+  /**
+   * NCL-13-CN-004: Hủy một phần số phòng trong hồ sơ đoàn.
+   * @param {number} id - ID hồ sơ đoàn
+   * @param {number[]} bookingIds - Danh sách ID booking cần hủy
+   */
+  cancelPartial: async (id, bookingIds) => {
+    const response = await api.post(`/group-bookings/${id}/cancel-partial`, { bookingIds });
+    return response.data;
+  },
 };
 
 export default groupBookingApi;

@@ -16,6 +16,7 @@ import plant.stay.util.AuthUtil;
 
 import java.util.List;
 
+
 @RestController
 @RequestMapping("/api/v1/guests")
 @CrossOrigin("*")
@@ -64,6 +65,21 @@ public class GuestController {
                                                 HttpServletRequest request) {
         checkStaff(request);
         return ResponseEntity.ok(guestService.update(id, req));
+    }
+
+    /**
+     * NCL-12-CN-005: Xóa (anonymize) dữ liệu cá nhân của khách.
+     * Chỉ ADMIN được thực hiện (QTN-24 / Luật số 91/2025).
+     * Kiểm tra không còn hóa đơn PENDING trước khi xóa.
+     */
+    @DeleteMapping("/{id}/personal-data")
+    public ResponseEntity<Void> deletePersonalData(@PathVariable Long id,
+                                                   HttpServletRequest request) {
+        User actor = authUtil.getUserFromRequest(request);
+        if (actor == null || actor.getRole() != Role.ADMIN)
+            throw new UnauthorizedException("Chỉ Quản trị viên mới có quyền xóa dữ liệu cá nhân");
+        guestService.deletePersonalData(id, actor);
+        return ResponseEntity.noContent().build();
     }
 
     private User checkStaff(HttpServletRequest request) {
