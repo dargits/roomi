@@ -1,0 +1,108 @@
+{
+	"info": {
+		"_postman_id": "d2a9c1e1-1234-abcd-ef00-112233445566",
+		"name": "Test: Phân Quyền & Ràng Buộc Khi Xóa Khách Hàng",
+		"description": "Kiểm tra API DELETE /api/v1/guests/{id} bao gồm phân quyền theo Role và ràng buộc lịch sử Booking.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. [OWNER] Xóa khách hàng (Chưa có booking) - THÀNH CÔNG",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token_owner}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/guests/999",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"guests",
+						"999"
+					]
+				},
+				"description": "Xóa thành công, trả về HTTP 200 OK. Hãy thay đổi ID (999) thành một ID khách hàng mới tạo và chưa từng đặt phòng."
+			},
+			"response": []
+		},
+		{
+			"name": "2. [RECEPTIONIST] Xóa khách hàng - BỊ CHẶN (403)",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token_receptionist}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/guests/1",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"guests",
+						"1"
+					]
+				},
+				"description": "Dùng token của Lễ tân. Hệ thống sẽ chặn lại và trả về HTTP 403 (UnauthorizedException)."
+			},
+			"response": []
+		},
+		{
+			"name": "3. [OWNER] Xóa khách hàng đã có booking - BỊ CHẶN (400)",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token_owner}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/guests/1",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"guests",
+						"1"
+					]
+				},
+				"description": "Dùng token của Owner nhưng cố tình xóa Khách Hàng có ID = 1 (đã có lịch sử đặt phòng). Hệ thống sẽ chặn lại và trả về HTTP 400 (IllegalArgumentException)."
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "token_owner",
+			"value": "nhap_token_cua_owner_vao_day",
+			"type": "string"
+		},
+		{
+			"key": "token_receptionist",
+			"value": "nhap_token_cua_le_tan_vao_day",
+			"type": "string"
+		}
+	]
+}
