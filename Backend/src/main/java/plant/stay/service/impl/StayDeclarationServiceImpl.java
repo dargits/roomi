@@ -159,9 +159,19 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
             if (!isBlank(doc.getImageUrl())) uploaded.add(doc.getDocumentType());
         }
         boolean hasPassport = uploaded.contains(IdentityDocumentType.PASSPORT);
-        boolean hasNationalId = uploaded.contains(IdentityDocumentType.NATIONAL_ID_FRONT)
-                && uploaded.contains(IdentityDocumentType.NATIONAL_ID_BACK);
-        if (!hasPassport && !hasNationalId) missingRequirements.add("Ảnh giấy tờ tùy thân");
+        boolean hasNationalIdFront = uploaded.contains(IdentityDocumentType.NATIONAL_ID_FRONT);
+        boolean hasNationalIdBack = uploaded.contains(IdentityDocumentType.NATIONAL_ID_BACK);
+        boolean hasNationalId = hasNationalIdFront && hasNationalIdBack;
+
+        if (!hasPassport && !hasNationalId) {
+            if (hasNationalIdFront && !hasNationalIdBack) {
+                missingRequirements.add("Ảnh CCCD (Mặt sau)");
+            } else if (!hasNationalIdFront && hasNationalIdBack) {
+                missingRequirements.add("Ảnh CCCD (Mặt trước)");
+            } else {
+                missingRequirements.add("Ảnh giấy tờ tùy thân");
+            }
+        }
 
         StayDeclarationStatus declarationStatus = declaration == null
                 ? StayDeclarationStatus.PENDING : declaration.getStatus();
@@ -170,6 +180,14 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         String rawId = guest.getIdNumber();
         String displayId = maskIdNumber(rawId, canViewFullId);
         boolean isMasked = rawId != null && !rawId.equals(displayId);
+
+        List<plant.stay.dto.response.DocumentDTO> docs = identityDocuments.stream()
+                .filter(d -> !isBlank(d.getImageUrl()))
+                .map(d -> plant.stay.dto.response.DocumentDTO.builder()
+                        .type(d.getDocumentType().name())
+                        .url(d.getImageUrl())
+                        .build())
+                .toList();
 
         return GuestStatusDTO.builder()
                 .bookingId(booking.getId())
@@ -184,6 +202,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
                 .checkOutDate(booking.getCheckOutDate())
                 .documentStatus(missingRequirements.isEmpty() ? COMPLETE : MISSING)
                 .missingRequirements(missingRequirements)
+                .documents(docs)
                 .declarationStatus(declarationStatus.name())
                 .declarationCompletedAt(declaration != null ? declaration.getCompletedAt() : null)
                 .build();

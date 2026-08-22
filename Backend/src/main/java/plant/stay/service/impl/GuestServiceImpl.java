@@ -43,6 +43,13 @@ public class GuestServiceImpl implements GuestService {
     }
 
     @Override
+    public GuestResponse getByIdNumber(String idNumber) {
+        return guestRepository.findFirstByIdNumberOrderByIdDesc(idNumber)
+                .map(this::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách với CCCD: " + idNumber));
+    }
+
+    @Override
     @Transactional
     public GuestResponse create(GuestRequest request) {
         if (request.getPhone() != null && guestRepository.findByPhone(request.getPhone()).isPresent()) {
@@ -138,6 +145,37 @@ public class GuestServiceImpl implements GuestService {
         // Ghi AuditLog — NCL-12-CN-006 trace được ai xóa
         auditLogService.log("GuestPersonalData", guestId, "DELETE_PERSONAL_DATA", actor,
             "Xóa dữ liệu cá nhân của khách #" + guestId + " (" + oldName + ") theo yêu cầu xóa dữ liệu cá nhân — Luật số 91/2025");
+    }
+
+    @Override
+    @Transactional
+    public void addIdentityDocument(Long guestId, plant.stay.dto.request.IdentityDocumentRequest request) {
+        Guest guest = findById(guestId);
+
+        if (request.getDocumentNumber() != null && !request.getDocumentNumber().isBlank()) {
+            guest.setIdNumber(request.getDocumentNumber());
+            guestRepository.save(guest);
+        }
+
+        // Check if a document of this type already exists for the guest
+        IdentityDocument existingDoc = identityDocumentRepository
+                .findByGuestIdAndDocumentType(guestId, request.getDocumentType())
+                .orElse(null);
+
+        if (existingDoc != null) {
+            existingDoc.setDocumentNumber(request.getDocumentNumber());
+            existingDoc.setImageUrl(request.getImageUrl());
+            identityDocumentRepository.save(existingDoc);
+        } else {
+            IdentityDocument newDoc = IdentityDocument.builder()
+                    .guest(guest)
+                    .documentType(request.getDocumentType())
+                    .documentNumber(request.getDocumentNumber())
+                    .imageUrl(request.getImageUrl())
+                    .verified(false)
+                    .build();
+            identityDocumentRepository.save(newDoc);
+        }
     }
 
     private Guest findById(Long id) {

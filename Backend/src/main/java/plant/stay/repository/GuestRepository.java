@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface GuestRepository extends JpaRepository<Guest, Long> {
     Optional<Guest> findByPhone(String phone);
-    Optional<Guest> findByIdNumber(String idNumber);
+    Optional<Guest> findFirstByIdNumberOrderByIdDesc(String idNumber);
 
     @Query("SELECT g FROM Guest g WHERE " +
            "LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +

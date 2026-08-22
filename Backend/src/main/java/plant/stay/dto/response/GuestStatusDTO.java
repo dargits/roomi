@@ -24,6 +24,7 @@ public class GuestStatusDTO {
     private LocalDate checkOutDate;
     private String documentStatus;
     private List<String> missingRequirements;
+    private List<DocumentDTO> documents;
     private String declarationStatus;
     private LocalDateTime declarationCompletedAt;
     /** Quốc tịch — phục vụ mẫu khai báo lưu trú theo quy định */
