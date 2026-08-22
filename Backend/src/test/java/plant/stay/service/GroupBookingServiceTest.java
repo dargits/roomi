@@ -168,7 +168,34 @@ class GroupBookingServiceTest {
         assertTrue(exception.getMessage().contains("không đúng loại phòng"));
         assertTrue(bookingRepository.findByGroupBookingId(group.getId()).stream()
             .allMatch(booking -> booking.getRoom() == null && booking.getStatus() == BookingStatus.NEW));
-        }
+    }
+
+    @Test
+    @DisplayName("NCL-13-CN-004: Hủy một phần số phòng trong đoàn thành công")
+    void cancelsPartialRoomsSuccessfully() {
+        GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        Long bookingIdToCancel = group.getBookings().get(0).getId();
+
+        GroupBookingResponse updated = groupBookingService.cancelPartialRooms(
+                group.getId(), List.of(bookingIdToCancel), receptionist);
+
+        assertNotNull(updated);
+        assertEquals(2, updated.getTotalRooms());
+        Booking cancelled = bookingRepository.findById(bookingIdToCancel).orElseThrow();
+        assertEquals(BookingStatus.CANCELLED, cancelled.getStatus());
+    }
+
+    @Test
+    @DisplayName("NCL-13-CN-004: Từ chối khi chọn hủy toàn bộ số phòng qua luồng hủy một phần")
+    void rejectsCancelingAllRoomsViaPartialFlow() {
+        GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        List<Long> allBookingIds = group.getBookings().stream().map(b -> b.getId()).toList();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> groupBookingService.cancelPartialRooms(group.getId(), allBookingIds, receptionist));
+
+        assertTrue(exception.getMessage().contains("toàn bộ"));
+    }
 
         private GroupRoomAssignmentRequest assignmentRequest(GroupRoomAssignmentItemRequest... assignments) {
         GroupRoomAssignmentRequest request = new GroupRoomAssignmentRequest();
