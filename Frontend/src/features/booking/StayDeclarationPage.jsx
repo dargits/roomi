@@ -12,8 +12,12 @@ import {
   IoEyeOffOutline,
   IoShieldCheckmarkOutline,
   IoTimeOutline,
+  IoImageOutline,
+  IoCloudUploadOutline,
 } from 'react-icons/io5';
 import stayDeclarationApi from '../../services/stayDeclarationApi';
+import { guestApi } from '../../services/guestApi';
+import { fileApi } from '../../services/fileApi';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../context/AuthContext';
@@ -68,6 +72,11 @@ const StayDeclarationPage = () => {
   // Modal xác nhận hoàn tất khai báo
   const [confirmModal, setConfirmModal] = useState({ open: false, guest: null });
 
+  // Modal upload giấy tờ
+  const [uploadModal, setUploadModal] = useState({ open: false, guest: null });
+  const [uploadData, setUploadData] = useState({ documentType: 'NATIONAL_ID_FRONT', documentNumber: '', file: null });
+  const [uploading, setUploading] = useState(false);
+
   // ── Fetch data ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (date) => {
     setLoading(true);
@@ -116,6 +125,31 @@ const StayDeclarationPage = () => {
       toastError(err.response?.data?.message || 'Không thể cập nhật trạng thái khai báo.');
     } finally {
       setCompletingId(null);
+    }
+  };
+
+  // ── Upload Document ──────────────────────────────────────────────────────────
+  const handleUploadDocument = async () => {
+    if (!uploadData.file) {
+      toastError('Vui lòng chọn ảnh giấy tờ');
+      return;
+    }
+    setUploading(true);
+    try {
+      const uploadRes = await fileApi.uploadFile(uploadData.file);
+      await guestApi.addIdentityDocument(uploadModal.guest.guestId, {
+        documentType: uploadData.documentType,
+        documentNumber: uploadData.documentNumber,
+        imageUrl: uploadRes.url,
+      });
+      success('Tải ảnh giấy tờ thành công');
+      setUploadModal({ open: false, guest: null });
+      setUploadData({ documentType: 'NATIONAL_ID_FRONT', documentNumber: '', file: null });
+      await fetchData(selectedDate);
+    } catch (err) {
+      toastError(err.response?.data?.message || err.message || 'Không thể tải ảnh lên');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -291,6 +325,19 @@ const StayDeclarationPage = () => {
                             Thiếu: {guest.missingRequirements.join(', ')}
                           </p>
                         )}
+                        {guest.documents?.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1 justify-center">
+                            {guest.documents.map((doc, i) => (
+                              <a key={i} href={doc.url} target="_blank" rel="noreferrer" title={doc.type}>
+                                <img
+                                  src={doc.url}
+                                  alt={doc.type}
+                                  className="h-8 w-12 object-cover rounded border border-border-grey hover:opacity-80 transition-opacity"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-4 text-center">
@@ -309,16 +356,28 @@ const StayDeclarationPage = () => {
 
                       <td className="p-4 text-center">
                         {canComplete && !isCompleted && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            icon={IoCheckmarkCircleOutline}
-                            isLoading={isCompleting}
-                            disabled={isCompleting}
-                            onClick={() => setConfirmModal({ open: true, guest })}
-                          >
-                            Đánh dấu
-                          </Button>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              icon={IoCheckmarkCircleOutline}
+                              isLoading={isCompleting}
+                              disabled={isCompleting}
+                              onClick={() => setConfirmModal({ open: true, guest })}
+                            >
+                              Đánh dấu
+                            </Button>
+                            {guest.documentStatus === 'MISSING' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                icon={IoImageOutline}
+                                onClick={() => setUploadModal({ open: true, guest })}
+                              >
+                                Tải ảnh lên
+                              </Button>
+                            )}
+                          </div>
                         )}
                         {isCompleted && (
                           <span className="text-xs text-emerald-600 flex items-center justify-center gap-1">
@@ -367,6 +426,72 @@ const StayDeclarationPage = () => {
                 onClick={() => handleComplete(confirmModal.guest)}
               >
                 Xác nhận khai báo
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal Tải ảnh giấy tờ */}
+      <Modal
+        isOpen={uploadModal.open}
+        onClose={() => setUploadModal({ open: false, guest: null })}
+        title="Tải ảnh giấy tờ tùy thân"
+        maxWidth="max-w-md"
+      >
+        {uploadModal.guest && (
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-on-surface">Khách hàng</label>
+              <input
+                type="text"
+                disabled
+                value={uploadModal.guest.guestName}
+                className="w-full rounded-md border border-border-grey bg-surface-container-low px-3 py-2 text-on-surface"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-on-surface">Loại giấy tờ</label>
+              <select
+                value={uploadData.documentType}
+                onChange={(e) => setUploadData({ ...uploadData, documentType: e.target.value })}
+                className="w-full rounded-md border border-border-grey bg-transparent px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="NATIONAL_ID_FRONT">CCCD/CMND (Mặt trước)</option>
+                <option value="NATIONAL_ID_BACK">CCCD/CMND (Mặt sau)</option>
+                <option value="PASSPORT">Hộ chiếu</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-on-surface">Số giấy tờ (tùy chọn)</label>
+              <input
+                type="text"
+                placeholder="Nhập số giấy tờ nếu có"
+                value={uploadData.documentNumber}
+                onChange={(e) => setUploadData({ ...uploadData, documentNumber: e.target.value })}
+                className="w-full rounded-md border border-border-grey bg-transparent px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-on-surface">Chọn ảnh</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setUploadData({ ...uploadData, file: e.target.files[0] })}
+                className="w-full rounded-md border border-border-grey px-3 py-2 text-sm text-on-surface file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
+              />
+            </div>
+            <div className="flex justify-end gap-3 border-t border-border-grey pt-4 mt-6">
+              <Button variant="secondary" onClick={() => setUploadModal({ open: false, guest: null })}>
+                Hủy
+              </Button>
+              <Button
+                icon={IoCloudUploadOutline}
+                isLoading={uploading}
+                disabled={uploading || !uploadData.file}
+                onClick={handleUploadDocument}
+              >
+                Tải lên
               </Button>
             </div>
           </div>

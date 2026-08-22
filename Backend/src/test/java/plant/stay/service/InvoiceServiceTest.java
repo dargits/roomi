@@ -171,7 +171,7 @@ public class InvoiceServiceTest {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> invoiceService.createGroupInvoices(groupBooking.getId(), groupInvoiceRequest(InvoiceMode.COMBINED), testUser));
 
-        assertTrue(exception.getMessage().contains("tất cả phòng đang CHECKED_IN"));
+        assertTrue(exception.getMessage().contains("tất cả phòng đều đã nhận phòng (đang ở)"));
         assertTrue(invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBooking.getId()).isEmpty());
     }
 

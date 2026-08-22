@@ -13,6 +13,11 @@ export const guestApi = {
     return response.data;
   },
 
+  getGuestByIdNumber: async (idNumber) => {
+    const response = await api.get(`/guests/by-id-number/${idNumber}`);
+    return response.data;
+  },
+
   getGuestHistory: async (id) => {
     const response = await api.get(`/guests/${id}/history`);
     return response.data;
@@ -36,6 +41,11 @@ export const guestApi = {
   // Lấy toàn bộ danh sách (alias của searchGuests không từ khóa)
   getGuests: async () => {
     const response = await api.get('/guests');
+    return response.data;
+  },
+
+  addIdentityDocument: async (id, docData) => {
+    const response = await api.post(`/guests/${id}/documents`, docData);
     return response.data;
   },
 

@@ -21,6 +21,7 @@ import {
 import bookingApi from '../../services/bookingApi';
 import BookingDetailsModal from './BookingDetailsModal';
 import AssignRoomModal from './AssignRoomModal';
+import CheckInModal from './CheckInModal';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -42,7 +43,10 @@ const BookingList = ({ onEditBooking }) => {
     actionType: null,
     booking: null
   });
-  const [idNumberInput, setIdNumberInput] = useState('');
+  const [checkInModal, setCheckInModal] = useState({
+    isOpen: false,
+    booking: null
+  });
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -83,8 +87,11 @@ const BookingList = ({ onEditBooking }) => {
   };
 
   const openActionModal = (actionType, booking) => {
+    if (actionType === 'CHECK_IN') {
+      setCheckInModal({ isOpen: true, booking });
+      return;
+    }
     setErrorMsg('');
-    setIdNumberInput(booking?.guestIdNumber || '');
     setActionConfirm({
       isOpen: true,
       actionType,
@@ -99,7 +106,6 @@ const BookingList = ({ onEditBooking }) => {
       actionType: null,
       booking: null
     });
-    setIdNumberInput('');
     setErrorMsg('');
   };
 
@@ -107,20 +113,11 @@ const BookingList = ({ onEditBooking }) => {
     const { actionType, booking } = actionConfirm;
     if (!booking) return;
 
-    if (actionType === 'CHECK_IN' && (!idNumberInput || !idNumberInput.trim())) {
-      setErrorMsg("Vui lòng nhập số CCCD / CMND của khách trước khi nhận phòng!");
-      return;
-    }
-
     setProcessing(true);
     setErrorMsg('');
     try {
       let res;
       switch(actionType) {
-        case 'CHECK_IN': 
-          await bookingApi.checkIn(booking.id, idNumberInput.trim());
-          toastSuccess(`Đã Check-in thành công cho khách ${booking.guestName}!`);
-          break;
         case 'CHECK_OUT': 
           await bookingApi.checkOut(booking.id);
           toastSuccess(`Đã Check-out thành công cho khách ${booking.guestName}!`);
@@ -154,7 +151,6 @@ const BookingList = ({ onEditBooking }) => {
 
   const getActionTitle = () => {
     switch(actionConfirm.actionType) {
-      case 'CHECK_IN': return 'Xác nhận Nhận phòng';
       case 'CHECK_OUT': return 'Xác nhận Trả phòng';
       case 'CANCEL': return 'Xác nhận Hủy đặt phòng';
       case 'NO_SHOW': return 'Xác nhận Khách không đến';
@@ -355,36 +351,6 @@ const BookingList = ({ onEditBooking }) => {
             </div>
           )}
 
-          {actionConfirm.actionType === 'CHECK_IN' && (
-            <div className="space-y-3 pt-1">
-              <div>
-                <label className="block text-xs font-semibold text-on-surface mb-1 flex items-center gap-1.5">
-                  <IoCardOutline className="text-primary text-base" />
-                  Số CCCD / CMND của khách <span className="text-error">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={idNumberInput}
-                  onChange={(e) => {
-                    setIdNumberInput(e.target.value);
-                    if (errorMsg) setErrorMsg('');
-                  }}
-                  placeholder="Nhập 12 số CCCD (Ví dụ: 036098001234)..."
-                  className="w-full px-3.5 py-2.5 bg-surface-container-lowest border border-border-grey rounded-lg text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
-                  autoFocus
-                />
-                <p className="text-[11px] text-on-surface-variant mt-1">
-                  Yêu cầu lễ tân nhập số CCCD để lưu thông tin định danh lưu trú vào hệ thống.
-                </p>
-              </div>
-
-              <div className="text-xs text-on-surface-variant bg-blue-50/70 p-2.5 rounded-lg border border-blue-100 flex items-start gap-2">
-                <IoCheckmarkCircleOutline className="text-primary mt-0.5 shrink-0" size={16} />
-                <span>Xác nhận thông tin và chuyển trạng thái đặt phòng sang <strong>Đang ở</strong>.</span>
-              </div>
-            </div>
-          )}
-
           {actionConfirm.actionType === 'CHECK_OUT' && (
             <p className="text-sm text-on-surface">
               Xác nhận khách trả phòng và chuyển trạng thái sang <strong>Đã đi</strong>?
@@ -423,6 +389,16 @@ const BookingList = ({ onEditBooking }) => {
           </div>
         </div>
       </Modal>
+
+      {/* Modal Check-in mới */}
+      <CheckInModal
+        isOpen={checkInModal.isOpen}
+        onClose={() => setCheckInModal({ isOpen: false, booking: null })}
+        booking={checkInModal.booking}
+        onSuccess={() => {
+          fetchBookings();
+        }}
+      />
     </div>
   );
 };

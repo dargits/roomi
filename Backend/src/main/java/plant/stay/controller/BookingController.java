@@ -90,15 +90,17 @@ public class BookingController {
 
     @PutMapping("/{id}/check-in")
     public ResponseEntity<BookingResponse> checkIn(@PathVariable Long id,
-                                                  @RequestParam(required = false) String idNumber,
-                                                  @RequestBody(required = false) java.util.Map<String, String> body,
+                                                  @Valid @RequestBody(required = false) plant.stay.dto.request.CheckInRequest req,
                                                   HttpServletRequest request) {
         User actor = checkStaff(request);
-        String finalIdNumber = idNumber;
-        if ((finalIdNumber == null || finalIdNumber.trim().isEmpty()) && body != null) {
-            finalIdNumber = body.get("idNumber");
-        }
-        return ResponseEntity.ok(bookingService.checkIn(id, finalIdNumber, actor));
+        return ResponseEntity.ok(bookingService.checkIn(id, req, actor));
+    }
+
+    @PutMapping("/bulk-check-in")
+    public ResponseEntity<List<BookingResponse>> bulkCheckIn(@Valid @RequestBody plant.stay.dto.request.BulkCheckInRequest req,
+                                                             HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.bulkCheckIn(req, actor));
     }
 
     @PutMapping("/{id}/check-out")

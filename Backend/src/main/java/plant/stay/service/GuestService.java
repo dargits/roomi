@@ -9,6 +9,7 @@ import java.util.List;
 public interface GuestService {
     List<GuestResponse> getAll(String search);
     GuestResponse getById(Long id);
+    GuestResponse getByIdNumber(String idNumber);
     GuestResponse create(GuestRequest request);
     GuestResponse update(Long id, GuestRequest request);
     List<?> getHistory(Long guestId);
@@ -21,5 +22,7 @@ public interface GuestService {
      * Anonymize in-place: giữ FK, thay thế bằng "[Đã xóa]".
      */
     void deletePersonalData(Long guestId, User actor);
+
+    void addIdentityDocument(Long guestId, plant.stay.dto.request.IdentityDocumentRequest request);
 }
 
