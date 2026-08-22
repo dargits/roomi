@@ -1,0 +1,137 @@
+{
+	"info": {
+		"name": "Test Kiểm tra phân quyền khi xem nhật ký truy cập (Audit Logs)",
+		"description": "Kiểm tra phân quyền: Chỉ role OWNER và ADMIN mới được xem, các role khác sẽ bị từ chối truy cập.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. [Hợp lệ] OWNER/ADMIN xem nhật ký truy cập",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{adminToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/audit-logs",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"audit-logs"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response trả về một mảng danh sách logs\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    var list = jsonData.data || jsonData;",
+							"    pm.expect(Array.isArray(list)).to.be.true;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. [Không hợp lệ] Role khác (ví dụ Lễ tân) xem nhật ký",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{staffToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/audit-logs",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"audit-logs"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là lỗi phân quyền (401 hoặc 403)\", function () {",
+							"    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "3. [Không hợp lệ] Không truyền token",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/audit-logs",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"audit-logs"
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 401 hoặc 403 (Chưa xác thực hoặc không có quyền)\", function () {",
+							"    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "adminToken",
+			"value": "nhap_token_cua_owner_hoac_admin_vao_day",
+			"type": "string"
+		},
+		{
+			"key": "staffToken",
+			"value": "nhap_token_cua_le_tan_vao_day",
+			"type": "string"
+		}
+	]
+}

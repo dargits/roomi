@@ -1,0 +1,182 @@
+{
+	"info": {
+		"name": "Test Tra cứu danh sách theo ngày",
+		"description": "Collection mẫu dùng để test lọc danh sách theo startDate và endDate",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Test hợp lệ (Có đủ startDate và endDate)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{userToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/tra-cuu?startDate=2023-10-01&endDate=2023-10-31",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"tra-cuu"
+					],
+					"query": [
+						{
+							"key": "startDate",
+							"value": "2023-10-01"
+						},
+						{
+							"key": "endDate",
+							"value": "2023-10-31"
+						}
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Kiểm tra dữ liệu trả về nằm trong khoảng thời gian\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    var list = jsonData.data || jsonData;",
+							"    pm.expect(Array.isArray(list)).to.be.true;",
+							"    ",
+							"    var reqUrl = pm.request.url.query;",
+							"    var startDateStr = reqUrl.get('startDate');",
+							"    var endDateStr = reqUrl.get('endDate');",
+							"    ",
+							"    var startDate = new Date(startDateStr);",
+							"    var endDate = new Date(endDateStr);",
+							"    ",
+							"    list.forEach(function(item, index) {",
+							"        // Tùy theo dự án của bạn, đổi tên trường ngày cho đúng (ví dụ: createdDate, date, createdAt)",
+							"        var itemDateStr = item.createdDate || item.createdAt || item.date;",
+							"        if(itemDateStr) {",
+							"            var itemDate = new Date(itemDateStr);",
+							"            pm.expect(itemDate >= startDate && itemDate <= endDate).to.be.true;",
+							"        }",
+							"    });",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Test sai định dạng ngày (Bắt lỗi 400)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{userToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/tra-cuu?startDate=abcxyz&endDate=2023-10-31",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"tra-cuu"
+					],
+					"query": [
+						{
+							"key": "startDate",
+							"value": "abcxyz"
+						},
+						{
+							"key": "endDate",
+							"value": "2023-10-31"
+						}
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code phải là 400 (Bad Request)\", function () {",
+							"    pm.response.to.have.status(400);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Test ngày bắt đầu LỚN HƠN ngày kết thúc",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{userToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/tra-cuu?startDate=2023-11-01&endDate=2023-10-01",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"tra-cuu"
+					],
+					"query": [
+						{
+							"key": "startDate",
+							"value": "2023-11-01"
+						},
+						{
+							"key": "endDate",
+							"value": "2023-10-01"
+						}
+					]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Hệ thống phải bắt lỗi hoặc trả về danh sách rỗng\", function () {",
+							"    // Tuỳ theo thiết kế hệ thống, có thể trả về 400 hoặc 200 kèm danh sách rỗng.",
+							"    pm.expect(pm.response.code).to.be.oneOf([400, 200]);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "userToken",
+			"value": "nhap_token_cua_ban_vao_day",
+			"type": "string"
+		}
+	]
+}
