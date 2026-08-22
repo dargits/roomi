@@ -21,4 +21,4 @@ public interface StayDeclarationService {
      * File Excel cũng áp mask số giấy tờ theo vai trò.
      */
     byte[] exportAndLogDeclarations(LocalDate date, User actor);
-}
+}

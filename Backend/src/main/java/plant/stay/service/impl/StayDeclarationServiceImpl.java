@@ -14,6 +14,7 @@ import plant.stay.repository.IdentityDocumentRepository;
 import plant.stay.repository.StayDeclarationRepository;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.StayDeclarationService;
+import plant.stay.util.PersonalDataMasker;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
