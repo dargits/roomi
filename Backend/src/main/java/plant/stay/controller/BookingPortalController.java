@@ -155,10 +155,24 @@ public class BookingPortalController {
             throw new IllegalArgumentException("Yêu cầu này không ở trạng thái chờ duyệt");
 
         // Tạo hoặc tìm khách
-        Guest guest = guestRepository.findByPhone(req.getPhone()).orElseGet(() -> {
-            Guest g = Guest.builder().name(req.getGuestName()).phone(req.getPhone()).email(req.getEmail()).build();
-            return guestRepository.save(g);
-        });
+        Guest guest = guestRepository.findByPhone(req.getPhone()).orElse(null);
+        if (guest == null) {
+            guest = Guest.builder().name(req.getGuestName()).phone(req.getPhone()).email(req.getEmail()).build();
+            guest = guestRepository.save(guest);
+        } else {
+            boolean updated = false;
+            if (req.getEmail() != null && !req.getEmail().trim().isEmpty() && !req.getEmail().trim().equals(guest.getEmail())) {
+                guest.setEmail(req.getEmail().trim());
+                updated = true;
+            }
+            if (req.getGuestName() != null && !req.getGuestName().trim().isEmpty() && !req.getGuestName().equals(guest.getName())) {
+                guest.setName(req.getGuestName().trim());
+                updated = true;
+            }
+            if (updated) {
+                guest = guestRepository.save(guest);
+            }
+        }
 
         // Tính giá dự kiến cơ bản (tạm tính theo basePrice, chưa gồm seasonal price để đơn giản)
         long nights = java.time.temporal.ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());

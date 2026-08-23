@@ -2,6 +2,7 @@ package plant.stay.dto.response;
 
 import lombok.Builder;
 import lombok.Data;
+import plant.stay.model.InvoiceMode;
 import plant.stay.model.InvoiceStatus;
 
 import java.math.BigDecimal;
@@ -12,6 +13,8 @@ import java.time.LocalDateTime;
 public class InvoiceResponse {
     private Long id;
     private Long bookingId;
+    private Long groupBookingId;
+    private InvoiceMode mode;
     private BigDecimal roomAmount;
     private BigDecimal serviceAmount;
     private BigDecimal discountAmount;

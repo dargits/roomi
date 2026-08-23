@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import GuestManagement from '../GuestManagement';
 
 // Mock useAuth
@@ -31,14 +31,18 @@ vi.mock('../../../services/guestApi', () => {
 
 describe('GuestManagement Component', () => {
   it('renders guest management header and search input', async () => {
-    render(<GuestManagement />);
+    await act(async () => {
+      render(<GuestManagement />);
+    });
 
     expect(screen.getByText('Quản lý Khách hàng')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Tìm tên, SĐT, CCCD...')).toBeInTheDocument();
   });
 
   it('renders guest list table headers and loaded data', async () => {
-    render(<GuestManagement />);
+    await act(async () => {
+      render(<GuestManagement />);
+    });
 
     expect(screen.getByText('Tên Khách Hàng')).toBeInTheDocument();
     expect(screen.getByText('Liên Hệ')).toBeInTheDocument();

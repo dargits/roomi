@@ -22,6 +22,7 @@ const NAV_GROUPS = [
     icon: IoCalendarOutline,
     items: [
       { path: '/manage/bookings', label: 'Quản lý đặt phòng', allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
+      { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
       { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
     ]
   },
@@ -58,12 +59,13 @@ const NAV_GROUPS = [
     label: 'Hệ thống',
     icon: IoSettingsOutline,
     items: [
-      { path: '/manage/staff',       label: 'Nhân sự',               allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/inventory',   label: 'Kho đồ dùng',             allowedRoles: ['OWNER'] },
-      { path: '/manage/concurrency', label: 'Kiểm soát đồng thời',   allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/audit-logs',  label: 'Lịch sử hoạt động',    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/backup',      label: 'Sao lưu & CSV',         allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/settings',    label: 'Cài đặt khách sạn',      allowedRoles: ['OWNER', 'ADMIN'] }
+      { path: '/manage/staff',               label: 'Nhân sự',                    allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/inventory',           label: 'Kho đồ dùng',                  allowedRoles: ['OWNER'] },
+      { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/backup',              label: 'Sao lưu & CSV',              allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           allowedRoles: ['OWNER', 'ADMIN'] }
     ]
   }
 ];

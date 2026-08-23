@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPersonOutline, IoSearchOutline } from 'react-icons/io5';
+import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
@@ -9,6 +9,8 @@ import BookingList from './BookingList';
 import BookingCalendar from './BookingCalendar';
 import BookingForm from './BookingForm';
 import BookingRequestList from './BookingRequestList';
+import GroupBookingForm from './GroupBookingForm';
+import GroupBookingList from './GroupBookingList';
 
 const BookingManagement = () => {
   const { user } = useAuth();
@@ -19,6 +21,7 @@ const BookingManagement = () => {
   const getActiveTab = () => {
     if (location.pathname.endsWith('/calendar')) return 'calendar';
     if (location.pathname.endsWith('/requests')) return 'requests';
+    if (location.pathname.endsWith('/groups')) return 'groups';
     return 'list';
   };
 
@@ -29,6 +32,8 @@ const BookingManagement = () => {
       navigate('/manage/bookings/calendar');
     } else if (tab === 'requests') {
       navigate('/manage/bookings/requests');
+    } else if (tab === 'groups') {
+      navigate('/manage/bookings/groups');
     } else {
       navigate('/manage/bookings/list');
     }
@@ -36,6 +41,7 @@ const BookingManagement = () => {
   
   // States cho BookingForm
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isGroupFormOpen, setIsGroupFormOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'].includes(user?.role);
@@ -80,6 +86,12 @@ const BookingManagement = () => {
               >
                 <IoMapOutline size={18} /> Lịch phòng
               </button>
+              <button
+                onClick={() => handleTabChange('groups')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors cursor-pointer ${activeTab === 'groups' ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
+              >
+                <IoPeopleOutline size={18} /> Đoàn
+              </button>
               {/* Kế toán không xử lý yêu cầu từ web */}
               {!isAccountant && (
                 <button
@@ -93,9 +105,10 @@ const BookingManagement = () => {
             
             {/* Kế toán không được tự tạo đặt phòng */}
             {!isAccountant && (
-              <Button onClick={openAddForm} icon={IoAddOutline}>
-                Tạo Booking
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsGroupFormOpen(true)} icon={IoPeopleOutline}>Tạo đoàn</Button>
+                <Button onClick={openAddForm} icon={IoAddOutline}>Tạo Booking</Button>
+              </div>
             )}
           </div>
         </div>
@@ -105,6 +118,7 @@ const BookingManagement = () => {
       <div className="p-0">
         {activeTab === 'list' && <BookingList key={`list-${refreshKey}`} />}
         {activeTab === 'calendar' && <BookingCalendar />}
+        {activeTab === 'groups' && <GroupBookingList refreshKey={refreshKey} />}
         {activeTab === 'requests' && <BookingRequestList key={`req-${refreshKey}`} />}
       </div>
 
@@ -112,6 +126,15 @@ const BookingManagement = () => {
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
         onSuccess={handleFormSuccess} 
+      />
+      <GroupBookingForm
+        isOpen={isGroupFormOpen}
+        onClose={() => setIsGroupFormOpen(false)}
+        onSuccess={() => {
+          setIsGroupFormOpen(false);
+          setRefreshKey((previous) => previous + 1);
+          handleTabChange('groups');
+        }}
       />
     </div>
   );

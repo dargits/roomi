@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import BookingCalendar from '../BookingCalendar';
 
@@ -50,12 +50,14 @@ vi.mock('../../../services/roomApi', () => {
 });
 
 describe('BookingCalendar Component', () => {
-  it('renders header, title, and day range selector', () => {
-    render(
-      <MemoryRouter>
-        <BookingCalendar onOpenDetail={vi.fn()} />
-      </MemoryRouter>
-    );
+  it('renders header, title, and day range selector', async () => {
+    await act(async () => {
+      render(
+        <MemoryRouter>
+          <BookingCalendar onOpenDetail={vi.fn()} />
+        </MemoryRouter>
+      );
+    });
 
     expect(screen.getByText('Sơ đồ Lịch Phòng')).toBeInTheDocument();
     expect(screen.getByText('7 ngày')).toBeInTheDocument();
@@ -64,11 +66,13 @@ describe('BookingCalendar Component', () => {
   });
 
   it('renders timeline legend and room data', async () => {
-    render(
-      <MemoryRouter>
-        <BookingCalendar onOpenDetail={vi.fn()} />
-      </MemoryRouter>
-    );
+    await act(async () => {
+      render(
+        <MemoryRouter>
+          <BookingCalendar onOpenDetail={vi.fn()} />
+        </MemoryRouter>
+      );
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Trạng thái đặt phòng:')).toBeInTheDocument();

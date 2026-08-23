@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.GuestRequest;
+import plant.stay.dto.request.IdentityDocumentRequest;
 import plant.stay.dto.response.GuestResponse;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Role;
@@ -15,6 +16,7 @@ import plant.stay.service.GuestService;
 import plant.stay.util.AuthUtil;
 
 import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/guests")
@@ -36,6 +38,12 @@ public class GuestController {
     public ResponseEntity<GuestResponse> getById(@PathVariable Long id, HttpServletRequest request) {
         checkStaff(request);
         return ResponseEntity.ok(guestService.getById(id));
+    }
+
+    @GetMapping("/by-id-number/{idNumber}")
+    public ResponseEntity<GuestResponse> getByIdNumber(@PathVariable String idNumber, HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(guestService.getByIdNumber(idNumber));
     }
 
     @GetMapping("/{id}/history")
@@ -64,6 +72,30 @@ public class GuestController {
                                                 HttpServletRequest request) {
         checkStaff(request);
         return ResponseEntity.ok(guestService.update(id, req));
+    }
+
+    @PostMapping("/{id}/documents")
+    public ResponseEntity<Void> addIdentityDocument(@PathVariable Long id,
+                                                    @Valid @RequestBody IdentityDocumentRequest req,
+                                                    HttpServletRequest request) {
+        checkStaff(request);
+        guestService.addIdentityDocument(id, req);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * NCL-12-CN-005: Xóa (anonymize) dữ liệu cá nhân của khách.
+     * Chỉ ADMIN được thực hiện (QTN-24 / Luật số 91/2025).
+     * Kiểm tra không còn hóa đơn PENDING trước khi xóa.
+     */
+    @DeleteMapping("/{id}/personal-data")
+    public ResponseEntity<Void> deletePersonalData(@PathVariable Long id,
+                                                   HttpServletRequest request) {
+        User actor = authUtil.getUserFromRequest(request);
+        if (actor == null || actor.getRole() != Role.ADMIN)
+            throw new UnauthorizedException("Chỉ Quản trị viên mới có quyền xóa dữ liệu cá nhân");
+        guestService.deletePersonalData(id, actor);
+        return ResponseEntity.noContent().build();
     }
 
     private User checkStaff(HttpServletRequest request) {

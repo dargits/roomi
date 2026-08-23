@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "bookings")
@@ -31,11 +33,30 @@ public class Booking {
     @JoinColumn(name = "room_id")
     private Room room;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_booking_id")
+    private GroupBooking groupBooking;
+
+    @ManyToMany
+    @JoinTable(
+        name = "booking_staying_guests",
+        joinColumns = @JoinColumn(name = "booking_id"),
+        inverseJoinColumns = @JoinColumn(name = "guest_id")
+    )
+    @Builder.Default
+    private List<Guest> stayingGuests = new ArrayList<>();
+
     @Column(name = "check_in_date", nullable = false)
     private LocalDate checkInDate;
 
     @Column(name = "check_out_date", nullable = false)
     private LocalDate checkOutDate;
+
+    @Column(name = "checked_in_at")
+    private LocalDateTime checkedInAt;
+
+    @OneToOne(mappedBy = "booking", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private StayDeclaration stayDeclaration;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
