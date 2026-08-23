@@ -39,6 +39,7 @@ public class BookingServiceImpl implements BookingService {
     private final StayDeclarationRepository stayDeclarationRepository;
     private final AuditLogService auditLogService;
     private final CancellationPolicyRepository cancellationPolicyRepository;
+    private final LoyaltyTierRepository loyaltyTierRepository;
 
     @Override
     public List<BookingResponse> getAll() {
@@ -393,6 +394,17 @@ public class BookingServiceImpl implements BookingService {
             Guest guest = booking.getGuest();
             int points = booking.getActualPrice().divide(BigDecimal.valueOf(100000)).intValue();
             guest.setLoyaltyPoints(guest.getLoyaltyPoints() + points);
+            
+            // Recalculate loyalty tier based on new points
+            List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByMinPointsAsc();
+            LoyaltyTier bestTier = null;
+            for (LoyaltyTier tier : tiers) {
+                if (guest.getLoyaltyPoints() >= tier.getMinPoints()) {
+                    bestTier = tier;
+                }
+            }
+            guest.setLoyaltyTier(bestTier);
+            
             guestRepository.save(guest);
         }
         bookingRepository.save(booking);

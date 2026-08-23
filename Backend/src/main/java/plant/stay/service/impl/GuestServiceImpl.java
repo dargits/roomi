@@ -184,6 +184,23 @@ public class GuestServiceImpl implements GuestService {
     }
 
     public GuestResponse toResponse(Guest guest) {
+        if (guest.getLoyaltyPoints() != null && guest.getLoyaltyPoints() >= 0) {
+            List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByMinPointsAsc();
+            LoyaltyTier bestTier = null;
+            for (LoyaltyTier tier : tiers) {
+                if (guest.getLoyaltyPoints() >= tier.getMinPoints()) {
+                    bestTier = tier;
+                }
+            }
+            LoyaltyTier currentTier = guest.getLoyaltyTier();
+            if ((bestTier != null && currentTier == null) || 
+                (bestTier != null && currentTier != null && !bestTier.getId().equals(currentTier.getId())) ||
+                (bestTier == null && currentTier != null)) {
+                guest.setLoyaltyTier(bestTier);
+                guestRepository.save(guest);
+            }
+        }
+
         return GuestResponse.builder()
                 .id(guest.getId())
                 .name(guest.getName())
