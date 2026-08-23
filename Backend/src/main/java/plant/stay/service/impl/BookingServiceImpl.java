@@ -666,6 +666,7 @@ public class BookingServiceImpl implements BookingService {
                 .guestEmail(b.getGuest().getEmail())
                 .guestIdNumber(b.getGuest().getIdNumber())
                 .createdAt(b.getCreatedAt())
+                .groupBookingId(b.getGroupBooking() != null ? b.getGroupBooking().getId() : null)
                 .build();
     }
 }

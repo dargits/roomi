@@ -191,6 +191,13 @@ const BookingList = ({ onEditBooking }) => {
                   <div className="text-sm text-on-surface-variant mt-1 flex items-center gap-2">
                     <IoCallOutline size={14} /> {booking.guestPhone}
                   </div>
+                  <div className="mt-1.5 flex items-center">
+                    {booking.groupBookingId ? (
+                      <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-[11px] font-medium rounded border border-purple-200">Theo nhóm</span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded border border-blue-200">Cá nhân</span>
+                    )}
+                  </div>
                 </td>
                 <td className="p-4">
                   <div className="font-title-sm text-on-surface font-medium">{booking.roomTypeName}</div>
