@@ -27,6 +27,9 @@ public class GuestServiceTest {
     @Autowired
     private GuestService guestService;
 
+    @Autowired
+    private plant.stay.repository.UserRepository userRepository;
+
     @Test
     @DisplayName("Tạo thông tin khách hàng mới thành công")
     void testCreateGuestSuccess() {
@@ -151,6 +154,7 @@ public class GuestServiceTest {
                 .password("password")
                 .role(plant.stay.model.Role.ADMIN)
                 .build();
+        userRepository.save(admin);
 
         guestService.deletePersonalData(created.getId(), admin);
 
