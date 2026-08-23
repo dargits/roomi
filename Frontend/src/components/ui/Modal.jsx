@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { IoCloseOutline } from 'react-icons/io5';
 
 const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => {
   const [mounted, setMounted] = useState(false);
+  const backdropClickRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -25,11 +26,27 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => 
 
   const modalRoot = document.getElementById('modal-root') || document.body;
 
+  const handleMouseDown = (e) => {
+    backdropClickRef.current = (e.target === e.currentTarget);
+  };
+
+  const handleMouseUp = (e) => {
+    if (backdropClickRef.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    backdropClickRef.current = false;
+  };
+
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in" 
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+    >
       <div 
         className={`bg-surface rounded-xl shadow-xl w-full ${maxWidth} max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {title && (
