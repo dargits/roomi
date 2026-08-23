@@ -27,6 +27,9 @@ public class GuestServiceTest {
     @Autowired
     private GuestService guestService;
 
+    @Autowired
+    private plant.stay.repository.UserRepository userRepository;
+
     @Test
     @DisplayName("Tạo thông tin khách hàng mới thành công")
     void testCreateGuestSuccess() {
@@ -112,8 +115,11 @@ public class GuestServiceTest {
         GuestRepository mockGuestRepo = Mockito.mock(GuestRepository.class);
         BookingRepository mockBookingRepo = Mockito.mock(BookingRepository.class);
         LoyaltyTierRepository mockLoyaltyRepo = Mockito.mock(LoyaltyTierRepository.class);
+        plant.stay.repository.InvoiceRepository mockInvoiceRepo = Mockito.mock(plant.stay.repository.InvoiceRepository.class);
+        plant.stay.repository.IdentityDocumentRepository mockDocRepo = Mockito.mock(plant.stay.repository.IdentityDocumentRepository.class);
+        plant.stay.service.AuditLogService mockAuditLogService = Mockito.mock(plant.stay.service.AuditLogService.class);
 
-        GuestServiceImpl mockGuestService = new GuestServiceImpl(mockGuestRepo, mockBookingRepo, mockLoyaltyRepo);
+        GuestServiceImpl mockGuestService = new GuestServiceImpl(mockGuestRepo, mockBookingRepo, mockLoyaltyRepo, mockInvoiceRepo, mockDocRepo, mockAuditLogService);
 
         // Cài đặt kịch bản: Tìm thấy khách hàng ID = 99
         Guest mockGuest = new Guest();
@@ -132,6 +138,31 @@ public class GuestServiceTest {
         assertEquals("Khách hàng đang có lịch sử đặt phòng, không thể xóa", exception.getMessage());
     }
 
+    @Test
+    @DisplayName("NCL-12-CN-005: Ẩn danh hóa dữ liệu cá nhân của khách theo Luật 91/2025")
+    void testDeletePersonalDataSuccess() {
+        GuestRequest req = new GuestRequest();
+        req.setName("Nguyễn Văn An");
+        req.setPhone("0912345678");
+        req.setIdNumber("001099001234");
+        req.setEmail("an.nguyen@example.com");
+        GuestResponse created = guestService.create(req);
 
+        plant.stay.model.User admin = plant.stay.model.User.builder()
+                .account("admin_test_delete")
+                .name("Admin Tester")
+                .password("password")
+                .role(plant.stay.model.Role.ADMIN)
+                .build();
+        userRepository.save(admin);
+
+        guestService.deletePersonalData(created.getId(), admin);
+
+        GuestResponse anonymized = guestService.getById(created.getId());
+        assertEquals("[Đã xóa]", anonymized.getName());
+        assertNull(anonymized.getPhone());
+        assertNull(anonymized.getIdNumber());
+        assertNull(anonymized.getEmail());
+    }
 }
 

@@ -103,7 +103,7 @@ public class InvoiceController {
 
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ACCOUNTANT))
             throw new UnauthorizedException("Không có quyền truy cập");
         return user;
     }

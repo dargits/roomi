@@ -35,8 +35,11 @@ public class BookingServiceImpl implements BookingService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
+    private final BookingServiceUsageRepository bookingServiceUsageRepository;
+    private final StayDeclarationRepository stayDeclarationRepository;
     private final AuditLogService auditLogService;
     private final CancellationPolicyRepository cancellationPolicyRepository;
+    private final LoyaltyTierRepository loyaltyTierRepository;
 
     @Override
     public List<BookingResponse> getAll() {
@@ -236,12 +239,12 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse checkIn(Long bookingId, User actor) {
-        return checkIn(bookingId, null, actor);
+        return checkIn(bookingId, (plant.stay.dto.request.CheckInRequest) null, actor);
     }
 
     @Override
     @Transactional
-    public BookingResponse checkIn(Long bookingId, String idNumber, User actor) {
+    public BookingResponse checkIn(Long bookingId, plant.stay.dto.request.CheckInRequest req, User actor) {
         Booking booking = findById(bookingId);
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new IllegalArgumentException("Chỉ có thể nhận phòng khi đặt phòng ở trạng thái CONFIRMED");
@@ -250,21 +253,71 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Phải gán phòng trước khi nhận phòng");
         }
 
-        // Cập nhật số CCCD/CMND của khách nếu có truyền vào
-        if (idNumber != null && !idNumber.trim().isEmpty()) {
-            Guest guest = booking.getGuest();
-            guest.setIdNumber(idNumber.trim());
-            guestRepository.save(guest);
+        List<Guest> stayingGuests = new java.util.ArrayList<>();
+        if (req != null && req.getGuests() != null) {
+            for (plant.stay.dto.request.GuestCheckInDto dto : req.getGuests()) {
+                Guest guest = null;
+
+                if (dto.getName() != null && booking.getGuest().getName() != null && 
+                    dto.getName().trim().equalsIgnoreCase(booking.getGuest().getName().trim())) {
+                    guest = booking.getGuest();
+                }
+
+                if (guest == null && dto.getIdNumber() != null && !dto.getIdNumber().trim().isEmpty()) {
+                    guest = guestRepository.findFirstByIdNumberOrderByIdDesc(dto.getIdNumber().trim()).orElse(null);
+                }
+                
+                if (guest == null) {
+                    guest = Guest.builder()
+                            .name(dto.getName())
+                            .idNumber(dto.getIdNumber() != null ? dto.getIdNumber().trim() : null)
+                            .build();
+                    guest = guestRepository.save(guest);
+                } else {
+                    boolean updated = false;
+                    if (dto.getName() != null && !dto.getName().trim().isEmpty() && !dto.getName().equals(guest.getName())) {
+                        guest.setName(dto.getName().trim());
+                        updated = true;
+                    }
+                    if (dto.getIdNumber() != null && !dto.getIdNumber().trim().isEmpty() && !dto.getIdNumber().trim().equals(guest.getIdNumber())) {
+                        guest.setIdNumber(dto.getIdNumber().trim());
+                        updated = true;
+                    }
+                    if (updated) {
+                        guest = guestRepository.save(guest);
+                    }
+                }
+                stayingGuests.add(guest);
+            }
         }
+        booking.setStayingGuests(stayingGuests);
 
         booking.setStatus(BookingStatus.CHECKED_IN);
+        booking.setCheckedInAt(LocalDateTime.now());
         booking.getRoom().setStatus(RoomStatus.OCCUPIED);
         roomRepository.save(booking.getRoom());
         bookingRepository.save(booking);
+        StayDeclaration declaration = stayDeclarationRepository.save(StayDeclaration.builder()
+            .booking(booking)
+            .status(StayDeclarationStatus.PENDING)
+            .build());
+        booking.setStayDeclaration(declaration);
         auditLogService.log("Booking", booking.getId(), "CHECK_IN", actor,
                 "Nhận phòng " + booking.getRoom().getRoomNumber() + 
-                (idNumber != null && !idNumber.trim().isEmpty() ? " (CCCD: " + idNumber.trim() + ")" : ""));
+            (req != null && req.getGuests() != null && !req.getGuests().isEmpty() ? " (" + req.getGuests().size() + " khách lưu trú)" : ""));
         return toResponse(booking);
+    }
+
+    @Override
+    @Transactional
+    public List<BookingResponse> bulkCheckIn(plant.stay.dto.request.BulkCheckInRequest req, User actor) {
+        List<BookingResponse> responses = new java.util.ArrayList<>();
+        for (plant.stay.dto.request.BulkCheckInRoomRequest roomReq : req.getRooms()) {
+            plant.stay.dto.request.CheckInRequest checkInReq = new plant.stay.dto.request.CheckInRequest();
+            checkInReq.setGuests(roomReq.getGuests());
+            responses.add(checkIn(roomReq.getBookingId(), checkInReq, actor));
+        }
+        return responses;
     }
 
     @Override
@@ -276,7 +329,7 @@ public class BookingServiceImpl implements BookingService {
         }
         
         // Bắt buộc phải thanh toán hóa đơn xong mới được trả phòng
-        Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        Invoice invoice = invoiceRepository.findInvoicesCoveringBooking(bookingId).stream().findFirst().orElse(null);
         if (invoice != null && invoice.getStatus() == InvoiceStatus.PENDING) {
             BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
                     .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -318,7 +371,14 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CHECKED_OUT);
-        if (invoice != null && invoice.getTotalAmount() != null) {
+        if (invoice != null && invoice.getMode() == InvoiceMode.COMBINED) {
+            BigDecimal serviceAmount = bookingServiceUsageRepository.findByBookingId(bookingId).stream()
+                    .map(usage -> usage.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(usage.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal roomAmount = booking.getActualPrice() != null ? booking.getActualPrice()
+                    : (booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+            booking.setActualPrice(roomAmount.add(serviceAmount));
+        } else if (invoice != null && invoice.getTotalAmount() != null) {
             booking.setActualPrice(invoice.getTotalAmount());
         } else if (booking.getExpectedPrice() != null) {
             booking.setActualPrice(booking.getExpectedPrice());
@@ -334,6 +394,17 @@ public class BookingServiceImpl implements BookingService {
             Guest guest = booking.getGuest();
             int points = booking.getActualPrice().divide(BigDecimal.valueOf(100000)).intValue();
             guest.setLoyaltyPoints(guest.getLoyaltyPoints() + points);
+            
+            // Recalculate loyalty tier based on new points
+            List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByMinPointsAsc();
+            LoyaltyTier bestTier = null;
+            for (LoyaltyTier tier : tiers) {
+                if (guest.getLoyaltyPoints() >= tier.getMinPoints()) {
+                    bestTier = tier;
+                }
+            }
+            guest.setLoyaltyTier(bestTier);
+            
             guestRepository.save(guest);
         }
         bookingRepository.save(booking);
@@ -607,6 +678,7 @@ public class BookingServiceImpl implements BookingService {
                 .guestEmail(b.getGuest().getEmail())
                 .guestIdNumber(b.getGuest().getIdNumber())
                 .createdAt(b.getCreatedAt())
+                .groupBookingId(b.getGroupBooking() != null ? b.getGroupBooking().getId() : null)
                 .build();
     }
 }

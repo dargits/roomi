@@ -13,6 +13,11 @@ export const guestApi = {
     return response.data;
   },
 
+  getGuestByIdNumber: async (idNumber) => {
+    const response = await api.get(`/guests/by-id-number/${idNumber}`);
+    return response.data;
+  },
+
   getGuestHistory: async (id) => {
     const response = await api.get(`/guests/${id}/history`);
     return response.data;
@@ -37,7 +42,21 @@ export const guestApi = {
   getGuests: async () => {
     const response = await api.get('/guests');
     return response.data;
-  }
+  },
+
+  addIdentityDocument: async (id, docData) => {
+    const response = await api.post(`/guests/${id}/documents`, docData);
+    return response.data;
+  },
+
+  /**
+   * NCL-12-CN-005: Xóa (anonymize) dữ liệu cá nhân của khách.
+   * Chỉ ADMIN được gọi. Kiểm tra không còn hóa đơn PENDING trước khi xóa.
+   */
+  deletePersonalData: async (id) => {
+    const response = await api.delete(`/guests/${id}/personal-data`);
+    return response.data;
+  },
 };
 
 export default guestApi;
