@@ -3,8 +3,10 @@ package plant.stay.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import plant.stay.dto.request.GroupInvoiceCreateRequest;
 import plant.stay.dto.request.InvoiceAdjustRequest;
 import plant.stay.dto.request.PaymentRequest;
+import plant.stay.dto.response.GroupInvoiceResponse;
 import plant.stay.dto.response.InvoiceResponse;
 import plant.stay.dto.response.PaymentResponse;
 import plant.stay.exception.ResourceNotFoundException;
@@ -15,6 +17,7 @@ import plant.stay.service.InvoiceService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,6 +27,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final BookingRepository bookingRepository;
+    private final GroupBookingRepository groupBookingRepository;
     private final BookingServiceUsageRepository usageRepository;
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
@@ -32,7 +36,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Override
     @Transactional
     public InvoiceResponse getByBooking(Long bookingId) {
-        return invoiceRepository.findByBookingId(bookingId)
+        return invoiceRepository.findInvoicesCoveringBooking(bookingId).stream()
+            .findFirst()
                 .map(this::syncInvoiceStatus)
                 .map(this::toResponse)
                 .orElse(null);
@@ -120,6 +125,59 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     @Transactional
+    public GroupInvoiceResponse getGroupInvoices(Long groupBookingId) {
+        findGroupBooking(groupBookingId);
+        return toGroupResponse(groupBookingId, invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBookingId));
+    }
+
+    @Override
+    @Transactional
+    public GroupInvoiceResponse createGroupInvoices(Long groupBookingId, GroupInvoiceCreateRequest request, User actor) {
+        if (request.getMode() != InvoiceMode.COMBINED && request.getMode() != InvoiceMode.SEPARATE) {
+            throw new IllegalArgumentException("Hóa đơn đoàn chỉ hỗ trợ gộp hoặc tách theo từng phòng");
+        }
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> bookings = bookingRepository.findByGroupBookingId(groupBookingId).stream()
+                .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
+                .collect(Collectors.toList());
+        if (bookings.isEmpty()) {
+            throw new IllegalArgumentException("Hồ sơ đoàn chưa có phòng để lập hóa đơn");
+        }
+        if (bookings.stream().anyMatch(booking -> booking.getStatus() != BookingStatus.CHECKED_IN)) {
+            throw new IllegalArgumentException("Chỉ có thể lập hóa đơn đoàn khi tất cả phòng đều đã nhận phòng (đang ở)");
+        }
+        for (Booking booking : bookings) {
+            List<Invoice> existingInvoices = invoiceRepository.findInvoicesCoveringBooking(booking.getId());
+            if (!existingInvoices.isEmpty()) {
+                Invoice existing = existingInvoices.get(0);
+                if (existing.getMode() == InvoiceMode.COMBINED) {
+                    throw new IllegalArgumentException("Đoàn này đã được lập hóa đơn gộp chung, không thể đổi cách gộp hoặc tách.");
+                } else if (existing.getMode() == InvoiceMode.SEPARATE) {
+                    throw new IllegalArgumentException("Đoàn này đã được lập hóa đơn tách riêng từng phòng, không thể đổi cách gộp hoặc tách.");
+                } else {
+                    String roomNum = booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "chưa gán";
+                    throw new IllegalArgumentException("Phòng " + roomNum + " trong đoàn đã được lập hóa đơn cá nhân, không thể lập hóa đơn cho toàn đoàn. Nếu muốn gộp hóa đơn, vui lòng kiểm tra lại hóa đơn của phòng này.");
+                }
+            }
+        }
+
+        List<Invoice> invoices = new ArrayList<>();
+        if (request.getMode() == InvoiceMode.COMBINED) {
+            invoices.add(createInvoiceForBookings(groupBooking, bookings, InvoiceMode.COMBINED, request.getNote(), actor));
+        } else {
+            for (Booking booking : bookings) {
+                invoices.add(createInvoiceForBookings(groupBooking, List.of(booking), InvoiceMode.SEPARATE,
+                        request.getNote(), actor));
+            }
+        }
+        auditLogService.log("GroupBooking", groupBookingId, "CREATE_INVOICES", actor,
+                "Lập " + (request.getMode() == InvoiceMode.COMBINED ? "hóa đơn gộp" : "hóa đơn tách")
+                        + " cho đoàn gồm " + bookings.size() + " phòng");
+        return toGroupResponse(groupBookingId, invoices);
+    }
+
+    @Override
+    @Transactional
     public InvoiceResponse adjustInvoice(Long invoiceId, InvoiceAdjustRequest request, User actor) {
         Invoice original = findById(invoiceId);
 
@@ -140,6 +198,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         // Tạo hóa đơn điều chỉnh mới
         Invoice adjusted = Invoice.builder()
                 .booking(original.getBooking())
+            .groupBooking(original.getGroupBooking())
+            .mode(original.getMode())
                 .roomAmount(original.getRoomAmount())
                 .serviceAmount(original.getServiceAmount())
                 .discountAmount(request.getDiscountAmount())
@@ -153,6 +213,92 @@ public class InvoiceServiceImpl implements InvoiceService {
         auditLogService.log("Invoice", adjusted.getId(), "ADJUST", actor,
                 "Hóa đơn điều chỉnh từ invoice #" + invoiceId);
         return toResponse(adjusted);
+    }
+
+    private Invoice createInvoiceForBookings(GroupBooking groupBooking, List<Booking> bookings,
+                                             InvoiceMode mode, String note, User actor) {
+        BigDecimal roomAmount = bookings.stream().map(this::roomAmountFor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal serviceAmount = bookings.stream().map(this::serviceAmountFor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Invoice invoice = invoiceRepository.save(Invoice.builder()
+                .booking(bookings.get(0))
+                .groupBooking(groupBooking)
+                .mode(mode)
+                .roomAmount(roomAmount)
+                .serviceAmount(serviceAmount)
+                .discountAmount(BigDecimal.ZERO)
+                .totalAmount(roomAmount.add(serviceAmount))
+                .status(InvoiceStatus.PENDING)
+                .note(requestNote(note))
+                .createdBy(actor)
+                .build());
+        applyDeposits(invoice, bookings, actor);
+        invoice = syncInvoiceStatus(invoice);
+        auditLogService.log("Invoice", invoice.getId(), "CREATE", actor,
+                "Lập hóa đơn " + (mode == InvoiceMode.COMBINED ? "gộp" : "tách") + " cho đoàn #"
+                        + groupBooking.getId());
+        return invoice;
+    }
+
+    private BigDecimal roomAmountFor(Booking booking) {
+        if (booking.getActualPrice() != null) return booking.getActualPrice();
+        return booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal serviceAmountFor(Booking booking) {
+        return usageRepository.findByBookingId(booking.getId()).stream()
+                .map(usage -> usage.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(usage.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private void applyDeposits(Invoice invoice, List<Booking> bookings, User actor) {
+        for (Booking booking : bookings) {
+            for (Deposit deposit : depositRepository.findByBookingIdOrderByCreatedAtDesc(booking.getId())) {
+                if (deposit.getStatus() != DepositStatus.COLLECTED && deposit.getStatus() != DepositStatus.SHORT_PAID) continue;
+                BigDecimal effectiveDeposit = deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
+                if (deposit.getRefundedAmount() != null) effectiveDeposit = effectiveDeposit.subtract(deposit.getRefundedAmount());
+                if (deposit.getPenaltyAmount() != null) effectiveDeposit = effectiveDeposit.subtract(deposit.getPenaltyAmount());
+                if (effectiveDeposit.compareTo(BigDecimal.ZERO) <= 0) continue;
+                paymentRepository.save(Payment.builder()
+                        .invoice(invoice)
+                        .amount(effectiveDeposit)
+                        .method(deposit.getPaymentMethod() != null ? deposit.getPaymentMethod() : PaymentMethod.CASH)
+                        .paidAt(deposit.getCollectedAt() != null ? deposit.getCollectedAt() : LocalDateTime.now())
+                        .collectedBy(deposit.getCollectedBy() != null ? deposit.getCollectedBy() : actor)
+                        .note("Trừ tiền đặt cọc đã thu (Mã cọc #" + deposit.getId() + ", booking #" + booking.getId() + ")")
+                        .build());
+            }
+        }
+    }
+
+    private GroupBooking findGroupBooking(Long groupBookingId) {
+        return groupBookingRepository.findById(groupBookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ đặt phòng đoàn"));
+    }
+
+    private GroupInvoiceResponse toGroupResponse(Long groupBookingId, List<Invoice> invoices) {
+        BigDecimal roomAmount = invoices.stream().map(Invoice::getRoomAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal serviceAmount = invoices.stream().map(Invoice::getServiceAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal discountAmount = invoices.stream().map(Invoice::getDiscountAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAmount = invoices.stream().map(Invoice::getTotalAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal paidAmount = invoices.stream().flatMap(invoice -> paymentRepository.findByInvoiceId(invoice.getId()).stream())
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return GroupInvoiceResponse.builder()
+                .groupBookingId(groupBookingId)
+                .mode(invoices.isEmpty() ? null : invoices.get(0).getMode())
+                .roomAmount(roomAmount)
+                .serviceAmount(serviceAmount)
+                .discountAmount(discountAmount)
+                .totalAmount(totalAmount)
+                .paidAmount(paidAmount)
+                .outstandingAmount(totalAmount.subtract(paidAmount).max(BigDecimal.ZERO))
+                .invoices(invoices.stream().map(this::toResponse).collect(Collectors.toList()))
+                .build();
+    }
+
+    private String requestNote(String note) {
+        return note == null || note.isBlank() ? null : note.trim();
     }
 
     @Override
@@ -247,6 +393,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         return InvoiceResponse.builder()
                 .id(inv.getId())
                 .bookingId(inv.getBooking().getId())
+            .groupBookingId(inv.getGroupBooking() != null ? inv.getGroupBooking().getId() : null)
+            .mode(inv.getMode())
                 .roomAmount(inv.getRoomAmount())
                 .serviceAmount(inv.getServiceAmount())
                 .discountAmount(inv.getDiscountAmount())

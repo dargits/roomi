@@ -20,6 +20,15 @@ public class Invoice {
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_booking_id")
+    private GroupBooking groupBooking;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mode", nullable = false)
+    @Builder.Default
+    private InvoiceMode mode = InvoiceMode.SINGLE;
+
     @Column(name = "room_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal roomAmount; // Tiền phòng
 

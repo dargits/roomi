@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -34,4 +35,21 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: () => {},
     dispatchEvent: () => {},
   }),
+});
+
+// Mock hotelSettingApi to prevent axios warnings in AppConfigContext
+vi.mock('../services/hotelSettingApi', () => {
+  return {
+    default: {
+      getPublicSetting: vi.fn().mockResolvedValue({
+        propertyName: 'StayGO',
+        address: 'Mock Address',
+        phone: '123456789',
+        email: 'mock@example.com',
+        defaultCheckinTime: '14:00',
+        defaultCheckoutTime: '12:00',
+        homeImage: ''
+      })
+    }
+  }
 });

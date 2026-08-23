@@ -4,6 +4,7 @@ import PublicHeader from '../../components/layout/PublicHeader';
 import Footer from '../../components/layout/Footer';
 import RoomCard from '../../components/common/RoomCard';
 import PublicBookingModal from '../landing/PublicBookingModal';
+import PublicGroupBookingModal from './PublicGroupBookingModal';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -28,6 +29,8 @@ const RoomsPage = () => {
   const [guestCapacity, setGuestCapacity] = useState('ALL');
   const [selectedRoomToBook, setSelectedRoomToBook] = useState(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedRoomForGroup, setSelectedRoomForGroup] = useState(null);
+  const [isGroupBookingModalOpen, setIsGroupBookingModalOpen] = useState(false);
 
   useEffect(() => {
     // Set default dates: today & tomorrow
@@ -106,6 +109,11 @@ const RoomsPage = () => {
   const handleBookNow = (room) => {
     setSelectedRoomToBook(room);
     setIsBookingModalOpen(true);
+  };
+
+  const handleGroupBook = (room) => {
+    setSelectedRoomForGroup(room);
+    setIsGroupBookingModalOpen(true);
   };
 
   const filteredRooms = rooms.filter(room => {
@@ -223,6 +231,7 @@ const RoomsPage = () => {
                 key={room.id} 
                 room={room} 
                 onBookNow={() => handleBookNow(room)} 
+                onGroupBook={() => handleGroupBook(room)}
               />
             ))}
           </div>
@@ -236,6 +245,14 @@ const RoomsPage = () => {
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
         roomType={selectedRoomToBook}
+        checkInDate={checkInDate ? new Date(checkInDate) : null}
+        checkOutDate={checkOutDate ? new Date(checkOutDate) : null}
+      />
+      <PublicGroupBookingModal
+        isOpen={isGroupBookingModalOpen}
+        onClose={() => setIsGroupBookingModalOpen(false)}
+        roomTypes={rooms}
+        initialRoom={selectedRoomForGroup}
         checkInDate={checkInDate ? new Date(checkInDate) : null}
         checkOutDate={checkOutDate ? new Date(checkOutDate) : null}
       />

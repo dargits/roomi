@@ -19,7 +19,8 @@ public interface BookingService {
     BookingResponse changeRoom(Long bookingId, Long newRoomId, User actor);
     BookingResponse noShow(Long bookingId, User actor);
     BookingResponse checkIn(Long bookingId, User actor);
-    BookingResponse checkIn(Long bookingId, String idNumber, User actor);
+    BookingResponse checkIn(Long bookingId, plant.stay.dto.request.CheckInRequest req, User actor);
+    List<BookingResponse> bulkCheckIn(plant.stay.dto.request.BulkCheckInRequest req, User actor);
     BookingResponse checkOut(Long bookingId, User actor);
     // NCL-04-CN-007: Gia hạn thêm đêm giữa kỳ lưu trú
     BookingResponse extendStay(Long bookingId, ExtendStayRequest req, User actor);

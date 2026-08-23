@@ -8,6 +8,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import PublicBookingModal from './PublicBookingModal';
+import PublicGroupBookingModal from '../public/PublicGroupBookingModal';
 import { toast } from '../../context/ToastContext';
 
 const LandingPage = () => {
@@ -23,6 +24,8 @@ const LandingPage = () => {
   const [checkOutDate, setCheckOutDate] = useState(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedRoomToBook, setSelectedRoomToBook] = useState(null);
+  const [selectedRoomForGroup, setSelectedRoomForGroup] = useState(null);
+  const [isGroupBookingModalOpen, setIsGroupBookingModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -98,6 +101,15 @@ const LandingPage = () => {
     }
     setSelectedRoomToBook(room);
     setIsBookingModalOpen(true);
+  };
+
+  const handleGroupBook = (room) => {
+    if (!checkInDate || !checkOutDate) {
+      toast.warning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt đoàn.", "Chưa chọn thời gian");
+      return;
+    }
+    setSelectedRoomForGroup(room);
+    setIsGroupBookingModalOpen(true);
   };
 
   const handleTypeChange = (typeName, isChecked) => {
@@ -218,7 +230,7 @@ const LandingPage = () => {
               <div className="text-center py-10 text-on-surface-variant">Hiện chưa có loại phòng nào phù hợp với bộ lọc.</div>
             ) : (
               filteredRooms.map(room => (
-                <RoomCard key={room.id} room={room} onBookNow={() => handleBookNow(room)} />
+                <RoomCard key={room.id} room={room} onBookNow={() => handleBookNow(room)} onGroupBook={() => handleGroupBook(room)} />
               ))
             )}
           </div>
@@ -232,6 +244,14 @@ const LandingPage = () => {
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
         roomType={selectedRoomToBook}
+        checkInDate={checkInDate}
+        checkOutDate={checkOutDate}
+      />
+      <PublicGroupBookingModal
+        isOpen={isGroupBookingModalOpen}
+        onClose={() => setIsGroupBookingModalOpen(false)}
+        roomTypes={rooms}
+        initialRoom={selectedRoomForGroup}
         checkInDate={checkInDate}
         checkOutDate={checkOutDate}
       />
