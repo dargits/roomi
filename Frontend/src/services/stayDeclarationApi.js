@@ -47,6 +47,28 @@ const stayDeclarationApi = {
     const response = await api.put(`/stay-declarations/${bookingId}/complete`);
     return response.data;
   },
+
+  /**
+   * Lấy lịch sử lưu trú theo khoảng thời gian và bộ lọc.
+   * @param {Object} params - { fromDate, toDate, keyword, declarationStatus, documentStatus }
+   */
+  getHistory: async (params = {}) => {
+    const response = await api.get('/stay-declarations/history', { params });
+    return response.data;
+  },
+
+  /**
+   * Kết xuất Excel lịch sử lưu trú.
+   * @param {Object} params - { fromDate, toDate, keyword, declarationStatus, documentStatus }
+   * @returns {Blob} File Excel
+   */
+  exportHistoryExcel: async (params = {}) => {
+    const response = await api.get('/stay-declarations/history/export', {
+      params,
+      responseType: 'blob',
+    });
+    return response;
+  },
 };
 
 export default stayDeclarationApi;
