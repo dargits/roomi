@@ -791,8 +791,18 @@ const GroupBookingList = ({ refreshKey }) => {
                                 {Number(b.expectedPrice || 0).toLocaleString('vi-VN')} đ
                               </td>
                               <td className="p-2 text-center">
-                                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-800">
-                                  {b.status}
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                  b.status === 'CHECKED_IN' ? 'bg-green-100 text-green-800' :
+                                  b.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
+                                  b.status === 'CHECKED_OUT' ? 'bg-gray-100 text-gray-800' :
+                                  b.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                  'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {b.status === 'NEW' ? 'Chưa xếp' :
+                                   b.status === 'CONFIRMED' ? 'Đã gán' :
+                                   b.status === 'CHECKED_IN' ? 'Đang ở' :
+                                   b.status === 'CHECKED_OUT' ? 'Đã trả phòng' :
+                                   b.status === 'CANCELLED' ? 'Đã hủy' : b.status}
                                 </span>
                               </td>
                               <td className="p-2 text-center">
