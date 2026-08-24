@@ -153,6 +153,7 @@ public class PublicGroupBookingRequestController {
                 .status(request.getStatus().name())
                 .rejectReason(request.getRejectReason())
                 .convertedGroupBookingId(request.getConvertedGroupBooking() != null ? request.getConvertedGroupBooking().getId() : null)
+                .isDepositPaid(request.getConvertedGroupBooking() != null ? groupBookingService.getById(request.getConvertedGroupBooking().getId()).isDepositPaid() : false)
                 .rooms(request.getRooms().stream().map(room -> PublicGroupBookingRequestResponse.RoomRequest.builder()
                         .roomTypeId(room.getRoomType().getId())
                         .roomTypeName(room.getRoomType().getName())
