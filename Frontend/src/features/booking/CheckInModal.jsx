@@ -122,12 +122,9 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
         setErrorMsg(`Vui lòng nhập số CCCD/CMND cho khách '${g.name}'.`);
         return;
       }
-      if (g.idNumber.trim().length > 12) {
-        setErrorMsg(`Số CCCD/CMND của khách '${g.name}' quá dài (tối đa 12 số).`);
-        return;
-      }
-      if (!/^\d{9,12}$/.test(g.idNumber.trim())) {
-        setErrorMsg(`Số CCCD/CMND của khách '${g.name}' không hợp lệ (phải từ 9-12 chữ số).`);
+      const cleanId = g.idNumber.trim();
+      if (cleanId.length < 6 || cleanId.length > 20) {
+        setErrorMsg(`Số CCCD/CMND/Hộ chiếu của khách '${g.name}' không hợp lệ (từ 6-20 ký tự).`);
         return;
       }
     }
@@ -135,13 +132,25 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
     setProcessing(true);
     setErrorMsg('');
     try {
-      await bookingApi.checkIn(booking.id, { guests: validGuests });
+      await bookingApi.checkIn(booking.id, {
+        guests: validGuests.map(g => ({
+          name: g.name.trim(),
+          idNumber: g.idNumber.trim(),
+          phone: g.phone?.trim() || null
+        }))
+      });
       toastSuccess(`Đã nhận phòng thành công cho ${validGuests.length} khách!`);
       onClose();
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error("Check-in error:", error);
-      setErrorMsg(error.response?.data?.message || "Lỗi khi nhận phòng. Vui lòng thử lại.");
+      const resData = error.response?.data;
+      let msg = resData?.message;
+      if (!msg && resData && typeof resData === 'object') {
+        const firstVal = Object.values(resData)[0];
+        if (typeof firstVal === 'string') msg = firstVal;
+      }
+      setErrorMsg(msg || "Lỗi khi nhận phòng. Vui lòng thử lại.");
     } finally {
       setProcessing(false);
     }

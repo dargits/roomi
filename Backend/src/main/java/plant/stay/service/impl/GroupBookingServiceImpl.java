@@ -5,15 +5,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.GroupBookingRequest;
 import plant.stay.dto.request.GroupBookingRoomRequest;
+import plant.stay.dto.request.GroupDepositCreateRequest;
 import plant.stay.dto.request.GroupRoomAssignmentItemRequest;
 import plant.stay.dto.request.GroupRoomAssignmentRequest;
 import plant.stay.dto.response.BookingResponse;
 import plant.stay.dto.response.GroupBookingResponse;
+import plant.stay.dto.response.GroupCancelPreviewResponse;
 import plant.stay.dto.response.GroupRoomAssignmentSuggestionResponse;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
+import plant.stay.service.BookingService;
 import plant.stay.service.GroupBookingService;
 
 import java.math.BigDecimal;
@@ -36,7 +39,12 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     private final RoomRepository roomRepository;
     private final SeasonalPriceRepository seasonalPriceRepository;
     private final CancellationPolicyRepository cancellationPolicyRepository;
+    private final DepositRepository depositRepository;
+    private final DepositPolicyRepository depositPolicyRepository;
     private final AuditLogService auditLogService;
+    private final BookingService bookingService;
+    private final InvoiceRepository invoiceRepository;
+    private final PaymentRepository paymentRepository;
 
 
     @Override
@@ -189,6 +197,142 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         return toResponse(groupBooking, bookingRepository.findByGroupBookingId(groupBookingId));
     }
 
+    @Override
+    @Transactional
+    public List<BookingResponse> bulkCheckOut(Long groupBookingId, User actor) {
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> allBookings = bookingRepository.findByGroupBookingId(groupBookingId);
+
+        List<Booking> checkedInBookings = allBookings.stream()
+            .filter(b -> b.getStatus() == BookingStatus.CHECKED_IN)
+            .toList();
+
+        if (checkedInBookings.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Không có phòng nào đang ở trong đoàn (không có phòng nào ở trạng thái CHECKED_IN).");
+        }
+
+        List<BookingResponse> results = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        for (Booking booking : checkedInBookings) {
+            try {
+                results.add(bookingService.checkOut(booking.getId(), actor));
+            } catch (Exception e) {
+                errors.add("Phòng #" + booking.getId()
+                    + (booking.getRoom() != null ? " (" + booking.getRoom().getRoomNumber() + ")" : "")
+                    + ": " + e.getMessage());
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Không thể trả phòng một số phòng trong đoàn:\n" + String.join("\n", errors));
+        }
+
+        auditLogService.log("GroupBooking", groupBookingId, "BULK_CHECK_OUT", actor,
+            "Trả phòng đoàn: " + results.size() + " phòng");
+        return results;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GroupCancelPreviewResponse previewCancelPartial(Long groupBookingId, List<Long> bookingIds) {
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> allBookings = bookingRepository.findByGroupBookingId(groupBookingId);
+        LocalDate today = LocalDate.now();
+
+        Map<Long, Booking> bookingMap = allBookings.stream()
+                .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
+                .collect(Collectors.toMap(Booking::getId, b -> b));
+
+        List<GroupCancelPreviewResponse.RoomCancelPreviewItem> items = new ArrayList<>();
+        BigDecimal totalFee = BigDecimal.ZERO;
+
+        for (Long bId : bookingIds) {
+            Booking b = bookingMap.get(bId);
+            if (b != null) {
+                BigDecimal fee = calculateCancellationFee(b, groupBooking.getCheckInDate(), today);
+                BigDecimal price = b.getActualPrice() != null ? b.getActualPrice()
+                        : (b.getExpectedPrice() != null ? b.getExpectedPrice() : BigDecimal.ZERO);
+                items.add(GroupCancelPreviewResponse.RoomCancelPreviewItem.builder()
+                        .bookingId(b.getId())
+                        .roomTypeName(b.getRoomType().getName())
+                        .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán")
+                        .roomPrice(price)
+                        .cancellationFee(fee)
+                        .isFreeCancellation(fee.compareTo(BigDecimal.ZERO) == 0)
+                        .build());
+                totalFee = totalFee.add(fee);
+            }
+        }
+
+        BigDecimal activeExpectedTotal = allBookings.stream()
+                .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW && !bookingIds.contains(b.getId()))
+                .map(b -> b.getActualPrice() != null ? b.getActualPrice() : (b.getExpectedPrice() != null ? b.getExpectedPrice() : BigDecimal.ZERO))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return GroupCancelPreviewResponse.builder()
+                .groupBookingId(groupBookingId)
+                .cancellingRoomsCount(items.size())
+                .totalCancellationFee(totalFee)
+                .remainingExpectedTotal(activeExpectedTotal)
+                .items(items)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public Deposit createDeposit(Long groupBookingId, GroupDepositCreateRequest request, User actor) {
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+
+        Deposit deposit = Deposit.builder()
+                .groupBooking(groupBooking)
+                .booking(null)
+                .requiredAmount(request.getAmount())
+                .collectedAmount(request.getAmount())
+                .status(DepositStatus.COLLECTED)
+                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.CASH)
+                .collectedBy(actor)
+                .collectedAt(LocalDateTime.now())
+                .note(request.getNote())
+                .build();
+
+        Deposit saved = depositRepository.save(deposit);
+
+        // Tự động ghi nhận payment vào hóa đơn gộp đoàn nếu đã được tạo trước đó
+        List<Invoice> existingInvoices = invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBookingId);
+        for (Invoice invoice : existingInvoices) {
+            if (invoice.getStatus() == InvoiceStatus.PENDING && invoice.getMode() == InvoiceMode.COMBINED) {
+                paymentRepository.save(Payment.builder()
+                        .invoice(invoice)
+                        .amount(request.getAmount())
+                        .method(request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.CASH)
+                        .paidAt(LocalDateTime.now())
+                        .collectedBy(actor)
+                        .note("Trừ tiền đặt cọc đoàn vừa thu (Mã cọc #" + saved.getId() + ")")
+                        .build());
+                BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                        .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
+                    invoice.setStatus(InvoiceStatus.PAID);
+                    invoiceRepository.save(invoice);
+                }
+            }
+        }
+
+        auditLogService.log("GroupBooking", groupBookingId, "COLLECT_DEPOSIT", actor,
+                "Thu tiền cọc đoàn: " + request.getAmount() + " đ qua " + request.getPaymentMethod());
+        return saved;
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Deposit> getDeposits(Long groupBookingId) {
+        findGroupBooking(groupBookingId);
+        return depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(groupBookingId);
+    }
+
     /**
      * Tính phí hủy theo CancellationPolicy.
      * - Nếu hủy trước freeCancelHours giờ so với checkIn: miễn phí (0)
@@ -217,6 +361,33 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     @Transactional
     public GroupBookingResponse assignRooms(Long groupBookingId, GroupRoomAssignmentRequest request, User actor) {
         GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> allBookings = bookingRepository.findByGroupBookingId(groupBookingId);
+
+        // Bắt buộc đoàn phải thu tiền cọc trước khi gán phòng
+        List<Deposit> groupDeposits = depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(groupBookingId);
+        BigDecimal totalCollectedDeposit = groupDeposits.stream()
+                .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
+                .map(d -> {
+                    BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                    if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                    if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                    return eff.max(BigDecimal.ZERO);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal expectedTotal = allBookings.stream()
+                .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
+                .map(Booking::getExpectedPrice)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal requiredDeposit = expectedTotal.multiply(BigDecimal.valueOf(0.3)).setScale(0, RoundingMode.HALF_UP);
+
+        if (totalCollectedDeposit.compareTo(BigDecimal.ZERO) <= 0 || (requiredDeposit.compareTo(BigDecimal.ZERO) > 0 && totalCollectedDeposit.compareTo(requiredDeposit) < 0)) {
+            throw new IllegalArgumentException("Hồ sơ đoàn #" + groupBookingId + " chưa hoàn thành tiền đặt cọc (yêu cầu tối thiểu "
+                    + requiredDeposit.toBigInteger() + " đ, đã thu " + totalCollectedDeposit.toBigInteger() + " đ). Vui lòng thu tiền đặt cọc trước khi gán phòng.");
+        }
+
         List<Booking> unassignedBookings = bookingRepository.findUnassignedAssignableByGroupBookingId(groupBookingId);
         validateAssignmentCoverage(unassignedBookings, request.getAssignments());
 
@@ -394,6 +565,29 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 .map(Booking::getExpectedPrice)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<Deposit> groupDeposits = depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(group.getId());
+        Set<Long> countedDepositIds = new HashSet<>();
+        BigDecimal totalDeposited = BigDecimal.ZERO;
+        List<Deposit> allDeposits = new ArrayList<>(groupDeposits);
+        for (Booking b : bookings) {
+            allDeposits.addAll(depositRepository.findByBookingIdOrderByCreatedAtDesc(b.getId()));
+        }
+        for (Deposit d : allDeposits) {
+            if (d.getId() != null && countedDepositIds.add(d.getId())) {
+                if (d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID) {
+                    BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                    if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                    if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                    if (eff.compareTo(BigDecimal.ZERO) > 0) {
+                        totalDeposited = totalDeposited.add(eff);
+                    }
+                }
+            }
+        }
+        boolean depositPaid = totalDeposited.compareTo(BigDecimal.ZERO) > 0;
+
+
         return GroupBookingResponse.builder()
                 .id(group.getId())
                 .representativeGuestId(group.getRepresentativeGuest().getId())
@@ -407,10 +601,14 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 .totalRooms(bookings.size())
                 .assignedRooms(assignedRooms)
                 .expectedTotal(expectedTotal)
+                .depositPaid(depositPaid)
+                .depositAmount(totalDeposited)
+                .requiredDepositAmount(expectedTotal.multiply(BigDecimal.valueOf(0.3)).setScale(0, RoundingMode.HALF_UP))
                 .bookings(bookings.stream().map(this::toBookingResponse).collect(Collectors.toList()))
                 .createdAt(group.getCreatedAt())
                 .build();
     }
+
 
     private String deriveStatus(List<Booking> bookings, int activeRooms, int assignedRooms) {
         if (activeRooms == 0) return "CANCELLED";

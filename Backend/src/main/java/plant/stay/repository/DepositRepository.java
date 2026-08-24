@@ -15,9 +15,15 @@ public interface DepositRepository extends JpaRepository<Deposit, Long> {
 
     Optional<Deposit> findFirstByBookingIdOrderByCreatedAtDesc(Long bookingId);
 
+    // Tìm khoản cọc của một hồ sơ đoàn
+    List<Deposit> findByGroupBookingIdOrderByCreatedAtDesc(Long groupBookingId);
+
+    Optional<Deposit> findFirstByGroupBookingIdOrderByCreatedAtDesc(Long groupBookingId);
+
     // Lịch sử cọc với filter
     @Query("SELECT d FROM Deposit d WHERE " +
            "(:bookingId IS NULL OR d.booking.id = :bookingId) " +
            "ORDER BY d.createdAt DESC")
     List<Deposit> findHistory(@Param("bookingId") Long bookingId);
 }
+
