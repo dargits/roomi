@@ -53,10 +53,23 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         LocalDateTime to = date.plusDays(1).atStartOfDay();
         List<Booking> bookings = bookingRepository.findCheckedInWithGuestDocumentsBetween(from, to);
 
-        Map<Long, List<IdentityDocument>> documentsByGuestId = identityDocumentRepository
-            .findByGuestIdIn(bookings.stream().map(b -> b.getGuest().getId()).toList())
-            .stream()
-            .collect(Collectors.groupingBy(d -> d.getGuest().getId()));
+        Set<Long> allGuestIds = new HashSet<>();
+        for (Booking b : bookings) {
+            if (b.getStayingGuests() != null && !b.getStayingGuests().isEmpty()) {
+                for (Guest g : b.getStayingGuests()) {
+                    if (g != null && g.getId() != null) allGuestIds.add(g.getId());
+                }
+            } else if (b.getGuest() != null && b.getGuest().getId() != null) {
+                allGuestIds.add(b.getGuest().getId());
+            }
+        }
+
+        Map<Long, List<IdentityDocument>> documentsByGuestId = allGuestIds.isEmpty()
+            ? Collections.emptyMap()
+            : identityDocumentRepository
+                .findByGuestIdIn(allGuestIds)
+                .stream()
+                .collect(Collectors.groupingBy(d -> d.getGuest().getId()));
 
         Map<Long, StayDeclaration> declarationsByBookingId = stayDeclarationRepository
             .findByBookingIdIn(bookings.stream().map(Booking::getId).toList())
@@ -66,13 +79,20 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         // QTN-24: RECEPTIONIST và OWNER xem đầy đủ; các vai trò khác thấy mask
         boolean canViewFull = actorRole == Role.RECEPTIONIST || actorRole == Role.OWNER;
 
-        List<GuestStatusDTO> guests = bookings.stream()
-            .map(booking -> toGuestStatus(
-                booking,
-                documentsByGuestId.getOrDefault(booking.getGuest().getId(), List.of()),
-                declarationsByBookingId.get(booking.getId()),
-                canViewFull))
-            .toList();
+        List<GuestStatusDTO> guests = new ArrayList<>();
+        for (Booking booking : bookings) {
+            List<Guest> roomGuests = (booking.getStayingGuests() != null && !booking.getStayingGuests().isEmpty())
+                    ? booking.getStayingGuests()
+                    : (booking.getGuest() != null ? List.of(booking.getGuest()) : List.of());
+            for (Guest guest : roomGuests) {
+                guests.add(toGuestStatus(
+                    booking,
+                    guest,
+                    documentsByGuestId.getOrDefault(guest.getId(), List.of()),
+                    declarationsByBookingId.get(booking.getId()),
+                    canViewFull));
+            }
+        }
 
         long missingDocumentGuests = guests.stream()
             .filter(g -> MISSING.equals(g.getDocumentStatus())).count();
@@ -90,6 +110,99 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
                 .pendingDeclarations((int) pendingDeclarations)
                 .nearDeadlineWarning(nearDeadline && pendingDeclarations > 0)
                 .guests(guests)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StayDeclarationResponseDTO getDeclarationHistory(LocalDate fromDate,
+                                                            LocalDate toDate,
+                                                            String keyword,
+                                                            String declarationStatus,
+                                                            String documentStatus,
+                                                            Role actorRole) {
+        LocalDate from = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
+        LocalDate to = toDate != null ? toDate : LocalDate.now();
+        List<Booking> bookings = bookingRepository.findStayHistoryBetween(from, to);
+
+        Set<Long> allGuestIds = new HashSet<>();
+        for (Booking b : bookings) {
+            if (b.getStayingGuests() != null && !b.getStayingGuests().isEmpty()) {
+                for (Guest g : b.getStayingGuests()) {
+                    if (g != null && g.getId() != null) allGuestIds.add(g.getId());
+                }
+            } else if (b.getGuest() != null && b.getGuest().getId() != null) {
+                allGuestIds.add(b.getGuest().getId());
+            }
+        }
+
+        Map<Long, List<IdentityDocument>> documentsByGuestId = allGuestIds.isEmpty()
+            ? Collections.emptyMap()
+            : identityDocumentRepository
+                .findByGuestIdIn(allGuestIds)
+                .stream()
+                .collect(Collectors.groupingBy(d -> d.getGuest().getId()));
+
+        Map<Long, StayDeclaration> declarationsByBookingId = stayDeclarationRepository
+            .findByBookingIdIn(bookings.stream().map(Booking::getId).toList())
+            .stream()
+            .collect(Collectors.toMap(d -> d.getBooking().getId(), d -> d));
+
+        boolean canViewFull = actorRole == Role.RECEPTIONIST || actorRole == Role.OWNER;
+
+        List<GuestStatusDTO> allGuests = new ArrayList<>();
+        for (Booking booking : bookings) {
+            List<Guest> roomGuests = (booking.getStayingGuests() != null && !booking.getStayingGuests().isEmpty())
+                    ? booking.getStayingGuests()
+                    : (booking.getGuest() != null ? List.of(booking.getGuest()) : List.of());
+            for (Guest guest : roomGuests) {
+                allGuests.add(toGuestStatus(
+                    booking,
+                    guest,
+                    documentsByGuestId.getOrDefault(guest.getId(), List.of()),
+                    declarationsByBookingId.get(booking.getId()),
+                    canViewFull));
+            }
+        }
+
+        // Apply filters
+        String kw = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim().toLowerCase() : null;
+        List<GuestStatusDTO> filtered = allGuests.stream().filter(g -> {
+            if (kw != null) {
+                boolean matchName = g.getGuestName() != null && g.getGuestName().toLowerCase().contains(kw);
+                boolean matchPhone = g.getPhone() != null && g.getPhone().toLowerCase().contains(kw);
+                boolean matchId = g.getIdNumber() != null && g.getIdNumber().toLowerCase().contains(kw);
+                boolean matchRoom = g.getRoomNumber() != null && g.getRoomNumber().toLowerCase().contains(kw);
+                if (!matchName && !matchPhone && !matchId && !matchRoom) {
+                    return false;
+                }
+            }
+            if (declarationStatus != null && !declarationStatus.equalsIgnoreCase("ALL") && !declarationStatus.trim().isEmpty()) {
+                if (!declarationStatus.equalsIgnoreCase(g.getDeclarationStatus())) {
+                    return false;
+                }
+            }
+            if (documentStatus != null && !documentStatus.equalsIgnoreCase("ALL") && !documentStatus.trim().isEmpty()) {
+                if (!documentStatus.equalsIgnoreCase(g.getDocumentStatus())) {
+                    return false;
+                }
+            }
+            return true;
+        }).toList();
+
+        long missingDocumentGuests = filtered.stream()
+            .filter(g -> MISSING.equals(g.getDocumentStatus())).count();
+        long pendingDeclarations = filtered.stream()
+            .filter(g -> StayDeclarationStatus.PENDING.name().equals(g.getDeclarationStatus())).count();
+
+        return StayDeclarationResponseDTO.builder()
+                .declarationDate(to)
+                .totalGuests(filtered.size())
+                .completeGuests((int) (filtered.size() - missingDocumentGuests))
+                .missingDocumentGuests((int) missingDocumentGuests)
+                .pendingDeclarations((int) pendingDeclarations)
+                .nearDeadlineWarning(false)
+                .guests(filtered)
                 .build();
     }
 
@@ -140,15 +253,36 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         return data;
     }
 
+    @Override
+    @Transactional
+    public byte[] exportAndLogHistory(LocalDate fromDate,
+                                      LocalDate toDate,
+                                      String keyword,
+                                      String declarationStatus,
+                                      String documentStatus,
+                                      User actor) {
+        boolean canViewFull = actor.getRole() == Role.RECEPTIONIST || actor.getRole() == Role.OWNER;
+        StayDeclarationResponseDTO report = getDeclarationHistory(fromDate, toDate, keyword, declarationStatus, documentStatus, actor.getRole());
+        byte[] data = buildExcel(toDate != null ? toDate : LocalDate.now(), report, canViewFull);
+
+        auditLogService.log("GuestPersonalData", null, "EXPORT_STAY_HISTORY", actor,
+            "Kết xuất lịch sử lưu trú từ " + (fromDate != null ? fromDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "đầu")
+            + " đến " + (toDate != null ? toDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "nay")
+            + " gồm " + report.getTotalGuests() + " lượt khách"
+            + (canViewFull ? "" : " [số giấy tờ đã che theo QTN-24]"));
+
+        return data;
+    }
+
     // ────────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ────────────────────────────────────────────────────────────────────────────
 
     private GuestStatusDTO toGuestStatus(Booking booking,
+                                         Guest guest,
                                          List<IdentityDocument> identityDocuments,
                                          StayDeclaration declaration,
                                          boolean canViewFullId) {
-        Guest guest = booking.getGuest();
         List<String> missingRequirements = new ArrayList<>();
         if (isBlank(guest.getName())) missingRequirements.add("Họ tên khách");
         if (isBlank(guest.getPhone())) missingRequirements.add("Số điện thoại");
@@ -158,10 +292,19 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         for (IdentityDocument doc : identityDocuments) {
             if (!isBlank(doc.getImageUrl())) uploaded.add(doc.getDocumentType());
         }
-        boolean hasDocument = !uploaded.isEmpty();
 
-        if (!hasDocument) {
-            missingRequirements.add("Ảnh giấy tờ tùy thân");
+        boolean hasPassport = uploaded.contains(IdentityDocumentType.PASSPORT);
+        boolean hasFront = uploaded.contains(IdentityDocumentType.NATIONAL_ID_FRONT);
+        boolean hasBack = uploaded.contains(IdentityDocumentType.NATIONAL_ID_BACK);
+
+        if (!hasPassport) {
+            if (!hasFront && !hasBack) {
+                missingRequirements.add("Ảnh CCCD (2 mặt) hoặc Hộ chiếu");
+            } else if (!hasFront) {
+                missingRequirements.add("Ảnh CCCD mặt trước");
+            } else if (!hasBack) {
+                missingRequirements.add("Ảnh CCCD mặt sau");
+            }
         }
 
         StayDeclarationStatus declarationStatus = declaration == null
@@ -175,6 +318,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         List<plant.stay.dto.response.DocumentDTO> docs = identityDocuments.stream()
                 .filter(d -> !isBlank(d.getImageUrl()))
                 .map(d -> plant.stay.dto.response.DocumentDTO.builder()
+                        .id(d.getId())
                         .type(d.getDocumentType().name())
                         .url(d.getImageUrl())
                         .build())
@@ -191,6 +335,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
                 .checkedInAt(booking.getCheckedInAt())
                 .checkInDate(booking.getCheckInDate())
                 .checkOutDate(booking.getCheckOutDate())
+                .bookingStatus(booking.getStatus() != null ? booking.getStatus().name() : null)
                 .documentStatus(missingRequirements.isEmpty() ? COMPLETE : MISSING)
                 .missingRequirements(missingRequirements)
                 .documents(docs)

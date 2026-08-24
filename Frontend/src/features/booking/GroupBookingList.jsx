@@ -712,7 +712,6 @@ const GroupBookingList = ({ refreshKey }) => {
                             <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full py-2.5 px-3 bg-surface border border-border-grey rounded-lg text-sm outline-none focus:border-primary">
                               <option value="TRANSFER">Chuyển khoản (VietQR)</option>
                               <option value="CASH">Tiền mặt</option>
-                              <option value="POS">Thẻ POS</option>
                             </select>
                           </div>
                           <div className="sm:col-span-2">

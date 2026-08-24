@@ -45,7 +45,7 @@ const RoomStatusUpdate = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [processingId, setProcessingId] = useState(null);
 
-  const canManageStatus = ['OWNER', 'HOUSEKEEPER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role);
+  const canManageStatus = ['OWNER', 'HOUSEKEEPER', 'ADMIN'].includes(user?.role);
 
   const fetchRooms = async () => {
     setLoading(true);

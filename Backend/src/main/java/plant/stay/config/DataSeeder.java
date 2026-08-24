@@ -10,12 +10,18 @@ import plant.stay.model.RoomType;
 import plant.stay.model.Room;
 import plant.stay.model.ExtraService;
 import plant.stay.model.RoomStatus;
+import plant.stay.model.HotelSetting;
+import plant.stay.model.DepositPolicy;
+import plant.stay.model.InventoryItem;
+import plant.stay.model.LoyaltyTier;
 import plant.stay.repository.UserRepository;
 import plant.stay.repository.RoomTypeRepository;
 import plant.stay.repository.RoomRepository;
 import plant.stay.repository.ExtraServiceRepository;
-import plant.stay.model.HotelSetting;
 import plant.stay.repository.HotelSettingRepository;
+import plant.stay.repository.DepositPolicyRepository;
+import plant.stay.repository.InventoryItemRepository;
+import plant.stay.repository.LoyaltyTierRepository;
 import plant.stay.util.HashUtil;
 
 import java.math.BigDecimal;
@@ -33,11 +39,16 @@ public class DataSeeder implements CommandLineRunner {
     private final RoomRepository roomRepository;
     private final ExtraServiceRepository extraServiceRepository;
     private final HotelSettingRepository hotelSettingRepository;
+    private final DepositPolicyRepository depositPolicyRepository;
+    private final InventoryItemRepository inventoryItemRepository;
+    private final LoyaltyTierRepository loyaltyTierRepository;
 
     @Override
     public void run(String... args) throws Exception {
+        // 1. Seed Users (Tài khoản người dùng)
+        User ownerUser = null;
         if (userRepository.count() == 0) {
-            log.info("Bắt đầu khởi tạo dữ liệu mẫu (Data Seeding)...");
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu người dùng (User)...");
 
             String defaultPassword = HashUtil.hashPassword("pass@123");
 
@@ -45,7 +56,7 @@ public class DataSeeder implements CommandLineRunner {
                     .account("admin")
                     .name("Bàn Hữu Sự")
                     .password(defaultPassword)
-                    .email("huusu@stay.com")
+                    .email("huusu@stayaway.vn")
                     .phone("0981111111")
                     .role(Role.ADMIN)
                     .active(true)
@@ -55,7 +66,7 @@ public class DataSeeder implements CommandLineRunner {
                     .account("chusohuu")
                     .name("Trần Thị Mai")
                     .password(defaultPassword)
-                    .email("mai.tran@stay.com")
+                    .email("mai.tran@stayaway.vn")
                     .phone("0982222222")
                     .role(Role.OWNER)
                     .active(true)
@@ -65,7 +76,7 @@ public class DataSeeder implements CommandLineRunner {
                     .account("letan")
                     .name("Lê Ngọc Hân")
                     .password(defaultPassword)
-                    .email("han.le@stay.com")
+                    .email("han.le@stayaway.vn")
                     .phone("0983333333")
                     .role(Role.RECEPTIONIST)
                     .active(true)
@@ -75,7 +86,7 @@ public class DataSeeder implements CommandLineRunner {
                     .account("buongphong")
                     .name("Phạm Thị Yến")
                     .password(defaultPassword)
-                    .email("yen.pham@stay.com")
+                    .email("yen.pham@stayaway.vn")
                     .phone("0984444444")
                     .role(Role.HOUSEKEEPER)
                     .active(true)
@@ -85,29 +96,30 @@ public class DataSeeder implements CommandLineRunner {
                     .account("ketoan")
                     .name("Hoàng Minh Trí")
                     .password(defaultPassword)
-                    .email("tri.hoang@stay.com")
+                    .email("tri.hoang@stayaway.vn")
                     .phone("0985555555")
                     .role(Role.ACCOUNTANT)
                     .active(true)
                     .build();
 
-
             userRepository.saveAll(List.of(admin, owner, receptionist, housekeeper, accountant));
-            
+            ownerUser = owner;
             log.info("Đã tạo thành công các tài khoản mẫu với mật khẩu mặc định là pass@123.");
         } else {
+            ownerUser = userRepository.findByAccount("chusohuu").orElse(null);
             log.info("Dữ liệu User đã tồn tại, bỏ qua bước tạo dữ liệu mẫu User.");
         }
 
+        // 2. Seed HotelSetting (Cấu hình thông tin cơ sở lưu trú)
         if (hotelSettingRepository.count() == 0) {
-            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho HotelSetting...");
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho thông tin cơ sở (HotelSetting)...");
             HotelSetting hotelSetting = HotelSetting.builder()
                     .propertyName("Stay Away")
-                    .address("Z115, Phan Đình Phùng, Tp. Thái Nguyên")
+                    .address("Z115, Phan Đình Phùng, Tp. Thái Nguyên, Tỉnh Thái Nguyên")
                     .phone("0365224245")
-                    .email("booking@stayaway.io")
-                    .defaultCheckinTime(LocalTime.parse("02:00:00"))
-                    .defaultCheckoutTime(LocalTime.parse("12:00:00"))
+                    .email("lienhe@stayaway.vn")
+                    .defaultCheckinTime(LocalTime.of(14, 0))
+                    .defaultCheckoutTime(LocalTime.of(12, 0))
                     .homeImage("https://i.ibb.co/TxVT7pQz/images-11-jpg.jpg")
                     .build();
             hotelSettingRepository.save(hotelSetting);
@@ -116,15 +128,16 @@ public class DataSeeder implements CommandLineRunner {
             log.info("Dữ liệu HotelSetting đã tồn tại, bỏ qua bước tạo dữ liệu mẫu.");
         }
 
+        // 3. Seed RoomType & Room & ExtraService
         if (roomTypeRepository.count() == 0) {
-            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho RoomType, Room, ExtraService...");
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho Loại phòng, Sơ đồ phòng, Dịch vụ phụ thu...");
 
-            // 1. Seed RoomType
+            // 3.1. Loại phòng (RoomType)
             RoomType standard = RoomType.builder()
-                    .name("Standard")
+                    .name("Phòng Tiêu Chuẩn")
                     .maxCapacity(2)
                     .basePrice(new BigDecimal("500000"))
-                    .amenitiesDescription("Tivi, Điều hòa, Nóng lạnh, Wifi miễn phí")
+                    .amenitiesDescription("Tivi truyền hình cáp, Điều hòa 2 chiều, Bình nóng lạnh, Wifi tốc độ cao miễn phí, Bàn làm việc tiện lợi, Máy sấy tóc, Nước suối chào đón")
                     .active(true)
                     .imageUrls(List.of(
                             "https://i.ibb.co/1fxxj3ZK/images-3-jpg.jpg",
@@ -134,10 +147,10 @@ public class DataSeeder implements CommandLineRunner {
                     .build();
 
             RoomType superior = RoomType.builder()
-                    .name("Superior")
+                    .name("Phòng Cao Cấp")
                     .maxCapacity(2)
                     .basePrice(new BigDecimal("700000"))
-                    .amenitiesDescription("Tivi, Điều hòa, Nóng lạnh, Wifi miễn phí, Cửa sổ lớn, Tủ lạnh nhỏ")
+                    .amenitiesDescription("Tivi Smart 43 inch, Điều hòa Inverter, Nóng lạnh, Wifi miễn phí, Cửa sổ lớn đón ánh sáng tự nhiên, Tủ lạnh minibar, Trà & Cà phê miễn phí")
                     .active(true)
                     .imageUrls(List.of(
                             "https://i.ibb.co/jPHrYZ3x/images-6-jpg.jpg",
@@ -147,10 +160,10 @@ public class DataSeeder implements CommandLineRunner {
                     .build();
 
             RoomType deluxe = RoomType.builder()
-                    .name("Deluxe")
+                    .name("Phòng Sang Trọng")
                     .maxCapacity(3)
                     .basePrice(new BigDecimal("1000000"))
-                    .amenitiesDescription("Tivi, Điều hòa, Nóng lạnh, Wifi miễn phí, Ban công, Tủ lạnh, Bồn tắm")
+                    .amenitiesDescription("Tivi 4K 55 inch, Điều hòa cao cấp, Nóng lạnh, Ban công riêng view thoáng mát, Tủ lạnh minibar, Bồn tắm nằm sang trọng, Sofa thư giãn")
                     .active(true)
                     .imageUrls(List.of(
                             "https://i.ibb.co/KjD3yg66/images-9-jpg.jpg",
@@ -160,10 +173,10 @@ public class DataSeeder implements CommandLineRunner {
                     .build();
 
             RoomType suite = RoomType.builder()
-                    .name("Suite")
+                    .name("Phòng Tổng Thống")
                     .maxCapacity(4)
                     .basePrice(new BigDecimal("2000000"))
-                    .amenitiesDescription("Phòng khách riêng, Tivi màn hình lớn, Điều hòa, Nóng lạnh, Wifi miễn phí, View biển, Tủ lạnh, Bồn tắm massage")
+                    .amenitiesDescription("Phòng khách riêng biệt rộng rãi, Tivi 65 inch siêu nét, Điều hòa âm trần, Ban công panorama ngắm toàn cảnh, Tủ lạnh side-by-side, Bồn tắm massage thủy lực, Bộ bàn trà cao cấp")
                     .active(true)
                     .imageUrls(List.of(
                             "https://i.ibb.co/TxVT7pQz/images-11-jpg.jpg",
@@ -174,30 +187,30 @@ public class DataSeeder implements CommandLineRunner {
 
             roomTypeRepository.saveAll(List.of(standard, superior, deluxe, suite));
 
-            // 2. Seed Room
+            // 3.2. Danh sách phòng (Room)
             List<Room> rooms = new ArrayList<>();
-            // Tầng 1: 5 phòng Standard
+            // Tầng 1: 5 phòng Tiêu chuẩn
             for (int i = 1; i <= 5; i++) {
                 rooms.add(Room.builder().roomNumber("10" + i).floor("1").roomType(standard).status(RoomStatus.AVAILABLE).build());
             }
-            // Tầng 2: 5 phòng Superior
+            // Tầng 2: 5 phòng Cao cấp
             for (int i = 1; i <= 5; i++) {
                 rooms.add(Room.builder().roomNumber("20" + i).floor("2").roomType(superior).status(RoomStatus.AVAILABLE).build());
             }
-            // Tầng 3: 3 phòng Deluxe
+            // Tầng 3: 3 phòng Sang trọng
             for (int i = 1; i <= 3; i++) {
                 rooms.add(Room.builder().roomNumber("30" + i).floor("3").roomType(deluxe).status(RoomStatus.AVAILABLE).build());
             }
-            // Tầng 4: 2 phòng Suite
+            // Tầng 4: 2 phòng Tổng thống
             for (int i = 1; i <= 2; i++) {
                 rooms.add(Room.builder().roomNumber("40" + i).floor("4").roomType(suite).status(RoomStatus.AVAILABLE).build());
             }
             roomRepository.saveAll(rooms);
 
-            // 3. Seed ExtraService
+            // 3.3. Dịch vụ phụ thu (ExtraService)
             ExtraService breakfast = ExtraService.builder()
                     .name("Ăn sáng buffet")
-                    .description("Buffet sáng đa dạng món ăn Âu, Á")
+                    .description("Buffet sáng đa dạng với các món ăn truyền thống Việt Nam và ẩm thực Á - Âu")
                     .unitPrice(new BigDecimal("150000"))
                     .unit("lượt")
                     .active(true)
@@ -205,33 +218,108 @@ public class DataSeeder implements CommandLineRunner {
 
             ExtraService airportPickup = ExtraService.builder()
                     .name("Đưa đón sân bay")
-                    .description("Xe ô tô 4 chỗ hoặc 7 chỗ đưa đón tận nơi")
+                    .description("Xe ô tô 4 chỗ hoặc 7 chỗ đời mới đưa đón tận nơi chu đáo và an toàn")
                     .unitPrice(new BigDecimal("300000"))
                     .unit("chuyến")
                     .active(true)
                     .build();
 
             ExtraService laundry = ExtraService.builder()
-                    .name("Giặt là")
-                    .description("Giặt sấy, là ủi quần áo")
+                    .name("Giặt là cao cấp")
+                    .description("Giặt sấy, là ủi quần áo nhanh chóng và thơm mát trong ngày")
                     .unitPrice(new BigDecimal("50000"))
                     .unit("kg")
                     .active(true)
                     .build();
 
             ExtraService extraBed = ExtraService.builder()
-                    .name("Giường phụ (Extra bed)")
-                    .description("Kê thêm giường phụ trong phòng")
+                    .name("Kê thêm giường phụ")
+                    .description("Kê thêm giường đơn êm ái kèm trọn bộ chăn ga gối đệm cao cấp")
                     .unitPrice(new BigDecimal("200000"))
                     .unit("giường/đêm")
                     .active(true)
                     .build();
 
-            extraServiceRepository.saveAll(List.of(breakfast, airportPickup, laundry, extraBed));
+            ExtraService motorbike = ExtraService.builder()
+                    .name("Thuê xe máy tự lái")
+                    .description("Xe tay ga / xe số đời mới tiết kiệm xăng, kèm 2 mũ bảo hiểm đạt chuẩn")
+                    .unitPrice(new BigDecimal("120000"))
+                    .unit("ngày")
+                    .active(true)
+                    .build();
+
+            ExtraService spa = ExtraService.builder()
+                    .name("Dịch vụ Spa thư giãn")
+                    .description("Liệu trình massage body thảo dược 60 phút giúp phục hồi năng lượng")
+                    .unitPrice(new BigDecimal("350000"))
+                    .unit("suất")
+                    .active(true)
+                    .build();
+
+            extraServiceRepository.saveAll(List.of(breakfast, airportPickup, laundry, extraBed, motorbike, spa));
 
             log.info("Đã tạo thành công dữ liệu mẫu cho RoomType, Room, ExtraService.");
         } else {
             log.info("Dữ liệu Room, RoomType, ExtraService đã tồn tại, bỏ qua bước tạo dữ liệu mẫu.");
+        }
+
+        // 4. Seed DepositPolicy (Chính sách đặt cọc)
+        if (depositPolicyRepository.count() == 0) {
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho Chính sách đặt cọc (DepositPolicy)...");
+            DepositPolicy defaultPolicy = DepositPolicy.builder()
+                    .roomType(null) // Áp dụng cho tất cả loại phòng
+                    .depositPercent(new BigDecimal("30.00")) // Cọc 30%
+                    .active(true)
+                    .updatedBy(ownerUser)
+                    .build();
+            depositPolicyRepository.save(defaultPolicy);
+            log.info("Đã tạo thành công chính sách đặt cọc mặc định (30%).");
+        }
+
+        // 5. Seed InventoryItem (Kho đồ dùng khách sạn)
+        if (inventoryItemRepository.count() == 0) {
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho Kho đồ dùng (InventoryItem)...");
+            List<InventoryItem> items = List.of(
+                    InventoryItem.builder().name("Khăn tắm lớn 70x140cm").unit("chiếc").quantityOnHand(120).lowStockThreshold(30).build(),
+                    InventoryItem.builder().name("Khăn mặt cotton 34x70cm").unit("chiếc").quantityOnHand(150).lowStockThreshold(40).build(),
+                    InventoryItem.builder().name("Bộ bàn chải & kem đánh răng").unit("bộ").quantityOnHand(300).lowStockThreshold(50).build(),
+                    InventoryItem.builder().name("Dầu gội & Sữa tắm mini 40ml").unit("chai").quantityOnHand(400).lowStockThreshold(80).build(),
+                    InventoryItem.builder().name("Nước suối miễn phí 350ml").unit("chai").quantityOnHand(500).lowStockThreshold(100).build(),
+                    InventoryItem.builder().name("Dép đi trong phòng ngủ").unit("đôi").quantityOnHand(200).lowStockThreshold(40).build(),
+                    InventoryItem.builder().name("Trà túi lọc & Cà phê hòa tan").unit("gói").quantityOnHand(600).lowStockThreshold(120).build(),
+                    InventoryItem.builder().name("Bọc nệm & Ga trải giường cao cấp").unit("bộ").quantityOnHand(80).lowStockThreshold(20).build()
+            );
+            inventoryItemRepository.saveAll(items);
+            log.info("Đã tạo thành công dữ liệu mẫu cho Kho đồ dùng.");
+        }
+
+        // 6. Seed LoyaltyTier (Hạng hội viên thân thiết)
+        if (loyaltyTierRepository.count() == 0) {
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho Hạng hội viên (LoyaltyTier)...");
+            List<LoyaltyTier> tiers = List.of(
+                    LoyaltyTier.builder()
+                            .name("Thành viên Đồng")
+                            .minPoints(0)
+                            .benefitDescription("Tích lũy điểm thưởng theo mỗi đêm nghỉ, nhận bản tin ưu đãi sớm.")
+                            .build(),
+                    LoyaltyTier.builder()
+                            .name("Hội viên Bạc")
+                            .minPoints(500)
+                            .benefitDescription("Giảm 5% trên giá phòng tiêu chuẩn, ưu tiên hỗ trợ nhận phòng sớm nếu có sẵn phòng.")
+                            .build(),
+                    LoyaltyTier.builder()
+                            .name("Hội viên Vàng")
+                            .minPoints(1500)
+                            .benefitDescription("Giảm 10% giá phòng, miễn phí 1 dịch vụ giặt là hoặc 1 lượt ăn sáng buffet cho mỗi lần lưu trú.")
+                            .build(),
+                    LoyaltyTier.builder()
+                            .name("Hội viên Kim Cương")
+                            .minPoints(3500)
+                            .benefitDescription("Giảm 15% giá phòng, miễn phí nâng hạng phòng (khi có phòng trống), nhận phòng sớm từ 10:00 & trả phòng trễ đến 14:00.")
+                            .build()
+            );
+            loyaltyTierRepository.saveAll(tiers);
+            log.info("Đã tạo thành công dữ liệu mẫu cho Hạng hội viên.");
         }
     }
 }

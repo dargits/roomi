@@ -25,6 +25,8 @@ public interface GuestService {
 
     void addIdentityDocument(Long guestId, plant.stay.dto.request.IdentityDocumentRequest request);
 
+    void deleteIdentityDocument(Long guestId, Long documentId);
+
     void recalculateLoyaltyTier(plant.stay.model.Guest guest);
 }
 
