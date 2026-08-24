@@ -20,6 +20,7 @@ public class PublicGroupBookingRequestResponse {
     private String status;
     private String rejectReason;
     private Long convertedGroupBookingId;
+    private boolean isDepositPaid;
     private List<RoomRequest> rooms;
     private LocalDateTime createdAt;
 
