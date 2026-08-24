@@ -91,11 +91,18 @@ const AmenitiesPage = () => {
     <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
       <PublicHeader />
 
-      {/* Hero Banner */}
-      <section className="bg-gradient-to-r from-[#1E293B] to-[#0F172A] text-white py-16 px-margin-desktop">
-        <div className="max-w-container-max-width mx-auto text-center max-w-3xl">
+      {/* Hero Banner with Hotel Background Image */}
+      <section className="relative text-white py-16 px-margin-desktop overflow-hidden bg-neutral-900">
+        <div className="absolute inset-0 z-0">
+          <div 
+            className="bg-cover bg-center w-full h-full" 
+            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/75 to-black/85" />
+        </div>
+        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Dịch vụ & Tiện ích đẳng cấp</span>
-          <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-sm">Trải Nghiệm Hoàn Hảo Tại {hotelSetting?.propertyName || 'StayGO'}</h1>
+          <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-sm">Trải Nghiệm Hoàn Hảo Tại {hotelSetting?.propertyName || 'Khách Sạn'}</h1>
           <p className="text-white/80 font-body-lg leading-relaxed">
             Chúng tôi tự hào mang đến cho quý khách chuỗi tiện ích đa dạng, từ ẩm thực, thư giãn đến hỗ trợ di chuyển và công việc, giúp kỳ nghỉ trọn vẹn nhất.
           </p>

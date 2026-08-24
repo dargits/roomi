@@ -8,7 +8,8 @@ import {
   IoAlertCircleOutline,
   IoCloudUploadOutline,
   IoDocumentTextOutline,
-  IoShieldCheckmarkOutline
+  IoShieldCheckmarkOutline,
+  IoCopyOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -33,15 +34,53 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
 
+  const handleCopyRepresentativeToAllRooms = () => {
+    if (!roomsData || roomsData.length === 0) return;
+
+    // Lấy thông tin từ khách ở dòng đầu tiên đang hiển thị trên form, nếu trống mới fallback sang group
+    const firstGuestInput = roomsData[0]?.guests?.[0];
+    const repName = firstGuestInput?.name?.trim() || group?.representativeName?.trim() || group?.bookings?.[0]?.guestName?.trim() || '';
+    const repId = firstGuestInput?.idNumber?.trim() || group?.representativeIdNumber?.trim() || group?.bookings?.[0]?.guestIdNumber?.trim() || '';
+    const repPhone = firstGuestInput?.phone?.trim() || group?.representativePhone?.trim() || group?.bookings?.[0]?.guestPhone?.trim() || '';
+    const isMatched = firstGuestInput?.matched || false;
+
+    if (!repName && !repId) {
+      toastWarning('Vui lòng nhập họ tên hoặc số CCCD ở phòng đầu tiên để sao chép.');
+      return;
+    }
+
+    const updatedData = roomsData.map((room, idx) => {
+      if (idx === 0) return room; // Giữ nguyên dòng đầu
+      const firstGuest = {
+        name: repName,
+        idNumber: repId,
+        phone: repPhone,
+        matched: isMatched,
+      };
+      return {
+        ...room,
+        guests: [firstGuest, ...room.guests.slice(1)],
+      };
+    });
+
+    setRoomsData(updatedData);
+    toastSuccess(`Đã sao chép thông tin (Tên: ${repName || '—'}${repId ? ', CCCD: ' + repId : ''}) cho tất cả ${roomsData.length} phòng!`);
+  };
+
   useEffect(() => {
     if (isOpen && group) {
       // Initialize rooms data based on confirmed assigned rooms in the group
       const assignableRooms = group.bookings?.filter(b => b.status === 'CONFIRMED' && b.roomId) || [];
-      const initialRoomsData = assignableRooms.map(b => ({
+      const initialRoomsData = assignableRooms.map((b, index) => ({
         bookingId: b.id,
         roomNumber: String(b.roomNumber || ''),
         roomTypeName: b.roomTypeName,
-        guests: [{ name: b.guestName || '', idNumber: b.guestIdNumber || '', phone: '', matched: false }]
+        guests: [{
+          name: index === 0 ? (b.guestName || '') : '',
+          idNumber: index === 0 ? (b.guestIdNumber || '') : '',
+          phone: '',
+          matched: false
+        }]
       }));
       
       setRoomsData(initialRoomsData);
@@ -292,20 +331,33 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
               <span>{roomsData.length} phòng đã sẵn sàng</span>
             </div>
 
-            {/* P1.3: Nút Import danh sách */}
-            <Button
-              size="sm"
-              variant="outline"
-              icon={IoCloudUploadOutline}
-              onClick={() => {
-                setImportText('');
-                setImportError('');
-                setShowImportModal(true);
-              }}
-              className="border-primary/40 text-primary hover:bg-primary/5"
-            >
-              Nhập danh sách (CSV / Excel)
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                icon={IoCopyOutline}
+                onClick={handleCopyRepresentativeToAllRooms}
+                className="border-primary/40 text-primary hover:bg-primary/5"
+                title="Sao chép thông tin người đại diện cho tất cả các phòng trong đoàn"
+              >
+                Sao chép người đại diện cho tất cả phòng
+              </Button>
+
+              {/* P1.3: Nút Import danh sách */}
+              <Button
+                size="sm"
+                variant="outline"
+                icon={IoCloudUploadOutline}
+                onClick={() => {
+                  setImportText('');
+                  setImportError('');
+                  setShowImportModal(true);
+                }}
+                className="border-primary/40 text-primary hover:bg-primary/5"
+              >
+                Nhập danh sách (CSV / Excel)
+              </Button>
+            </div>
           </div>
 
           {/* Active QR scanner box if opened */}

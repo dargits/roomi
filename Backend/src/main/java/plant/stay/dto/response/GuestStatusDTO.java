@@ -27,6 +27,8 @@ public class GuestStatusDTO {
     private List<DocumentDTO> documents;
     private String declarationStatus;
     private LocalDateTime declarationCompletedAt;
+    /** Trạng thái đặt phòng: CHECKED_IN, CHECKED_OUT */
+    private String bookingStatus;
     /** Quốc tịch — phục vụ mẫu khai báo lưu trú theo quy định */
     private String nationality;
 }

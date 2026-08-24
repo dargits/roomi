@@ -215,7 +215,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
             <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
               Phương thức thanh toán <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <label className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer text-sm font-semibold transition-all ${paymentMethod === 'TRANSFER' ? 'border-primary bg-primary/10 text-primary' : 'border-border-grey bg-surface text-on-surface hover:bg-surface-container-low'}`}>
                 <input
                   type="radio"
@@ -237,17 +237,6 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
                   className="sr-only"
                 />
                 Tiền mặt
-              </label>
-              <label className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer text-sm font-semibold transition-all ${paymentMethod === 'POS' ? 'border-primary bg-primary/10 text-primary' : 'border-border-grey bg-surface text-on-surface hover:bg-surface-container-low'}`}>
-                <input
-                  type="radio"
-                  name="depositMethod"
-                  value="POS"
-                  checked={paymentMethod === 'POS'}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="sr-only"
-                />
-                Thẻ POS
               </label>
             </div>
           </div>

@@ -31,6 +31,17 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findCheckedInWithGuestDocumentsBetween(@Param("from") LocalDateTime from,
                                                          @Param("to") LocalDateTime to);
 
+    @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.guest g " +
+           "LEFT JOIN FETCH b.room " +
+           "LEFT JOIN FETCH b.stayDeclaration " +
+           "WHERE b.status IN ('CHECKED_IN', 'CHECKED_OUT') " +
+           "AND b.checkInDate <= :to " +
+           "AND b.checkOutDate >= :from " +
+           "ORDER BY b.checkedInAt DESC, b.checkInDate DESC, b.id DESC")
+    List<Booking> findStayHistoryBetween(@Param("from") LocalDate from,
+                                         @Param("to") LocalDate to);
+
     // Lấy booking trong khoảng thời gian cho lịch phòng
     @Query("SELECT b FROM Booking b WHERE b.checkInDate <= :to AND b.checkOutDate >= :from " +
            "AND b.status NOT IN ('CANCELLED', 'NO_SHOW')")
