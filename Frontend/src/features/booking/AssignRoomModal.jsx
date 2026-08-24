@@ -1,37 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { IoCheckmarkOutline, IoBedOutline, IoAlertCircleOutline } from 'react-icons/io5';
+import { IoCheckmarkOutline, IoBedOutline, IoAlertCircleOutline, IoSwapHorizontalOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { roomApi } from '../../services/roomApi';
 import bookingApi from '../../services/bookingApi';
 import { useToast } from '../../context/ToastContext';
 
-const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned }) => {
-  const { success: toastSuccess, error: toastError } = useToast();
+const AssignRoomModal = ({
+  isOpen,
+  onClose,
+  booking,
+  bookingId: propBookingId,
+  roomTypeId: propRoomTypeId,
+  checkInDate: propCheckInDate,
+  checkOutDate: propCheckOutDate,
+  onAssigned,
+  onSuccess
+}) => {
+  const { toastSuccess, toastError } = useToast();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [processing, setProcessing] = useState(false);
 
+  const effectiveBookingId = propBookingId || booking?.id || booking?.bookingId;
+  const effectiveRoomTypeId = propRoomTypeId || booking?.roomTypeId || booking?.roomType?.id;
+  const effectiveCheckInDate = propCheckInDate || booking?.checkInDate;
+  const effectiveCheckOutDate = propCheckOutDate || booking?.checkOutDate;
+  const currentRoomNumber = booking?.roomNumber || booking?.room?.roomNumber;
+  const isChangingRoom = Boolean(currentRoomNumber);
+
   useEffect(() => {
     if (isOpen) {
       fetchRooms();
     }
-  }, [isOpen, roomTypeId]);
+  }, [isOpen, effectiveRoomTypeId, effectiveCheckInDate, effectiveCheckOutDate]);
 
   const fetchRooms = async () => {
     setLoading(true);
     try {
-      // Gọi API lấy toàn bộ phòng AVAILABLE
-      const allRooms = await roomApi.getAllRooms('AVAILABLE');
-      // Lọc các phòng khớp với roomTypeId của booking (nếu có)
-      const filtered = (roomTypeId && Array.isArray(allRooms))
-        ? allRooms.filter(r => Number(r.roomTypeId) === Number(roomTypeId))
-        : (Array.isArray(allRooms) ? allRooms : []);
+      let availableRooms = [];
+      if (effectiveRoomTypeId && effectiveCheckInDate && effectiveCheckOutDate) {
+        // Lấy phòng trống không trùng lịch cho khoảng ngày
+        availableRooms = await roomApi.getAvailableRooms(
+          effectiveRoomTypeId,
+          effectiveCheckInDate,
+          effectiveCheckOutDate
+        );
+      } else {
+        // Fallback: lấy toàn bộ phòng AVAILABLE
+        const allRooms = await roomApi.getAllRooms('AVAILABLE');
+        availableRooms = (effectiveRoomTypeId && Array.isArray(allRooms))
+          ? allRooms.filter(r => Number(r.roomTypeId) === Number(effectiveRoomTypeId))
+          : (Array.isArray(allRooms) ? allRooms : []);
+      }
 
-      setRooms(filtered);
-      if (filtered.length > 0) {
-        setSelectedRoomId(String(filtered[0].id));
+      setRooms(availableRooms || []);
+      if (availableRooms && availableRooms.length > 0) {
+        setSelectedRoomId(String(availableRooms[0].id));
       } else {
         setSelectedRoomId('');
       }
@@ -44,12 +70,13 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
   };
 
   const handleAssign = async () => {
-    if (!selectedRoomId) return;
+    if (!selectedRoomId || !effectiveBookingId) return;
     setProcessing(true);
     try {
-      await bookingApi.assignRoom(bookingId, selectedRoomId);
-      toastSuccess("Xếp phòng thành công!");
+      await bookingApi.assignRoom(effectiveBookingId, selectedRoomId);
+      toastSuccess(isChangingRoom ? "Đổi phòng thành công!" : "Xếp phòng thành công!");
       if (onAssigned) onAssigned();
+      if (onSuccess) onSuccess();
       onClose();
     } catch (error) {
       toastError(error.response?.data?.message || "Lỗi xếp phòng");
@@ -61,10 +88,27 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Xếp Phòng Khách Sạn" maxWidth="max-w-md">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isChangingRoom ? "Đổi phòng khách sạn" : "Xếp phòng khách sạn"}
+      maxWidth="max-w-md"
+    >
       <div className="p-1 space-y-4">
+        {isChangingRoom && (
+          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-900">
+            <IoSwapHorizontalOutline className="text-amber-700 shrink-0" size={18} />
+            <div>
+              Phòng hiện tại: <strong className="text-amber-950 font-bold">P.{currentRoomNumber}</strong>
+              <div className="text-[11px] text-amber-700">Chọn một phòng trống bên dưới để chuyển sang phòng mới:</div>
+            </div>
+          </div>
+        )}
+
         <p className="text-body-md text-on-surface-variant text-xs leading-relaxed">
-          Chọn một phòng trống khả dụng (trạng thái Sẵn sàng) để gán cho đơn đặt phòng này:
+          {isChangingRoom
+            ? "Danh sách phòng trống khả dụng (không bị trùng lịch trong thời gian lưu trú):"
+            : "Chọn một phòng trống khả dụng để gán cho đơn đặt phòng này:"}
         </p>
 
         {loading ? (
@@ -76,16 +120,16 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
           <div className="p-5 text-center bg-red-50/70 border border-red-200 rounded-2xl space-y-2">
             <IoAlertCircleOutline size={28} className="text-red-500 mx-auto" />
             <p className="text-xs font-semibold text-red-800">
-              Không có phòng trống nào thuộc loại phòng này!
+              Không có phòng trống nào phù hợp trong thời gian này!
             </p>
             <p className="text-[11px] text-red-600">
-              Tất cả phòng thuộc hạng phòng này đang có khách hoặc đang chờ dọn dẹp.
+              Tất cả phòng thuộc hạng phòng này đã được đặt hoặc có khách ở trong thời gian nhận/trả phòng.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <label className="block font-label-md text-on-surface text-xs font-medium">
-              Danh sách phòng trống ({rooms.length} phòng)
+              Danh sách phòng trống khả dụng ({rooms.length} phòng)
             </label>
             <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
               {rooms.map(room => {
@@ -111,7 +155,7 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
                       </div>
                     </div>
                     {isSelected && (
-                      <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs">
+                      <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
                         ✓
                       </span>
                     )}
@@ -133,7 +177,7 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
             icon={IoCheckmarkOutline}
             size="sm"
           >
-            Xác nhận xếp phòng
+            {isChangingRoom ? "Xác nhận đổi phòng" : "Xác nhận xếp phòng"}
           </Button>
         </div>
       </div>
@@ -142,4 +186,5 @@ const AssignRoomModal = ({ isOpen, onClose, bookingId, roomTypeId, onAssigned })
 };
 
 export default AssignRoomModal;
+
 

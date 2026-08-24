@@ -106,6 +106,10 @@ class GroupBookingServiceTest {
         @DisplayName("Gợi ý và gán đồng loạt tất cả phòng còn thiếu cho đoàn")
         void suggestsAndAssignsAllRemainingRooms() {
         GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        plant.stay.dto.request.GroupDepositCreateRequest depositReq = new plant.stay.dto.request.GroupDepositCreateRequest();
+        depositReq.setAmount(new BigDecimal("600000"));
+        depositReq.setPaymentMethod(PaymentMethod.CASH);
+        groupBookingService.createDeposit(group.getId(), depositReq, receptionist);
 
         GroupRoomAssignmentSuggestionResponse suggestion = groupBookingService.getAssignmentSuggestion(group.getId());
 
@@ -127,6 +131,11 @@ class GroupBookingServiceTest {
         @DisplayName("Từ chối toàn bộ gán đoàn khi một phòng được chọn hai lần")
         void rejectsDuplicateRoomsWithoutAssigningAnyBooking() {
         GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        plant.stay.dto.request.GroupDepositCreateRequest depositReq = new plant.stay.dto.request.GroupDepositCreateRequest();
+        depositReq.setAmount(new BigDecimal("600000"));
+        depositReq.setPaymentMethod(PaymentMethod.CASH);
+        groupBookingService.createDeposit(group.getId(), depositReq, receptionist);
+
         GroupRoomAssignmentSuggestionResponse suggestion = groupBookingService.getAssignmentSuggestion(group.getId());
         Long duplicateRoomId = suggestion.getAssignments().get(0).getAvailableRooms().get(0).getId();
         GroupRoomAssignmentRequest assignmentRequest = assignmentRequest(
@@ -145,6 +154,11 @@ class GroupBookingServiceTest {
         @DisplayName("Từ chối gán phòng khác loại và không đổi các booking của đoàn")
         void rejectsRoomOfDifferentTypeWithoutAssigningAnyBooking() {
         GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        plant.stay.dto.request.GroupDepositCreateRequest depositReq = new plant.stay.dto.request.GroupDepositCreateRequest();
+        depositReq.setAmount(new BigDecimal("600000"));
+        depositReq.setPaymentMethod(PaymentMethod.CASH);
+        groupBookingService.createDeposit(group.getId(), depositReq, receptionist);
+
         RoomType otherRoomType = roomTypeRepository.save(RoomType.builder()
             .name("Other Group Type " + System.nanoTime())
             .maxCapacity(2)
@@ -197,7 +211,51 @@ class GroupBookingServiceTest {
         assertTrue(exception.getMessage().contains("toàn bộ"));
     }
 
+    @Test
+    @DisplayName("P0: Thu cọc đoàn cập nhật depositPaid và depositAmount đúng")
+    void collectsGroupDepositCorrectly() {
+        GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        assertFalse(group.isDepositPaid());
+        assertEquals(0, BigDecimal.ZERO.compareTo(group.getDepositAmount()));
+
+        plant.stay.dto.request.GroupDepositCreateRequest depositReq = plant.stay.dto.request.GroupDepositCreateRequest.builder()
+                .amount(new BigDecimal("600000"))
+                .paymentMethod(PaymentMethod.TRANSFER)
+                .note("Cọc chuyển khoản VietQR")
+                .build();
+
+        Deposit deposit = groupBookingService.createDeposit(group.getId(), depositReq, receptionist);
+        assertNotNull(deposit.getId());
+        assertEquals(0, new BigDecimal("600000").compareTo(deposit.getCollectedAmount()));
+
+        List<Deposit> deposits = groupBookingService.getDeposits(group.getId());
+        assertEquals(1, deposits.size());
+
+        GroupBookingResponse updated = groupBookingService.getById(group.getId());
+        assertTrue(updated.isDepositPaid());
+        assertEquals(0, new BigDecimal("600000").compareTo(updated.getDepositAmount()));
+    }
+
+    @Test
+    @DisplayName("P1.4: Preview tính phí hủy một phần theo thời gian thực")
+    void previewsCancelPartialFeeRealtime() {
+        GroupBookingResponse group = groupBookingService.create(requestFor(2), receptionist);
+        Long bookingIdToPreview = group.getBookings().get(0).getId();
+
+        plant.stay.dto.response.GroupCancelPreviewResponse preview =
+                groupBookingService.previewCancelPartial(group.getId(), List.of(bookingIdToPreview));
+
+        assertNotNull(preview);
+        assertEquals(group.getId(), preview.getGroupBookingId());
+        assertEquals(1, preview.getCancellingRoomsCount());
+        assertEquals(1, preview.getItems().size());
+        assertEquals(bookingIdToPreview, preview.getItems().get(0).getBookingId());
+        // Verify database is untouched
+        assertEquals("NEW", groupBookingService.getById(group.getId()).getStatus());
+    }
+
         private GroupRoomAssignmentRequest assignmentRequest(GroupRoomAssignmentItemRequest... assignments) {
+
         GroupRoomAssignmentRequest request = new GroupRoomAssignmentRequest();
         request.setAssignments(List.of(assignments));
         return request;

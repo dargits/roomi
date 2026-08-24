@@ -16,7 +16,8 @@ import {
   IoLogInOutline,
   IoCardOutline,
   IoCloseOutline,
-  IoDocumentOutline
+  IoDocumentOutline,
+  IoPeopleOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import BookingDetailsModal from './BookingDetailsModal';
@@ -36,6 +37,8 @@ const BookingList = ({ onEditBooking }) => {
   const [loading, setLoading] = useState(true);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [assigningBooking, setAssigningBooking] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [activeFilter, setActiveFilter] = useState('ALL'); // ALL | TODAY_CHECKIN | TODAY_CHECKOUT | CHECKED_IN
 
   // State cho Modal xác nhận thao tác
   const [actionConfirm, setActionConfirm] = useState({
@@ -72,6 +75,32 @@ const BookingList = ({ onEditBooking }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const filteredBookings = bookings.filter(b => {
+    // Search filter
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      const matchName = b.guestName?.toLowerCase().includes(q);
+      const matchPhone = b.guestPhone?.toLowerCase().includes(q);
+      const matchRoom = b.roomNumber?.toLowerCase().includes(q);
+      if (!matchName && !matchPhone && !matchRoom) return false;
+    }
+    // Quick filter
+    if (activeFilter === 'TODAY_CHECKIN') return b.checkInDate?.slice(0, 10) === todayStr;
+    if (activeFilter === 'TODAY_CHECKOUT') return b.checkOutDate?.slice(0, 10) === todayStr;
+    if (activeFilter === 'CHECKED_IN') return b.status === 'CHECKED_IN';
+    if (activeFilter === 'GROUP') return Boolean(b.groupBookingId);
+    return true;
+  });
+
+  const filterCounts = {
+    TODAY_CHECKIN: bookings.filter(b => b.checkInDate?.slice(0, 10) === todayStr && b.status !== 'CANCELLED' && b.status !== 'NO_SHOW').length,
+    TODAY_CHECKOUT: bookings.filter(b => b.checkOutDate?.slice(0, 10) === todayStr && b.status === 'CHECKED_IN').length,
+    CHECKED_IN: bookings.filter(b => b.status === 'CHECKED_IN').length,
+    GROUP: bookings.filter(b => Boolean(b.groupBookingId) && b.status !== 'CANCELLED' && b.status !== 'NO_SHOW').length,
   };
 
   const getStatusBadge = (status) => {
@@ -139,7 +168,12 @@ const BookingList = ({ onEditBooking }) => {
       await fetchBookings();
     } catch (error) {
       console.error("Action error:", error);
-      setErrorMsg(error.response?.data?.message || "Không thể thực hiện thao tác. Vui lòng thử lại.");
+      const serverMsg = error.response?.data?.message || '';
+      if (actionType === 'CHECK_OUT' && serverMsg.includes('hóa đơn')) {
+        setErrorMsg('Chưa lập hóa đơn hoặc chưa thanh toán đầy đủ. Vui lòng mở trang chi tiết đặt phòng ⇒ tab Hóa đơn & Thanh toán để lập hóa đơn và thu tiền trước khi trả phòng.');
+      } else {
+        setErrorMsg(serverMsg || 'Không thể thực hiện thao tác. Vui lòng thử lại.');
+      }
     } finally {
       setProcessing(false);
     }
@@ -160,6 +194,41 @@ const BookingList = ({ onEditBooking }) => {
 
   return (
     <div className="overflow-x-auto">
+      {/* Thanh search + filter nhanh */}
+      <div className="p-4 border-b border-border-grey bg-surface-container-lowest flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <IoSearchOutline size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+          <input
+            type="text"
+            placeholder="Tìm theo tên khách, SĐT, số phòng..."
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 rounded-lg border border-border-grey bg-surface text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary"
+          />
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {[
+            { key: 'ALL', label: 'Tất cả' },
+            { key: 'TODAY_CHECKIN', label: `Hôm nay nhận${filterCounts.TODAY_CHECKIN ? ` (${filterCounts.TODAY_CHECKIN})` : ''}` },
+            { key: 'TODAY_CHECKOUT', label: `Hôm nay trả${filterCounts.TODAY_CHECKOUT ? ` (${filterCounts.TODAY_CHECKOUT})` : ''}` },
+            { key: 'CHECKED_IN', label: `Đang ở${filterCounts.CHECKED_IN ? ` (${filterCounts.CHECKED_IN})` : ''}` },
+            { key: 'GROUP', label: `Theo đoàn${filterCounts.GROUP ? ` (${filterCounts.GROUP})` : ''}` },
+          ].map(f => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setActiveFilter(f.key)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors cursor-pointer ${
+                activeFilter === f.key
+                  ? 'bg-primary text-on-primary border-primary'
+                  : 'bg-surface text-on-surface-variant border-border-grey hover:border-primary/50 hover:text-primary'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
@@ -173,10 +242,12 @@ const BookingList = ({ onEditBooking }) => {
         <tbody>
           {loading ? (
             <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu...</td></tr>
-          ) : bookings.length === 0 ? (
-            <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">Chưa có đặt phòng nào.</td></tr>
+          ) : filteredBookings.length === 0 ? (
+            <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">
+              {searchText || activeFilter !== 'ALL' ? 'Không tìm thấy đặt phòng nào phù hợp bộ lọc.' : 'Chưa có đặt phòng nào.'}
+            </td></tr>
           ) : (
-            bookings.map(booking => (
+            filteredBookings.map(booking => (
               <tr key={booking.id} className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
                 <td className="p-4">
                   <Link 
@@ -193,7 +264,13 @@ const BookingList = ({ onEditBooking }) => {
                   </div>
                   <div className="mt-1.5 flex items-center">
                     {booking.groupBookingId ? (
-                      <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-[11px] font-medium rounded border border-purple-200">Theo nhóm</span>
+                      <Link
+                        to="/manage/bookings/groups"
+                        className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-semibold rounded border border-purple-200 inline-flex items-center gap-1 transition-colors"
+                        title="Bấm để xem hồ sơ đoàn"
+                      >
+                        <IoPeopleOutline size={13} /> ĐOÀN-{String(booking.groupBookingId).padStart(5, '0')}
+                      </Link>
                     ) : (
                       <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded border border-blue-200">Cá nhân</span>
                     )}
@@ -220,7 +297,7 @@ const BookingList = ({ onEditBooking }) => {
                     <span>Trả: <strong className="font-medium text-on-surface">{formatStayDateTime(booking.checkOutDate, 'checkout')}</strong></span>
                   </div>
                   <div className="text-[11px] text-on-surface-variant font-medium mt-1 inline-block bg-surface-container px-2 py-0.5 rounded">
-                    🌙 {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
+                    {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
                   </div>
                 </td>
                 <td className="p-4 text-center">
@@ -309,8 +386,7 @@ const BookingList = ({ onEditBooking }) => {
         <AssignRoomModal
           isOpen={true}
           onClose={() => setAssigningBooking(null)}
-          bookingId={assigningBooking.id}
-          roomTypeId={assigningBooking.roomTypeId}
+          booking={assigningBooking}
           onAssigned={() => {
             fetchBookings();
             setAssigningBooking(null);

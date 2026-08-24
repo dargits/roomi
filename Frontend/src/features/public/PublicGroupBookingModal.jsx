@@ -250,20 +250,71 @@ const PublicGroupBookingModal = ({ isOpen, onClose, roomTypes, initialRoom, chec
             <span className="rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">{totalRooms} phòng</span>
           </div>
           <div className="space-y-3 p-4">
-            {formData.rooms.map((room, index) => (
-              <div key={index} className="grid grid-cols-[minmax(0,1fr)_100px_42px] items-end gap-3">
-                <label className="block text-xs font-semibold text-on-surface mb-1.5">
-                  Loại phòng *
-                  <select value={room.roomTypeId} onChange={(event) => updateRoom(index, 'roomTypeId', event.target.value)} className="w-full mt-1.5 rounded-xl border border-border-grey bg-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none" required>
-                    <option value="">Chọn loại phòng</option>
-                    {roomTypes.map((roomType) => <option key={roomType.id} value={roomType.id}>{roomType.name}</option>)}
-                  </select>
-                </label>
-                <Input label="Số lượng *" type="number" min="1" value={room.quantity} onChange={(event) => updateRoom(index, 'quantity', event.target.value)} required />
-                <button type="button" title="Xóa loại phòng" onClick={() => setFormData((previous) => ({ ...previous, rooms: previous.rooms.filter((_, roomIndex) => roomIndex !== index) }))} disabled={formData.rooms.length === 1} className="h-[42px] w-[42px] rounded-xl border border-red-200 text-error hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 flex items-center justify-center"><IoRemoveOutline size={20} /></button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" icon={IoAddOutline} onClick={() => setFormData((previous) => ({ ...previous, rooms: [...previous.rooms, emptyRoomLine()] }))} className="mt-2 rounded-xl">Thêm loại phòng</Button>
+            {formData.rooms.map((room, index) => {
+              const selectedOtherIds = new Set(
+                formData.rooms
+                  .filter((_, lineIndex) => lineIndex !== index && _.roomTypeId)
+                  .map((r) => Number(r.roomTypeId))
+              );
+              const availableRoomTypes = roomTypes.filter(
+                (rt) => !selectedOtherIds.has(Number(rt.id)) || Number(rt.id) === Number(room.roomTypeId)
+              );
+
+              return (
+                <div key={index} className="grid grid-cols-[minmax(0,1fr)_100px_42px] items-end gap-3">
+                  <label className="block text-xs font-semibold text-on-surface mb-1.5">
+                    Loại phòng *
+                    <select
+                      value={room.roomTypeId}
+                      onChange={(event) => updateRoom(index, 'roomTypeId', event.target.value)}
+                      className="w-full mt-1.5 rounded-xl border border-border-grey bg-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none"
+                      required
+                    >
+                      <option value="">Chọn loại phòng</option>
+                      {availableRoomTypes.map((roomType) => (
+                        <option key={roomType.id} value={roomType.id}>
+                          {roomType.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Input
+                    label="Số lượng *"
+                    type="number"
+                    min="1"
+                    value={room.quantity}
+                    onChange={(event) => updateRoom(index, 'quantity', event.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    title="Xóa loại phòng"
+                    onClick={() =>
+                      setFormData((previous) => ({
+                        ...previous,
+                        rooms: previous.rooms.filter((_, roomIndex) => roomIndex !== index),
+                      }))
+                    }
+                    disabled={formData.rooms.length === 1}
+                    className="h-[42px] w-[42px] rounded-xl border border-red-200 text-error hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 flex items-center justify-center"
+                  >
+                    <IoRemoveOutline size={20} />
+                  </button>
+                </div>
+              );
+            })}
+            {formData.rooms.length < roomTypes.length && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                icon={IoAddOutline}
+                onClick={() => setFormData((previous) => ({ ...previous, rooms: [...previous.rooms, emptyRoomLine()] }))}
+                className="mt-2 rounded-xl"
+              >
+                Thêm loại phòng
+              </Button>
+            )}
           </div>
         </section>
 
