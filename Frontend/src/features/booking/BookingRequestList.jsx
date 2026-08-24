@@ -194,7 +194,7 @@ const BookingRequestList = () => {
                     <span>Trả: <strong className="font-medium text-on-surface">{formatStayDateTime(req.checkOutDate, 'checkout')}</strong></span>
                   </div>
                   <div className="text-[11px] text-on-surface-variant font-medium mt-1 inline-block bg-surface-container px-2 py-0.5 rounded">
-                    🌙 {calculateNights(req.checkInDate, req.checkOutDate)} đêm
+                    {calculateNights(req.checkInDate, req.checkOutDate)} đêm
                   </div>
                 </td>
                 <td className="p-4 text-center">

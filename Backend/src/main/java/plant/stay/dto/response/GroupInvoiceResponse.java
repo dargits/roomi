@@ -12,6 +12,7 @@ import java.util.List;
 public class GroupInvoiceResponse {
     private Long groupBookingId;
     private InvoiceMode mode;
+    private InvoiceMode suggestedMode;
     private BigDecimal roomAmount;
     private BigDecimal serviceAmount;
     private BigDecimal discountAmount;
@@ -19,4 +20,4 @@ public class GroupInvoiceResponse {
     private BigDecimal paidAmount;
     private BigDecimal outstandingAmount;
     private List<InvoiceResponse> invoices;
-}
+}

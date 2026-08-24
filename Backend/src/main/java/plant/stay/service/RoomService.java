@@ -18,4 +18,5 @@ public interface RoomService {
     RoomResponse markClean(Long id, User actor);
     RoomResponse markDirty(Long id, User actor);
     RoomResponse setMaintenance(Long id, User actor);
+    List<RoomResponse> getAvailableWithoutConflicts(Long roomTypeId, java.time.LocalDate checkInDate, java.time.LocalDate checkOutDate);
 }

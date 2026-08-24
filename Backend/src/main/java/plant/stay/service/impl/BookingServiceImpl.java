@@ -114,6 +114,38 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getStatus() != BookingStatus.NEW && booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new IllegalArgumentException("Chỉ có thể gán phòng cho đặt phòng ở trạng thái NEW hoặc CONFIRMED");
         }
+
+        // Nếu booking thuộc hồ sơ đoàn, bắt buộc đoàn phải hoàn thành tiền đặt cọc tối thiểu trước khi xếp phòng
+        if (booking.getGroupBooking() != null) {
+            Long groupBookingId = booking.getGroupBooking().getId();
+            List<Booking> groupBookings = bookingRepository.findByGroupBookingId(groupBookingId);
+            List<Deposit> groupDeposits = depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(groupBookingId);
+
+            BigDecimal totalCollectedDeposit = groupDeposits.stream()
+                    .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
+                    .map(d -> {
+                        BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                        if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                        if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                        return eff.max(BigDecimal.ZERO);
+                    })
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal expectedTotal = groupBookings.stream()
+                    .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
+                    .map(Booking::getExpectedPrice)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal requiredDeposit = expectedTotal.multiply(BigDecimal.valueOf(0.3)).setScale(0, RoundingMode.HALF_UP);
+
+            if (totalCollectedDeposit.compareTo(BigDecimal.ZERO) <= 0 || (requiredDeposit.compareTo(BigDecimal.ZERO) > 0 && totalCollectedDeposit.compareTo(requiredDeposit) < 0)) {
+                throw new IllegalArgumentException("Booking #" + bookingId + " thuộc hồ sơ đoàn #" + groupBookingId
+                        + " chưa hoàn thành tiền đặt cọc (yêu cầu tối thiểu " + requiredDeposit.toBigInteger()
+                        + " đ, đã thu " + totalCollectedDeposit.toBigInteger() + " đ). Vui lòng thu tiền đặt cọc cho đoàn trước khi xếp phòng.");
+            }
+        }
+
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
 
@@ -267,20 +299,29 @@ public class BookingServiceImpl implements BookingService {
                     guest = guestRepository.findFirstByIdNumberOrderByIdDesc(dto.getIdNumber().trim()).orElse(null);
                 }
                 
+                String cleanPhone = (dto.getPhone() != null && !dto.getPhone().trim().isEmpty()) ? dto.getPhone().trim() : null;
+                String cleanIdNumber = (dto.getIdNumber() != null && !dto.getIdNumber().trim().isEmpty()) ? dto.getIdNumber().trim() : null;
+                String cleanName = (dto.getName() != null && !dto.getName().trim().isEmpty()) ? dto.getName().trim() : "Khách lưu trú";
+
                 if (guest == null) {
                     guest = Guest.builder()
-                            .name(dto.getName())
-                            .idNumber(dto.getIdNumber() != null ? dto.getIdNumber().trim() : null)
+                            .name(cleanName)
+                            .idNumber(cleanIdNumber)
+                            .phone(cleanPhone)
                             .build();
                     guest = guestRepository.save(guest);
                 } else {
                     boolean updated = false;
-                    if (dto.getName() != null && !dto.getName().trim().isEmpty() && !dto.getName().equals(guest.getName())) {
-                        guest.setName(dto.getName().trim());
+                    if (!cleanName.equals(guest.getName())) {
+                        guest.setName(cleanName);
                         updated = true;
                     }
-                    if (dto.getIdNumber() != null && !dto.getIdNumber().trim().isEmpty() && !dto.getIdNumber().trim().equals(guest.getIdNumber())) {
-                        guest.setIdNumber(dto.getIdNumber().trim());
+                    if (cleanIdNumber != null && !cleanIdNumber.equals(guest.getIdNumber())) {
+                        guest.setIdNumber(cleanIdNumber);
+                        updated = true;
+                    }
+                    if (cleanPhone != null && !cleanPhone.equals(guest.getPhone())) {
+                        guest.setPhone(cleanPhone);
                         updated = true;
                     }
                     if (updated) {
@@ -296,16 +337,20 @@ public class BookingServiceImpl implements BookingService {
         booking.setCheckedInAt(LocalDateTime.now());
         booking.getRoom().setStatus(RoomStatus.OCCUPIED);
         roomRepository.save(booking.getRoom());
-        bookingRepository.save(booking);
-        StayDeclaration declaration = stayDeclarationRepository.save(StayDeclaration.builder()
-            .booking(booking)
-            .status(StayDeclarationStatus.PENDING)
-            .build());
-        booking.setStayDeclaration(declaration);
-        auditLogService.log("Booking", booking.getId(), "CHECK_IN", actor,
-                "Nhận phòng " + booking.getRoom().getRoomNumber() + 
+        Booking savedBooking = bookingRepository.save(booking);
+
+        StayDeclaration declaration = stayDeclarationRepository.findByBookingId(savedBooking.getId())
+                .orElseGet(() -> StayDeclaration.builder()
+                        .booking(savedBooking)
+                        .status(StayDeclarationStatus.PENDING)
+                        .build());
+        declaration = stayDeclarationRepository.save(declaration);
+        savedBooking.setStayDeclaration(declaration);
+
+        auditLogService.log("Booking", savedBooking.getId(), "CHECK_IN", actor,
+                "Nhận phòng " + savedBooking.getRoom().getRoomNumber() + 
             (req != null && req.getGuests() != null && !req.getGuests().isEmpty() ? " (" + req.getGuests().size() + " khách lưu trú)" : ""));
-        return toResponse(booking);
+        return toResponse(savedBooking);
     }
 
     @Override
