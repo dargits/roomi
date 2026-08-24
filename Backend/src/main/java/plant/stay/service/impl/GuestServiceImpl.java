@@ -178,6 +178,17 @@ public class GuestServiceImpl implements GuestService {
         }
     }
 
+    @Override
+    @Transactional
+    public void deleteIdentityDocument(Long guestId, Long documentId) {
+        IdentityDocument doc = identityDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giấy tờ với id: " + documentId));
+        if (!doc.getGuest().getId().equals(guestId)) {
+            throw new IllegalArgumentException("Giấy tờ không thuộc về khách hàng này");
+        }
+        identityDocumentRepository.delete(doc);
+    }
+
     private Guest findById(Long id) {
         return guestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách với id: " + id));

@@ -10,14 +10,17 @@ import { bookingRequestApi } from '../../services/bookingRequestApi';
 import PublicBookingModal from './PublicBookingModal';
 import PublicGroupBookingModal from '../public/PublicGroupBookingModal';
 import { toast } from '../../context/ToastContext';
+import { IoBedOutline } from 'react-icons/io5';
 
 const LandingPage = () => {
-  const { hotelSetting } = useAppConfig();
+  const { hotelSetting, isAppLoading } = useAppConfig();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [priceLimit, setPriceLimit] = useState(10000000); // Default max 10M
+
+  const isInitialLoading = isAppLoading || (loading && rooms.length === 0);
 
   // Booking states
   const [checkInDate, setCheckInDate] = useState(null);
@@ -148,19 +151,45 @@ const LandingPage = () => {
   
   return (
     <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
+      {/* Full Page Initial Loading Overlay - 100% Opaque Solid Screen */}
+      {isInitialLoading && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-surface transition-opacity duration-300">
+          <div className="relative flex items-center justify-center">
+            {/* Pulsing glow */}
+            <div className="absolute w-24 h-24 rounded-full bg-primary/20 animate-ping opacity-75" />
+            {/* Spinning gradient ring */}
+            <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            {/* Center icon / hotel symbol */}
+            <div className="absolute flex items-center justify-center">
+              <IoBedOutline className="text-primary text-2xl animate-pulse" />
+            </div>
+          </div>
+          <div className="mt-6 text-center space-y-1.5">
+            <p className="text-sm font-medium text-on-surface animate-pulse">
+              Đang tải dữ liệu...
+            </p>
+            <p className="text-xs text-on-surface-variant">
+              Vui lòng chờ trong giây lát
+            </p>
+          </div>
+        </div>
+      )}
+
       <PublicHeader />
 
       {/* Hero Section */}
       <section className="relative w-full h-[320px] flex flex-col items-center justify-center">
         <div className="absolute inset-0 z-0">
           <div 
-            className="bg-cover bg-center w-full h-full" 
-            style={{ backgroundImage: `url('${hotelSetting?.homeImage || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCo1YHiL5se9gdga38ezOmfnhfIypx9vFPk7GdjIyxrYpTx8TNgDwhN4t4WAE7z9R3e2qAVepVSkpAJOYFyo7ItqUhS846P5DdAbYAdkE5Tzd-Lfl8XZLlo9qbQFRi-egz4gbP0DPln99NeynZJgOB9emHu4hX0Tdrg3owl65A6nyfL1Evgt6hubFC9f2nhX2MeXLr8GLvs4GlXUHjk-qx99047GkOSI2xp8r_PEFJXbYXo_cJrLOIrKQ'}')` }}
+            className="bg-cover bg-center w-full h-full bg-neutral-800" 
+            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
           ></div>
           <div className="absolute inset-0 bg-black/40"></div>
         </div>
         <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6">
-          <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">Khách sạn và nơi để ở tại {hotelSetting?.propertyName || 'Thái Nguyên'}</h1>
+          <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">
+            Khách sạn và nơi để ở{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
+          </h1>
           <p className="font-title-lg text-title-lg text-white drop-shadow-md">Tìm kiếm để so sánh giá cả và khám phá ưu đãi tuyệt vời có miễn phí hủy</p>
         </div>
         
@@ -183,7 +212,9 @@ const LandingPage = () => {
         {/* Room List Area */}
         <section className="md:col-span-9">
           <div className="flex items-center justify-between mb-6 border-b border-border-grey pb-2">
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">Các loại phòng tại {hotelSetting?.propertyName || 'StayGO'}</h2>
+            <h2 className="font-headline-lg text-headline-lg text-on-surface">
+              Các loại phòng{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
+            </h2>
           </div>
 
           {/* Sorting Tabs */}
@@ -214,10 +245,30 @@ const LandingPage = () => {
             </button>
           </div>
 
-          {/* Room Cards */}
+            {/* Room Cards */}
           <div className="space-y-4">
             {loading ? (
-              <div className="text-center py-10 text-on-surface-variant">Đang tải danh sách phòng...</div>
+              <div className="space-y-4 animate-pulse">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex flex-col md:flex-row rounded-2xl border border-border-grey bg-surface-container-lowest overflow-hidden shadow-sm">
+                    <div className="md:w-72 h-48 md:h-auto bg-surface-container-high/60 shrink-0" />
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="space-y-2">
+                        <div className="h-6 w-1/3 bg-surface-container-high/80 rounded" />
+                        <div className="h-4 w-1/4 bg-surface-container-high/60 rounded" />
+                        <div className="h-4 w-2/3 bg-surface-container-high/50 rounded" />
+                      </div>
+                      <div className="flex items-center justify-between pt-4 border-t border-border-grey/50">
+                        <div className="h-6 w-28 bg-surface-container-high/80 rounded" />
+                        <div className="flex gap-2">
+                          <div className="h-9 w-24 bg-surface-container-high/60 rounded-lg" />
+                          <div className="h-9 w-28 bg-surface-container-high/80 rounded-lg" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : filteredRooms.length === 0 ? (
               <div className="text-center py-10 text-on-surface-variant">Hiện chưa có loại phòng nào phù hợp với bộ lọc.</div>
             ) : (

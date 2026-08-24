@@ -177,7 +177,7 @@ const RoomManagement = () => {
 
   const isOwner = user?.role === 'OWNER';
 
-  const canMarkClean = user?.role === 'OWNER' || user?.role === 'RECEPTIONIST' || user?.role === 'HOUSEKEEPER';
+  const canMarkClean = user?.role === 'OWNER' || user?.role === 'HOUSEKEEPER';
 
   const roomTypeOptions = roomTypes.map(rt => ({ value: rt.id, label: rt.name }));
   const statusOptions = [

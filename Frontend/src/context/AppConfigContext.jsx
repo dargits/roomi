@@ -16,7 +16,7 @@ export const AppConfigProvider = ({ children }) => {
         console.error('Failed to fetch public hotel settings:', error);
         // Fallback default settings if backend is down
         setHotelSetting({
-          propertyName: 'StayGO',
+          propertyName: '',
           address: 'Đang cập nhật',
           phone: 'Đang cập nhật',
           email: 'Đang cập nhật',
@@ -25,7 +25,9 @@ export const AppConfigProvider = ({ children }) => {
           homeImage: ''
         });
       } finally {
-        setIsAppLoading(false);
+        setTimeout(() => {
+          setIsAppLoading(false);
+        }, 100);
       }
     };
 

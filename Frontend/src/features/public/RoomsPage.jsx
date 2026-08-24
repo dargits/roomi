@@ -7,6 +7,7 @@ import PublicBookingModal from '../landing/PublicBookingModal';
 import PublicGroupBookingModal from './PublicGroupBookingModal';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
+import SearchBar from '../landing/SearchBar';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { toast } from '../../context/ToastContext';
 import { 
@@ -24,8 +25,8 @@ const RoomsPage = () => {
   const { hotelSetting } = useAppConfig();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [checkInDate, setCheckInDate] = useState('');
-  const [checkOutDate, setCheckOutDate] = useState('');
+  const [checkInDate, setCheckInDate] = useState(null);
+  const [checkOutDate, setCheckOutDate] = useState(null);
   const [guestCapacity, setGuestCapacity] = useState('ALL');
   const [selectedRoomToBook, setSelectedRoomToBook] = useState(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -33,14 +34,6 @@ const RoomsPage = () => {
   const [isGroupBookingModalOpen, setIsGroupBookingModalOpen] = useState(false);
 
   useEffect(() => {
-    // Set default dates: today & tomorrow
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    setCheckInDate(today.toISOString().split('T')[0]);
-    setCheckOutDate(tomorrow.toISOString().split('T')[0]);
-
     fetchRooms();
   }, []);
 
@@ -70,20 +63,14 @@ const RoomsPage = () => {
     }
   };
 
-  const handleSearchAvailability = async (e) => {
-    e.preventDefault();
-    if (!checkInDate || !checkOutDate) {
-      toast.warning("Vui lòng chọn ngày nhận phòng và trả phòng!", "Chưa chọn ngày");
-      return;
-    }
-    if (new Date(checkOutDate) <= new Date(checkInDate)) {
-      toast.warning("Ngày trả phòng phải sau ngày nhận phòng!", "Ngày không hợp lệ");
-      return;
-    }
-
+  const handleSearch = async (from, to) => {
+    setCheckInDate(from);
+    setCheckOutDate(to);
     setLoading(true);
     try {
-      const data = await bookingRequestApi.getPublicAvailability(checkInDate, checkOutDate);
+      const fromStr = from.toISOString().split('T')[0];
+      const toStr = to.toISOString().split('T')[0];
+      const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
       const mapped = (data || []).map(room => ({
         id: room.roomTypeId || room.id,
         name: room.name,
@@ -107,11 +94,19 @@ const RoomsPage = () => {
   };
 
   const handleBookNow = (room) => {
+    if (!checkInDate || !checkOutDate) {
+      toast.warning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt!", "Chưa chọn thời gian");
+      return;
+    }
     setSelectedRoomToBook(room);
     setIsBookingModalOpen(true);
   };
 
   const handleGroupBook = (room) => {
+    if (!checkInDate || !checkOutDate) {
+      toast.warning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt đoàn.", "Chưa chọn thời gian");
+      return;
+    }
     setSelectedRoomForGroup(room);
     setIsGroupBookingModalOpen(true);
   };
@@ -128,82 +123,55 @@ const RoomsPage = () => {
     <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
       <PublicHeader />
 
-      {/* Hero Banner */}
-      <section className="bg-gradient-to-r from-[#1A365D] to-[#0F172A] text-white py-14 px-margin-desktop">
-        <div className="max-w-container-max-width mx-auto">
-          <div className="max-w-2xl">
-            <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Khám phá không gian nghỉ dưỡng</span>
-            <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-sm">Danh Sách Phòng & Bảng Giá</h1>
-            <p className="text-white/80 font-body-lg leading-relaxed">
-              Tất cả các phòng tại {hotelSetting?.propertyName || 'StayGO'} đều được trang bị nội thất cao cấp, máy điều hòa, Wifi tốc độ cao và dịch vụ dọn phòng hàng ngày.
-            </p>
-          </div>
-
-          {/* Quick Date Search Card */}
-          <form onSubmit={handleSearchAvailability} className="mt-8 bg-surface text-on-surface p-4 md:p-6 rounded-2xl shadow-xl border border-border-grey grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <IoCalendarOutline className="text-primary" size={16} /> Ngày nhận phòng
-              </label>
-              <input 
-                type="date" 
-                value={checkInDate}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setCheckInDate(e.target.value)}
-                className="w-full p-2.5 border border-border-grey rounded-lg text-sm bg-surface-container-low font-medium focus:outline-none focus:border-primary"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <IoCalendarOutline className="text-primary" size={16} /> Ngày trả phòng
-              </label>
-              <input 
-                type="date" 
-                value={checkOutDate}
-                min={checkInDate || new Date().toISOString().split('T')[0]}
-                onChange={(e) => setCheckOutDate(e.target.value)}
-                className="w-full p-2.5 border border-border-grey rounded-lg text-sm bg-surface-container-low font-medium focus:outline-none focus:border-primary"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <IoPeopleOutline className="text-primary" size={16} /> Sức chứa khách
-              </label>
-              <select 
-                value={guestCapacity}
-                onChange={(e) => setGuestCapacity(e.target.value)}
-                className="w-full p-2.5 border border-border-grey rounded-lg text-sm bg-surface-container-low font-medium focus:outline-none focus:border-primary"
-              >
-                <option value="ALL">Tất cả các loại phòng</option>
-                <option value="1">Phòng đơn (1 người)</option>
-                <option value="2">Phòng đôi (2 người)</option>
-                <option value="4">Phòng gia đình (3-4+ người)</option>
-              </select>
-            </div>
-
-            <button 
-              type="submit"
-              className="w-full h-[42px] bg-primary text-white hover:bg-primary-600 rounded-lg font-label-md font-semibold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-            >
-              <IoSearchOutline size={18} /> Kiểm tra phòng trống
-            </button>
-          </form>
+      {/* Hero Section - Synchronized with Landing Page */}
+      <section className="relative w-full h-[320px] flex flex-col items-center justify-center">
+        <div className="absolute inset-0 z-0">
+          <div 
+            className="bg-cover bg-center w-full h-full bg-neutral-800" 
+            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+          />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
+        <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6">
+          <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">
+            Danh Sách Phòng & Bảng Giá{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
+          </h1>
+          <p className="font-title-lg text-title-lg text-white drop-shadow-md">
+            Tìm kiếm để so sánh giá cả và lựa chọn không gian nghỉ dưỡng lý tưởng
+          </p>
+        </div>
+        
+        <SearchBar onSearch={handleSearch} />
       </section>
 
       {/* Main Room Grid */}
-      <main className="max-w-container-max-width mx-auto px-margin-desktop py-12 flex-1 w-full">
+      <main className="max-w-container-max-width mx-auto px-margin-desktop mt-24 mb-16 flex-1 w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-4 border-b border-border-grey">
           <div>
             <h2 className="font-headline-md text-on-surface font-bold">Lựa chọn phòng phù hợp ({filteredRooms.length} loại phòng)</h2>
             <p className="text-sm text-on-surface-variant mt-1">Giá đã bao gồm thuế phí, nước suối chào đón và wifi miễn phí</p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-            <IoCheckmarkCircleOutline size={16} /> Miễn phí hủy phòng trước 24 giờ
+          <div className="flex items-center gap-3">
+            {/* Quick Capacity Filter Buttons */}
+            <div className="flex bg-surface-container-low border border-border-grey rounded p-1 gap-1 text-xs">
+              {[
+                { id: 'ALL', label: 'Tất cả' },
+                { id: '1', label: '1 khách' },
+                { id: '2', label: '2 khách' },
+                { id: '4', label: '3-4+ khách' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setGuestCapacity(f.id)}
+                  className={`px-3 py-1.5 rounded transition-all font-medium ${guestCapacity === f.id ? 'bg-primary text-white font-bold shadow-xs' : 'text-on-surface-variant hover:text-on-surface'}`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
+              <IoCheckmarkCircleOutline size={16} /> Miễn phí hủy trước 24h
+            </div>
           </div>
         </div>
 

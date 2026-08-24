@@ -27,7 +27,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
 
-  const canMarkClean = ['OWNER', 'HOUSEKEEPER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role);
+  const canMarkClean = ['OWNER', 'HOUSEKEEPER', 'ADMIN'].includes(user?.role);
 
   const fetchDirtyRooms = async () => {
     setLoading(true);

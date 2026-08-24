@@ -49,6 +49,11 @@ export const guestApi = {
     return response.data;
   },
 
+  deleteIdentityDocument: async (guestId, docId) => {
+    const response = await api.delete(`/guests/${guestId}/documents/${docId}`);
+    return response.data;
+  },
+
   /**
    * NCL-12-CN-005: Xóa (anonymize) dữ liệu cá nhân của khách.
    * Chỉ ADMIN được gọi. Kiểm tra không còn hóa đơn PENDING trước khi xóa.
