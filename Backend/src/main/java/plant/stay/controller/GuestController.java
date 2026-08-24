@@ -83,6 +83,15 @@ public class GuestController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{id}/documents/{docId}")
+    public ResponseEntity<Void> deleteIdentityDocument(@PathVariable Long id,
+                                                       @PathVariable Long docId,
+                                                       HttpServletRequest request) {
+        checkStaff(request);
+        guestService.deleteIdentityDocument(id, docId);
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * NCL-12-CN-005: Xóa (anonymize) dữ liệu cá nhân của khách.
      * Chỉ ADMIN được thực hiện (QTN-24 / Luật số 91/2025).

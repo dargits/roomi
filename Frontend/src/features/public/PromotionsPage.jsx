@@ -107,15 +107,22 @@ const PromotionsPage = () => {
     <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
       <PublicHeader />
 
-      {/* Hero Banner */}
-      <section className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#334155] text-white py-16 px-margin-desktop">
-        <div className="max-w-container-max-width mx-auto text-center max-w-3xl">
+      {/* Hero Banner with Hotel Background Image */}
+      <section className="relative text-white py-16 px-margin-desktop overflow-hidden bg-neutral-900">
+        <div className="absolute inset-0 z-0">
+          <div 
+            className="bg-cover bg-center w-full h-full" 
+            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/75 to-black/85" />
+        </div>
+        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl">
           <div className="inline-flex items-center gap-2 bg-amber-400/20 text-amber-300 border border-amber-400/40 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
             <IoFlashOutline size={16} /> Ưu Đãi Mới Nhất 2026
           </div>
           <h1 className="font-display-lg text-white mb-4 drop-shadow-sm">Chương Trình Khuyến Mãi & Ưu Đãi Đặc Biệt</h1>
           <p className="text-white/80 font-body-lg leading-relaxed">
-            Khám phá các gói ưu đãi nghỉ dưỡng hấp dẫn tại {hotelSetting?.propertyName || 'StayGO'}. Tiết kiệm nhiều hơn cho kỳ nghỉ tuyệt vời của bạn và gia đình!
+            Khám phá các gói ưu đãi nghỉ dưỡng hấp dẫn tại {hotelSetting?.propertyName || 'Khách Sạn'}. Tiết kiệm nhiều hơn cho kỳ nghỉ tuyệt vời của bạn và gia đình!
           </p>
         </div>
       </section>

@@ -34,6 +34,17 @@ vi.mock('../../../services/invoiceApi', () => {
   };
 });
 
+// Mock depositApi
+vi.mock('../../../services/depositApi', () => {
+  const mockApi = {
+    getDepositsByBooking: vi.fn().mockResolvedValue([]),
+  };
+  return {
+    default: mockApi,
+    depositApi: mockApi,
+  };
+});
+
 // Mock bookingApi
 vi.mock('../../../services/bookingApi', () => {
   const mockApi = {
