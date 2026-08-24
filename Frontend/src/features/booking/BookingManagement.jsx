@@ -60,6 +60,8 @@ const BookingManagement = () => {
     setRefreshKey(prev => prev + 1); // Refresh the list
   };
 
+  const [autoAssignGroup, setAutoAssignGroup] = useState(null);
+
   return (
     <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
       <div className="p-6 border-b border-border-grey bg-surface-container-lowest">
@@ -118,7 +120,7 @@ const BookingManagement = () => {
       <div className="p-0">
         {activeTab === 'list' && <BookingList key={`list-${refreshKey}`} />}
         {activeTab === 'calendar' && <BookingCalendar />}
-        {activeTab === 'groups' && <GroupBookingList refreshKey={refreshKey} />}
+        {activeTab === 'groups' && <GroupBookingList refreshKey={refreshKey} autoOpenAssignGroup={autoAssignGroup} />}
         {activeTab === 'requests' && <BookingRequestList key={`req-${refreshKey}`} />}
       </div>
 
@@ -130,14 +132,18 @@ const BookingManagement = () => {
       <GroupBookingForm
         isOpen={isGroupFormOpen}
         onClose={() => setIsGroupFormOpen(false)}
-        onSuccess={() => {
+        onSuccess={(createdGroup, autoAssign) => {
           setIsGroupFormOpen(false);
           setRefreshKey((previous) => previous + 1);
           handleTabChange('groups');
+          if (autoAssign && createdGroup) {
+            setAutoAssignGroup(createdGroup);
+          }
         }}
       />
     </div>
   );
 };
+
 
 export default BookingManagement;

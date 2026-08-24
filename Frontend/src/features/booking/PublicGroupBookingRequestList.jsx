@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { IoCallOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoPeopleOutline, IoAlertCircleOutline, IoCloseOutline } from 'react-icons/io5';
+import { IoCallOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoPeopleOutline, IoAlertCircleOutline, IoCloseOutline, IoCashOutline } from 'react-icons/io5';
 import publicGroupBookingRequestApi from '../../services/publicGroupBookingRequestApi';
+import groupBookingApi from '../../services/groupBookingApi';
 import { calculateNights, formatStayDateTime } from '../../utils/formatDate';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import GroupDepositModal from './GroupDepositModal';
 import { useToast } from '../../context/ToastContext';
 
 const statusStyle = {
@@ -13,10 +15,11 @@ const statusStyle = {
 };
 
 const PublicGroupBookingRequestList = () => {
-  const { success: toastSuccess } = useToast();
+  const { toastSuccess, toastError } = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [depositGroup, setDepositGroup] = useState(null);
   const [modalState, setModalState] = useState({
     isOpen: false,
     type: null, // 'APPROVE' | 'REJECT'
@@ -72,14 +75,27 @@ const PublicGroupBookingRequestList = () => {
     setErrorMsg('');
     try {
       if (type === 'APPROVE') {
-        await publicGroupBookingRequestApi.approve(request.id);
-        toastSuccess(`Đã duyệt yêu cầu đặt đoàn của ${request.representativeName} thành công!`);
+        const approvedReq = await publicGroupBookingRequestApi.approve(request.id);
+        toastSuccess(`Đã duyệt yêu cầu đặt đoàn của ${request.representativeName} thành công! Mời bạn thu tiền đặt cọc.`);
+        closeModal();
+        await loadRequests();
+        const groupId = approvedReq?.convertedGroupBookingId || approvedReq?.data?.convertedGroupBookingId;
+        if (groupId) {
+          try {
+            const groupData = await groupBookingApi.getById(groupId);
+            if (groupData) {
+              setDepositGroup(groupData);
+            }
+          } catch (e) {
+            console.error('Không thể tải thông tin đoàn vừa tạo', e);
+          }
+        }
       } else if (type === 'REJECT') {
         await publicGroupBookingRequestApi.reject(request.id, reason);
         toastSuccess(`Đã từ chối yêu cầu đặt đoàn của ${request.representativeName} thành công!`);
+        closeModal();
+        await loadRequests();
       }
-      closeModal();
-      await loadRequests();
     } catch (error) {
       setErrorMsg(error.response?.data?.message || 'Không thể thực hiện thao tác.');
     } finally {
@@ -94,7 +110,7 @@ const PublicGroupBookingRequestList = () => {
       </div>
       <div className="overflow-x-auto rounded-lg border border-border-grey">
         <table className="w-full text-left"><thead><tr className="bg-surface-container-low text-xs uppercase text-on-surface-variant"><th className="p-3">Đại diện</th><th className="p-3">Nhu cầu phòng</th><th className="p-3">Thời gian</th><th className="p-3 text-center">Trạng thái</th><th className="p-3 text-center">Thao tác</th></tr></thead>
-          <tbody>{loading ? <tr><td colSpan="5" className="p-6 text-center text-on-surface-variant">Đang tải yêu cầu đoàn...</td></tr> : requests.length === 0 ? <tr><td colSpan="5" className="p-6 text-center text-on-surface-variant">Chưa có yêu cầu đoàn từ StayAway.</td></tr> : requests.map((request) => <tr key={request.id} className="border-t border-border-grey align-top"><td className="p-3"><div className="font-semibold text-on-surface">{request.representativeName}</div><div className="mt-1 flex items-center gap-1 text-sm text-on-surface-variant"><IoCallOutline size={14} />{request.phone}</div>{request.note && <div className="mt-2 text-xs italic text-on-surface-variant">{request.note}</div>}</td><td className="p-3 text-sm text-on-surface">{request.rooms.map((room) => <div key={room.roomTypeId}>{room.roomTypeName}: <strong>{room.quantity}</strong> phòng</div>)}</td><td className="p-3 text-sm text-on-surface">{formatStayDateTime(request.checkInDate, 'checkin')} - {formatStayDateTime(request.checkOutDate, 'checkout')}<div className="mt-1 text-xs text-on-surface-variant">{calculateNights(request.checkInDate, request.checkOutDate)} đêm</div></td><td className="p-3 text-center"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusStyle[request.status]}`}>{request.status === 'PENDING' ? 'Chờ duyệt' : request.status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'}</span>{request.rejectReason && <div className="mt-2 text-xs text-red-600">{request.rejectReason}</div>}</td><td className="p-3 text-center">{request.status === 'PENDING' && <div className="flex justify-center gap-2"><button onClick={() => openApproveModal(request)} disabled={processing} className="inline-flex items-center gap-1 rounded border border-green-300 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 disabled:opacity-50"><IoCheckmarkCircleOutline size={15} />Duyệt</button><button onClick={() => openRejectModal(request)} disabled={processing} className="inline-flex items-center gap-1 rounded border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"><IoCloseCircleOutline size={15} />Từ chối</button></div>}{request.convertedGroupBookingId && <span className="text-xs text-primary">Đoàn #{request.convertedGroupBookingId}</span>}</td></tr>)}</tbody>
+          <tbody>{loading ? <tr><td colSpan="5" className="p-6 text-center text-on-surface-variant">Đang tải yêu cầu đoàn...</td></tr> : requests.length === 0 ? <tr><td colSpan="5" className="p-6 text-center text-on-surface-variant">Chưa có yêu cầu đoàn từ StayAway.</td></tr> : requests.map((request) => <tr key={request.id} className="border-t border-border-grey align-top"><td className="p-3"><div className="font-semibold text-on-surface">{request.representativeName}</div><div className="mt-1 flex items-center gap-1 text-sm text-on-surface-variant"><IoCallOutline size={14} />{request.phone}</div>{request.note && <div className="mt-2 text-xs italic text-on-surface-variant">{request.note}</div>}</td><td className="p-3 text-sm text-on-surface">{request.rooms.map((room) => <div key={room.roomTypeId}>{room.roomTypeName}: <strong>{room.quantity}</strong> phòng</div>)}</td><td className="p-3 text-sm text-on-surface">{formatStayDateTime(request.checkInDate, 'checkin')} - {formatStayDateTime(request.checkOutDate, 'checkout')}<div className="mt-1 text-xs text-on-surface-variant">{calculateNights(request.checkInDate, request.checkOutDate)} đêm</div></td><td className="p-3 text-center"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusStyle[request.status]}`}>{request.status === 'PENDING' ? 'Chờ duyệt' : request.status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'}</span>{request.rejectReason && <div className="mt-2 text-xs text-red-600">{request.rejectReason}</div>}</td><td className="p-3 text-center">{request.status === 'PENDING' && <div className="flex justify-center gap-2"><button onClick={() => openApproveModal(request)} disabled={processing} className="inline-flex items-center gap-1 rounded border border-green-300 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 disabled:opacity-50"><IoCheckmarkCircleOutline size={15} />Duyệt</button><button onClick={() => openRejectModal(request)} disabled={processing} className="inline-flex items-center gap-1 rounded border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"><IoCloseCircleOutline size={15} />Từ chối</button></div>}{request.convertedGroupBookingId && <div className="flex flex-col items-center gap-1"><span className="text-xs font-semibold text-primary">Đoàn #{request.convertedGroupBookingId}</span><button type="button" onClick={async () => { try { const g = await groupBookingApi.getById(request.convertedGroupBookingId); setDepositGroup(g); } catch (e) { console.error(e); } }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md"><IoCashOutline size={12} /> Thu cọc</button></div>}</td></tr>)}</tbody>
         </table>
       </div>
 
@@ -185,6 +201,17 @@ const PublicGroupBookingRequestList = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Modal thu cọc đoàn sau khi duyệt */}
+      <GroupDepositModal
+        isOpen={Boolean(depositGroup)}
+        group={depositGroup}
+        onClose={() => setDepositGroup(null)}
+        onSuccess={() => {
+          loadRequests();
+          toastSuccess('Đã thu tiền đặt cọc đoàn thành công!');
+        }}
+      />
     </section>
   );
 };

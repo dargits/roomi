@@ -20,8 +20,12 @@ public class Deposit {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", nullable = false)
+    @JoinColumn(name = "booking_id")
     private Booking booking;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_booking_id")
+    private GroupBooking groupBooking;
 
     // Số tiền cọc yêu cầu theo chính sách
     @Column(name = "required_amount", precision = 12, scale = 2)

@@ -35,10 +35,6 @@ const LandingPage = () => {
         const mappedRooms = data.map(room => ({
           id: room.id,
           name: room.name,
-          rating: 4.5, // Placeholder
-          ratingScore: 8.5, // Placeholder
-          ratingText: "Tuyệt vời", // Placeholder
-          reviews: 120, // Placeholder
           maxCapacity: room.maxCapacity,
           amenitiesDescription: room.amenitiesDescription,
           basePrice: room.basePrice,
@@ -75,10 +71,6 @@ const LandingPage = () => {
       const mappedRooms = data.map(room => ({
         id: room.roomTypeId || room.id,
         name: room.name,
-        rating: 4.5, 
-        ratingScore: 8.5, 
-        ratingText: "Tuyệt vời", 
-        reviews: 120, 
         maxCapacity: room.maxCapacity,
         amenitiesDescription: room.amenitiesDescription,
         basePrice: room.basePrice,

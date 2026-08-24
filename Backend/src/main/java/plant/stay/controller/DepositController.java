@@ -298,7 +298,7 @@ public class DepositController {
     private DepositResponse toResponse(Deposit d) {
         return DepositResponse.builder()
                 .id(d.getId())
-                .bookingId(d.getBooking().getId())
+                .bookingId(d.getBooking() != null ? d.getBooking().getId() : null)
                 .requiredAmount(d.getRequiredAmount())
                 .collectedAmount(d.getCollectedAmount())
                 .refundedAmount(d.getRefundedAmount())

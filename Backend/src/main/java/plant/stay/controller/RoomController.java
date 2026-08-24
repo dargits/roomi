@@ -45,6 +45,17 @@ public class RoomController {
         return ResponseEntity.ok(roomService.getById(id));
     }
 
+    // Lấy danh sách phòng trống không xung đột lịch
+    @GetMapping("/available")
+    public ResponseEntity<List<RoomResponse>> getAvailableRooms(
+            @RequestParam Long roomTypeId,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate checkInDate,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate checkOutDate,
+            HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(roomService.getAvailableWithoutConflicts(roomTypeId, checkInDate, checkOutDate));
+    }
+
     @PostMapping
     public ResponseEntity<RoomResponse> create(@Valid @RequestBody RoomRequest roomRequest,
                                                HttpServletRequest request) {

@@ -12,6 +12,16 @@ export const roomApi = {
     return roomApi.getAllRooms(status);
   },
 
+  // Lấy phòng trống không bị trùng lịch cho khoảng ngày và loại phòng
+  getAvailableRooms: async (roomTypeId, checkInDate, checkOutDate) => {
+    const params = {};
+    if (roomTypeId) params.roomTypeId = roomTypeId;
+    if (checkInDate) params.checkInDate = checkInDate;
+    if (checkOutDate) params.checkOutDate = checkOutDate;
+    const response = await api.get('/rooms/available', { params });
+    return response.data;
+  },
+
   getRoomById: async (id) => {
     const response = await api.get(`/rooms/${id}`);
     return response.data;

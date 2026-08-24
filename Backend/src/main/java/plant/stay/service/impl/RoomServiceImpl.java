@@ -123,6 +123,13 @@ public class RoomServiceImpl implements RoomService {
         return toResponse(room);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomResponse> getAvailableWithoutConflicts(Long roomTypeId, java.time.LocalDate checkInDate, java.time.LocalDate checkOutDate) {
+        return roomRepository.findAvailableWithoutConflicts(roomTypeId, RoomStatus.AVAILABLE, checkInDate, checkOutDate)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
     private Room findById(Long id) {
         return roomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với id: " + id));
