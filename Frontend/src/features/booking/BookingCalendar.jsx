@@ -444,8 +444,8 @@ const BookingCalendar = () => {
         <AssignRoomModal
           isOpen={true}
           onClose={() => setAssigningBooking(null)}
-          bookingId={assigningBooking.bookingId}
-          roomTypeId={assigningBooking.roomTypeId}
+          booking={assigningBooking}
+          bookingId={assigningBooking.bookingId || assigningBooking.id}
           onAssigned={() => {
             loadData();
             setAssigningBooking(null);

@@ -47,6 +47,9 @@ public class InvoiceServiceTest {
     @Autowired
     private GroupBookingRepository groupBookingRepository;
 
+    @Autowired
+    private DepositRepository depositRepository;
+
     private User testUser;
     private Booking testBooking;
 
@@ -144,6 +147,29 @@ public class InvoiceServiceTest {
         assertEquals(0, new BigDecimal("2400000").compareTo(response.getRoomAmount()));
         assertEquals(0, new BigDecimal("2400000").compareTo(response.getTotalAmount()));
         assertEquals(1, invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBooking.getId()).size());
+    }
+
+    @Test
+    @DisplayName("Lập hóa đơn gộp cho đoàn có thu cọc chỉ cấn trừ đúng số tiền cọc (không bị nhân đôi)")
+    void combinedInvoiceAppliesGroupDepositExactlyOnce() {
+        GroupBooking groupBooking = createCheckedInGroup();
+        // Thu cọc đoàn 720.000 đ
+        depositRepository.save(Deposit.builder()
+                .groupBooking(groupBooking)
+                .requiredAmount(new BigDecimal("720000"))
+                .collectedAmount(new BigDecimal("720000"))
+                .status(DepositStatus.COLLECTED)
+                .paymentMethod(PaymentMethod.CASH)
+                .collectedAt(java.time.LocalDateTime.now())
+                .collectedBy(testUser)
+                .build());
+
+        GroupInvoiceResponse response = invoiceService.createGroupInvoices(
+                groupBooking.getId(), groupInvoiceRequest(InvoiceMode.COMBINED), testUser);
+
+        assertEquals(0, new BigDecimal("2400000").compareTo(response.getTotalAmount()));
+        assertEquals(0, new BigDecimal("720000").compareTo(response.getPaidAmount()));
+        assertEquals(0, new BigDecimal("1680000").compareTo(response.getOutstandingAmount()));
     }
 
     @Test

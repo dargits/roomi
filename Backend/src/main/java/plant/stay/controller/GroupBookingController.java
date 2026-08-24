@@ -80,6 +80,40 @@ public class GroupBookingController {
         return ResponseEntity.ok(groupBookingService.cancelPartialRooms(id, request.getBookingIds(), actor));
     }
 
+    /**
+     * P1.4: Preview tính phí hủy một phần theo thời gian thực (không lưu vào CSDL).
+     */
+    @PostMapping("/{id}/cancel-partial/preview")
+    public ResponseEntity<?> previewCancelPartial(
+            @PathVariable Long id,
+            @Valid @RequestBody PartialCancelRequest request,
+            HttpServletRequest httpRequest) {
+        checkReadAccess(httpRequest);
+        return ResponseEntity.ok(groupBookingService.previewCancelPartial(id, request.getBookingIds()));
+    }
+
+    /**
+     * P0: Ghi nhận thu tiền cọc cho hồ sơ đoàn.
+     */
+    @PostMapping("/{id}/deposits")
+    public ResponseEntity<?> createDeposit(
+            @PathVariable Long id,
+            @Valid @RequestBody plant.stay.dto.request.GroupDepositCreateRequest request,
+            HttpServletRequest httpRequest) {
+        User actor = checkWriteAccess(httpRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(groupBookingService.createDeposit(id, request, actor));
+    }
+
+    /**
+     * P0: Lấy danh sách các khoản cọc của đoàn.
+     */
+    @GetMapping("/{id}/deposits")
+    public ResponseEntity<?> getDeposits(@PathVariable Long id, HttpServletRequest httpRequest) {
+        checkReadAccess(httpRequest);
+        return ResponseEntity.ok(groupBookingService.getDeposits(id));
+    }
+
+
     @GetMapping("/{id}/invoices")
     public ResponseEntity<GroupInvoiceResponse> getInvoices(@PathVariable Long id, HttpServletRequest request) {
         checkFinanceReadAccess(request);
@@ -93,6 +127,17 @@ public class GroupBookingController {
         User actor = checkFinanceWriteAccess(httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(invoiceService.createGroupInvoices(id, request, actor));
     }
+
+    /**
+     * Trả phòng hàng loạt cho đoàn: checkout tất cả phòng CHECKED_IN cùng lúc.
+     * Dùng khi đoàn trả phòng đồng loạt. Yêu cầu hóa đơn đoàn đã thanh toán.
+     */
+    @PostMapping("/{id}/bulk-checkout")
+    public ResponseEntity<?> bulkCheckOut(@PathVariable Long id, HttpServletRequest httpRequest) {
+        User actor = checkWriteAccess(httpRequest);
+        return ResponseEntity.ok(groupBookingService.bulkCheckOut(id, actor));
+    }
+
 
     private User checkWriteAccess(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
@@ -121,8 +166,9 @@ public class GroupBookingController {
 
     private User checkFinanceWriteAccess(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT)) {
-            throw new UnauthorizedException("Chỉ OWNER hoặc ACCOUNTANT mới có quyền lập hóa đơn đoàn");
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT
+                && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ADMIN)) {
+            throw new UnauthorizedException("Không có quyền lập hóa đơn đoàn");
         }
         return user;
     }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ToastContainer from '../components/ui/Toast/ToastContainer';
 import ConfirmDialog from '../components/ui/Toast/ConfirmDialog';
 
@@ -45,11 +45,20 @@ export const ToastProvider = ({ children }) => {
     resolve: null
   });
 
+  const lastToastRef = useRef({ message: '', time: 0 });
+
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   const showToast = useCallback(({ type = 'info', title, message, duration = 4000 }) => {
+    // Chống lặp thông báo giống hệt nhau liên tục trong 2.5s
+    const now = Date.now();
+    if (message && lastToastRef.current.message === message && now - lastToastRef.current.time < 2500) {
+      return null;
+    }
+    lastToastRef.current = { message, time: now };
+
     const id = Date.now() + Math.random().toString(36).substring(2, 9);
     const newToast = {
       id,
@@ -125,16 +134,25 @@ export const ToastProvider = ({ children }) => {
     };
   }, [showToast, confirm]);
 
-  const value = {
+  const success = useCallback((msg, title, dur) => showToast({ type: 'success', message: msg, title, duration: dur }), [showToast]);
+  const error = useCallback((msg, title, dur) => showToast({ type: 'error', message: msg, title, duration: dur }), [showToast]);
+  const warning = useCallback((msg, title, dur) => showToast({ type: 'warning', message: msg, title, duration: dur }), [showToast]);
+  const info = useCallback((msg, title, dur) => showToast({ type: 'info', message: msg, title, duration: dur }), [showToast]);
+
+  const value = useMemo(() => ({
     toasts,
     showToast,
     removeToast,
-    success: (msg, title, dur) => showToast({ type: 'success', message: msg, title, duration: dur }),
-    error: (msg, title, dur) => showToast({ type: 'error', message: msg, title, duration: dur }),
-    warning: (msg, title, dur) => showToast({ type: 'warning', message: msg, title, duration: dur }),
-    info: (msg, title, dur) => showToast({ type: 'info', message: msg, title, duration: dur }),
+    success,
+    error,
+    warning,
+    info,
+    toastSuccess: success,
+    toastError: error,
+    toastWarning: warning,
+    toastInfo: info,
     confirm
-  };
+  }), [toasts, showToast, removeToast, success, error, warning, info, confirm]);
 
   return (
     <ToastContext.Provider value={value}>
@@ -166,11 +184,16 @@ export const useToast = () => {
       error: toast.error,
       warning: toast.warning,
       info: toast.info,
+      toastSuccess: toast.success,
+      toastError: toast.error,
+      toastWarning: toast.warning,
+      toastInfo: toast.info,
       confirm: toast.confirm
     };
   }
   return context;
 };
+
 
 export const useConfirm = () => {
   const { confirm } = useToast();

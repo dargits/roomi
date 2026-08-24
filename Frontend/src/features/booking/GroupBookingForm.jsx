@@ -39,6 +39,7 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
       representativeName: '', representativePhone: '', representativeEmail: '',
       checkInDate: '', checkOutDate: '', note: '', rooms: [emptyRoomLine()],
     });
+    setAutoAssign(false);
     setError('');
     loadRoomTypes();
   }, [isOpen]);
@@ -76,6 +77,8 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
     }));
   };
 
+  const [autoAssign, setAutoAssign] = useState(false);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -89,11 +92,13 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
     }
     setLoading(true);
     try {
-      await groupBookingApi.create({
+      const created = await groupBookingApi.create({
         ...formData,
         rooms: formData.rooms.map((line) => ({ roomTypeId: Number(line.roomTypeId), quantity: Number(line.quantity) })),
       });
-      onSuccess();
+      if (onSuccess) {
+        onSuccess(created, autoAssign);
+      }
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể tạo hồ sơ đoàn.');
     } finally {
@@ -127,24 +132,83 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
             <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md">{totalRooms} phòng</span>
           </div>
           <div className="p-4 space-y-3">
-            {formData.rooms.map((line, index) => (
-              <div key={index} className="grid grid-cols-[1fr_90px_38px] gap-3 items-end">
-                <label className="block text-sm text-on-surface-variant">
-                  <span className="block font-label-md mb-1.5">Loại phòng</span>
-                  <select value={line.roomTypeId} onChange={(event) => updateRoomLine(index, 'roomTypeId', event.target.value)} className="w-full py-2.5 px-3 bg-surface border border-border-grey rounded-lg outline-none focus:border-primary" required disabled={loadingRoomTypes}>
-                    <option value="">{loadingRoomTypes ? 'Đang tải...' : 'Chọn loại phòng'}</option>
-                    {roomTypes.map((roomType) => <option key={roomType.id} value={roomType.id}>{roomType.name}</option>)}
-                  </select>
-                </label>
-                <Input label="Số lượng" type="number" min="1" step="1" value={line.quantity} onChange={(event) => updateRoomLine(index, 'quantity', event.target.value)} required />
-                <button type="button" title="Xóa dòng phòng" onClick={() => removeRoomLine(index)} disabled={formData.rooms.length === 1} className="h-[42px] border border-red-200 text-error rounded-md hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"><IoRemoveOutline className="mx-auto" size={18} /></button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" icon={IoAddOutline} onClick={addRoomLine}>Thêm loại phòng</Button>
+            {formData.rooms.map((line, index) => {
+              const selectedOtherIds = new Set(
+                formData.rooms
+                  .filter((_, lineIndex) => lineIndex !== index && _.roomTypeId)
+                  .map((r) => Number(r.roomTypeId))
+              );
+              const availableRoomTypes = roomTypes.filter(
+                (rt) => !selectedOtherIds.has(Number(rt.id)) || Number(rt.id) === Number(line.roomTypeId)
+              );
+
+              return (
+                <div key={index} className="grid grid-cols-[1fr_90px_38px] gap-3 items-end">
+                  <label className="block text-sm text-on-surface-variant">
+                    <span className="block font-label-md mb-1.5">Loại phòng</span>
+                    <select
+                      value={line.roomTypeId}
+                      onChange={(event) => updateRoomLine(index, 'roomTypeId', event.target.value)}
+                      className="w-full py-2.5 px-3 bg-surface border border-border-grey rounded-lg outline-none focus:border-primary"
+                      required
+                      disabled={loadingRoomTypes}
+                    >
+                      <option value="">{loadingRoomTypes ? 'Đang tải...' : 'Chọn loại phòng'}</option>
+                      {availableRoomTypes.map((roomType) => (
+                        <option key={roomType.id} value={roomType.id}>
+                          {roomType.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Input
+                    label="Số lượng"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={line.quantity}
+                    onChange={(event) => updateRoomLine(index, 'quantity', event.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    title="Xóa dòng phòng"
+                    onClick={() => removeRoomLine(index)}
+                    disabled={formData.rooms.length === 1}
+                    className="h-[42px] border border-red-200 text-error rounded-md hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <IoRemoveOutline className="mx-auto" size={18} />
+                  </button>
+                </div>
+              );
+            })}
+            {formData.rooms.length < roomTypes.length && (
+              <Button type="button" variant="outline" size="sm" icon={IoAddOutline} onClick={addRoomLine}>
+                Thêm loại phòng
+              </Button>
+            )}
           </div>
         </div>
 
         <Input label="Ghi chú" name="note" icon={IoDocumentOutline} value={formData.note} onChange={updateField} placeholder="Yêu cầu chung của đoàn..." />
+
+        {/* P1.1: Tùy chọn xếp phòng ngay */}
+        <label className="flex items-center gap-2.5 p-3 rounded-lg border border-primary/30 bg-primary/5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={autoAssign}
+            onChange={(e) => setAutoAssign(e.target.checked)}
+            className="w-4 h-4 rounded border-border-grey text-primary focus:ring-primary"
+          />
+          <div>
+            <div className="font-semibold text-sm text-on-surface">
+              Mở ngay sơ đồ xếp phòng sau khi tạo hồ sơ đoàn
+            </div>
+            <div className="text-xs text-on-surface-variant">
+              Chuyển tiếp đến sơ đồ phòng trực quan để chọn phòng hoặc áp dụng gợi ý (phòng chỉ được gán khi bạn bấm Xác nhận)
+            </div>
+          </div>
+        </label>
       </form>
       <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-border-grey">
         <Button variant="ghost" onClick={onClose} disabled={loading} icon={IoCloseOutline}>Hủy</Button>
@@ -153,5 +217,6 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
     </Modal>
   );
 };
+
 
 export default GroupBookingForm;

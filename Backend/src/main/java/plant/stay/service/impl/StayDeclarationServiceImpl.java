@@ -158,19 +158,10 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         for (IdentityDocument doc : identityDocuments) {
             if (!isBlank(doc.getImageUrl())) uploaded.add(doc.getDocumentType());
         }
-        boolean hasPassport = uploaded.contains(IdentityDocumentType.PASSPORT);
-        boolean hasNationalIdFront = uploaded.contains(IdentityDocumentType.NATIONAL_ID_FRONT);
-        boolean hasNationalIdBack = uploaded.contains(IdentityDocumentType.NATIONAL_ID_BACK);
-        boolean hasNationalId = hasNationalIdFront && hasNationalIdBack;
+        boolean hasDocument = !uploaded.isEmpty();
 
-        if (!hasPassport && !hasNationalId) {
-            if (hasNationalIdFront && !hasNationalIdBack) {
-                missingRequirements.add("Ảnh CCCD (Mặt sau)");
-            } else if (!hasNationalIdFront && hasNationalIdBack) {
-                missingRequirements.add("Ảnh CCCD (Mặt trước)");
-            } else {
-                missingRequirements.add("Ảnh giấy tờ tùy thân");
-            }
+        if (!hasDocument) {
+            missingRequirements.add("Ảnh giấy tờ tùy thân");
         }
 
         StayDeclarationStatus declarationStatus = declaration == null

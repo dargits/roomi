@@ -10,7 +10,7 @@ on:
 
 jobs:
   backend-test:
-    name: ☕ Backend (Spring Boot + JUnit 5 + H2)
+    name: ☕ Backend (Spring Boot + JUnit 5 + H2) // hws ơi anh đến từ hành tinh nào vậy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -32,7 +32,7 @@ jobs:
         run: ./mvnw test --batch-mode
 
   frontend-test:
-    name: ⚛️ Frontend (React + Vitest + Build)
+    name: ⚛️ Frontend (React + Vitest + Build) // chan thành viên
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

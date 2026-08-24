@@ -58,6 +58,7 @@ const StayDeclarationPage = () => {
   const { user } = useAuth();
   const { success, error: toastError } = useToast();
 
+  const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role);
   const canViewFullId = CAN_VIEW_FULL_ID.includes(user?.role);
   const canComplete = ['OWNER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role);
 
@@ -79,6 +80,7 @@ const StayDeclarationPage = () => {
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (date) => {
+    if (!hasAccess) return;
     setLoading(true);
     try {
       const result = await stayDeclarationApi.getByDate(date);
@@ -88,11 +90,13 @@ const StayDeclarationPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toastError]);
+  }, [hasAccess, toastError]);
 
   useEffect(() => {
-    fetchData(selectedDate);
-  }, [selectedDate, fetchData]);
+    if (hasAccess) {
+      fetchData(selectedDate);
+    }
+  }, [selectedDate, fetchData, hasAccess]);
 
   // ── Export Excel ─────────────────────────────────────────────────────────────
   const handleExport = async () => {
@@ -154,6 +158,14 @@ const StayDeclarationPage = () => {
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
+  if (!hasAccess) {
+    return (
+      <div className="p-6 text-alert-red bg-red-50 rounded-md">
+        Bạn không có quyền truy cập trang này.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -367,16 +379,14 @@ const StayDeclarationPage = () => {
                             >
                               Đánh dấu
                             </Button>
-                            {guest.documentStatus === 'MISSING' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                icon={IoImageOutline}
-                                onClick={() => setUploadModal({ open: true, guest })}
-                              >
-                                Tải ảnh lên
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              icon={IoImageOutline}
+                              onClick={() => setUploadModal({ open: true, guest })}
+                            >
+                              {guest.documents?.length > 0 ? 'Thêm ảnh' : 'Tải ảnh lên'}
+                            </Button>
                           </div>
                         )}
                         {isCompleted && (

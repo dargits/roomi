@@ -10,6 +10,7 @@ import {
   IoDocumentOutline, 
   IoInformationCircleOutline, 
   IoLocationOutline, 
+  IoLogOutOutline,
   IoMoonOutline, 
   IoPersonOutline, 
   IoSwapHorizontalOutline, 
@@ -27,6 +28,7 @@ import InvoicePrintTemplate from './InvoicePrintTemplate';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
+import CheckInModal from './CheckInModal';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
@@ -76,6 +78,12 @@ const BookingDetailPage = () => {
   // === Gia hạn & Nâng hạng ===
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // === Quick Actions: Nhận phòng / Trả phòng ===
+  const [checkInModalOpen, setCheckInModalOpen] = useState(false);
+  const [checkOutConfirm, setCheckOutConfirm] = useState(false);
+  const [checkOutProcessing, setCheckOutProcessing] = useState(false);
+  const [checkOutError, setCheckOutError] = useState('');
 
   useEffect(() => {
     if (bookingId) {
@@ -165,6 +173,26 @@ const BookingDetailPage = () => {
     }
   };
 
+  const handleQuickCheckOut = async () => {
+    setCheckOutProcessing(true);
+    setCheckOutError('');
+    try {
+      await bookingApi.checkOut(bookingId);
+      toastSuccess(`Đã trả phòng thành công cho khách ${booking.guestName}!`);
+      setCheckOutConfirm(false);
+      fetchBookingDetails();
+    } catch (err) {
+      const serverMsg = err.response?.data?.message || '';
+      if (serverMsg.includes('hóa đơn')) {
+        setCheckOutError('invoice_required');
+      } else {
+        setCheckOutError(serverMsg || 'Không thể trả phòng. Vui lòng thử lại.');
+      }
+    } finally {
+      setCheckOutProcessing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-surface rounded-lg shadow-sm border border-border-grey p-12 text-center text-on-surface-variant">
@@ -227,7 +255,7 @@ const BookingDetailPage = () => {
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-3">
           <div className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Thời gian lưu trú</div>
           <div className="font-title-sm text-on-surface bg-surface-container-low px-4 py-2 rounded-lg border border-border-grey flex items-center gap-2.5">
             <span>{formatStayDateTime(booking.checkInDate, 'checkin')}</span>
@@ -236,6 +264,29 @@ const BookingDetailPage = () => {
             <span className="text-xs text-primary font-bold bg-primary/10 px-2.5 py-1 rounded">
               {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
             </span>
+          </div>
+          {/* Quick Action Buttons */}
+          <div className="flex gap-2 flex-wrap justify-end">
+            {booking.status === 'CONFIRMED' && booking.roomId && (
+              <Button
+                size="sm"
+                variant="success"
+                icon={IoCheckmarkCircleOutline}
+                onClick={() => setCheckInModalOpen(true)}
+              >
+                Nhận phòng
+              </Button>
+            )}
+            {booking.status === 'CHECKED_IN' && (
+              <Button
+                size="sm"
+                variant="primary"
+                icon={IoLogOutOutline}
+                onClick={() => { setCheckOutConfirm(true); setCheckOutError(''); }}
+              >
+                Trả phòng
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -411,6 +462,87 @@ const BookingDetailPage = () => {
           onSuccess={fetchBookingDetails}
         />
       )}
+
+      {/* Modal Nhận phòng nhanh từ trang chi tiết */}
+      <CheckInModal
+        isOpen={checkInModalOpen}
+        onClose={() => setCheckInModalOpen(false)}
+        booking={booking}
+        onSuccess={() => {
+          setCheckInModalOpen(false);
+          fetchBookingDetails();
+        }}
+      />
+
+      {/* Modal Xác nhận Trả phòng nhanh */}
+      <Modal
+        isOpen={checkOutConfirm}
+        onClose={() => { if (!checkOutProcessing) { setCheckOutConfirm(false); setCheckOutError(''); } }}
+        title="Xác nhận Trả phòng"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          {checkOutError === 'invoice_required' ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+              <div className="flex items-center gap-2 font-semibold text-amber-800">
+                <IoAlertCircleOutline size={20} className="text-amber-600" />
+                Chưa thể trả phòng
+              </div>
+              <p className="text-sm text-amber-800">
+                Cần lập hóa đơn và thu tiền đầy đủ trước khi trả phòng.
+              </p>
+              <Button
+                variant="primary"
+                icon={IoDocumentOutline}
+                onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); handleTabChange('invoice'); }}
+              >
+                Mở tab Hóa đơn &amp; Thanh toán
+              </Button>
+            </div>
+          ) : checkOutError ? (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2">
+              <IoAlertCircleOutline size={18} className="shrink-0" />
+              <span>{checkOutError}</span>
+            </div>
+          ) : (
+            <>
+              <div className="bg-surface-container-low p-4 rounded-lg space-y-2 text-sm border border-border-grey">
+                <div className="flex justify-between">
+                  <span className="text-on-surface-variant">Khách hàng:</span>
+                  <span className="font-semibold text-on-surface">{booking.guestName}</span>
+                </div>
+                {booking.roomNumber && (
+                  <div className="flex justify-between">
+                    <span className="text-on-surface-variant">Phòng:</span>
+                    <span className="font-semibold text-primary">Phòng {booking.roomNumber}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-on-surface">
+                Xác nhận khách trả phòng và chuyển trạng thái sang <strong>Đã đi</strong>?
+              </p>
+            </>
+          )}
+          {!checkOutError && (
+            <div className="flex justify-end gap-3 pt-2 border-t border-border-grey">
+              <Button variant="ghost" onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); }} disabled={checkOutProcessing} icon={IoCloseOutline}>Hủy</Button>
+              <Button
+                variant="primary"
+                icon={IoLogOutOutline}
+                onClick={handleQuickCheckOut}
+                disabled={checkOutProcessing}
+              >
+                {checkOutProcessing ? 'Đang xử lý...' : 'Xác nhận Trả phòng'}
+              </Button>
+            </div>
+          )}
+          {checkOutError && checkOutError !== 'invoice_required' && (
+            <div className="flex justify-end pt-2 border-t border-border-grey">
+              <Button variant="ghost" onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); }} icon={IoCloseOutline}>Đóng</Button>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Modal Đổi phòng */}
       {showChangeRoom && (

@@ -45,6 +45,40 @@ const groupBookingApi = {
     const response = await api.post(`/group-bookings/${id}/cancel-partial`, { bookingIds });
     return response.data;
   },
+
+  /**
+   * P1.4: Preview tính phí hủy một phần theo thời gian thực.
+   */
+  previewCancelPartial: async (id, bookingIds) => {
+    const response = await api.post(`/group-bookings/${id}/cancel-partial/preview`, { bookingIds });
+    return response.data;
+  },
+
+  /**
+   * P0: Lấy danh sách các khoản cọc của đoàn.
+   */
+  getDeposits: async (id) => {
+    const response = await api.get(`/group-bookings/${id}/deposits`);
+    return response.data;
+  },
+
+  /**
+   * P0: Ghi nhận thu tiền cọc đoàn.
+   */
+  createDeposit: async (id, data) => {
+    const response = await api.post(`/group-bookings/${id}/deposits`, data);
+    return response.data;
+  },
+
+  /**
+   * Trả phòng hàng loạt cho đoàn - checkout tất cả phòng CHECKED_IN.
+   * @param {number} id - ID hồ sơ đoàn
+   */
+  bulkCheckOut: async (id) => {
+    const response = await api.post(`/group-bookings/${id}/bulk-checkout`);
+    return response.data;
+  },
 };
 
 export default groupBookingApi;
+

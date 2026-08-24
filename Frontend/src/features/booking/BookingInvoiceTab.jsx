@@ -459,7 +459,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               <div className="flex justify-between items-center p-3 bg-green-50/80 rounded-lg border border-green-200">
                 <div>
                   <div className="font-title-sm text-green-900 flex items-center gap-1.5 font-bold">
-                    <span>💵 Tiền đặt cọc</span>
+                    <span>Tiền đặt cọc</span>
                     <span className="text-[11px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-normal">Đã thu trước</span>
                   </div>
                   <div className="text-xs text-green-700 mt-0.5">
@@ -481,7 +481,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                 <div key={p.id || idx} className="flex justify-between items-center p-3 bg-surface-container-low rounded-lg border border-border-grey">
                   <div>
                     <div className="font-title-sm text-on-surface flex items-center gap-2">
-                      {p.method === 'CASH' ? '💵 Tiền mặt' : p.method === 'TRANSFER' ? '📱 Chuyển khoản' : '💳 Thẻ POS'}
+                      {p.method === 'CASH' ? 'Tiền mặt' : p.method === 'TRANSFER' ? 'Chuyển khoản' : 'Thẻ POS'}
                     </div>
                     <div className="text-xs text-on-surface-variant mt-0.5">
                       {new Date(p.paidAt).toLocaleString('vi-VN')} {p.collectedByName ? `• ${p.collectedByName}` : ''}

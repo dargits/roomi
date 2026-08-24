@@ -9,6 +9,8 @@ public class GuestCheckInDto {
     @NotBlank(message = "Họ tên không được để trống")
     private String name;
 
-    @Pattern(regexp = "^(\\d{9}|\\d{12})$", message = "CCCD/CMND phải bao gồm chính xác 9 hoặc 12 chữ số")
+    @Pattern(regexp = "^[A-Za-z0-9]{6,20}$", message = "CCCD/CMND hoặc Hộ chiếu không hợp lệ (từ 6-20 ký tự)")
     private String idNumber;
+
+    private String phone;
 }
