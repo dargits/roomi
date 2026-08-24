@@ -39,7 +39,6 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
       representativeName: '', representativePhone: '', representativeEmail: '',
       checkInDate: '', checkOutDate: '', note: '', rooms: [emptyRoomLine()],
     });
-    setAutoAssign(false);
     setError('');
     loadRoomTypes();
   }, [isOpen]);
@@ -77,8 +76,6 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
     }));
   };
 
-  const [autoAssign, setAutoAssign] = useState(false);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -97,7 +94,7 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
         rooms: formData.rooms.map((line) => ({ roomTypeId: Number(line.roomTypeId), quantity: Number(line.quantity) })),
       });
       if (onSuccess) {
-        onSuccess(created, autoAssign);
+        onSuccess(created, false);
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể tạo hồ sơ đoàn.');
@@ -191,24 +188,6 @@ const GroupBookingForm = ({ isOpen, onClose, onSuccess }) => {
         </div>
 
         <Input label="Ghi chú" name="note" icon={IoDocumentOutline} value={formData.note} onChange={updateField} placeholder="Yêu cầu chung của đoàn..." />
-
-        {/* P1.1: Tùy chọn xếp phòng ngay */}
-        <label className="flex items-center gap-2.5 p-3 rounded-lg border border-primary/30 bg-primary/5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={autoAssign}
-            onChange={(e) => setAutoAssign(e.target.checked)}
-            className="w-4 h-4 rounded border-border-grey text-primary focus:ring-primary"
-          />
-          <div>
-            <div className="font-semibold text-sm text-on-surface">
-              Mở ngay sơ đồ xếp phòng sau khi tạo hồ sơ đoàn
-            </div>
-            <div className="text-xs text-on-surface-variant">
-              Chuyển tiếp đến sơ đồ phòng trực quan để chọn phòng hoặc áp dụng gợi ý (phòng chỉ được gán khi bạn bấm Xác nhận)
-            </div>
-          </div>
-        </label>
       </form>
       <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-border-grey">
         <Button variant="ghost" onClick={onClose} disabled={loading} icon={IoCloseOutline}>Hủy</Button>

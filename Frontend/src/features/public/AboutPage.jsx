@@ -51,12 +51,18 @@ const AboutPage = () => {
     <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
       <PublicHeader />
 
-      {/* Hero Banner */}
-      <section className="relative w-full h-[360px] flex items-center justify-center bg-gradient-to-r from-[#111827] to-[#1F2937] text-white px-margin-desktop overflow-hidden">
-        <div className="absolute inset-0 z-0 opacity-40 bg-cover bg-center" style={{ backgroundImage: `url('${hotelSetting?.homeImage || 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1600&q=80'}')` }}></div>
+      {/* Hero Banner with Hotel Background Image */}
+      <section className="relative w-full h-[360px] flex items-center justify-center text-white px-margin-desktop overflow-hidden bg-neutral-900">
+        <div className="absolute inset-0 z-0">
+          <div 
+            className="bg-cover bg-center w-full h-full" 
+            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/70 to-black/80" />
+        </div>
         <div className="relative z-10 text-center max-w-3xl mx-auto">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Chào mừng quý khách đến với</span>
-          <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-md">{hotelSetting?.propertyName || 'STAYGO HOTEL'}</h1>
+          <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-md">{hotelSetting?.propertyName || 'Khách Sạn Của Chúng Tôi'}</h1>
           <p className="text-white/85 font-body-lg leading-relaxed">
             Điểm dừng chân lý tưởng kết hợp hoàn hảo giữa không gian nghỉ dưỡng sang trọng, dịch vụ chuyên nghiệp và lòng hiếu khách nồng hậu.
           </p>

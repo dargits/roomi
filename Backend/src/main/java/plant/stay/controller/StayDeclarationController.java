@@ -74,6 +74,44 @@ public class StayDeclarationController {
     }
 
     /**
+     * Lấy danh sách lịch sử lưu trú trong khoảng ngày kèm tìm kiếm và lọc.
+     */
+    @GetMapping("/history")
+    public ResponseEntity<StayDeclarationResponseDTO> getHistory(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String declarationStatus,
+            @RequestParam(required = false) String documentStatus,
+            HttpServletRequest request) {
+        User actor = checkReceptionStaff(request);
+        return ResponseEntity.ok(stayDeclarationService.getDeclarationHistory(
+                fromDate, toDate, keyword, declarationStatus, documentStatus, actor.getRole()));
+    }
+
+    /**
+     * Kết xuất Excel lịch sử lưu trú.
+     */
+    @GetMapping("/history/export")
+    public ResponseEntity<byte[]> exportHistoryExcel(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String declarationStatus,
+            @RequestParam(required = false) String documentStatus,
+            HttpServletRequest request) {
+        User actor = checkReceptionStaff(request);
+        byte[] report = stayDeclarationService.exportAndLogHistory(
+                fromDate, toDate, keyword, declarationStatus, documentStatus, actor);
+        String filename = "lich_su_luu_tru_" + LocalDate.now() + ".xlsx";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(report);
+    }
+
+    /**
      * Đánh dấu đã hoàn tất khai báo lưu trú cho một booking.
      */
     @PutMapping("/{bookingId}/complete")

@@ -23,7 +23,7 @@ const PublicHeader = () => {
         <Link to="/" className="flex items-center select-none group flex-shrink-0">
           <div className="flex flex-col items-center">
             <span className="font-logo font-bold text-[26px] tracking-wide text-primary leading-none uppercase group-hover:opacity-85 transition-opacity">
-              {hotelSetting?.propertyName || 'STAYGO'}
+              {hotelSetting?.propertyName || ''}
             </span>
             <div className="flex gap-1.5 mt-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]"></div>

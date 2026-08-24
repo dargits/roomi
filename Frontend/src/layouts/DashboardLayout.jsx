@@ -2,7 +2,27 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
-import { IoCalendarOutline, IoChevronDownOutline, IoCubeOutline, IoGridOutline, IoLogOutOutline, IoPeopleOutline, IoSettingsOutline, IoStatsChartOutline, IoTrophyOutline } from 'react-icons/io5';
+import { 
+  IoCalendarOutline, 
+  IoChevronDownOutline, 
+  IoCubeOutline, 
+  IoGridOutline, 
+  IoLogOutOutline, 
+  IoPeopleOutline, 
+  IoSettingsOutline, 
+  IoStatsChartOutline, 
+  IoTrophyOutline,
+  IoDocumentTextOutline,
+  IoCashOutline,
+  IoBedOutline,
+  IoLayersOutline,
+  IoSparklesOutline,
+  IoPersonOutline,
+  IoShieldCheckmarkOutline,
+  IoCloudDownloadOutline,
+  IoLockClosedOutline,
+  IoTimeOutline
+} from 'react-icons/io5';
 
 /**
  * Cấu hình nhóm menu theo role.
@@ -13,7 +33,7 @@ const NAV_GROUPS = [
     label: 'Tổng quan',
     icon: IoGridOutline,
     items: [
-      { path: '/manage/dashboard', label: 'Tổng quan', allowedRoles: null }
+      { path: '/manage/dashboard', label: 'Tổng quan', icon: IoGridOutline, allowedRoles: null }
     ]
   },
   {
@@ -21,19 +41,19 @@ const NAV_GROUPS = [
     label: 'Đặt phòng',
     icon: IoCalendarOutline,
     items: [
-      { path: '/manage/bookings', label: 'Quản lý đặt phòng', allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
-      { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
+      { path: '/manage/bookings', label: 'Quản lý đặt phòng', icon: IoCalendarOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
+      { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', icon: IoCashOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
     ]
   },
   {
     id: 'rooms',
     label: 'Phòng',
-    icon: IoLogOutOutline,
+    icon: IoBedOutline,
     items: [
-      { path: '/manage/rooms',        label: 'Sơ đồ phòng',   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/room-types',   label: 'Loại phòng',     allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/housekeeping', label: 'Buồng phòng',    allowedRoles: ['OWNER', 'HOUSEKEEPER'] }
+      { path: '/manage/rooms',        label: 'Sơ đồ phòng',   icon: IoLayersOutline,   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/room-types',   label: 'Loại phòng',     icon: IoBedOutline,      allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/housekeeping', label: 'Buồng phòng',    icon: IoSparklesOutline, allowedRoles: ['OWNER', 'HOUSEKEEPER'] }
     ]
   },
   {
@@ -41,9 +61,9 @@ const NAV_GROUPS = [
     label: 'Khách & Dịch vụ',
     icon: IoPeopleOutline,
     items: [
-      { path: '/manage/guests',         label: 'Khách hàng',           allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/extra-services', label: 'Dịch vụ phụ thu',    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/loyalty',        label: 'Khách thân thiết',      allowedRoles: ['OWNER'] }
+      { path: '/manage/guests',         label: 'Khách hàng',           icon: IoPeopleOutline,  allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/extra-services', label: 'Dịch vụ phụ thu',    icon: IoCubeOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/loyalty',        label: 'Khách thân thiết',      icon: IoTrophyOutline,  allowedRoles: ['OWNER'] }
     ]
   },
   {
@@ -51,7 +71,7 @@ const NAV_GROUPS = [
     label: 'Tài chính',
     icon: IoStatsChartOutline,
     items: [
-      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] }
+      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] }
     ]
   },
   {
@@ -59,13 +79,13 @@ const NAV_GROUPS = [
     label: 'Hệ thống',
     icon: IoSettingsOutline,
     items: [
-      { path: '/manage/staff',               label: 'Nhân sự',                    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/inventory',           label: 'Kho đồ dùng',                  allowedRoles: ['OWNER'] },
-      { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/backup',              label: 'Sao lưu & CSV',              allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           allowedRoles: ['OWNER', 'ADMIN'] }
+      { path: '/manage/staff',               label: 'Nhân sự',                    icon: IoPersonOutline,           allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER'] },
+      { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        icon: IoLockClosedOutline,       allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         icon: IoTimeOutline,             allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   icon: IoShieldCheckmarkOutline,  allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/backup',              label: 'Sao lưu & CSV',              icon: IoCloudDownloadOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER', 'ADMIN'] }
     ]
   }
 ];
@@ -102,20 +122,23 @@ const NavGroup = ({ group, role, location }) => {
   if (visibleItems.length === 0) return null;
 
   const isActive = visibleItems.some(item => location.pathname === item.path);
+  const GroupIcon = group.icon;
 
   // Nhóm chỉ có 1 item → render link thẳng
   if (visibleItems.length === 1) {
     const item = visibleItems[0];
     const active = location.pathname === item.path;
+    const ItemIcon = item.icon || GroupIcon;
     return (
       <Link
         to={item.path}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg font-normal normal-case text-[14px] tracking-normal transition-all select-none ${
+        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-none font-medium text-[13.5px] transition-all select-none ${
           active
-            ? 'bg-surface-blue-light text-primary font-semibold shadow-xs'
+            ? 'bg-primary/10 text-primary font-bold shadow-xs'
             : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
         }`}
       >
+        <ItemIcon size={16} className={active ? 'text-primary' : 'text-on-surface-variant'} />
         <span>{group.label}</span>
       </Link>
     );
@@ -127,44 +150,54 @@ const NavGroup = ({ group, role, location }) => {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg font-normal normal-case text-[14px] tracking-normal transition-all select-none cursor-pointer border-none ${
+        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-none font-medium text-[13.5px] transition-all select-none cursor-pointer border border-transparent ${
           isActive
-            ? 'bg-surface-blue-light text-primary font-semibold shadow-xs'
-            : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface bg-transparent'
-        }`}
+            ? 'bg-primary/10 text-primary font-bold shadow-xs border-primary/20'
+            : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+        } ${open ? 'bg-surface-container-low text-on-surface' : ''}`}
       >
+        <GroupIcon size={16} className={isActive ? 'text-primary' : 'text-on-surface-variant'} />
         <span>{group.label}</span>
         <IoChevronDownOutline
-          size={14}
-          className={`transition-transform duration-200 opacity-70 ${open ? 'rotate-180 opacity-100 text-primary' : ''}`}
+          size={13}
+          className={`transition-transform duration-200 ml-0.5 ${open ? 'rotate-180 text-primary' : 'opacity-60'}`}
         />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-56 bg-surface-container-lowest border border-border-grey rounded-xl shadow-xl py-1.5 z-[100] animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="px-3 py-1.5 border-b border-border-grey/60 mb-1">
-            <span className="text-[11px] font-bold text-on-surface-variant/70 uppercase tracking-wider">
-              {group.label}
+        <div className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-border-grey rounded-none shadow-lg p-1 z-[100] animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="px-3 py-2 border-b border-border-grey/50 mb-1 flex items-center justify-between">
+            <span className="text-[11px] font-bold text-on-surface-variant/70 uppercase tracking-wider flex items-center gap-1.5">
+              <GroupIcon size={14} className="text-primary" /> {group.label}
             </span>
+            <span className="text-[10px] text-on-surface-variant/50 font-medium">{visibleItems.length} mục</span>
           </div>
-          {visibleItems.map(item => {
-            const active = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setOpen(false)}
-                className={`flex items-center justify-between px-3.5 py-2 font-normal normal-case text-[13.5px] tracking-normal transition-colors ${
-                  active
-                    ? 'bg-surface-blue-light text-primary font-semibold'
-                    : 'text-on-surface hover:bg-surface-container-low hover:text-primary'
-                }`}
-              >
-                <span>{item.label}</span>
-                {active && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-              </Link>
-            );
-          })}
+          <div className="space-y-0.5">
+            {visibleItems.map(item => {
+              const active = location.pathname === item.path;
+              const ItemIcon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center justify-between px-3 py-2 rounded-none font-medium text-[13px] transition-all duration-150 ${
+                    active
+                      ? 'bg-primary text-white font-bold'
+                      : 'text-on-surface hover:bg-surface-container-low hover:text-primary'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {ItemIcon && (
+                      <ItemIcon size={16} className={active ? 'text-white' : 'text-on-surface-variant/70'} />
+                    )}
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                  {active && <span className="w-1.5 h-1.5 bg-white ml-2 flex-shrink-0" />}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
