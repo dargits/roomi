@@ -25,12 +25,17 @@ export const invoiceApi = {
     return response.data;
   },
 
-  // Ghi nhận thanh toán (Cash/Transfer)
+  // Ghi nhận thanh toán (Cash/Transfer/POS)
   recordPayment: async (invoiceId, paymentData) => {
-    // paymentData = { amount: 1000000, paymentMethod: "CASH", note: "..." }
-    const response = await api.post(`/invoices/${invoiceId}/payments`, paymentData);
+    const payload = {
+      amount: paymentData.amount,
+      method: paymentData.method || paymentData.paymentMethod || 'CASH',
+      note: paymentData.note
+    };
+    const response = await api.post(`/invoices/${invoiceId}/payments`, payload);
     return response.data;
   },
+
 
   // Lập hóa đơn điều chỉnh
   adjustInvoice: async (invoiceId, adjustData) => {

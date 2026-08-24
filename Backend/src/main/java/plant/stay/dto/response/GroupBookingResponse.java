@@ -23,6 +23,9 @@ public class GroupBookingResponse {
     private int totalRooms;
     private int assignedRooms;
     private BigDecimal expectedTotal;
+    private boolean depositPaid;
+    private BigDecimal depositAmount;
+    private BigDecimal requiredDepositAmount;
     private List<BookingResponse> bookings;
     private LocalDateTime createdAt;
-}
+}
