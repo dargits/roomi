@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { IoBarChartOutline, IoPricetagOutline, IoTrendingUpOutline } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import RevenueReport from './RevenueReport';
 import OccupancyReport from './OccupancyReport';
 
@@ -12,7 +14,8 @@ const TABS = [
 
 const ReportsPage = () => {
   const { user }       = useAuth();
-  const [tab, setTab]  = useState('revenue');
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab') || 'revenue';
 
   const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
   if (!hasAccess) {
@@ -32,25 +35,7 @@ const ReportsPage = () => {
       />
 
       {/* Tabs */}
-      <div className="flex bg-surface-container-low rounded-xl p-1 border border-border-grey w-fit">
-        {TABS.map(t => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-label-md text-sm transition-colors ${
-                tab === t.id
-                  ? 'bg-white shadow-sm text-primary'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <Icon size={15} />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs tabs={TABS} paramKey="tab" defaultTab="revenue" className="mt-0" />
 
       {tab === 'revenue'   && <RevenueReport />}
       {tab === 'occupancy' && <OccupancyReport />}

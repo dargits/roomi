@@ -29,5 +29,6 @@ public class GroupRoomAssignmentSuggestionResponse {
         private Long id;
         private String roomNumber;
         private String floor;
+        private Integer maxCapacity;
     }
 }

@@ -5,6 +5,7 @@ import {
   IoChevronDownOutline, IoChevronForwardOutline, IoDocumentOutline,
   IoEyeOutline, IoListOutline, IoLogOutOutline, IoPeopleOutline, IoPersonOutline,
   IoPrintOutline, IoReceiptOutline, IoRefreshOutline, IoTrashOutline, IoWarningOutline,
+  IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline,
 } from 'react-icons/io5';
 import groupBookingApi from '../../services/groupBookingApi';
 import invoiceApi from '../../services/invoiceApi';
@@ -56,6 +57,14 @@ const GroupBookingList = ({ refreshKey }) => {
   const [payNote, setPayNote] = useState('');
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [payError, setPayError] = useState('');
+  const [copiedField, setCopiedField] = useState(null);
+
+  const copyToClipboard = (text, field) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   // NCL-13-CN-004: State cho modal hủy một phần
   const [cancelPartialState, setCancelPartialState] = useState({ group: null, selectedIds: new Set() });
@@ -553,7 +562,7 @@ const GroupBookingList = ({ refreshKey }) => {
                                     <td className="p-2.5 text-center">
                                       <div className="flex items-center justify-center gap-1.5">
                                         <Link
-                                          to={`/manage/bookings/${b.id}/info`}
+                                          to={`/manage/bookings/${b.id}?tab=info`}
                                           state={{ from: '/manage/bookings/groups' }}
                                           className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline bg-primary/5 hover:bg-primary/10 px-2 py-1 rounded transition-colors"
                                           title="Xem chi tiết đơn đặt phòng"
@@ -561,7 +570,7 @@ const GroupBookingList = ({ refreshKey }) => {
                                           <IoEyeOutline size={13} /> Phòng
                                         </Link>
                                         <Link
-                                          to={`/manage/bookings/${b.id}/invoice`}
+                                          to={`/manage/bookings/${b.id}?tab=invoice`}
                                           state={{ from: '/manage/bookings/groups' }}
                                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded border border-emerald-200 transition-colors"
                                           title="Xem chi tiết hóa đơn và dịch vụ phòng này"
@@ -714,6 +723,66 @@ const GroupBookingList = ({ refreshKey }) => {
                               <option value="CASH">Tiền mặt</option>
                             </select>
                           </div>
+                          {payMethod === 'TRANSFER' && parseFloat(payAmount) > 0 && (() => {
+                            const currentPayAmountGroup = parseFloat(payAmount) || 0;
+                            const invCodeGroup = invoiceState.data?.invoices?.[0]?.id ? `INV${String(invoiceState.data.invoices[0].id).padStart(6, '0')}` : '';
+                            const qrImageUrlGroup = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmountGroup}&addInfo=${invCodeGroup}&accountName=STAY%20AWAY`;
+                            
+                            return (
+                              <div className="sm:col-span-2 bg-white p-3.5 rounded-lg border border-blue-200 bg-blue-50/30 space-y-3 mt-1">
+                                <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                                  <IoQrCodeOutline size={16} className="text-blue-600" /> Quét mã VietQR chuyển khoản nhanh
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-center gap-3">
+                                  <img
+                                    src={qrImageUrlGroup}
+                                    alt="VietQR Payment"
+                                    className="w-36 h-36 object-contain rounded-lg border border-border-grey bg-white p-1 shadow-xs shrink-0"
+                                    loading="lazy"
+                                  />
+                                  <div className="space-y-1.5 text-xs text-on-surface flex-1 w-full">
+                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                                      <span className="text-on-surface-variant">Ngân hàng:</span>
+                                      <strong className="font-semibold">MBBank</strong>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                                      <span className="text-on-surface-variant">Số TK:</span>
+                                      <div className="flex items-center gap-1">
+                                        <strong className="font-mono font-bold text-primary">0365224245</strong>
+                                        <button
+                                          type="button"
+                                          onClick={() => copyToClipboard('0365224245', 'acc')}
+                                          className="text-on-surface-variant hover:text-primary p-0.5"
+                                          title="Sao chép số TK"
+                                        >
+                                          {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                                      <span className="text-on-surface-variant">Số tiền:</span>
+                                      <strong className="text-green-600 font-bold">{currentPayAmountGroup.toLocaleString('vi-VN')} đ</strong>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                                      <span className="text-on-surface-variant">Nội dung:</span>
+                                      <div className="flex items-center gap-1">
+                                        <strong className="font-mono font-bold text-primary">{invCodeGroup}</strong>
+                                        <button
+                                          type="button"
+                                          onClick={() => copyToClipboard(invCodeGroup, 'memo')}
+                                          className="text-on-surface-variant hover:text-primary p-0.5"
+                                          title="Sao chép nội dung"
+                                        >
+                                          {copiedField === 'memo' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                           <div className="sm:col-span-2">
                             <label className="block text-xs font-semibold text-on-surface-variant mb-1">Ghi chú</label>
                             <Input value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="VD: Thu nốt tiền khi đoàn trả phòng..." />
@@ -807,7 +876,7 @@ const GroupBookingList = ({ refreshKey }) => {
                               </td>
                               <td className="p-2 text-center">
                                 <Link
-                                  to={`/manage/bookings/${b.id}/invoice`}
+                                  to={`/manage/bookings/${b.id}?tab=invoice`}
                                   state={{ from: '/manage/bookings/groups' }}
                                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
                                 >

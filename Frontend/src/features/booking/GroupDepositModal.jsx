@@ -6,7 +6,10 @@ import {
   IoDocumentTextOutline,
   IoInformationCircleOutline,
   IoRefreshOutline,
-  IoWalletOutline
+  IoWalletOutline,
+  IoQrCodeOutline,
+  IoCopyOutline,
+  IoCheckmarkOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -24,6 +27,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
   const [paymentMethod, setPaymentMethod] = useState('TRANSFER');
   const [note, setNote] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [copiedField, setCopiedField] = useState('');
 
   const expectedTotal = Number(group?.expectedTotal || 0);
   const requiredDeposit = Math.round(expectedTotal * 0.3); // 30% default
@@ -54,6 +58,17 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
   const totalDeposited = deposits
     .filter(d => d.status === 'COLLECTED' || d.status === 'SHORT_PAID')
     .reduce((sum, d) => sum + (Number(d.collectedAmount) || 0) - (Number(d.refundedAmount) || 0), 0);
+
+  const copyToClipboard = (text, fieldName) => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(''), 2000);
+  };
+
+  const currentPayAmount = parseFloat(amount) || 0;
+  const transferCode = `ĐOÀN-${String(group?.id || '').padStart(5, '0')}`;
+  const qrImageUrl = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=STAY%20AWAY`;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -240,6 +255,62 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
               </label>
             </div>
           </div>
+
+          {/* Thẻ VietQR động khi chọn Chuyển khoản */}
+          {paymentMethod === 'TRANSFER' && currentPayAmount > 0 && (
+            <div className="bg-white p-3.5 rounded-lg border border-blue-200 bg-blue-50/30 space-y-3">
+              <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                <IoQrCodeOutline size={16} className="text-blue-600" /> Quét mã VietQR chuyển khoản nhanh
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <img
+                  src={qrImageUrl}
+                  alt="VietQR Payment"
+                  className="w-36 h-36 object-contain rounded-lg border border-border-grey bg-white p-1 shadow-xs shrink-0"
+                  loading="lazy"
+                />
+                <div className="space-y-1.5 text-xs text-on-surface flex-1 w-full">
+                  <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                    <span className="text-on-surface-variant">Ngân hàng:</span>
+                    <strong className="font-semibold">MBBank</strong>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                    <span className="text-on-surface-variant">Số TK:</span>
+                    <div className="flex items-center gap-1">
+                      <strong className="font-mono font-bold text-primary">0365224245</strong>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard('0365224245', 'acc')}
+                        className="text-on-surface-variant hover:text-primary p-0.5"
+                        title="Sao chép số TK"
+                      >
+                        {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                    <span className="text-on-surface-variant">Số tiền:</span>
+                    <strong className="text-green-600 font-bold">{currentPayAmount.toLocaleString('vi-VN')} đ</strong>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                    <span className="text-on-surface-variant">Nội dung:</span>
+                    <div className="flex items-center gap-1">
+                      <strong className="font-mono font-bold text-primary">{transferCode}</strong>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(transferCode, 'memo')}
+                        className="text-on-surface-variant hover:text-primary p-0.5"
+                        title="Sao chép nội dung"
+                      >
+                        {copiedField === 'memo' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">

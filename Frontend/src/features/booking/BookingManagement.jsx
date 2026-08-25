@@ -31,7 +31,7 @@ const BookingManagement = () => {
     if (tab === 'calendar') {
       navigate('/manage/bookings/calendar');
     } else if (tab === 'requests') {
-      navigate('/manage/bookings/requests');
+      navigate('/manage/bookings/requests?tab=ROOM');
     } else if (tab === 'groups') {
       navigate('/manage/bookings/groups');
     } else {

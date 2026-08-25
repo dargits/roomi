@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { IoBrushOutline, IoListOutline } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import CleaningTaskList from './CleaningTaskList';
 import RoomStatusUpdate from './RoomStatusUpdate';
 
@@ -12,7 +14,8 @@ const TABS = [
 
 const HousekeepingPage = () => {
   const { user }          = useAuth();
-  const [tab, setTab]     = useState('tasks');
+  const [searchParams]    = useSearchParams();
+  const tab = searchParams.get('tab') || 'tasks';
   const [refreshKey, setRefreshKey] = useState(0);
 
   const hasAccess = ['OWNER', 'HOUSEKEEPER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role);
@@ -33,25 +36,7 @@ const HousekeepingPage = () => {
       />
 
       {/* Tabs */}
-      <div className="flex bg-surface-container-low rounded-xl p-1 border border-border-grey w-fit">
-        {TABS.map(t => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-label-md text-sm transition-colors ${
-                tab === t.id
-                  ? 'bg-white shadow-sm text-primary'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <Icon size={15} />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs tabs={TABS} paramKey="tab" defaultTab="tasks" className="mt-0" />
 
       {tab === 'tasks' && (
         <CleaningTaskList

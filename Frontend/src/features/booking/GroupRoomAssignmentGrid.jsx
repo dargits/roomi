@@ -5,7 +5,8 @@ import {
   IoCloseOutline,
   IoLayersOutline,
   IoSparklesOutline,
-  IoWarningOutline
+  IoWarningOutline,
+  IoPersonOutline
 } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 
@@ -240,6 +241,11 @@ const GroupRoomAssignmentGrid = ({
                         <span className="font-bold text-base leading-tight">
                           P.{room.roomNumber}
                         </span>
+                        {room.maxCapacity && (
+                          <span className="text-[10px] mt-0.5 flex items-center gap-0.5 font-medium opacity-80">
+                            <IoPersonOutline size={10} /> {room.maxCapacity} người
+                          </span>
+                        )}
                         <span className="text-[10px] mt-0.5 line-clamp-1 font-medium">
                           {statusLabel}
                         </span>

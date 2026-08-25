@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   IoDocumentTextOutline,
   IoCheckmarkCircleOutline,
@@ -24,6 +25,7 @@ import { guestApi } from '../../services/guestApi';
 import { fileApi } from '../../services/fileApi';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
@@ -73,7 +75,9 @@ const StayDeclarationPage = () => {
   const canComplete = ['OWNER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role);
 
   // Tab State: 'today' | 'history'
-  const [activeTab, setActiveTab] = useState('today');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'today';
+  const setActiveTab = (newTab) => setSearchParams({ tab: newTab }, { replace: true });
 
   // ── Tab 1: Khai báo theo ngày ──
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -103,9 +107,13 @@ const StayDeclarationPage = () => {
   // Modal xác nhận hoàn tất khai báo
   const [confirmModal, setConfirmModal] = useState({ open: false, guest: null });
 
+  // Modal xác nhận xóa ảnh
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState({ open: false, guestId: null, docId: null, isCompleted: false });
+  const [deleting, setDeleting] = useState(false);
+
   // Modal upload giấy tờ
   const [uploadModal, setUploadModal] = useState({ open: false, guest: null });
-  const [uploadData, setUploadData] = useState({ documentType: 'NATIONAL_ID_FRONT', documentNumber: '', file: null });
+  const [uploadData, setUploadData] = useState({ documentType: 'NATIONAL_ID', documentNumber: '', frontFile: null, backFile: null, frontPreview: null, backPreview: null });
   const [uploading, setUploading] = useState(false);
 
   // Modal zoom xem trước ảnh CCCD / Giấy tờ
@@ -226,21 +234,52 @@ const StayDeclarationPage = () => {
       toastError('Không thể cập nhật ảnh khi khai báo lưu trú đã hoàn tất.');
       return;
     }
-    if (!uploadData.file) {
-      toastError('Vui lòng chọn ảnh giấy tờ');
-      return;
+    
+    if (uploadData.documentType === 'NATIONAL_ID') {
+      if (!uploadData.frontFile && !uploadData.backFile) {
+        toastError('Vui lòng chọn ít nhất ảnh mặt trước hoặc mặt sau');
+        return;
+      }
+    } else {
+      if (!uploadData.frontFile) {
+        toastError('Vui lòng chọn ảnh hộ chiếu');
+        return;
+      }
     }
+
     setUploading(true);
     try {
-      const uploadRes = await fileApi.uploadFile(uploadData.file);
-      await guestApi.addIdentityDocument(uploadModal.guest.guestId, {
-        documentType: uploadData.documentType,
-        documentNumber: uploadData.documentNumber,
-        imageUrl: uploadRes.url,
-      });
+      if (uploadData.documentType === 'NATIONAL_ID') {
+        if (uploadData.frontFile) {
+          const uploadRes = await fileApi.uploadFile(uploadData.frontFile);
+          await guestApi.addIdentityDocument(uploadModal.guest.guestId, {
+            documentType: 'NATIONAL_ID_FRONT',
+            documentNumber: uploadData.documentNumber,
+            imageUrl: uploadRes.url,
+          });
+        }
+        if (uploadData.backFile) {
+          const uploadRes = await fileApi.uploadFile(uploadData.backFile);
+          await guestApi.addIdentityDocument(uploadModal.guest.guestId, {
+            documentType: 'NATIONAL_ID_BACK',
+            documentNumber: uploadData.documentNumber,
+            imageUrl: uploadRes.url,
+          });
+        }
+      } else {
+        if (uploadData.frontFile) {
+          const uploadRes = await fileApi.uploadFile(uploadData.frontFile);
+          await guestApi.addIdentityDocument(uploadModal.guest.guestId, {
+            documentType: 'PASSPORT',
+            documentNumber: uploadData.documentNumber,
+            imageUrl: uploadRes.url,
+          });
+        }
+      }
+
       success('Tải ảnh giấy tờ thành công');
       setUploadModal({ open: false, guest: null });
-      setUploadData({ documentType: 'NATIONAL_ID_FRONT', documentNumber: '', file: null });
+      setUploadData({ documentType: 'NATIONAL_ID', documentNumber: '', frontFile: null, backFile: null, frontPreview: null, backPreview: null });
       if (activeTab === 'today') {
         await fetchData(selectedDate);
       } else {
@@ -253,17 +292,50 @@ const StayDeclarationPage = () => {
     }
   };
 
+  const handleOpenUploadModal = (guest) => {
+    let frontPreview = null;
+    let backPreview = null;
+    let documentType = 'NATIONAL_ID';
+
+    if (guest.documents && guest.documents.length > 0) {
+      guest.documents.forEach(doc => {
+        if (doc.type === 'NATIONAL_ID_FRONT') frontPreview = doc.url;
+        else if (doc.type === 'NATIONAL_ID_BACK') backPreview = doc.url;
+        else if (doc.type === 'PASSPORT') {
+          frontPreview = doc.url;
+          documentType = 'PASSPORT';
+        }
+      });
+    }
+
+    setUploadData({
+      documentType,
+      documentNumber: guest.idNumber || '',
+      frontFile: null,
+      backFile: null,
+      frontPreview,
+      backPreview
+    });
+    setUploadModal({ open: true, guest });
+  };
+
   // ── Delete Document ───────────────────────────────────────────────────────
-  const handleDeleteDocument = async (guestId, docId, isCompleted = false) => {
+  const handleDeleteDocument = (guestId, docId, isCompleted = false) => {
     if (!guestId || !docId) return;
     if (isCompleted) {
       toastError('Không thể gỡ ảnh khi khai báo lưu trú đã hoàn tất.');
       return;
     }
-    if (!window.confirm('Bạn có chắc chắn muốn gỡ bỏ ảnh giấy tờ này?')) return;
+    setDeleteConfirmModal({ open: true, guestId, docId, isCompleted });
+  };
+
+  const executeDeleteDocument = async () => {
+    const { guestId, docId } = deleteConfirmModal;
+    setDeleting(true);
     try {
       await guestApi.deleteIdentityDocument(guestId, docId);
       success('Đã gỡ bỏ ảnh giấy tờ thành công');
+      setDeleteConfirmModal({ open: false, guestId: null, docId: null, isCompleted: false });
       if (activeTab === 'today') {
         await fetchData(selectedDate);
       } else {
@@ -271,6 +343,8 @@ const StayDeclarationPage = () => {
       }
     } catch (err) {
       toastError(err.response?.data?.message || 'Không thể xóa ảnh giấy tờ');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -283,10 +357,15 @@ const StayDeclarationPage = () => {
     );
   }
 
+  const tabOptions = [
+    { id: 'today', label: 'Khai báo trong ngày', icon: IoCalendarOutline },
+    { id: 'history', label: 'Lịch sử lưu trú', icon: IoLayersOutline },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header & Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-grey pb-4">
         <div>
           <h1 className="text-headline-md font-bold text-on-surface flex items-center gap-2">
             <IoDocumentTextOutline className="text-primary" size={28} />
@@ -296,33 +375,10 @@ const StayDeclarationPage = () => {
             Quản lý khai báo lưu trú theo quy định pháp luật và tra cứu lịch sử khách lưu trú
           </p>
         </div>
-
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-1.5 p-1 bg-surface-container-low border border-border-grey rounded-xl">
-          <button
-            onClick={() => setActiveTab('today')}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
-              activeTab === 'today'
-                ? 'bg-primary text-white shadow-sm'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
-            }`}
-          >
-            <IoCalendarOutline size={16} />
-            Khai báo trong ngày
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
-              activeTab === 'history'
-                ? 'bg-primary text-white shadow-sm'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
-            }`}
-          >
-            <IoLayersOutline size={16} />
-            Lịch sử lưu trú
-          </button>
-        </div>
       </div>
+
+      <Tabs tabs={tabOptions} paramKey="tab" defaultTab="today" className="mt-0" />
+
 
       {/* ────────────────────────────────────────────────────────────────────────── */}
       {/* TAB 1: KHAI BÁO TRONG NGÀY */}
@@ -564,7 +620,7 @@ const StayDeclarationPage = () => {
                                   size="sm"
                                   variant="outline"
                                   icon={IoImageOutline}
-                                  onClick={() => setUploadModal({ open: true, guest })}
+                                  onClick={() => handleOpenUploadModal(guest)}
                                 >
                                   {guest.documents?.length > 0 ? 'Thêm ảnh' : 'Tải ảnh lên'}
                                 </Button>
@@ -885,7 +941,7 @@ const StayDeclarationPage = () => {
                                   size="sm"
                                   variant="outline"
                                   icon={IoImageOutline}
-                                  onClick={() => setUploadModal({ open: true, guest })}
+                                  onClick={() => handleOpenUploadModal(guest)}
                                 >
                                   {guest.documents?.length > 0 ? 'Thêm ảnh' : 'Tải ảnh lên'}
                                 </Button>
@@ -946,35 +1002,63 @@ const StayDeclarationPage = () => {
         )}
       </Modal>
 
+      {/* Modal xác nhận xóa ảnh */}
+      <Modal
+        isOpen={deleteConfirmModal.open}
+        onClose={() => setDeleteConfirmModal({ open: false, guestId: null, docId: null, isCompleted: false })}
+        title="Xác nhận gỡ bỏ ảnh"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-body-md text-on-surface">
+            Bạn có chắc chắn muốn gỡ bỏ ảnh giấy tờ này? Hành động này không thể hoàn tác.
+          </p>
+          <div className="flex justify-end gap-3 border-t border-border-grey pt-4">
+            <Button variant="secondary" onClick={() => setDeleteConfirmModal({ open: false, guestId: null, docId: null, isCompleted: false })}>
+              Hủy
+            </Button>
+            <Button
+              icon={IoCloseOutline}
+              isLoading={deleting}
+              disabled={deleting}
+              onClick={executeDeleteDocument}
+            >
+              Gỡ bỏ ảnh
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Modal Tải ảnh giấy tờ */}
       <Modal
         isOpen={uploadModal.open}
         onClose={() => setUploadModal({ open: false, guest: null })}
         title="Tải ảnh giấy tờ tùy thân"
-        maxWidth="max-w-md"
+        maxWidth="max-w-3xl"
       >
         {uploadModal.guest && (
           <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-on-surface">Khách hàng</label>
-              <input
-                type="text"
-                disabled
-                value={uploadModal.guest.guestName}
-                className="w-full rounded-md border border-border-grey bg-surface-container-low px-3 py-2 text-on-surface"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-on-surface">Loại giấy tờ</label>
-              <select
-                value={uploadData.documentType}
-                onChange={(e) => setUploadData({ ...uploadData, documentType: e.target.value })}
-                className="w-full rounded-md border border-border-grey bg-transparent px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="NATIONAL_ID_FRONT">CCCD/CMND (Mặt trước)</option>
-                <option value="NATIONAL_ID_BACK">CCCD/CMND (Mặt sau)</option>
-                <option value="PASSPORT">Hộ chiếu</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-on-surface">Khách hàng</label>
+                <input
+                  type="text"
+                  disabled
+                  value={uploadModal.guest.guestName}
+                  className="w-full rounded-md border border-border-grey bg-surface-container-low px-3 py-2 text-on-surface font-semibold"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-on-surface">Loại giấy tờ</label>
+                <select
+                  value={uploadData.documentType}
+                  onChange={(e) => setUploadData({ ...uploadData, documentType: e.target.value })}
+                  className="w-full rounded-md border border-border-grey bg-transparent px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="NATIONAL_ID">CCCD / Căn cước</option>
+                  <option value="PASSPORT">Hộ chiếu</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-on-surface">Số giấy tờ (tùy chọn)</label>
@@ -986,15 +1070,163 @@ const StayDeclarationPage = () => {
                 className="w-full rounded-md border border-border-grey bg-transparent px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-on-surface">Chọn ảnh</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setUploadData({ ...uploadData, file: e.target.files[0] })}
-                className="w-full rounded-md border border-border-grey px-3 py-2 text-sm text-on-surface file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-              />
-            </div>
+            
+            {uploadData.documentType === 'NATIONAL_ID' ? (
+              <div className="grid grid-cols-2 gap-6 mt-4">
+                {/* Front Side */}
+                <div className="flex flex-col items-center">
+                  <div className="relative w-full aspect-video border-2 border-dashed border-border-grey rounded-xl overflow-hidden bg-surface-container-low hover:bg-surface-container transition-colors flex flex-col items-center justify-center group cursor-pointer"
+                       onClick={() => document.getElementById('frontFileInput').click()}
+                  >
+                    {uploadData.frontPreview ? (
+                      <>
+                        <img src={uploadData.frontPreview} alt="Mặt trước" className="w-full h-full object-contain bg-black/5" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUploadData({ ...uploadData, frontFile: null, frontPreview: null });
+                            document.getElementById('frontFileInput').value = '';
+                          }}
+                          className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors z-10"
+                          title="Xóa ảnh này"
+                        >
+                          <IoCloseOutline size={20} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <IoImageOutline size={40} className="text-border-grey mb-2 group-hover:text-primary transition-colors" />
+                        <span className="text-sm font-medium text-on-surface-variant group-hover:text-primary">Click để chọn ảnh</span>
+                      </>
+                    )}
+                    <input 
+                      id="frontFileInput"
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setUploadData({ ...uploadData, frontFile: file, frontPreview: URL.createObjectURL(file) });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="mt-3 w-full flex justify-between items-center px-1">
+                    <div>
+                      <h4 className="text-sm font-bold text-on-surface">Mặt trước</h4>
+                      <p className="text-xs text-on-surface-variant mt-0.5">Chọn ảnh tối đa 5Mb</p>
+                    </div>
+                    <Button variant="outline" size="sm" icon={IoCloudUploadOutline} onClick={() => document.getElementById('frontFileInput').click()}>
+                      Tải lên
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Back Side */}
+                <div className="flex flex-col items-center">
+                  <div className="relative w-full aspect-video border-2 border-dashed border-border-grey rounded-xl overflow-hidden bg-surface-container-low hover:bg-surface-container transition-colors flex flex-col items-center justify-center group cursor-pointer"
+                       onClick={() => document.getElementById('backFileInput').click()}
+                  >
+                    {uploadData.backPreview ? (
+                      <>
+                        <img src={uploadData.backPreview} alt="Mặt sau" className="w-full h-full object-contain bg-black/5" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUploadData({ ...uploadData, backFile: null, backPreview: null });
+                            document.getElementById('backFileInput').value = '';
+                          }}
+                          className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors z-10"
+                          title="Xóa ảnh này"
+                        >
+                          <IoCloseOutline size={20} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <IoImageOutline size={40} className="text-border-grey mb-2 group-hover:text-primary transition-colors" />
+                        <span className="text-sm font-medium text-on-surface-variant group-hover:text-primary">Click để chọn ảnh</span>
+                      </>
+                    )}
+                    <input 
+                      id="backFileInput"
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setUploadData({ ...uploadData, backFile: file, backPreview: URL.createObjectURL(file) });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="mt-3 w-full flex justify-between items-center px-1">
+                    <div>
+                      <h4 className="text-sm font-bold text-on-surface">Mặt sau</h4>
+                      <p className="text-xs text-on-surface-variant mt-0.5">Chọn ảnh tối đa 5Mb</p>
+                    </div>
+                    <Button variant="outline" size="sm" icon={IoCloudUploadOutline} onClick={() => document.getElementById('backFileInput').click()}>
+                      Tải lên
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center mt-4">
+                <div className="relative w-full max-w-md aspect-video border-2 border-dashed border-border-grey rounded-xl overflow-hidden bg-surface-container-low hover:bg-surface-container transition-colors flex flex-col items-center justify-center group cursor-pointer"
+                     onClick={() => document.getElementById('passportFileInput').click()}
+                >
+                  {uploadData.frontPreview ? (
+                    <>
+                      <img src={uploadData.frontPreview} alt="Hộ chiếu" className="w-full h-full object-contain bg-black/5" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUploadData({ ...uploadData, frontFile: null, frontPreview: null });
+                          document.getElementById('passportFileInput').value = '';
+                        }}
+                        className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors z-10"
+                        title="Xóa ảnh này"
+                      >
+                        <IoCloseOutline size={20} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <IoImageOutline size={40} className="text-border-grey mb-2 group-hover:text-primary transition-colors" />
+                      <span className="text-sm font-medium text-on-surface-variant group-hover:text-primary">Click để chọn ảnh</span>
+                    </>
+                  )}
+                  <input 
+                    id="passportFileInput"
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setUploadData({ ...uploadData, frontFile: file, frontPreview: URL.createObjectURL(file) });
+                      }
+                    }}
+                  />
+                </div>
+                <div className="mt-3 w-full max-w-md flex justify-between items-center px-1">
+                  <div>
+                    <h4 className="text-sm font-bold text-on-surface">Ảnh hộ chiếu</h4>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Chọn ảnh tối đa 5Mb</p>
+                  </div>
+                  <Button variant="outline" size="sm" icon={IoCloudUploadOutline} onClick={() => document.getElementById('passportFileInput').click()}>
+                    Tải lên
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 border-t border-border-grey pt-4 mt-6">
               <Button variant="secondary" onClick={() => setUploadModal({ open: false, guest: null })}>
                 Hủy
@@ -1002,10 +1234,10 @@ const StayDeclarationPage = () => {
               <Button
                 icon={IoCloudUploadOutline}
                 isLoading={uploading}
-                disabled={uploading || !uploadData.file}
+                disabled={uploading || (!uploadData.frontFile && !uploadData.backFile)}
                 onClick={handleUploadDocument}
               >
-                Tải lên
+                Lưu tài liệu
               </Button>
             </div>
           </div>
