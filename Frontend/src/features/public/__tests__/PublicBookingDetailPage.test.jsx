@@ -32,7 +32,7 @@ const mockBooking = {
   note: 'Cần phòng tầng cao, view thoáng mát'
 };
 
-const renderComponent = (initialPath = '/booking-detail/101/info') => {
+const renderComponent = (initialPath = '/booking-detail/101?tab=info') => {
   return render(
     <AppConfigProvider>
       <ToastProvider>
@@ -55,7 +55,7 @@ describe('PublicBookingDetailPage Component', () => {
   it('renders booking info tab correctly', async () => {
     publicBookingApi.getPublicBookingById.mockResolvedValue(mockBooking);
 
-    renderComponent('/booking-detail/101/info');
+    renderComponent('/booking-detail/101?tab=info');
 
     await waitFor(() => {
       expect(screen.getAllByText('Nguyễn Văn An').length).toBeGreaterThanOrEqual(1);
@@ -75,7 +75,7 @@ describe('PublicBookingDetailPage Component', () => {
       { id: 1, serviceName: 'Nước suối Aquafina', quantity: 2, unitPrice: 15000, totalPrice: 30000 }
     ]);
 
-    renderComponent('/booking-detail/101/services');
+    renderComponent('/booking-detail/101?tab=services');
 
     await waitFor(() => {
       expect(screen.getByText('Nước suối Aquafina')).toBeInTheDocument();
@@ -90,7 +90,7 @@ describe('PublicBookingDetailPage Component', () => {
       payments: [{ id: 1, amount: 1230000, paymentMethod: 'TRANSFER', createdAt: '2026-08-15T14:00:00' }]
     });
 
-    renderComponent('/booking-detail/101/invoice');
+    renderComponent('/booking-detail/101?tab=invoice');
 
     await waitFor(() => {
       expect(screen.getAllByText(/1\.230\.000/i).length).toBeGreaterThanOrEqual(1);

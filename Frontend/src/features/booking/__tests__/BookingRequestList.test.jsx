@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import BookingRequestList from '../BookingRequestList';
 import { bookingRequestApi } from '../../../services/bookingRequestApi';
 
@@ -45,7 +46,11 @@ describe('BookingRequestList Component', () => {
   it('renders booking request list with items properly', async () => {
     bookingRequestApi.getAllBookingRequests.mockResolvedValue(mockRequests);
 
-    render(<BookingRequestList />);
+    render(
+      <MemoryRouter>
+        <BookingRequestList />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Lê Văn Tám')).toBeInTheDocument();
@@ -63,7 +68,11 @@ describe('BookingRequestList Component', () => {
   it('renders empty state when there are no requests', async () => {
     bookingRequestApi.getAllBookingRequests.mockResolvedValue([]);
 
-    render(<BookingRequestList />);
+    render(
+      <MemoryRouter>
+        <BookingRequestList />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Chưa có yêu cầu đặt phòng nào từ Web.')).toBeInTheDocument();
