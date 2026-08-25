@@ -8,10 +8,12 @@ import {
 import { concurrencyApi } from '../../services/concurrencyApi';
 import { roomApi } from '../../services/roomApi';
 import { useAuth } from '../../context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import PageHeader from '../../components/ui/PageHeader';
+import Tabs from '../../components/ui/Tabs/Tabs';
 
 /**
  * NCL-03-CN-007: Nhật ký va chạm đồng thời (log từ hệ thống thật)
@@ -19,7 +21,9 @@ import PageHeader from '../../components/ui/PageHeader';
  */
 const ConcurrencyLogPage = () => {
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState('logs'); // logs | test
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSection = searchParams.get('tab') || 'logs';
+  const setActiveSection = (newTab) => setSearchParams({ tab: newTab }, { replace: true });
 
   // === Nhật ký (NCL-03-CN-007) ===
   const [logs, setLogs] = useState([]);
@@ -94,6 +98,11 @@ const ConcurrencyLogPage = () => {
     ...rooms.map(r => ({ value: r.id, label: `Phòng ${r.roomNumber} (${r.roomTypeName || ''})` }))
   ];
 
+  const tabOptions = [
+    { id: 'logs', label: 'Nhật ký va chạm', icon: IoListOutline },
+    { id: 'test', label: 'Minh chứng kiểm soát đồng thời', icon: IoFlashOutline },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -103,30 +112,8 @@ const ConcurrencyLogPage = () => {
       />
 
       {/* Tabs chuyển section */}
-      <div className="flex border-b border-border-grey">
-        <button
-          onClick={() => setActiveSection('logs')}
-          className={`px-5 py-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${
-            activeSection === 'logs' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          <IoListOutline size={16} /> Nhật ký va chạm
-          {activeSection === 'logs' && (
-            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveSection('test')}
-          className={`px-5 py-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${
-            activeSection === 'test' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          <IoFlashOutline size={16} /> Minh chứng kiểm soát đồng thời
-          {activeSection === 'test' && (
-            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t" />
-          )}
-        </button>
-      </div>
+      <Tabs tabs={tabOptions} paramKey="tab" defaultTab="logs" />
+
 
       {/* === NCL-03-CN-007: Nhật ký va chạm === */}
       {activeSection === 'logs' && (

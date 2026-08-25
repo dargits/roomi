@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IoCheckmarkOutline, IoBedOutline, IoAlertCircleOutline, IoSwapHorizontalOutline } from 'react-icons/io5';
+import { IoCheckmarkOutline, IoBedOutline, IoAlertCircleOutline, IoSwapHorizontalOutline, IoPersonOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { roomApi } from '../../services/roomApi';
@@ -151,7 +151,15 @@ const AssignRoomModal = ({
                       </div>
                       <div>
                         <p className="font-semibold text-xs text-on-surface">Phòng {room.roomNumber}</p>
-                        <p className="text-[11px] text-on-surface-variant">Tầng {room.floor || '—'} • {room.roomTypeName || 'Tiêu chuẩn'}</p>
+                        <p className="text-[11px] text-on-surface-variant flex items-center gap-1">
+                          Tầng {room.floor || '—'} • {room.roomTypeName || 'Tiêu chuẩn'} 
+                          {room.maxCapacity && (
+                            <>
+                              <span>•</span>
+                              <IoPersonOutline size={10} /> {room.maxCapacity} người
+                            </>
+                          )}
+                        </p>
                       </div>
                     </div>
                     {isSelected && (

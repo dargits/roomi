@@ -251,7 +251,7 @@ const BookingList = ({ onEditBooking }) => {
               <tr key={booking.id} className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
                 <td className="p-4">
                   <Link 
-                    to={`/manage/bookings/${booking.id}/info`}
+                    to={`/manage/bookings/${booking.id}?tab=info`}
                     state={{ from: '/manage/bookings/list' }}
                     className="font-title-sm text-on-surface hover:text-primary transition-colors flex items-center gap-2 font-semibold group-hover:text-primary"
                     title="Bấm để mở trang chi tiết đặt phòng"
@@ -278,6 +278,11 @@ const BookingList = ({ onEditBooking }) => {
                 </td>
                 <td className="p-4">
                   <div className="font-title-sm text-on-surface font-medium">{booking.roomTypeName}</div>
+                  {booking.roomCapacity && (
+                    <div className="text-[11px] text-on-surface-variant flex items-center gap-1 mt-0.5">
+                      <IoPersonOutline size={12} /> {booking.roomCapacity} người
+                    </div>
+                  )}
                   <div className="text-sm text-on-surface-variant mt-1 flex items-center gap-1">
                     <IoHomeOutline size={14} /> 
                     {booking.roomNumber ? (
@@ -309,7 +314,7 @@ const BookingList = ({ onEditBooking }) => {
                 <td className="p-4 text-center">
                   <div className="flex flex-wrap justify-center items-center gap-1.5">
                     <Link 
-                      to={`/manage/bookings/${booking.id}/info`}
+                      to={`/manage/bookings/${booking.id}?tab=info`}
                       state={{ from: '/manage/bookings/list' }}
                       className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 cursor-pointer shadow-xs inline-flex items-center gap-1"
                       title="Mở trang chi tiết đặt phòng"
