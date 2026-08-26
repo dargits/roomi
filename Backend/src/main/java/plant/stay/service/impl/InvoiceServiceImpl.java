@@ -509,14 +509,6 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
         }
 
-        // 2. Tính tổng thanh toán từ tất cả Payment
-        BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
-                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
-            invoice.setStatus(InvoiceStatus.PAID);
-            return invoiceRepository.save(invoice);
-        }
         return invoice;
     }
 

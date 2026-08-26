@@ -16,7 +16,7 @@ import Button from '../../components/ui/Button';
  *  - isLoading: boolean
  *  - invoice: { roomAmount, serviceAmount, totalAmount } để hiển thị preview
  */
-const DiscountFormModal = ({ isOpen, onClose, onSubmit, isLoading, invoice }) => {
+const DiscountFormModal = ({ isOpen, onClose, onSubmit, isLoading, invoice, remainingAmount }) => {
   const [form, setForm] = useState({
     discountType: 'PERCENTAGE',
     discountValue: '',
@@ -24,7 +24,17 @@ const DiscountFormModal = ({ isOpen, onClose, onSubmit, isLoading, invoice }) =>
   });
   const [errors, setErrors] = useState({});
 
-  const baseAmount = (invoice?.roomAmount ?? 0) + (invoice?.serviceAmount ?? 0);
+  const grossTotal = (Number(invoice?.roomAmount) || 0) + (Number(invoice?.serviceAmount) || 0);
+  const remVal = invoice?.remainingAmount != null
+    ? Number(invoice.remainingAmount)
+    : (remainingAmount != null
+      ? Number(remainingAmount)
+      : (invoice?.outstandingAmount != null ? Number(invoice.outstandingAmount) : grossTotal));
+
+  // Base amount for discount: ưu tiên số tiền còn lại cần thanh toán (Giá cuối sau khi trừ cọc)
+  const baseAmount = (!isNaN(remVal) && remVal > 0)
+    ? remVal
+    : (grossTotal > 0 ? grossTotal : (Number(invoice?.totalAmount) || 0));
 
   const formatVND = (val) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -53,7 +63,7 @@ const DiscountFormModal = ({ isOpen, onClose, onSubmit, isLoading, invoice }) =>
     } else if (form.discountType === 'PERCENTAGE' && val > 100) {
       errs.discountValue = 'Phần trăm không được vượt quá 100%.';
     } else if (form.discountType === 'FIXED_AMOUNT' && val > baseAmount) {
-      errs.discountValue = `Số tiền giảm không được vượt quá tổng tiền hóa đơn (${formatVND(baseAmount)}).`;
+      errs.discountValue = `Số tiền giảm không được vượt quá số tiền cần thanh toán (${formatVND(baseAmount)}).`;
     }
 
     if (!form.reason.trim()) {
@@ -76,9 +86,8 @@ const DiscountFormModal = ({ isOpen, onClose, onSubmit, isLoading, invoice }) =>
       discountValue: parseFloat(form.discountValue),
       reason: form.reason.trim(),
     });
-    if (result?.success) {
-      onClose();
-      setForm({ discountType: 'PERCENTAGE', discountValue: '', reason: '' });
+    if (result && result.success) {
+      handleClose();
     }
   };
 
@@ -98,11 +107,17 @@ const DiscountFormModal = ({ isOpen, onClose, onSubmit, isLoading, invoice }) =>
             <IoTicketOutline size={18} className="text-primary" />
           </div>
           <div>
-            <p className="text-xs text-on-surface-variant">Tổng tiền áp dụng giảm giá</p>
+            <p className="text-xs text-on-surface-variant font-medium">Số tiền áp dụng giảm giá (Giá cuối cần thanh toán)</p>
             <p className="text-base font-bold text-primary">{formatVND(baseAmount)}</p>
-            <p className="text-[11px] text-on-surface-variant mt-0.5">
-              Tiền phòng: {formatVND(invoice?.roomAmount ?? 0)} + Dịch vụ: {formatVND(invoice?.serviceAmount ?? 0)}
-            </p>
+            {grossTotal > baseAmount ? (
+              <p className="text-[11px] text-on-surface-variant mt-0.5">
+                (Tổng gốc: {formatVND(grossTotal)} - Đã thanh toán / cọc: {formatVND(grossTotal - baseAmount)})
+              </p>
+            ) : (
+              <p className="text-[11px] text-on-surface-variant mt-0.5">
+                (Bao gồm toàn bộ Tiền phòng: {formatVND(invoice?.roomAmount ?? 0)} + Phụ thu dịch vụ: {formatVND(invoice?.serviceAmount ?? 0)})
+              </p>
+            )}
           </div>
         </div>
 
