@@ -81,4 +81,31 @@ describe('BookingInvoiceTab Component', () => {
       expect(screen.getByText('Lịch sử Thanh toán')).toBeInTheDocument();
     });
   });
+
+  it('renders provisional invoice view when invoice has not been created yet', async () => {
+    const { invoiceApi } = await import('../../../services/invoiceApi');
+    invoiceApi.getInvoiceByBooking.mockRejectedValueOnce(new Error('404 Not Found'));
+
+    const mockBooking = {
+      id: 11,
+      expectedPrice: 500000,
+      actualPrice: 500000,
+      status: 'CHECKED_IN',
+    };
+
+    render(
+      <BookingInvoiceTab 
+        bookingId={11} 
+        status="CHECKED_IN" 
+        booking={mockBooking} 
+        onPrintInvoice={vi.fn()} 
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Chi phí Tạm tính')).toBeInTheDocument();
+      expect(screen.getByText('Chưa lập hóa đơn')).toBeInTheDocument();
+      expect(screen.getByText('Chốt & Lập Hóa Đơn (Tự động trừ cọc)')).toBeInTheDocument();
+    });
+  });
 });
