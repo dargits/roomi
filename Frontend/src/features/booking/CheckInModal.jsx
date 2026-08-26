@@ -5,7 +5,8 @@ import {
   IoPersonAddOutline, 
   IoTrashOutline,
   IoQrCodeOutline,
-  IoAlertCircleOutline
+  IoAlertCircleOutline,
+  IoPersonOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -174,10 +175,17 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
             <div className="font-semibold text-on-surface text-base">{booking.guestName}</div>
             <div className="text-xs text-on-surface-variant mt-1">SĐT: {booking.guestPhone}</div>
           </div>
-          <div className="text-right">
+          <div className="text-right flex flex-col items-end">
             <div className="text-on-surface-variant mb-1">Phòng:</div>
             <div className="font-bold text-primary text-base">Phòng {booking.roomNumber}</div>
-            <div className="text-xs text-on-surface-variant mt-1">{booking.roomTypeName}</div>
+            <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-1">
+              {booking.roomTypeName} 
+              {booking.roomCapacity && (
+                <span className="flex items-center gap-0.5 ml-1 bg-surface-container-high px-1.5 py-0.5 rounded text-[10px]">
+                  <IoPersonOutline size={10} /> {booking.roomCapacity} người
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

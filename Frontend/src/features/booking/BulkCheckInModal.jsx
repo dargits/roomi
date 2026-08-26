@@ -9,7 +9,8 @@ import {
   IoCloudUploadOutline,
   IoDocumentTextOutline,
   IoShieldCheckmarkOutline,
-  IoCopyOutline
+  IoCopyOutline,
+  IoPersonOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -75,6 +76,7 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
         bookingId: b.id,
         roomNumber: String(b.roomNumber || ''),
         roomTypeName: b.roomTypeName,
+        roomCapacity: b.roomCapacity,
         guests: [{
           name: index === 0 ? (b.guestName || '') : '',
           idNumber: index === 0 ? (b.guestIdNumber || '') : '',
@@ -407,6 +409,11 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
                     <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">
                       {room.roomTypeName}
                     </span>
+                    {room.roomCapacity && (
+                      <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded flex items-center gap-1">
+                        <IoPersonOutline size={12} /> {room.roomCapacity} người
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
   IoAlertCircleOutline, 
   IoCallOutline, 
@@ -32,6 +32,7 @@ import InvoicePrintTemplate from '../booking/InvoicePrintTemplate';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAppConfig } from '../../context/AppConfigContext';
+import Tabs from '../../components/ui/Tabs/Tabs';
 
 const VALID_TABS = ['info', 'services', 'invoice', 'deposit'];
 
@@ -41,11 +42,13 @@ const fmtMoney = (n) => {
 };
 
 const PublicBookingDetailPage = () => {
-  const { bookingId, tab } = useParams();
+  const { bookingId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { success: toastSuccess, error: toastError } = useToast();
   const { hotelSetting } = useAppConfig();
 
+  const tab = searchParams.get('tab') || 'info';
   const activeTab = VALID_TABS.includes(tab) ? tab : 'info';
 
   const [booking, setBooking] = useState(null);
@@ -126,12 +129,8 @@ const PublicBookingDetailPage = () => {
     }
   };
 
-  const handleTabChange = (newTab) => {
-    navigate(`/booking-detail/${bookingId}/${newTab}`);
-  };
-
   const copySpecificTabLink = (tabKey, tabLabel) => {
-    const url = `${window.location.origin}/booking-detail/${bookingId}/${tabKey}`;
+    const url = `${window.location.origin}/booking-detail/${bookingId}?tab=${tabKey}`;
     navigator.clipboard.writeText(url);
     toastSuccess(`Đã sao chép link phần "${tabLabel}"! Bạn có thể gửi cho bạn bè ngay.`);
   };
@@ -332,59 +331,17 @@ const PublicBookingDetailPage = () => {
         {/* Khung Chuyển Tab và Nội Dung */}
         <div className="bg-surface-container-lowest rounded-2xl border border-border-grey shadow-sm overflow-hidden mb-12">
           {/* Navigation Bar Tabs */}
-          <div className="flex border-b border-border-grey bg-surface-container-low/50 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => handleTabChange('info')}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold text-sm md:text-base border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'info'
-                  ? 'border-primary text-primary bg-white shadow-xs'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-white/50'
-              }`}
-            >
-              <IoInformationCircleOutline size={20} />
-              <span>1. Thông tin chung</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleTabChange('services')}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold text-sm md:text-base border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'services'
-                  ? 'border-primary text-primary bg-white shadow-xs'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-white/50'
-              }`}
-            >
-              <IoCartOutline size={20} />
-              <span>2. Dịch vụ phụ thu</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleTabChange('invoice')}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold text-sm md:text-base border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'invoice'
-                  ? 'border-primary text-primary bg-white shadow-xs'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-white/50'
-              }`}
-            >
-              <IoDocumentOutline size={20} />
-              <span>3. Hóa đơn & Thanh toán</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleTabChange('deposit')}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold text-sm md:text-base border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'deposit'
-                  ? 'border-primary text-primary bg-white shadow-xs'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-white/50'
-              }`}
-            >
-              <IoCashOutline size={20} />
-              <span>4. Đặt cọc</span>
-            </button>
-          </div>
+          <Tabs 
+            tabs={[
+              { id: 'info', label: '1. Thông tin chung', icon: IoInformationCircleOutline },
+              { id: 'services', label: '2. Dịch vụ phụ thu', icon: IoCartOutline },
+              { id: 'invoice', label: '3. Hóa đơn & Thanh toán', icon: IoDocumentOutline },
+              { id: 'deposit', label: '4. Đặt cọc', icon: IoCashOutline }
+            ]} 
+            paramKey="tab" 
+            defaultTab="info" 
+            className="mt-0 border-b border-border-grey bg-surface-container-low/50" 
+          />
 
           {/* TAB CONTENT PANELS */}
           <div className="p-6 md:p-8">

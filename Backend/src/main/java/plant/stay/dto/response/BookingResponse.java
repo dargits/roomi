@@ -19,6 +19,7 @@ public class BookingResponse {
     private String roomTypeName;
     private Long roomId;
     private String roomNumber;
+    private Integer roomCapacity;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private BookingStatus status;

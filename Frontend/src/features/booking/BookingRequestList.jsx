@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   IoArrowForwardOutline, 
   IoCallOutline, 
@@ -12,15 +13,23 @@ import {
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import PublicGroupBookingRequestList from './PublicGroupBookingRequestList';
 import { useToast } from '../../context/ToastContext';
 
 const BookingRequestList = () => {
   const { success: toastSuccess } = useToast();
-  const [activeTab, setActiveTab] = useState('ROOM'); // 'ROOM' or 'GROUP'
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'ROOM';
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!searchParams.get('tab')) {
+      setSearchParams({ tab: 'ROOM' }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // State cho Modal xác nhận Duyệt / Từ chối
   const [modalState, setModalState] = useState({
@@ -118,22 +127,15 @@ const BookingRequestList = () => {
     }
   };
 
+  const tabOptions = [
+    { id: 'ROOM', label: 'Yêu cầu đặt phòng' },
+    { id: 'GROUP', label: 'Yêu cầu đặt đoàn' },
+  ];
+
   return (
     <div>
-      <div className="flex border-b border-border-grey mb-4">
-        <button
-          className={`py-2 px-4 font-semibold text-sm focus:outline-none transition-colors ${activeTab === 'ROOM' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-          onClick={() => setActiveTab('ROOM')}
-        >
-          Yêu cầu đặt phòng
-        </button>
-        <button
-          className={`py-2 px-4 font-semibold text-sm focus:outline-none transition-colors ${activeTab === 'GROUP' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-          onClick={() => setActiveTab('GROUP')}
-        >
-          Yêu cầu đặt đoàn
-        </button>
-      </div>
+      <Tabs tabs={tabOptions} paramKey="tab" defaultTab="ROOM" />
+
 
       {activeTab === 'ROOM' && (
         <>
@@ -317,9 +319,9 @@ const BookingRequestList = () => {
           </div>
         </div>
       </Modal>
-    </>
-    )}
-      
+      </>
+      )}
+
       {activeTab === 'GROUP' && (
         <PublicGroupBookingRequestList />
       )}
