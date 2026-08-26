@@ -141,6 +141,7 @@ public class RoomServiceImpl implements RoomService {
                 .roomNumber(room.getRoomNumber())
                 .roomTypeId(room.getRoomType().getId())
                 .roomTypeName(room.getRoomType().getName())
+                .maxCapacity(room.getRoomType().getMaxCapacity())
                 .floor(room.getFloor())
                 .status(room.getStatus())
                 .notes(room.getNotes())

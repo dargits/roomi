@@ -712,6 +712,7 @@ public class BookingServiceImpl implements BookingService {
                 .roomTypeName(b.getRoomType().getName())
                 .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
                 .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null)
+                .roomCapacity(b.getRoomType() != null ? b.getRoomType().getMaxCapacity() : null)
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .status(b.getStatus())

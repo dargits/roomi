@@ -64,7 +64,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
 
   const openDedicatedPage = () => {
     onClose();
-    navigate(`/manage/bookings/${bookingId}/${activeTab}`);
+    navigate(`/manage/bookings/${bookingId}?tab=${activeTab}`);
   };
   // === Đổi phòng ===
   const [showChangeRoom, setShowChangeRoom] = useState(false);
@@ -286,7 +286,17 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                       </div>
                     </div>
                     <div className="space-y-3 font-body-sm text-on-surface-variant">
-                      <div className="flex justify-between"><span className="w-1/3">Loại phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomTypeName}</span></div>
+                      <div className="flex justify-between">
+                        <span className="w-1/3">Loại phòng:</span>
+                        <span className="font-medium text-on-surface flex-1 flex items-center gap-2">
+                          {booking.roomTypeName}
+                          {booking.roomCapacity && (
+                            <span className="text-[11px] text-on-surface-variant flex items-center gap-1 font-normal bg-surface-container px-1.5 py-0.5 rounded">
+                              <IoPersonOutline size={12} /> {booking.roomCapacity} người
+                            </span>
+                          )}
+                        </span>
+                      </div>
                       <div className="flex justify-between"><span className="w-1/3">Phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomNumber ? `Phòng ${booking.roomNumber}` : 'Chưa phân phòng'}</span></div>
                       <div className="flex justify-between"><span className="w-1/3">Nhận phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkInDate, 'checkin')}</span></div>
                       <div className="flex justify-between"><span className="w-1/3">Trả phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span></div>
@@ -369,12 +379,19 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
 
       {/* === Modal Đổi Phòng (Chỉ cùng loại phòng) === */}
       {showChangeRoom && (
-        <Modal isOpen={showChangeRoom} onClose={() => setShowChangeRoom(false)} title="Đổi Phòng Cùng Loại" maxWidth="max-w-md">
+        <Modal isOpen={showChangeRoom} onClose={() => setShowChangeRoom(false)} title="Đổi Phòng Cùng Loại" maxWidth="max-w-lg">
           <div className="space-y-4">
             <div className="bg-surface-container-low p-3.5 rounded-lg border border-border-grey space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Loại phòng:</span>
-                <span className="font-bold text-primary">{booking?.roomTypeName}</span>
+                <span className="font-bold text-primary flex items-center gap-1">
+                  {booking?.roomTypeName}
+                  {booking?.roomCapacity && (
+                    <span className="text-[10px] text-on-surface-variant font-normal flex items-center gap-0.5 bg-surface-container px-1.5 py-0.5 rounded ml-1">
+                      <IoPersonOutline size={10} /> {booking.roomCapacity} người
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Phòng hiện tại:</span>
@@ -422,7 +439,15 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                       <span>Phòng {room.roomNumber}</span>
                       {selectedNewRoom?.id === room.id && <IoCheckmarkCircleOutline size={16} className="text-primary" />}
                     </div>
-                    <div className="text-[11px] text-on-surface-variant mt-0.5">Tầng {room.floor || 1} • {room.roomTypeName}</div>
+                    <div className="text-[11px] text-on-surface-variant mt-0.5 flex items-center gap-1">
+                      Tầng {room.floor || 1} • {room.roomTypeName}
+                      {room.maxCapacity && (
+                        <>
+                          <span>•</span>
+                          <IoPersonOutline size={10} /> {room.maxCapacity} người
+                        </>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
