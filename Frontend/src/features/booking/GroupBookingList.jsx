@@ -889,25 +889,33 @@ const GroupBookingList = ({ refreshKey }) => {
 
                     {/* Danh sách hóa đơn và nút In */}
                     <div className="space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                        Chi tiết hóa đơn ({invoiceState.data.invoices.length})
+                      <div className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant flex justify-between items-center">
+                        <span>Chi tiết hóa đơn ({invoiceState.data.invoices.length})</span>
+                        {invoiceState.data.invoices.length > 1 && (
+                          <span className="text-[11px] font-normal text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Đoàn đang có {invoiceState.data.invoices.length} hóa đơn tách theo phòng
+                          </span>
+                        )}
                       </div>
-                      {invoiceState.data.invoices.map((invoice) => (
-                        <div key={invoice.id} className="flex items-center justify-between rounded-xl border border-border-grey bg-surface p-3 text-sm">
+                      {invoiceState.data.invoices.map((invoice, idx) => (
+                        <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-border-grey bg-surface p-3 text-sm gap-2">
                           <div>
                             <div className="font-semibold text-on-surface flex items-center gap-2">
-                              <span>Hóa đơn #{invoice.id} (Gộp cả đoàn)</span>
+                              <span>
+                                Hóa đơn #{invoice.id} {invoiceState.data.invoices.length === 1 ? '(Gộp cả đoàn)' : `(Phòng #${invoice.bookingId || idx + 1})`}
+                              </span>
                               <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${invoice.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                                {invoice.status === 'PAID' ? '✓ Đã thanh toán đủ' : 'Chờ thanh toán'}
+                                {invoice.status === 'PAID' ? '✓ Đã thanh toán đủ' : invoice.status === 'PENDING_DISCOUNT_APPROVAL' ? 'Chờ duyệt giảm giá' : 'Chờ thanh toán'}
                               </span>
                             </div>
-                            <div className="text-xs text-on-surface-variant mt-1">
-                              Tiền phòng: {Number(invoice.roomAmount || 0).toLocaleString('vi-VN')} đ
-                              {Number(invoice.serviceAmount || 0) > 0 && ` • Dịch vụ: ${Number(invoice.serviceAmount || 0).toLocaleString('vi-VN')} đ`}
-                              {Number(invoice.paidAmount || 0) > 0 && <span className="text-green-700"> • Đã trừ cọc / thanh toán: {Number(invoice.paidAmount || 0).toLocaleString('vi-VN')} đ</span>}
+                            <div className="text-xs text-on-surface-variant mt-1 flex flex-wrap gap-x-2">
+                              <span>Tiền phòng: {Number(invoice.roomAmount || 0).toLocaleString('vi-VN')} đ</span>
+                              {Number(invoice.serviceAmount || 0) > 0 && <span>• Dịch vụ: {Number(invoice.serviceAmount || 0).toLocaleString('vi-VN')} đ</span>}
+                              {Number(invoice.discountAmount || 0) > 0 && <span className="text-green-700 font-medium">• Giảm giá: -{Number(invoice.discountAmount).toLocaleString('vi-VN')} đ</span>}
+                              {Number(invoice.paidAmount || 0) > 0 && <span className="text-green-700">• Đã trừ cọc / thanh toán: {Number(invoice.paidAmount || 0).toLocaleString('vi-VN')} đ</span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 self-end sm:self-auto">
                             <div className="text-right">
                               <div className="font-bold text-on-surface text-sm">{Number(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ</div>
                             </div>
