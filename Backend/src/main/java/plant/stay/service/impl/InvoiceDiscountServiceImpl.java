@@ -11,9 +11,11 @@ import plant.stay.dto.response.DiscountResponse;
 import plant.stay.exception.BusinessException;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
+import plant.stay.repository.DepositRepository;
 import plant.stay.repository.HotelSettingRepository;
 import plant.stay.repository.InvoiceDiscountRepository;
 import plant.stay.repository.InvoiceRepository;
+import plant.stay.repository.PaymentRepository;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.InvoiceDiscountService;
 
@@ -39,6 +41,8 @@ public class InvoiceDiscountServiceImpl implements InvoiceDiscountService {
     private final InvoiceRepository invoiceRepository;
     private final InvoiceDiscountRepository discountRepository;
     private final HotelSettingRepository hotelSettingRepository;
+    private final PaymentRepository paymentRepository;
+    private final DepositRepository depositRepository;
     private final AuditLogService auditLogService;
 
     // =========================================================================
@@ -65,9 +69,30 @@ public class InvoiceDiscountServiceImpl implements InvoiceDiscountService {
             );
         }
 
-        // 4. QTN-12: Tính calculatedAmount và kiểm tra giới hạn
-        BigDecimal base = invoice.getRoomAmount().add(invoice.getServiceAmount());
-        BigDecimal calculatedAmount = calculateDiscount(request, base);
+        // 4. QTN-12: Tính calculatedAmount dựa trên số tiền thực tế còn lại cần thanh toán của khách (Giá cuối)
+        BigDecimal grossTotal = (invoice.getRoomAmount() != null ? invoice.getRoomAmount() : BigDecimal.ZERO)
+                .add(invoice.getServiceAmount() != null ? invoice.getServiceAmount() : BigDecimal.ZERO);
+
+        // Lấy tổng tiền đã thanh toán / tiền cọc đã ghi nhận
+        BigDecimal alreadyPaid = paymentRepository.findByInvoiceId(invoiceId).stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (alreadyPaid.compareTo(BigDecimal.ZERO) == 0 && invoice.getBooking() != null) {
+            alreadyPaid = depositRepository.findByBookingIdOrderByCreatedAtDesc(invoice.getBooking().getId()).stream()
+                    .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
+                    .map(d -> {
+                        BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                        if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                        if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                        return eff.max(BigDecimal.ZERO);
+                    })
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        BigDecimal remainingBase = grossTotal.subtract(alreadyPaid).max(BigDecimal.ZERO);
+        BigDecimal discountBase = (remainingBase.compareTo(BigDecimal.ZERO) > 0) ? remainingBase : grossTotal;
+        BigDecimal calculatedAmount = calculateDiscount(request, discountBase);
 
         // 5. Lấy ngưỡng phê duyệt từ cấu hình cơ sở (lấy bản ghi đầu tiên vì 1 hệ thống 1 cơ sở)
         HotelSetting setting = hotelSettingRepository.findAll().stream()

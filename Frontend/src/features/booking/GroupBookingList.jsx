@@ -735,11 +735,26 @@ const GroupBookingList = ({ refreshKey }) => {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                         <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
-                          <span className="text-on-surface-variant block mb-0.5">Tổng tiền phòng & dịch vụ:</span>
-                          <strong className="text-on-surface font-bold text-sm">{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong>
+                          <span className="text-on-surface-variant block mb-0.5">Tiền phòng & Dịch vụ:</span>
+                          <strong className="text-on-surface font-bold text-sm">
+                            {(Number(invoiceState.data.roomAmount || 0) + Number(invoiceState.data.serviceAmount || 0)).toLocaleString('vi-VN')} đ
+                          </strong>
                         </div>
+                        {Number(invoiceState.data.discountAmount || 0) > 0 ? (
+                          <div className="bg-surface p-2.5 rounded-lg border border-green-200 text-green-700">
+                            <span className="block mb-0.5 font-medium">Giảm giá hóa đơn:</span>
+                            <strong className="font-bold text-sm">
+                              -{Number(invoiceState.data.discountAmount).toLocaleString('vi-VN')} đ
+                            </strong>
+                          </div>
+                        ) : (
+                          <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
+                            <span className="text-on-surface-variant block mb-0.5">Tổng hóa đơn:</span>
+                            <strong className="text-on-surface font-bold text-sm">{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong>
+                          </div>
+                        )}
                         <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
                           <span className="text-green-700 block mb-0.5">Tiền cọc & Đã thanh toán:</span>
                           <strong className="text-green-800 font-bold text-sm">{Number(invoiceState.data.paidAmount || 0).toLocaleString('vi-VN')} đ</strong>
@@ -762,6 +777,7 @@ const GroupBookingList = ({ refreshKey }) => {
                           invoice={invoiceState.data.invoices[0]}
                           userRole={user?.role}
                           onInvoiceChange={handleGroupDiscountChange}
+                          remainingAmount={Number(invoiceState.data.outstandingAmount || 0)}
                         />
                       </div>
                     )}
@@ -995,6 +1011,8 @@ const GroupBookingList = ({ refreshKey }) => {
                   const groupRoomTotal = invoiceState.group?.totalRoomCharge
                     || invoiceState.group?.bookings?.reduce((sum, b) => sum + (Number(b.expectedPrice) || 0), 0)
                     || 0;
+                  const groupDeposit = Number(invoiceState.group?.depositAmount || 0);
+                  const groupRemaining = Math.max(0, groupRoomTotal - groupDeposit);
                   return (
                     <DiscountFormModal
                       isOpen={showGroupDiscountModal}
@@ -1004,8 +1022,10 @@ const GroupBookingList = ({ refreshKey }) => {
                       invoice={{
                         roomAmount: groupRoomTotal,
                         serviceAmount: 0,
-                        totalAmount: groupRoomTotal
+                        totalAmount: groupRoomTotal,
+                        remainingAmount: groupRemaining
                       }}
+                      remainingAmount={groupRemaining}
                     />
                   );
                 })()}

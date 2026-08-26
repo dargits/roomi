@@ -95,17 +95,15 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
   // 2. Tiền dịch vụ
   const servicesTotalWithVat = services.reduce((sum, s) => sum + getSvcTotalWithVat(s), 0);
 
-  // 3. Tổng cộng tiền (bao gồm VAT)
-  const calculatedTotalWithVat = roomTotalWithVat + servicesTotalWithVat;
-  const totalAmount = (invoice?.totalAmount != null && !isNaN(Number(invoice.totalAmount)) && Number(invoice.totalAmount) > 0)
-    ? Number(invoice.totalAmount)
-    : calculatedTotalWithVat;
+  // 3. Tổng cộng tiền trước giảm giá (bao gồm VAT)
+  const grossTotalWithVat = roomTotalWithVat + servicesTotalWithVat;
+  const subtotal = Math.round(grossTotalWithVat / 1.1);
+  const vatAmount = grossTotalWithVat - subtotal;
 
-  const subtotal = Math.round(totalAmount / 1.1);
-  const vatAmount = totalAmount - subtotal;
-  
   const discountAmount = Number(invoice?.discountAmount || 0);
-  const totalPayment = Math.max(0, totalAmount - discountAmount);
+  const totalPayment = (invoice?.totalAmount != null && !isNaN(Number(invoice.totalAmount)))
+    ? Number(invoice.totalAmount)
+    : Math.max(0, grossTotalWithVat - discountAmount);
 
   // Ngày hóa đơn
   const invoiceDate = invoice?.createdAt ? new Date(invoice.createdAt) : new Date();
