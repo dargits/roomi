@@ -5,7 +5,7 @@ import {
   IoChevronDownOutline, IoChevronForwardOutline, IoDocumentOutline,
   IoEyeOutline, IoListOutline, IoLogOutOutline, IoPeopleOutline, IoPersonOutline,
   IoPrintOutline, IoReceiptOutline, IoRefreshOutline, IoTrashOutline, IoWarningOutline,
-  IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline,
+  IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline, IoTicketOutline
 } from 'react-icons/io5';
 import groupBookingApi from '../../services/groupBookingApi';
 import invoiceApi from '../../services/invoiceApi';
@@ -19,6 +19,8 @@ import GroupDepositModal from './GroupDepositModal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
+import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
+import DiscountFormModal from '../invoice/DiscountFormModal';
 
 
 
@@ -50,6 +52,7 @@ const GroupBookingList = ({ refreshKey }) => {
   const [invoiceError, setInvoiceError] = useState('');
   const [printInvoice, setPrintInvoice] = useState(null);
   const [invoiceTab, setInvoiceTab] = useState('combined'); // 'combined' | 'details'
+  const [showGroupDiscountModal, setShowGroupDiscountModal] = useState(false);
 
   // Payment state for combined invoice
   const [payAmount, setPayAmount] = useState('');
@@ -245,6 +248,56 @@ const GroupBookingList = ({ refreshKey }) => {
       setInvoiceError(error.response?.data?.message || 'Không thể lập hóa đơn đoàn.');
     } finally {
       setInvoiceSubmitting(false);
+    }
+  };
+
+  const handleCreateGroupInvoicesWithDiscount = async (discountPayload) => {
+    const { group } = invoiceState;
+    if (!group) return { success: false };
+    setInvoiceSubmitting(true);
+    setInvoiceError('');
+    try {
+      const data = await groupBookingApi.createInvoices(group.id, { mode: 'COMBINED' });
+      toastSuccess('Đã lập hóa đơn gộp đoàn!');
+
+      const combinedInvId = data?.invoices?.[0]?.id;
+      if (combinedInvId && discountPayload && discountPayload.discountValue > 0 && discountPayload.reason) {
+        try {
+          const discRes = await invoiceApi.applyDiscount(combinedInvId, discountPayload);
+          toastSuccess(discRes.statusMessage || 'Đã áp dụng giảm giá cho hóa đơn đoàn!');
+        } catch (discErr) {
+          toastError(discErr.response?.data?.message || 'Lỗi áp dụng giảm giá cho hóa đơn đoàn');
+        }
+      }
+
+      setShowGroupDiscountModal(false);
+      const refreshedData = await groupBookingApi.getInvoices(group.id);
+      setInvoiceState((prev) => ({ ...prev, data: refreshedData }));
+      const outstanding = Number(refreshedData?.outstandingAmount || 0);
+      if (outstanding > 0) {
+        setPayAmount(String(outstanding));
+      }
+      await loadGroups();
+      return { success: true };
+    } catch (error) {
+      setInvoiceError(error.response?.data?.message || 'Không thể lập hóa đơn đoàn.');
+      return { success: false };
+    } finally {
+      setInvoiceSubmitting(false);
+    }
+  };
+
+  const handleGroupDiscountChange = async () => {
+    const { group } = invoiceState;
+    if (!group) return;
+    try {
+      const refreshedData = await groupBookingApi.getInvoices(group.id);
+      setInvoiceState((prev) => ({ ...prev, data: refreshedData }));
+      const outstanding = Number(refreshedData?.outstandingAmount || 0);
+      setPayAmount(outstanding > 0 ? String(outstanding) : '');
+      await loadGroups();
+    } catch (err) {
+      console.error('Lỗi khi tải lại hóa đơn đoàn', err);
     }
   };
 
@@ -702,8 +755,25 @@ const GroupBookingList = ({ refreshKey }) => {
                       </div>
                     </div>
 
+                    {/* Khu vực Giảm giá hóa đơn gộp đoàn */}
+                    {invoiceState.data?.invoices?.[0] && (
+                      <div className="bg-surface p-4 rounded-xl border border-border-grey shadow-2xs">
+                        <InvoiceDiscountSection
+                          invoice={invoiceState.data.invoices[0]}
+                          userRole={user?.role}
+                          onInvoiceChange={handleGroupDiscountChange}
+                        />
+                      </div>
+                    )}
+
+                    {invoiceState.data?.invoices?.[0]?.status === 'PENDING_DISCOUNT_APPROVAL' && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg text-center font-medium">
+                        ⚠️ Tạm khóa thanh toán: Khoản giảm giá hóa đơn đoàn đang chờ Chủ cơ sở (Owner) phê duyệt.
+                      </div>
+                    )}
+
                     {/* Form thanh toán trực tiếp khi còn nợ */}
-                    {Number(invoiceState.data.outstandingAmount || 0) > 0 && (
+                    {Number(invoiceState.data.outstandingAmount || 0) > 0 && invoiceState.data?.invoices?.[0]?.status !== 'PENDING_DISCOUNT_APPROVAL' && (
                       <div className="p-4 bg-surface-container-low rounded-xl border border-primary/30 space-y-3">
                         <div className="font-semibold text-sm text-primary flex items-center gap-1.5">
                           <IoCashOutline size={18} /> Thu tiền thanh toán hóa đơn đoàn
@@ -727,7 +797,7 @@ const GroupBookingList = ({ refreshKey }) => {
                             const currentPayAmountGroup = parseFloat(payAmount) || 0;
                             const invCodeGroup = invoiceState.data?.invoices?.[0]?.id ? `INV${String(invoiceState.data.invoices[0].id).padStart(6, '0')}` : '';
                             const qrImageUrlGroup = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmountGroup}&addInfo=${invCodeGroup}&accountName=STAY%20AWAY`;
-                            
+
                             return (
                               <div className="sm:col-span-2 bg-white p-3.5 rounded-lg border border-blue-200 bg-blue-50/30 space-y-3 mt-1">
                                 <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
@@ -904,12 +974,41 @@ const GroupBookingList = ({ refreshKey }) => {
                   <div>• Lễ tân có thể thu nốt phần chênh lệch còn lại ngay sau khi tạo hóa đơn.</div>
                 </div>
 
-                <div className="flex justify-end gap-3 border-t border-border-grey pt-4">
+                <div className="flex flex-wrap justify-end gap-3 border-t border-border-grey pt-4">
                   <Button variant="ghost" onClick={closeInvoices} disabled={invoiceSubmitting}>Hủy</Button>
+                  <Button
+                    variant="outline"
+                    icon={IoTicketOutline}
+                    onClick={() => setShowGroupDiscountModal(true)}
+                    isLoading={invoiceSubmitting}
+                    className="text-primary border-primary hover:bg-primary/5"
+                  >
+                    Tạo hóa đơn gộp kèm giảm giá
+                  </Button>
                   <Button variant="primary" icon={IoDocumentOutline} onClick={createInvoices} isLoading={invoiceSubmitting}>
                     Tạo hóa đơn gộp đoàn
                   </Button>
                 </div>
+
+                {/* Modal nhập giảm giá trực tiếp trong quá trình lập hóa đơn gộp đoàn */}
+                {(() => {
+                  const groupRoomTotal = invoiceState.group?.totalRoomCharge
+                    || invoiceState.group?.bookings?.reduce((sum, b) => sum + (Number(b.expectedPrice) || 0), 0)
+                    || 0;
+                  return (
+                    <DiscountFormModal
+                      isOpen={showGroupDiscountModal}
+                      onClose={() => setShowGroupDiscountModal(false)}
+                      onSubmit={handleCreateGroupInvoicesWithDiscount}
+                      isLoading={invoiceSubmitting}
+                      invoice={{
+                        roomAmount: groupRoomTotal,
+                        serviceAmount: 0,
+                        totalAmount: groupRoomTotal
+                      }}
+                    />
+                  );
+                })()}
               </>
             )}
           </div>

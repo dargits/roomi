@@ -43,7 +43,7 @@ public class Invoice {
     private BigDecimal totalAmount; // Tổng cộng
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
     private InvoiceStatus status = InvoiceStatus.PENDING;
 

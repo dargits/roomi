@@ -375,7 +375,7 @@ public class BookingServiceImpl implements BookingService {
         
         // Bắt buộc phải thanh toán hóa đơn xong mới được trả phòng
         Invoice invoice = invoiceRepository.findInvoicesCoveringBooking(bookingId).stream().findFirst().orElse(null);
-        if (invoice != null && invoice.getStatus() == InvoiceStatus.PENDING) {
+        if (invoice != null && (invoice.getStatus() == InvoiceStatus.PENDING || invoice.getStatus() == InvoiceStatus.PENDING_PAYMENT)) {
             BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
                     .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
