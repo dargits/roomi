@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -42,6 +43,14 @@ public class HotelSetting {
     @Column(name = "home_image")
     private String homeImage;
 
+    /**
+     * Ngưỡng giảm giá (số tiền tuyệt đối, sau khi đã tính ra calculatedAmount).
+     * Nếu calculatedAmount >= ngưỡng này → chuyển trạng thái PENDING_DISCOUNT_APPROVAL, cần OWNER duyệt.
+     * Nếu NULL → luôn tự động duyệt (không cần OWNER phê duyệt).
+     */
+    @Column(name = "discount_approval_threshold", precision = 12, scale = 2)
+    private BigDecimal discountApprovalThreshold;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -54,3 +63,4 @@ public class HotelSetting {
     @JoinColumn(name = "updated_by", referencedColumnName = "id")
     private User updatedBy;
 }
+
