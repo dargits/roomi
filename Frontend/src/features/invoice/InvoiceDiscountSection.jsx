@@ -13,7 +13,7 @@ import DiscountFormModal from './DiscountFormModal';
  *  - userRole: 'OWNER' | 'RECEPTIONIST' | 'ACCOUNTANT' | ...
  *  - onInvoiceChange: callback khi hóa đơn bị cập nhật (để reload invoice cha)
  */
-const InvoiceDiscountSection = ({ invoice, userRole, onInvoiceChange }) => {
+const InvoiceDiscountSection = ({ invoice, userRole, onInvoiceChange, remainingAmount }) => {
   const [showForm, setShowForm] = useState(false);
 
   const {
@@ -64,6 +64,7 @@ const InvoiceDiscountSection = ({ invoice, userRole, onInvoiceChange }) => {
         onSubmit={handleApplyDiscount}
         isLoading={isLoading}
         invoice={invoice}
+        remainingAmount={remainingAmount}
       />
     </section>
   );

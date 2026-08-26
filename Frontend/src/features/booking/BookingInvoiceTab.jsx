@@ -381,14 +381,17 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           invoice={{
             roomAmount: provisionalRoomAmount,
             serviceAmount: provisionalServicesAmount,
-            totalAmount: provisionalGrossTotal
+            totalAmount: provisionalGrossTotal,
+            remainingAmount: provisionalRemaining
           }}
+          remainingAmount={provisionalRemaining}
         />
       </div>
     );
   }
 
-  const isFullyPaid = invoice?.status === 'PAID' || (invoice && remainingAmount <= 0);
+  const isPaid = invoice?.status === 'PAID';
+  const isCovered = invoice && remainingAmount <= 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -400,20 +403,24 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               <IoDocumentOutline size={20} className="text-primary" /> Chi tiết Hóa đơn
             </h3>
             <span className={`px-2 py-1 rounded-md text-xs font-bold ${
-              isFullyPaid
+              isPaid
                 ? 'bg-green-100 text-green-800'
                 : invoice.status === 'PENDING_DISCOUNT_APPROVAL'
                 ? 'bg-amber-100 text-amber-800'
                 : invoice.status === 'ADJUSTED'
                 ? 'bg-purple-100 text-purple-800'
+                : isCovered
+                ? 'bg-emerald-100 text-emerald-800'
                 : 'bg-yellow-100 text-yellow-800'
             }`}>
-              {isFullyPaid
+              {isPaid
                 ? 'ĐÃ THANH TOÁN'
                 : invoice.status === 'PENDING_DISCOUNT_APPROVAL'
                 ? 'CHỜ DUYỆT GIẢM GIÁ'
                 : invoice.status === 'ADJUSTED'
                 ? 'ĐÃ ĐIỀU CHỈNH'
+                : isCovered
+                ? 'ĐÃ ĐỦ TIỀN (CHỜ TRẢ PHÒNG)'
                 : 'CHỜ THANH TOÁN'}
             </span>
           </div>
@@ -466,6 +473,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             invoice={invoice}
             userRole={user?.role}
             onInvoiceChange={fetchInvoiceData}
+            remainingAmount={remainingAmount}
           />
         </div>
 
@@ -481,20 +489,22 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           </div>
         )}
 
-        {isFullyPaid && invoice.status !== 'ADJUSTED' && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
+        {(isPaid || isCovered) && invoice.status !== 'ADJUSTED' && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
           <div className="space-y-3">
             <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-green-800 flex items-center gap-3">
               <IoCheckmarkCircleOutline size={24} className="flex-shrink-0" />
               <div>
-                <div className="font-title-sm">Đã thanh toán đủ</div>
-                <div className="text-xs text-green-700 mt-0.5">Hóa đơn này đã được thanh toán hoàn tất (đã khấu trừ tiền cọc).</div>
+                <div className="font-title-sm">{isPaid ? 'Đã thanh toán đủ' : 'Đã đủ tiền chi trả hóa đơn'}</div>
+                <div className="text-xs text-green-700 mt-0.5">
+                  {isPaid ? 'Hóa đơn đã được thanh toán hoàn tất.' : 'Số tiền đặt cọc / đã thu đã đủ để thanh toán toàn bộ hóa đơn.'}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Button onClick={() => onPrintInvoice(invoice)} icon={IoDocumentOutline} className="w-full">
                 In Hóa Đơn
               </Button>
-              {canAdjust && (
+              {canAdjust && isPaid && (
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -522,7 +532,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           </div>
         )}
 
-        {status === 'CHECKED_IN' && isFullyPaid && (
+        {status === 'CHECKED_IN' && (isPaid || isCovered) && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
           <div className="mt-4">
             <Button onClick={handleCheckOut} isLoading={processing} className="w-full bg-green-600 hover:bg-green-700 text-white">
               Xác nhận Trả phòng
@@ -610,7 +620,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               </span>
             </div>
 
-            {!isFullyPaid && invoice.status !== 'ADJUSTED' && (
+            {!isPaid && invoice.status !== 'ADJUSTED' && (
               <div className="pt-3">
                 {invoice.status === 'PENDING_DISCOUNT_APPROVAL' ? (
                   <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg text-center font-medium">
