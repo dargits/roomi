@@ -378,7 +378,7 @@ const BookingCalendar = () => {
                                 return (
                                   <div
                                     key={booking.bookingId}
-                                    onClick={() => navigate(`/manage/bookings/${booking.bookingId}/info`, { state: { from: '/manage/bookings/calendar' } })}
+                                    onClick={() => navigate(`/manage/bookings/${booking.bookingId}?tab=info`, { state: { from: '/manage/bookings/calendar' } })}
                                     className={`w-full rounded-md p-1.5 flex flex-col justify-center items-start text-left border cursor-pointer transition-all duration-150 hover:shadow-md hover:scale-[1.02] ${badgeStyle.bg}`}
                                     title={`👤 Khách: ${booking.guestName}\n📅 Nhận: ${formatDate(booking.checkInDate)} (14:00)\n📅 Trả: ${formatDate(booking.checkOutDate)} (12:00)\n🏷️ Trạng thái: ${badgeStyle.label}\n👉 Nhấp để xem Chi tiết & Hóa đơn`}
                                   >

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   IoArrowBackOutline,
   IoAlertCircleOutline, 
@@ -32,15 +32,19 @@ import CheckInModal from './CheckInModal';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import Tabs from '../../components/ui/Tabs/Tabs';
 
 const VALID_TABS = ['info', 'services', 'invoice', 'deposit'];
 
 const BookingDetailPage = () => {
-  const { bookingId, tab } = useParams();
+  const { bookingId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { success: toastSuccess, error: toastError } = useToast();
   const { user } = useAuth();
+  
+  const tab = searchParams.get('tab') || 'info';
 
   const formatCCCD = (cccd) => {
     if (!cccd) return 'Chưa cập nhật';
@@ -102,10 +106,6 @@ const BookingDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTabChange = (newTab) => {
-    navigate(`/manage/bookings/${bookingId}/${newTab}`, { state: { from: fromUrl } });
   };
 
   const openChangeRoom = async () => {
@@ -294,51 +294,17 @@ const BookingDetailPage = () => {
       {/* Main Tab Navigation Container */}
       <div className="bg-surface rounded-lg border border-border-grey shadow-sm overflow-hidden">
         {/* Navigation Tabs */}
-        <div className="flex border-b border-border-grey bg-surface-container-lowest flex-wrap px-4 pt-2">
-          <button
-            onClick={() => handleTabChange('info')}
-            className={`px-5 py-3.5 font-title-sm flex items-center gap-2 transition-colors relative cursor-pointer ${
-              activeTab === 'info' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <IoInformationCircleOutline size={20} /> 
-            <span>Thông tin chung</span>
-            {activeTab === 'info' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-          </button>
-
-          <button
-            onClick={() => handleTabChange('services')}
-            className={`px-5 py-3.5 font-title-sm flex items-center gap-2 transition-colors relative cursor-pointer ${
-              activeTab === 'services' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <IoCartOutline size={20} /> 
-            <span>Dịch vụ phụ thu</span>
-            {activeTab === 'services' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-          </button>
-
-          <button
-            onClick={() => handleTabChange('invoice')}
-            className={`px-5 py-3.5 font-title-sm flex items-center gap-2 transition-colors relative cursor-pointer ${
-              activeTab === 'invoice' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <IoDocumentOutline size={20} /> 
-            <span>Hóa đơn & Thanh toán</span>
-            {activeTab === 'invoice' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-          </button>
-
-          <button
-            onClick={() => handleTabChange('deposit')}
-            className={`px-5 py-3.5 font-title-sm flex items-center gap-2 transition-colors relative cursor-pointer ${
-              activeTab === 'deposit' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <IoCashOutline size={20} /> 
-            <span>Đặt cọc</span>
-            {activeTab === 'deposit' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-          </button>
-        </div>
+        <Tabs 
+          tabs={[
+            { id: 'info', label: 'Thông tin chung', icon: IoInformationCircleOutline },
+            { id: 'services', label: 'Dịch vụ phụ thu', icon: IoCartOutline },
+            { id: 'invoice', label: 'Hóa đơn & Thanh toán', icon: IoDocumentOutline },
+            { id: 'deposit', label: 'Đặt cọc', icon: IoCashOutline }
+          ]} 
+          paramKey="tab" 
+          defaultTab="info" 
+          className="mt-0 border-b border-border-grey bg-surface-container-lowest" 
+        />
 
         {/* Tab Content Body */}
         <div className="p-6">
@@ -396,7 +362,17 @@ const BookingDetailPage = () => {
                     </div>
                   </div>
                   <div className="space-y-3 font-body-sm text-on-surface-variant">
-                    <div className="flex justify-between"><span className="w-1/3">Loại phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomTypeName}</span></div>
+                    <div className="flex justify-between">
+                      <span className="w-1/3">Loại phòng:</span>
+                      <span className="font-medium text-on-surface flex-1 flex items-center gap-2">
+                        {booking.roomTypeName}
+                        {booking.roomCapacity && (
+                          <span className="text-[11px] text-on-surface-variant flex items-center gap-1 font-normal bg-surface-container px-1.5 py-0.5 rounded">
+                            <IoPersonOutline size={12} /> {booking.roomCapacity} người
+                          </span>
+                        )}
+                      </span>
+                    </div>
                     <div className="flex justify-between"><span className="w-1/3">Phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomNumber ? `Phòng ${booking.roomNumber}` : 'Chưa phân phòng'}</span></div>
                     <div className="flex justify-between"><span className="w-1/3">Nhận phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkInDate, 'checkin')}</span></div>
                     <div className="flex justify-between"><span className="w-1/3">Trả phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span></div>
@@ -494,7 +470,7 @@ const BookingDetailPage = () => {
               <Button
                 variant="primary"
                 icon={IoDocumentOutline}
-                onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); handleTabChange('invoice'); }}
+                onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); navigate(`?tab=invoice`); }}
               >
                 Mở tab Hóa đơn &amp; Thanh toán
               </Button>
@@ -546,12 +522,19 @@ const BookingDetailPage = () => {
 
       {/* Modal Đổi phòng */}
       {showChangeRoom && (
-        <Modal isOpen={showChangeRoom} onClose={() => setShowChangeRoom(false)} title="Đổi Phòng Cùng Loại" maxWidth="max-w-md">
+        <Modal isOpen={showChangeRoom} onClose={() => setShowChangeRoom(false)} title="Đổi Phòng Cùng Loại" maxWidth="max-w-lg">
           <div className="space-y-4">
             <div className="bg-surface-container-low p-3.5 rounded-lg border border-border-grey space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Loại phòng:</span>
-                <span className="font-bold text-primary">{booking?.roomTypeName}</span>
+                <span className="font-bold text-primary flex items-center gap-1">
+                  {booking?.roomTypeName}
+                  {booking?.roomCapacity && (
+                    <span className="text-[10px] text-on-surface-variant font-normal flex items-center gap-0.5 bg-surface-container px-1.5 py-0.5 rounded ml-1">
+                      <IoPersonOutline size={10} /> {booking.roomCapacity} người
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Phòng hiện tại:</span>
@@ -599,7 +582,15 @@ const BookingDetailPage = () => {
                       <span>Phòng {room.roomNumber}</span>
                       {selectedNewRoom?.id === room.id && <IoCheckmarkCircleOutline size={16} className="text-primary" />}
                     </div>
-                    <div className="text-[11px] text-on-surface-variant mt-0.5">Tầng {room.floor || 1} • {room.roomTypeName}</div>
+                    <div className="text-[11px] text-on-surface-variant mt-0.5 flex items-center gap-1">
+                      Tầng {room.floor || 1} • {room.roomTypeName}
+                      {room.maxCapacity && (
+                        <>
+                          <span>•</span>
+                          <IoPersonOutline size={10} /> {room.maxCapacity} người
+                        </>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
