@@ -382,9 +382,9 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             roomAmount: provisionalRoomAmount,
             serviceAmount: provisionalServicesAmount,
             totalAmount: provisionalGrossTotal,
-            remainingAmount: provisionalRemaining
+            remainingAmount: provisionalNetTotal
           }}
-          remainingAmount={provisionalRemaining}
+          remainingAmount={provisionalNetTotal}
         />
       </div>
     );
