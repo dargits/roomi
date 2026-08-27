@@ -60,6 +60,12 @@ export const depositApi = {
     const res = await api.post(`/bookings/${bookingId}/deposit/no-show`, data);
     return res.data;
   },
+
+  // NCL-11-CN-NEW: Danh sách cọc chưa quyết toán toàn hệ thống
+  getUnsettledDeposits: async () => {
+    const res = await api.get('/deposits/unsettled');
+    return res.data;
+  },
 };
 
 export default depositApi;

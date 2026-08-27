@@ -11,7 +11,8 @@ import {
   IoRefreshOutline,
   IoSearchOutline,
   IoLayersOutline,
-  IoAlertCircleOutline
+  IoAlertCircleOutline,
+  IoSparklesOutline
 } from 'react-icons/io5';
 
 const STATUS_OPTIONS = [
@@ -19,6 +20,7 @@ const STATUS_OPTIONS = [
   { value: 'AVAILABLE', label: 'Trống (Sẵn sàng)' },
   { value: 'OCCUPIED', label: 'Đang có khách' },
   { value: 'DIRTY', label: 'Cần dọn dẹp' },
+  { value: 'INSPECTING', label: 'Chờ duyệt sạch' },
   { value: 'MAINTENANCE', label: 'Đang bảo trì' }
 ];
 
@@ -26,6 +28,7 @@ const STATUS_CONFIG = {
   AVAILABLE: { label: 'Trống', icon: IoCheckmarkCircleOutline, bg: 'bg-green-50/80', border: 'border-green-300', text: 'text-green-700', badge: 'bg-green-100 text-green-800' },
   OCCUPIED: { label: 'Đang ở', icon: IoPeopleOutline, bg: 'bg-blue-50/80', border: 'border-blue-300', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-800' },
   DIRTY: { label: 'Cần dọn', icon: IoBrushOutline, bg: 'bg-orange-50/80', border: 'border-orange-300', text: 'text-orange-700', badge: 'bg-orange-100 text-orange-800' },
+  INSPECTING: { label: 'Chờ duyệt', icon: IoSparklesOutline, bg: 'bg-purple-50/80', border: 'border-purple-300', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-800' },
   MAINTENANCE: { label: 'Bảo trì', icon: IoConstructOutline, bg: 'bg-red-50/80', border: 'border-red-300', text: 'text-red-700', badge: 'bg-red-100 text-red-800' }
 };
 

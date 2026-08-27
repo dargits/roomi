@@ -77,3 +77,45 @@ git commit -m "feat: complete Docker containerization and CI/CD automated VPS de
 git push origin main
 ```
 Sau đó vào tab **Actions** trên GitHub để quan sát pipeline tự động build và chạy container trên VPS của bạn!
+
+---
+
+## 💻 6. Triển Khai Bản Chạy Thử Tại Máy Cục Bộ (Local Trial Run)
+
+### Cách 1: Chạy bằng Docker Compose (Khuyến nghị)
+```bash
+# 1. Khởi động toàn bộ dịch vụ (Database, Backend, Frontend)
+docker compose up -d --build
+
+# 2. Truy cập hệ thống:
+# - Frontend: http://localhost:80 hoặc http://localhost:5173
+# - Backend API: http://localhost:8080/api/v1
+```
+
+### Cách 2: Chạy độc lập bằng Dev Server
+```bash
+# Terminal 1 - Khởi động Backend (Spring Boot)
+cd Backend
+./mvnw spring-boot:run
+
+# Terminal 2 - Khởi động Frontend (React + Vite)
+cd Frontend
+npm install
+npm run dev
+```
+
+### Nạp Dữ liệu Trình diễn (Demo Data Seed):
+- Dữ liệu demo mẫu đầy đủ (Khách sạn, Loại phòng, Phòng, Khách hàng, Đặt phòng, Đặt cọc, Hóa đơn) được lưu tại: [`docs/demo-data.sql`](docs/demo-data.sql).
+- Có thể nạp qua MySQL Workbench, DBeaver hoặc terminal:
+```bash
+mysql -u root -p stayaway_db < docs/demo-data.sql
+```
+
+### Tài khoản chạy thử nghiệm:
+| Vai trò | Tài khoản | Mật khẩu |
+|---|---|---|
+| Chủ cơ sở (Owner) | `owner` | `password` / `123456` |
+| Lễ tân (Receptionist) | `receptionist` | `password` / `123456` |
+| Buồng phòng (Housekeeper) | `housekeeper` | `password` / `123456` |
+| Kế toán (Accountant) | `accountant` | `password` / `123456` |
+| Quản trị viên (Admin) | `admin` | `password` / `123456` |

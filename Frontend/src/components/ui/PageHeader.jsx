@@ -1,31 +1,30 @@
 import React from 'react';
 
 /**
- * PageHeader — Component dùng chung để thống nhất header các trang admin.
+ * PageHeader — Component dùng chung để thống nhất header các trang admin tinh gọn.
  *
- * @param {React.ElementType} icon - Lucide icon component
+ * @param {React.ElementType} icon - Lucide/Ionicons icon component
  * @param {string} title           - Tiêu đề trang
- * @param {string} [subtitle]      - Mô tả ngắn bên dưới tiêu đề
+ * @param {string} [subtitle]      - Mô tả ngắn (tùy chọn)
  * @param {React.ReactNode} [actions] - Nút/action bên phải header
  */
 const PageHeader = ({ icon: Icon, title, subtitle, actions, children }) => (
-  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-5 mb-1 border-b border-border-grey">
-    <div className="flex items-start gap-3">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 mb-2 border-b border-border-grey">
+    <div className="flex items-center gap-2.5 min-w-0">
       {Icon && (
-        <div className="w-11 h-11 bg-surface-blue-light rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Icon size={22} className="text-primary" />
+        <div className="w-8 h-8 bg-surface-blue-light rounded-lg flex items-center justify-center shrink-0">
+          <Icon size={18} className="text-primary" />
         </div>
       )}
       <div className="min-w-0">
-        <h1 className="font-headline-md text-on-surface leading-tight">{title}</h1>
-        {subtitle && (
-          <p className="font-body-md text-on-surface-variant mt-0.5 text-sm">{subtitle}</p>
-        )}
+        <h1 className="font-title-lg text-on-surface font-bold text-base sm:text-lg leading-tight truncate">
+          {title}
+        </h1>
       </div>
     </div>
 
     {(actions || children) && (
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 shrink-0 flex-wrap">
         {actions || children}
       </div>
     )}

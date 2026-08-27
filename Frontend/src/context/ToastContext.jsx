@@ -12,16 +12,16 @@ export const toast = {
   show: (options) => {
     toastListeners.forEach(listener => listener(options));
   },
-  success: (message, title = 'Thành công', duration = 3500) => {
+  success: (message, title = 'Thành công', duration = 2000) => {
     toast.show({ type: 'success', message, title, duration });
   },
-  error: (message, title = 'Lỗi', duration = 4500) => {
+  error: (message, title = 'Lỗi', duration = 2000) => {
     toast.show({ type: 'error', message, title, duration });
   },
-  warning: (message, title = 'Cảnh báo', duration = 4000) => {
+  warning: (message, title = 'Cảnh báo', duration = 2000) => {
     toast.show({ type: 'warning', message, title, duration });
   },
-  info: (message, title = 'Thông báo', duration = 3500) => {
+  info: (message, title = 'Thông báo', duration = 2000) => {
     toast.show({ type: 'info', message, title, duration });
   },
   confirm: (options) => {
@@ -51,10 +51,10 @@ export const ToastProvider = ({ children }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const showToast = useCallback(({ type = 'info', title, message, duration = 4000 }) => {
-    // Chống lặp thông báo giống hệt nhau liên tục trong 2.5s
+  const showToast = useCallback(({ type = 'info', title, message, duration = 2000 }) => {
+    // Chống lặp thông báo giống hệt nhau liên tục trong 1.5s
     const now = Date.now();
-    if (message && lastToastRef.current.message === message && now - lastToastRef.current.time < 2500) {
+    if (message && lastToastRef.current.message === message && now - lastToastRef.current.time < 1500) {
       return null;
     }
     lastToastRef.current = { message, time: now };
@@ -134,10 +134,10 @@ export const ToastProvider = ({ children }) => {
     };
   }, [showToast, confirm]);
 
-  const success = useCallback((msg, title, dur) => showToast({ type: 'success', message: msg, title, duration: dur }), [showToast]);
-  const error = useCallback((msg, title, dur) => showToast({ type: 'error', message: msg, title, duration: dur }), [showToast]);
-  const warning = useCallback((msg, title, dur) => showToast({ type: 'warning', message: msg, title, duration: dur }), [showToast]);
-  const info = useCallback((msg, title, dur) => showToast({ type: 'info', message: msg, title, duration: dur }), [showToast]);
+  const success = useCallback((msg, title, dur = 2000) => showToast({ type: 'success', message: msg, title, duration: dur }), [showToast]);
+  const error = useCallback((msg, title, dur = 2000) => showToast({ type: 'error', message: msg, title, duration: dur }), [showToast]);
+  const warning = useCallback((msg, title, dur = 2000) => showToast({ type: 'warning', message: msg, title, duration: dur }), [showToast]);
+  const info = useCallback((msg, title, dur = 2000) => showToast({ type: 'info', message: msg, title, duration: dur }), [showToast]);
 
   const value = useMemo(() => ({
     toasts,
