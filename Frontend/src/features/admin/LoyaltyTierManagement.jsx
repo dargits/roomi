@@ -99,19 +99,18 @@ const LoyaltyTierManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-headline-md text-on-surface flex items-center gap-2">
-            <IoTrophyOutline size={26} className="text-amber-500" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-grey">
+        <div className="flex items-center gap-2">
+          <IoTrophyOutline size={22} className="text-amber-500" />
+          <h1 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
             Khách Hàng Thân Thiết
           </h1>
-          <p className="text-sm text-on-surface-variant mt-1">Cấu hình hạng thành viên và điểm tích lũy</p>
         </div>
-          <Button onClick={openCreate} icon={IoAddOutline}>
-            Thêm hạng mới
-          </Button>
+        <Button size="sm" onClick={openCreate} icon={IoAddOutline} className="shrink-0">
+          Thêm hạng mới
+        </Button>
       </div>
 
       {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">{error}</div>}

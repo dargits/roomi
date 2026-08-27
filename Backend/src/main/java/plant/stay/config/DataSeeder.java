@@ -110,6 +110,31 @@ public class DataSeeder implements CommandLineRunner {
             log.info("Dữ liệu User đã tồn tại, bỏ qua bước tạo dữ liệu mẫu User.");
         }
 
+        // Đảm bảo luôn có tài khoản nhân viên buồng phòng hoạt động
+        String defaultPass = HashUtil.hashPassword("pass@123");
+        if (userRepository.findByAccount("buongphong").isEmpty()) {
+            userRepository.save(User.builder()
+                    .account("buongphong")
+                    .name("Phạm Thị Yến")
+                    .password(defaultPass)
+                    .email("yen.pham@stayaway.vn")
+                    .phone("0984444444")
+                    .role(Role.HOUSEKEEPER)
+                    .active(true)
+                    .build());
+        }
+        if (userRepository.findByAccount("buongphong2").isEmpty()) {
+            userRepository.save(User.builder()
+                    .account("buongphong2")
+                    .name("Nguyễn Văn Nam")
+                    .password(defaultPass)
+                    .email("nam.nguyen@stayaway.vn")
+                    .phone("0986666666")
+                    .role(Role.HOUSEKEEPER)
+                    .active(true)
+                    .build());
+        }
+
         // 2. Seed HotelSetting (Cấu hình thông tin cơ sở lưu trú)
         if (hotelSettingRepository.count() == 0) {
             log.info("Bắt đầu khởi tạo dữ liệu mẫu cho thông tin cơ sở (HotelSetting)...");

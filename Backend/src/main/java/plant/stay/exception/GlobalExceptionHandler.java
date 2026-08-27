@@ -49,6 +49,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(ex.getMessage()));
     }
 
+    /**
+     * Xử lý BusinessException – lỗi nghiệp vụ (QTN-11, QTN-12, v.v.).
+     * HTTP status được lấy từ chính exception (mặc định 400 BAD_REQUEST).
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<MessageResponse> handleBusinessException(BusinessException ex) {
+        log.warn("Business rule violation: {}", ex.getMessage());
+        return ResponseEntity.status(ex.getHttpStatus()).body(new MessageResponse(ex.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<MessageResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(ex.getMessage()));
@@ -60,3 +70,4 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new MessageResponse("Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau."));
     }
 }
+

@@ -129,17 +129,16 @@ const HotelSettings = () => {
   }
 
   return (
-    <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden mb-12">
-      <div className="p-6 border-b border-border-grey flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-lowest">
-        <div>
-          <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <IoBusinessOutline size={28} className="text-primary" />
+    <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden mb-8">
+      <div className="px-4 py-3 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-lowest">
+        <div className="flex items-center gap-2">
+          <IoBusinessOutline size={22} className="text-primary" />
+          <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
             Cài đặt Khách sạn
           </h2>
-          <p className="text-on-surface-variant font-body-md mt-1">Quản lý thông tin chung và quy định thời gian của cơ sở</p>
         </div>
-        <Button onClick={handleSubmit} isLoading={isSaving} icon={IoSaveOutline} className="uppercase shrink-0 px-5 py-2.5">
-          Lưu tất cả thay đổi
+        <Button size="sm" onClick={handleSubmit} isLoading={isSaving} icon={IoSaveOutline} className="shrink-0">
+          Lưu thay đổi
         </Button>
       </div>
 

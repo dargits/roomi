@@ -157,19 +157,19 @@ const DashboardPage = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-headline-md text-on-surface">Tổng quan</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 flex items-center gap-1.5">
-            <IoCalendarOutline size={13} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-grey">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <h1 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">Tổng quan</h1>
+          <span className="text-xs text-on-surface-variant flex items-center gap-1 bg-surface-container-low px-2.5 py-0.5 rounded-md border border-border-grey/60 font-medium">
+            <IoCalendarOutline size={13} className="text-primary" />
             {today}
-          </p>
+          </span>
         </div>
         <button
           onClick={fetchData}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border-grey bg-surface-container-lowest hover:bg-surface-container-low text-sm text-on-surface-variant transition-colors w-fit"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-grey bg-surface-container-lowest hover:bg-surface-container-low text-xs font-medium text-on-surface-variant transition-colors w-fit shrink-0 cursor-pointer"
         >
           <IoRefreshOutline size={14} className={loading ? 'animate-spin' : ''} />
           Làm mới
