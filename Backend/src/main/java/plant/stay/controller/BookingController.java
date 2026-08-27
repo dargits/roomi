@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.BookingRequest;
 import plant.stay.dto.request.ExtendStayRequest;
+import plant.stay.dto.request.RescheduleDateRequest;
 import plant.stay.dto.request.UpgradeRoomRequest;
 import plant.stay.dto.response.BookingResponse;
 import plant.stay.exception.UnauthorizedException;
@@ -134,6 +135,30 @@ public class BookingController {
                                                       HttpServletRequest request) {
         checkReadBooking(request);
         return ResponseEntity.ok(bookingService.checkExtendAvailability(id, nights));
+    }
+
+    // NCL-04-CN-NEW: Preview dời lịch đặt phòng (KHÔNG lưu DB)
+    @GetMapping("/{id}/reschedule-preview")
+    public ResponseEntity<?> previewReschedule(
+            @PathVariable Long id,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate newCheckInDate,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate newCheckOutDate,
+            HttpServletRequest request) {
+        checkStaff(request);
+        RescheduleDateRequest req = new RescheduleDateRequest();
+        req.setNewCheckInDate(newCheckInDate);
+        req.setNewCheckOutDate(newCheckOutDate);
+        return ResponseEntity.ok(bookingService.previewReschedule(id, req));
+    }
+
+    // NCL-04-CN-NEW: Xác nhận dời lịch (lưu DB)
+    @PutMapping("/{id}/reschedule")
+    public ResponseEntity<BookingResponse> confirmReschedule(
+            @PathVariable Long id,
+            @Valid @RequestBody RescheduleDateRequest req,
+            HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.confirmReschedule(id, req, actor));
     }
 
     private User checkStaff(HttpServletRequest request) {

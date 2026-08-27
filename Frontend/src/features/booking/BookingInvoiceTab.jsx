@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  IoAddCircleOutline, 
-  IoAlertCircleOutline, 
-  IoCashOutline, 
-  IoCheckmarkCircleOutline, 
-  IoDocumentOutline, 
+import {
+  IoAddCircleOutline,
+  IoAlertCircleOutline,
+  IoCashOutline,
+  IoCheckmarkCircleOutline,
+  IoDocumentOutline,
   IoDocumentTextOutline,
   IoQrCodeOutline,
   IoCopyOutline,
   IoCalculatorOutline,
   IoCardOutline,
   IoWalletOutline,
-  IoCheckmarkOutline
+  IoCheckmarkOutline,
+  IoTicketOutline
 } from 'react-icons/io5';
 import { invoiceApi } from '../../services/invoiceApi';
 import { depositApi } from '../../services/depositApi';
@@ -22,6 +23,8 @@ import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
 import bookingApi from '../../services/bookingApi';
 import { useToast } from '../../context/ToastContext';
+import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
+import DiscountFormModal from '../invoice/DiscountFormModal';
 
 const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const { user } = useAuth();
@@ -31,12 +34,15 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const [deposits, setDeposits] = useState([]);
   const [provisionalServices, setProvisionalServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'CASH', note: '' });
   const [receivedCash, setReceivedCash] = useState('');
   const [copiedField, setCopiedField] = useState('');
   const [processing, setProcessing] = useState(false);
+
+  // Modal giảm giá trong quá trình lập hóa đơn
+  const [showProvisionalDiscountModal, setShowProvisionalDiscountModal] = useState(false);
 
   // Modal điều chỉnh hóa đơn
   const [showAdjustModal, setShowAdjustModal] = useState(false);
@@ -74,7 +80,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           // Chưa có hóa đơn -> chuyển sang hiển thị tạm tính bên dưới
         }
       }
-      
+
       // Mặc định: chưa lập hóa đơn (CONFIRMED, NEW, hoặc CHECKED_IN chưa lập)
       setInvoice(null);
       try {
@@ -97,6 +103,32 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
       fetchInvoiceData();
     } catch (error) {
       toastError(error.response?.data?.message || error.message || "Lỗi lập hóa đơn");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCreateInvoiceWithDiscount = async (discountPayload) => {
+    if (status !== 'CHECKED_IN') return { success: false };
+    setProcessing(true);
+    try {
+      const createdInv = await invoiceApi.createInvoice(bookingId);
+      toastSuccess("Tạo hóa đơn thành công!");
+
+      if (discountPayload && discountPayload.discountValue > 0 && discountPayload.reason) {
+        try {
+          const discRes = await invoiceApi.applyDiscount(createdInv.id, discountPayload);
+          toastSuccess(discRes.statusMessage || "Đã áp dụng giảm giá cho hóa đơn!");
+        } catch (discErr) {
+          toastError(discErr.response?.data?.message || "Lỗi khi áp dụng giảm giá cho hóa đơn mới tạo");
+        }
+      }
+      setShowProvisionalDiscountModal(false);
+      fetchInvoiceData();
+      return { success: true };
+    } catch (error) {
+      toastError(error.response?.data?.message || error.message || "Lỗi lập hóa đơn");
+      return { success: false };
     } finally {
       setProcessing(false);
     }
@@ -268,7 +300,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
             <div className="flex justify-between items-center mb-4 pb-4 border-b border-border-grey">
               <h3 className="font-title-lg text-on-surface flex items-center gap-2">
-                <IoDocumentOutline size={20} className="text-primary"/> Chi phí Tạm tính
+                <IoDocumentOutline size={20} className="text-primary" /> Chi phí Tạm tính
               </h3>
               <span className="px-2 py-1 bg-surface-container-high rounded text-xs text-on-surface-variant font-label-md">
                 Chưa lập hóa đơn
@@ -305,11 +337,22 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-border-grey">
+            <div className="mt-6 pt-4 border-t border-border-grey space-y-2.5">
               {status === 'CHECKED_IN' ? (
-                <Button onClick={handleCreateInvoice} isLoading={processing} icon={IoAddCircleOutline} className="w-full">
-                  Chốt & Lập Hóa Đơn (Tự động trừ cọc)
-                </Button>
+                <>
+                  <Button onClick={handleCreateInvoice} isLoading={processing} icon={IoAddCircleOutline} className="w-full">
+                    Chốt & Lập Hóa Đơn (Tự động trừ cọc)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowProvisionalDiscountModal(true)}
+                    isLoading={processing}
+                    icon={IoTicketOutline}
+                    className="w-full text-primary border-primary hover:bg-primary/5"
+                  >
+                    Lập Hóa Đơn Kèm Giảm Giá
+                  </Button>
+                </>
               ) : (
                 <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
                   Chỉ có thể lập hóa đơn khi khách đang ở phòng (Trạng thái <strong>Đang ở</strong>).
@@ -318,7 +361,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             </div>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <div className="bg-surface-container-lowest p-5 rounded-lg border border-dashed border-border-grey h-full flex flex-col justify-center items-center text-center">
             <IoCashOutline size={40} className="text-on-surface-variant/30 mb-3" />
@@ -328,11 +371,27 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             </div>
           </div>
         </div>
+
+        {/* Modal nhập giảm giá trực tiếp trong quá trình lập hóa đơn */}
+        <DiscountFormModal
+          isOpen={showProvisionalDiscountModal}
+          onClose={() => setShowProvisionalDiscountModal(false)}
+          onSubmit={handleCreateInvoiceWithDiscount}
+          isLoading={processing}
+          invoice={{
+            roomAmount: provisionalRoomAmount,
+            serviceAmount: provisionalServicesAmount,
+            totalAmount: provisionalGrossTotal,
+            remainingAmount: provisionalNetTotal
+          }}
+          remainingAmount={provisionalNetTotal}
+        />
       </div>
     );
   }
 
-  const isFullyPaid = invoice?.status === 'PAID' || (invoice && remainingAmount <= 0);
+  const isPaid = invoice?.status === 'PAID';
+  const isCovered = invoice && remainingAmount <= 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -341,10 +400,28 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
           <div className="flex justify-between items-center mb-4 pb-4 border-b border-border-grey">
             <h3 className="font-title-lg text-on-surface flex items-center gap-2">
-              <IoDocumentOutline size={20} className="text-primary"/> Chi tiết Hóa đơn
+              <IoDocumentOutline size={20} className="text-primary" /> Chi tiết Hóa đơn
             </h3>
-            <span className={`px-2 py-1 rounded-md text-xs font-bold ${isFullyPaid ? 'bg-green-100 text-green-800' : invoice.status === 'ADJUSTED' ? 'bg-purple-100 text-purple-800' : 'bg-yellow-100 text-yellow-800'}`}>
-              {isFullyPaid ? 'ĐÃ THANH TOÁN' : invoice.status === 'ADJUSTED' ? 'ĐÃ ĐIỀU CHỈNH' : 'CHỜ THANH TOÁN'}
+            <span className={`px-2 py-1 rounded-md text-xs font-bold ${
+              isPaid
+                ? 'bg-green-100 text-green-800'
+                : invoice.status === 'PENDING_DISCOUNT_APPROVAL'
+                ? 'bg-amber-100 text-amber-800'
+                : invoice.status === 'ADJUSTED'
+                ? 'bg-purple-100 text-purple-800'
+                : isCovered
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-yellow-100 text-yellow-800'
+            }`}>
+              {isPaid
+                ? 'ĐÃ THANH TOÁN'
+                : invoice.status === 'PENDING_DISCOUNT_APPROVAL'
+                ? 'CHỜ DUYỆT GIẢM GIÁ'
+                : invoice.status === 'ADJUSTED'
+                ? 'ĐÃ ĐIỀU CHỈNH'
+                : isCovered
+                ? 'ĐÃ ĐỦ TIỀN (CHỜ TRẢ PHÒNG)'
+                : 'CHỜ THANH TOÁN'}
             </span>
           </div>
 
@@ -389,21 +466,45 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             </div>
           </div>
         </div>
-        
-        {isFullyPaid && invoice.status !== 'ADJUSTED' && (
+
+        {/* Khu vực Quản lý Giảm giá Hóa đơn */}
+        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
+          <InvoiceDiscountSection
+            invoice={invoice}
+            userRole={user?.role}
+            onInvoiceChange={fetchInvoiceData}
+            remainingAmount={remainingAmount}
+          />
+        </div>
+
+        {invoice.status === 'PENDING_DISCOUNT_APPROVAL' && (
+          <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 text-amber-900 flex items-start gap-3">
+            <IoAlertCircleOutline size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <p className="font-bold">Hóa đơn đang chờ phê duyệt giảm giá</p>
+              <p className="mt-0.5 text-amber-800">
+                Chức năng thanh toán và trả phòng tạm thời bị khóa cho đến khi Chủ cơ sở (Owner) duyệt hoặc từ chối khoản giảm giá.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {(isPaid || isCovered) && invoice.status !== 'ADJUSTED' && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
           <div className="space-y-3">
             <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-green-800 flex items-center gap-3">
               <IoCheckmarkCircleOutline size={24} className="flex-shrink-0" />
               <div>
-                <div className="font-title-sm">Đã thanh toán đủ</div>
-                <div className="text-xs text-green-700 mt-0.5">Hóa đơn này đã được thanh toán hoàn tất (đã khấu trừ tiền cọc).</div>
+                <div className="font-title-sm">{isPaid ? 'Đã thanh toán đủ' : 'Đã đủ tiền chi trả hóa đơn'}</div>
+                <div className="text-xs text-green-700 mt-0.5">
+                  {isPaid ? 'Hóa đơn đã được thanh toán hoàn tất.' : 'Số tiền đặt cọc / đã thu đã đủ để thanh toán toàn bộ hóa đơn.'}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Button onClick={() => onPrintInvoice(invoice)} icon={IoDocumentOutline} className="w-full">
                 In Hóa Đơn
               </Button>
-              {canAdjust && (
+              {canAdjust && isPaid && (
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -431,7 +532,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           </div>
         )}
 
-        {status === 'CHECKED_IN' && isFullyPaid && (
+        {status === 'CHECKED_IN' && (isPaid || isCovered) && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
           <div className="mt-4">
             <Button onClick={handleCheckOut} isLoading={processing} className="w-full bg-green-600 hover:bg-green-700 text-white">
               Xác nhận Trả phòng
@@ -445,7 +546,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
         <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
           <div className="flex justify-between items-center mb-4 pb-4 border-b border-border-grey">
             <h3 className="font-title-lg text-on-surface flex items-center gap-2">
-              <IoCashOutline size={20} className="text-primary"/> Lịch sử Thanh toán
+              <IoCashOutline size={20} className="text-primary" /> Lịch sử Thanh toán
             </h3>
             <span className="text-xs text-on-surface-variant">
               {payments.length + (effectiveDepositDeduction > 0 ? 1 : 0)} lượt thanh toán
@@ -519,9 +620,13 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               </span>
             </div>
 
-            {!isFullyPaid && invoice.status !== 'ADJUSTED' && (
+            {!isPaid && invoice.status !== 'ADJUSTED' && (
               <div className="pt-3">
-                {!showPaymentForm ? (
+                {invoice.status === 'PENDING_DISCOUNT_APPROVAL' ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg text-center font-medium">
+                    ⚠️ Tạm khóa thanh toán: Khoản giảm giá đang chờ Owner phê duyệt.
+                  </div>
+                ) : !showPaymentForm ? (
                   <Button onClick={() => openPaymentForm(remainingAmount)} icon={IoAddCircleOutline} className="w-full">
                     Thêm lượt thanh toán
                   </Button>
@@ -703,7 +808,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                                   className="text-on-surface-variant hover:text-primary p-0.5"
                                   title="Sao chép số TK"
                                 >
-                                  {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                                  {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14} /> : <IoCopyOutline size={13} />}
                                 </button>
                               </div>
                             </div>
@@ -721,7 +826,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                                   className="text-on-surface-variant hover:text-primary p-0.5"
                                   title="Sao chép nội dung"
                                 >
-                                  {copiedField === 'memo' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
+                                  {copiedField === 'memo' ? <IoCheckmarkOutline className="text-green-600" size={14} /> : <IoCopyOutline size={13} />}
                                 </button>
                               </div>
                             </div>
