@@ -19,4 +19,10 @@ public interface RoomService {
     RoomResponse markDirty(Long id, User actor);
     RoomResponse setMaintenance(Long id, User actor);
     List<RoomResponse> getAvailableWithoutConflicts(Long roomTypeId, java.time.LocalDate checkInDate, java.time.LocalDate checkOutDate);
+    // NCL-06-CN-NEW: Housekeeping 2 bước
+    RoomResponse submitForInspection(Long id, User actor);   // DIRTY → INSPECTING
+    RoomResponse approveClean(Long id, User actor);          // INSPECTING → AVAILABLE
+    // NCL-06-CN-NEW: Phân công nhân viên dọn phòng
+    RoomResponse assignCleaner(Long id, Long housekeeperId, User actor);
+    RoomResponse unassignCleaner(Long id, User actor);
 }

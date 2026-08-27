@@ -2,8 +2,10 @@ package plant.stay.service;
 
 import plant.stay.dto.request.BookingRequest;
 import plant.stay.dto.request.ExtendStayRequest;
+import plant.stay.dto.request.RescheduleDateRequest;
 import plant.stay.dto.request.UpgradeRoomRequest;
 import plant.stay.dto.response.BookingResponse;
+import plant.stay.dto.response.RescheduleDatePreviewResponse;
 import plant.stay.model.User;
 
 import java.time.LocalDate;
@@ -28,4 +30,16 @@ public interface BookingService {
     BookingResponse upgradeRoom(Long bookingId, UpgradeRoomRequest req, User actor);
     // Trả về thông tin kiểm tra khả dụng gia hạn
     java.util.Map<String, Object> checkExtendAvailability(Long bookingId, int nights);
+
+    // NCL-04-CN-NEW: Dời lịch đặt phòng chưa nhận phòng (NEW/CONFIRMED)
+    // Preview: kiểm tra conflict + tính giá/cọc — KHÔNG lưu DB
+    RescheduleDatePreviewResponse previewReschedule(Long bookingId, RescheduleDateRequest req);
+    // Confirm: lưu ngày mới vào DB (atomic, validate lại)
+    BookingResponse confirmReschedule(Long bookingId, RescheduleDateRequest req, User actor);
+
+    // NCL-04-CN-NEW: Trả phòng sớm
+    // Preview: xem trước số tiền điều chỉnh — KHÔNG lưu DB
+    java.util.Map<String, Object> previewEarlyCheckout(Long bookingId);
+    // Confirm: cập nhật giá theo đêm thực tế rồi checkout
+    BookingResponse confirmEarlyCheckout(Long bookingId, User actor);
 }

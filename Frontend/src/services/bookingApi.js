@@ -104,7 +104,36 @@ const bookingApi = {
     // data = { newRoomId, reason? }
     const response = await api.put(`/bookings/${id}/upgrade-room`, data);
     return response.data;
-  }
+  },
+
+  // === NCL-04-CN-NEW: Dời lịch đặt phòng chưa nhận phòng (NEW/CONFIRMED) ===
+  // Preview: GET /bookings/{id}/reschedule-preview — kiểm tra + tính giá, KHÔNG lưu DB
+  previewReschedule: async (id, newCheckInDate, newCheckOutDate) => {
+    const response = await api.get(`/bookings/${id}/reschedule-preview`, {
+      params: { newCheckInDate, newCheckOutDate },
+    });
+    return response.data;
+  },
+
+  // Confirm: PUT /bookings/{id}/reschedule — lưu ngày mới vào DB
+  confirmReschedule: async (id, data) => {
+    // data = { newCheckInDate, newCheckOutDate, reason? }
+    const response = await api.put(`/bookings/${id}/reschedule`, data);
+    return response.data;
+  },
+
+  // === NCL-04-CN-NEW: Trả phòng sớm ===
+  // Preview: GET /bookings/{id}/early-checkout-preview — xem trước số đêm thực & tiền phòng điều chỉnh
+  previewEarlyCheckout: async (id) => {
+    const response = await api.get(`/bookings/${id}/early-checkout-preview`);
+    return response.data;
+  },
+
+  // Confirm: PUT /bookings/{id}/early-checkout — cập nhật ngày checkout = hôm nay & tính lại giá & hoàn tất checkout
+  confirmEarlyCheckout: async (id) => {
+    const response = await api.put(`/bookings/${id}/early-checkout`);
+    return response.data;
+  },
 };
 
 export default bookingApi;

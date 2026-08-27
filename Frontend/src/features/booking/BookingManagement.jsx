@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline } from 'react-icons/io5';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoCashOutline } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
@@ -11,31 +11,35 @@ import BookingForm from './BookingForm';
 import BookingRequestList from './BookingRequestList';
 import GroupBookingForm from './GroupBookingForm';
 import GroupBookingList from './GroupBookingList';
+import PendingDepositList from './PendingDepositList';
 
 const BookingManagement = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Xác định activeTab dựa trên pathname của URL
-  const getActiveTab = () => {
-    if (location.pathname.endsWith('/calendar')) return 'calendar';
-    if (location.pathname.endsWith('/requests')) return 'requests';
-    if (location.pathname.endsWith('/groups')) return 'groups';
-    return 'list';
-  };
+  // Backward compatibility: Redirect legacy paths to query params
+  useEffect(() => {
+    if (location.pathname.endsWith('/calendar')) {
+      navigate('/manage/bookings?tab=calendar', { replace: true });
+    } else if (location.pathname.endsWith('/requests')) {
+      navigate('/manage/bookings?tab=requests', { replace: true });
+    } else if (location.pathname.endsWith('/groups')) {
+      navigate('/manage/bookings?tab=groups', { replace: true });
+    } else if (location.pathname.endsWith('/deposits')) {
+      navigate('/manage/bookings?tab=deposits', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
-  const activeTab = getActiveTab();
+  // Xác định activeTab dựa trên query params
+  const activeTab = searchParams.get('tab') || 'list';
 
   const handleTabChange = (tab) => {
-    if (tab === 'calendar') {
-      navigate('/manage/bookings/calendar');
-    } else if (tab === 'requests') {
-      navigate('/manage/bookings/requests?tab=ROOM');
-    } else if (tab === 'groups') {
-      navigate('/manage/bookings/groups');
+    if (tab === 'requests') {
+      setSearchParams({ tab, sub: 'ROOM' });
     } else {
-      navigate('/manage/bookings/list');
+      setSearchParams({ tab });
     }
   };
   
@@ -64,52 +68,64 @@ const BookingManagement = () => {
 
   return (
     <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
-      <div className="p-6 border-b border-border-grey bg-surface-container-lowest">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-              <IoCalendarOutline size={28} className="text-primary" />
+      <div className="px-4 py-3 border-b border-border-grey bg-surface-container-lowest">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+          {/* Title */}
+          <div className="flex items-center gap-2 shrink-0">
+            <IoCalendarOutline size={22} className="text-primary" />
+            <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
               Quản lý Đặt phòng
             </h2>
-            <p className="text-on-surface-variant font-body-md mt-1">Quản lý danh sách đặt phòng và trạng thái phòng</p>
           </div>
           
-          <div className="flex gap-3">
-            <div className="flex bg-surface-container-low rounded-lg p-1 border border-border-grey">
+          {/* Tabs & Action buttons on single compact row */}
+          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-2.5 w-full lg:w-auto">
+            {/* Tabs */}
+            <div className="flex bg-surface-container-low rounded-lg p-0.5 border border-border-grey overflow-x-auto max-w-full">
               <button
                 onClick={() => handleTabChange('list')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors cursor-pointer ${activeTab === 'list' ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'list' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
               >
-                <IoListOutline size={18} /> Danh sách
+                <IoListOutline size={15} /> Danh sách
               </button>
               <button
                 onClick={() => handleTabChange('calendar')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors cursor-pointer ${activeTab === 'calendar' ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'calendar' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
               >
-                <IoMapOutline size={18} /> Lịch phòng
+                <IoMapOutline size={15} /> Lịch phòng
               </button>
               <button
                 onClick={() => handleTabChange('groups')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors cursor-pointer ${activeTab === 'groups' ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'groups' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
               >
-                <IoPeopleOutline size={18} /> Đoàn
+                <IoPeopleOutline size={15} /> Đoàn
+              </button>
+              <button
+                onClick={() => handleTabChange('deposits')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'deposits' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+              >
+                <IoCashOutline size={15} /> Cọc chưa quyết toán
               </button>
               {/* Kế toán không xử lý yêu cầu từ web */}
               {!isAccountant && (
                 <button
                   onClick={() => handleTabChange('requests')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md font-label-md transition-colors cursor-pointer ${activeTab === 'requests' ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'requests' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
                 >
-                  <IoPersonOutline size={18} /> Yêu cầu từ Web
+                  <IoPersonOutline size={15} /> Yêu cầu từ Web
                 </button>
               )}
             </div>
             
-            {/* Kế toán không được tự tạo đặt phòng */}
+            {/* Action Buttons */}
             {!isAccountant && (
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsGroupFormOpen(true)} icon={IoPeopleOutline}>Tạo đoàn</Button>
-                <Button onClick={openAddForm} icon={IoAddOutline}>Tạo Booking</Button>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => setIsGroupFormOpen(true)} icon={IoPeopleOutline}>
+                  Tạo đoàn
+                </Button>
+                <Button size="sm" onClick={openAddForm} icon={IoAddOutline}>
+                  Tạo Booking
+                </Button>
               </div>
             )}
           </div>
@@ -121,6 +137,7 @@ const BookingManagement = () => {
         {activeTab === 'list' && <BookingList key={`list-${refreshKey}`} />}
         {activeTab === 'calendar' && <BookingCalendar />}
         {activeTab === 'groups' && <GroupBookingList refreshKey={refreshKey} autoOpenAssignGroup={autoAssignGroup} />}
+        {activeTab === 'deposits' && <PendingDepositList />}
         {activeTab === 'requests' && <BookingRequestList key={`req-${refreshKey}`} />}
       </div>
 

@@ -6,8 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.BookingRequest;
 import plant.stay.dto.request.ExtendStayRequest;
+import plant.stay.dto.request.RescheduleDateRequest;
 import plant.stay.dto.request.UpgradeRoomRequest;
 import plant.stay.dto.response.BookingResponse;
+import plant.stay.dto.response.RescheduleDatePreviewResponse;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
@@ -40,6 +42,7 @@ public class BookingServiceImpl implements BookingService {
     private final AuditLogService auditLogService;
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
+    private final DepositPolicyRepository depositPolicyRepository;
 
     @Override
     public List<BookingResponse> getAll() {
@@ -375,7 +378,7 @@ public class BookingServiceImpl implements BookingService {
         
         // Bắt buộc phải thanh toán hóa đơn xong mới được trả phòng
         Invoice invoice = invoiceRepository.findInvoicesCoveringBooking(bookingId).stream().findFirst().orElse(null);
-        if (invoice != null && invoice.getStatus() == InvoiceStatus.PENDING) {
+        if (invoice != null && (invoice.getStatus() == InvoiceStatus.PENDING || invoice.getStatus() == InvoiceStatus.PENDING_PAYMENT)) {
             BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
                     .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -663,6 +666,314 @@ public class BookingServiceImpl implements BookingService {
                 upgradeType + " từ phòng " + oldRoomNumber + " sang " + newRoom.getRoomNumber() +
                 " (Loại: " + newRoomType.getName() + "), chênh lệch: " + priceDiff + "đ");
         return toResponse(booking);
+    }
+
+    // ===== NCL-04-CN-NEW: Dời lịch đặt phòng chưa nhận phòng =====
+
+    /**
+     * Preview: kiểm tra conflict + tính giá/cọc theo ngày mới.
+     * KHÔNG lưu DB. An toàn để gọi nhiều lần trước khi xác nhận.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public RescheduleDatePreviewResponse previewReschedule(Long bookingId, RescheduleDateRequest req) {
+        Booking booking = findById(bookingId);
+
+        // Validate status
+        if (booking.getStatus() != BookingStatus.NEW && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new IllegalArgumentException(
+                "Chỉ có thể dời lịch khi đặt phòng ở trạng thái Mới tạo (NEW) hoặc Đã xác nhận (CONFIRMED)");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate newCheckIn = req.getNewCheckInDate();
+        LocalDate newCheckOut = req.getNewCheckOutDate();
+
+        // Validate ngày
+        if (newCheckIn.isBefore(today)) {
+            throw new IllegalArgumentException("Ngày nhận phòng mới không được sớm hơn ngày hiện tại (" + today + ")");
+        }
+        if (!newCheckOut.isAfter(newCheckIn)) {
+            throw new IllegalArgumentException("Ngày trả phòng mới phải sau ngày nhận phòng mới");
+        }
+
+        // --- Kiểm tra xung đột phòng (chỉ khi đã gán phòng) ---
+        boolean available = true;
+        List<String> conflictDates = new java.util.ArrayList<>();
+        Long conflictBookingId = null;
+        List<RescheduleDatePreviewResponse.RoomSuggestion> alternativeRooms = new java.util.ArrayList<>();
+
+        if (booking.getRoom() != null) {
+            List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                    booking.getRoom().getId(), newCheckIn, newCheckOut, bookingId);
+            if (!conflicts.isEmpty()) {
+                available = false;
+                // Thu thập các đêm bị trùng
+                Booking firstConflict = conflicts.get(0);
+                conflictBookingId = firstConflict.getId();
+                LocalDate cStart = firstConflict.getCheckInDate().isBefore(newCheckIn)
+                        ? newCheckIn : firstConflict.getCheckInDate();
+                LocalDate cEnd = firstConflict.getCheckOutDate().isAfter(newCheckOut)
+                        ? newCheckOut : firstConflict.getCheckOutDate();
+                for (LocalDate d = cStart; d.isBefore(cEnd); d = d.plusDays(1)) {
+                    conflictDates.add(d.toString());
+                }
+                // Tìm phòng cùng loại còn trống gợi ý
+                List<Room> candidates = roomRepository.findAvailableWithoutConflicts(
+                        booking.getRoomType().getId(), RoomStatus.AVAILABLE, newCheckIn, newCheckOut);
+                for (Room r : candidates) {
+                    if (!r.getId().equals(booking.getRoom().getId())) {
+                        alternativeRooms.add(RescheduleDatePreviewResponse.RoomSuggestion.builder()
+                                .roomId(r.getId())
+                                .roomNumber(r.getRoomNumber())
+                                .roomTypeName(r.getRoomType().getName())
+                                .status(r.getStatus().name())
+                                .build());
+                    }
+                }
+            }
+        }
+        // Nếu chưa gán phòng: available = true (không cần kiểm tra conflict)
+
+        // --- Tính giá ---
+        BigDecimal oldPrice = calculatePrice(booking.getRoomType(), booking.getCheckInDate(), booking.getCheckOutDate());
+        BigDecimal newPrice = calculatePrice(booking.getRoomType(), newCheckIn, newCheckOut);
+        BigDecimal priceDiff = newPrice.subtract(oldPrice);
+
+        // Chi tiết giá từng đêm mới
+        long nights = ChronoUnit.DAYS.between(newCheckIn, newCheckOut);
+        List<RescheduleDatePreviewResponse.NightPriceDto> nightPrices = new java.util.ArrayList<>();
+        for (long i = 0; i < nights; i++) {
+            LocalDate night = newCheckIn.plusDays(i);
+            List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(booking.getRoomType().getId(), night);
+            BigDecimal price = !seasonal.isEmpty()
+                    ? ((SeasonalPrice) seasonal.get(0)).getPricePerNight()
+                    : (booking.getRoomType().getBasePrice() != null ? booking.getRoomType().getBasePrice() : BigDecimal.ZERO);
+            nightPrices.add(RescheduleDatePreviewResponse.NightPriceDto.builder()
+                    .date(night.toString())
+                    .price(price)
+                    .build());
+        }
+
+        // --- Tính cọc ---
+        BigDecimal collectedDeposit = BigDecimal.ZERO;
+        List<Deposit> deposits = depositRepository.findByBookingIdOrderByCreatedAtDesc(bookingId);
+        for (Deposit d : deposits) {
+            if (d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID) {
+                BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                collectedDeposit = collectedDeposit.add(eff.max(BigDecimal.ZERO));
+            }
+        }
+
+        BigDecimal newRequiredDeposit = BigDecimal.ZERO;
+        try {
+            DepositPolicy policy = null;
+            if (booking.getRoomType() != null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(booking.getRoomType().getId()).orElse(null);
+            }
+            if (policy == null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue().orElse(null);
+            }
+            if (policy != null) {
+                newRequiredDeposit = newPrice
+                        .multiply(policy.getDepositPercent())
+                        .divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+            }
+        } catch (Exception ignored) { /* Không để lỗi tính cọc chặn preview */ }
+
+        BigDecimal depositDiff = newRequiredDeposit.subtract(collectedDeposit);
+
+        return RescheduleDatePreviewResponse.builder()
+                .available(available)
+                .conflictDates(conflictDates)
+                .conflictBookingId(conflictBookingId)
+                .alternativeRooms(alternativeRooms)
+                .oldPrice(oldPrice)
+                .newPrice(newPrice)
+                .priceDiff(priceDiff)
+                .nightPrices(nightPrices)
+                .collectedDeposit(collectedDeposit)
+                .newRequiredDeposit(newRequiredDeposit)
+                .depositDiff(depositDiff)
+                .build();
+    }
+
+    /**
+     * Confirm: lưu ngày mới vào DB (atomic).
+     * Từ chối nếu phòng bị vướng booking khác trong khoảng ngày mới.
+     */
+    @Override
+    @Transactional
+    public BookingResponse confirmReschedule(Long bookingId, RescheduleDateRequest req, User actor) {
+        Booking booking = findById(bookingId);
+
+        // Validate status
+        if (booking.getStatus() != BookingStatus.NEW && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new IllegalArgumentException(
+                "Chỉ có thể dời lịch khi đặt phòng ở trạng thái Mới tạo (NEW) hoặc Đã xác nhận (CONFIRMED)");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate newCheckIn = req.getNewCheckInDate();
+        LocalDate newCheckOut = req.getNewCheckOutDate();
+
+        if (newCheckIn.isBefore(today)) {
+            throw new IllegalArgumentException("Ngày nhận phòng mới không được sớm hơn ngày hiện tại (" + today + ")");
+        }
+        if (!newCheckOut.isAfter(newCheckIn)) {
+            throw new IllegalArgumentException("Ngày trả phòng mới phải sau ngày nhận phòng mới");
+        }
+
+        // Kiểm tra conflict phòng (chỉ khi đã gán phòng)
+        if (booking.getRoom() != null) {
+            List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                    booking.getRoom().getId(), newCheckIn, newCheckOut, bookingId);
+            if (!conflicts.isEmpty()) {
+                Booking c = conflicts.get(0);
+                // Xác định đêm đầu tiên bị trùng
+                LocalDate firstConflict = c.getCheckInDate().isBefore(newCheckIn) ? newCheckIn : c.getCheckInDate();
+                throw new IllegalArgumentException(
+                    "Phòng " + booking.getRoom().getRoomNumber() +
+                    " bị vướng đặt phòng #" + c.getId() +
+                    " từ đêm " + firstConflict +
+                    ". Vui lòng đổi sang phòng khác trước rồi dời lịch lại.");
+            }
+        }
+
+        // Tính giá mới
+        BigDecimal newPrice = calculatePrice(booking.getRoomType(), newCheckIn, newCheckOut);
+
+        // Ghi vết ngày cũ vào note
+        String oldRange = booking.getCheckInDate() + " → " + booking.getCheckOutDate();
+        String newRange = newCheckIn + " → " + newCheckOut;
+        String rescheduleNote = "[Dời lịch: " + oldRange + " → " + newRange + "]";
+        if (req.getReason() != null && !req.getReason().isBlank()) {
+            rescheduleNote += " Lý do: " + req.getReason().trim();
+        }
+        booking.setNote((booking.getNote() != null && !booking.getNote().isBlank()
+                ? booking.getNote() + "\n" : "") + rescheduleNote);
+
+        // Cập nhật ngày và giá
+        booking.setCheckInDate(newCheckIn);
+        booking.setCheckOutDate(newCheckOut);
+        booking.setExpectedPrice(newPrice);
+        booking.setActualPrice(newPrice);
+
+        booking = bookingRepository.save(booking);
+
+        auditLogService.log("Booking", booking.getId(), "RESCHEDULE", actor,
+                "Dời lịch từ " + oldRange + " sang " + newRange +
+                (req.getReason() != null && !req.getReason().isBlank() ? " | Lý do: " + req.getReason().trim() : ""));
+
+        return toResponse(booking);
+    }
+
+    // ===== NCL-04-CN-NEW: Trả phòng sớm =====
+
+    /**
+     * Preview trả phòng sớm: tính số đêm thực tế + tiền phòng điều chỉnh.
+     * KHÔNG lưu DB. An toàn để gọi nhiều lần.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> previewEarlyCheckout(Long bookingId) {
+        Booking booking = findById(bookingId);
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalArgumentException("Chỉ có thể trả phòng sớm khi khách đang ở phòng (CHECKED_IN)");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate originalCheckOut = booking.getCheckOutDate();
+
+        if (!today.isBefore(originalCheckOut)) {
+            throw new IllegalArgumentException("Hôm nay là ngày trả phòng hoặc đã qua — không cần trả phòng sớm. Dùng trả phòng thông thường.");
+        }
+
+        LocalDate actualCheckIn = booking.getCheckInDate();
+        long actualNights = ChronoUnit.DAYS.between(actualCheckIn, today);
+        if (actualNights <= 0) actualNights = 1;
+
+        long originalNights = ChronoUnit.DAYS.between(actualCheckIn, originalCheckOut);
+        long savedNights = originalNights - actualNights;
+
+        // Tính tiền phòng thực tế theo số đêm thực tế
+        BigDecimal actualRoomAmount = calculatePrice(booking.getRoomType(), actualCheckIn, today);
+        BigDecimal originalRoomAmount = booking.getExpectedPrice() != null
+                ? booking.getExpectedPrice() : BigDecimal.ZERO;
+        BigDecimal difference = originalRoomAmount.subtract(actualRoomAmount);
+
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("bookingId", bookingId);
+        result.put("originalCheckOut", originalCheckOut.toString());
+        result.put("newCheckOut", today.toString());
+        result.put("originalNights", originalNights);
+        result.put("actualNights", actualNights);
+        result.put("savedNights", savedNights);
+        result.put("originalRoomAmount", originalRoomAmount);
+        result.put("actualRoomAmount", actualRoomAmount);
+        result.put("difference", difference); // dương = khách được giảm tiền
+        result.put("hasInvoice", invoiceRepository.findByBookingId(bookingId).isPresent());
+        return result;
+    }
+
+    /**
+     * Xác nhận trả phòng sớm: cập nhật checkOutDate = hôm nay, tính lại giá,
+     * sau đó thực hiện checkout thông thường (sẽ validate hóa đơn).
+     */
+    @Override
+    @Transactional
+    public BookingResponse confirmEarlyCheckout(Long bookingId, User actor) {
+        Booking booking = findById(bookingId);
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalArgumentException("Chỉ có thể trả phòng sớm khi khách đang ở phòng (CHECKED_IN)");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate originalCheckOut = booking.getCheckOutDate();
+
+        if (!today.isBefore(originalCheckOut)) {
+            // Hôm nay >= ngày trả phòng dự kiến → checkout thông thường
+            return checkOut(bookingId, actor);
+        }
+
+        LocalDate actualCheckIn = booking.getCheckInDate();
+        long actualNights = ChronoUnit.DAYS.between(actualCheckIn, today);
+        if (actualNights <= 0) actualNights = 1;
+
+        // Tính lại tiền phòng theo số đêm thực tế
+        BigDecimal actualRoomAmount = calculatePrice(booking.getRoomType(), actualCheckIn, today);
+
+        // Ghi chú trả phòng sớm
+        String earlyNote = "[Trả phòng sớm: " + today + " thay vì " + originalCheckOut +
+                " | " + actualNights + " đêm thực tế | Tiền phòng điều chỉnh: " +
+                String.format("%,.0f", actualRoomAmount.doubleValue()) + "đ]";
+        booking.setNote((booking.getNote() != null && !booking.getNote().isBlank()
+                ? booking.getNote() + "\n" : "") + earlyNote);
+
+        // Cập nhật ngày trả phòng và giá
+        booking.setCheckOutDate(today);
+        booking.setExpectedPrice(actualRoomAmount);
+        booking.setActualPrice(actualRoomAmount);
+        bookingRepository.save(booking);
+
+        // Cập nhật hóa đơn PENDING nếu có
+        Invoice pendingInvoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        if (pendingInvoice != null && pendingInvoice.getStatus() == InvoiceStatus.PENDING) {
+            pendingInvoice.setRoomAmount(actualRoomAmount);
+            BigDecimal serviceAmt = pendingInvoice.getServiceAmount() != null ? pendingInvoice.getServiceAmount() : BigDecimal.ZERO;
+            BigDecimal discountAmt = pendingInvoice.getDiscountAmount() != null ? pendingInvoice.getDiscountAmount() : BigDecimal.ZERO;
+            pendingInvoice.setTotalAmount(actualRoomAmount.add(serviceAmt).subtract(discountAmt));
+            invoiceRepository.save(pendingInvoice);
+        }
+
+        auditLogService.log("Booking", bookingId, "EARLY_CHECKOUT", actor,
+                "Trả phòng sớm từ " + originalCheckOut + " về " + today +
+                ", tiền phòng điều chỉnh: " + actualRoomAmount + "đ");
+
+        // Thực hiện checkout thông thường (validate hóa đơn)
+        return checkOut(bookingId, actor);
     }
 
     // Kiểm tra chống trùng phòng — gọi query có pessimistic lock (QTN-01)

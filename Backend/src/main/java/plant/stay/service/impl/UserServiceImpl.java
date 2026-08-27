@@ -135,6 +135,14 @@ public class UserServiceImpl implements plant.stay.service.UserService {
     }
 
     @Override
+    public java.util.List<UserResponse> getHousekeepers() {
+        // Chỉ lấy tài khoản có vai trò HOUSEKEEPER đang hoạt động (active = true)
+        return userRepository.findByRoleAndActiveTrue(Role.HOUSEKEEPER).stream()
+                .map(this::mapToResponse)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
     public UserResponse updateUserByAdmin(Long id, UserUpdateRequest request) {
         User user = getUserById(id);
 

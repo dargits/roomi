@@ -16,7 +16,8 @@ import {
   IoSwapHorizontalOutline, 
   IoSwapVerticalOutline, 
   IoTimeOutline, 
-  IoCashOutline
+  IoCashOutline,
+  IoCalendarOutline
 } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -27,8 +28,10 @@ import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
+import RescheduleDateModal from './RescheduleDateModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
 import CheckInModal from './CheckInModal';
+import EarlyCheckoutModal from './EarlyCheckoutModal';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
@@ -82,12 +85,15 @@ const BookingDetailPage = () => {
   // === Gia hạn & Nâng hạng ===
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  // === NCL-04-CN-NEW: Dời lịch đặt phòng chưa nhận phòng ===
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
 
   // === Quick Actions: Nhận phòng / Trả phòng ===
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
   const [checkOutConfirm, setCheckOutConfirm] = useState(false);
   const [checkOutProcessing, setCheckOutProcessing] = useState(false);
   const [checkOutError, setCheckOutError] = useState('');
+  const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -278,14 +284,27 @@ const BookingDetailPage = () => {
               </Button>
             )}
             {booking.status === 'CHECKED_IN' && (
-              <Button
-                size="sm"
-                variant="primary"
-                icon={IoLogOutOutline}
-                onClick={() => { setCheckOutConfirm(true); setCheckOutError(''); }}
-              >
-                Trả phòng
-              </Button>
+              <>
+                {booking.checkOutDate > new Date().toISOString().split('T')[0] && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={IoTimeOutline}
+                    onClick={() => setShowEarlyCheckoutModal(true)}
+                    className="border-amber-400 text-amber-800 hover:bg-amber-50"
+                  >
+                    Trả phòng sớm
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={IoLogOutOutline}
+                  onClick={() => { setCheckOutConfirm(true); setCheckOutError(''); }}
+                >
+                  Trả phòng
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -339,6 +358,16 @@ const BookingDetailPage = () => {
                           className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
                         >
                           <IoSwapHorizontalOutline size={14}/> Đổi phòng
+                        </button>
+                      )}
+                      {/* NCL-04-CN-NEW: Dời lịch */}
+                      {(booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
+                        <button
+                          type="button"
+                          onClick={() => setShowRescheduleModal(true)}
+                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-indigo-400/40 text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer bg-transparent font-medium"
+                        >
+                          <IoCalendarOutline size={14}/> Dời lịch
                         </button>
                       )}
                       {booking.status === 'CHECKED_IN' && (
@@ -631,6 +660,24 @@ const BookingDetailPage = () => {
           onClose={() => setPrintingInvoice(null)} 
         />
       )}
+
+      {/* NCL-04-CN-NEW: Dời lịch đặt phòng */}
+      <RescheduleDateModal
+        isOpen={showRescheduleModal}
+        onClose={() => setShowRescheduleModal(false)}
+        bookingId={bookingId}
+        booking={booking}
+        onSuccess={fetchBookingDetails}
+      />
+
+      {/* NCL-04-CN-NEW: Trả phòng sớm */}
+      <EarlyCheckoutModal
+        isOpen={showEarlyCheckoutModal}
+        onClose={() => setShowEarlyCheckoutModal(false)}
+        bookingId={bookingId}
+        guestName={booking?.guestName}
+        onSuccess={fetchBookingDetails}
+      />
     </div>
   );
 };
