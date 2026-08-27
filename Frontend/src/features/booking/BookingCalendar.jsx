@@ -189,34 +189,29 @@ const BookingCalendar = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* ── Toolbar Điều hướng & Bộ lọc ── */}
-      <div className="bg-surface-container-lowest p-4 rounded-xl border border-border-grey shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-        {/* Tiêu đề & Chọn thời lượng */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2">
-            <IoCalendarOutline size={22} className="text-primary" />
-            <h3 className="font-title-lg text-on-surface font-semibold">Sơ đồ Lịch Phòng</h3>
-          </div>
-          
-          <div className="flex bg-surface-container-low rounded-lg p-1 border border-border-grey text-xs font-medium">
+      <div className="bg-surface-container-lowest p-3 border border-border-grey shadow-sm flex flex-col md:flex-row justify-between items-center gap-3">
+        {/* Chọn thời lượng xem */}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex bg-surface-container-low p-0.5 border border-border-grey text-xs font-semibold">
             <button
               onClick={() => setDaysCount(7)}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${daysCount === 7 ? 'bg-primary text-white shadow-xs font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
+              className={`px-3 py-1.5 transition-colors cursor-pointer ${daysCount === 7 ? 'bg-primary text-white font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
-              7 ngày
+              7 NGÀY
             </button>
             <button
               onClick={() => setDaysCount(14)}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${daysCount === 14 ? 'bg-primary text-white shadow-xs font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
+              className={`px-3 py-1.5 transition-colors cursor-pointer ${daysCount === 14 ? 'bg-primary text-white font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
-              14 ngày
+              14 NGÀY
             </button>
             <button
               onClick={() => setDaysCount(21)}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${daysCount === 21 ? 'bg-primary text-white shadow-xs font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
+              className={`px-3 py-1.5 transition-colors cursor-pointer ${daysCount === 21 ? 'bg-primary text-white font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
-              21 ngày
+              21 NGÀY
             </button>
           </div>
         </div>

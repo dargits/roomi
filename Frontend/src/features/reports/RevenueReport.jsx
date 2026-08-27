@@ -216,11 +216,13 @@ const RevenueReport = () => {
   };
 
   // Parse response
-  const totalRevenue  = Number(data?.totalRevenue  ?? 0);
-  const bookingCount  = Number(data?.bookingCount  ?? 0);
-  const rows          = Array.isArray(data?.rows) ? data.rows : [];
-  const avgPerBooking = bookingCount > 0 ? totalRevenue / bookingCount : 0;
-  const maxRevenue    = rows.length > 0 ? Math.max(...rows.map(r => Number(r.revenue || 0))) : 0;
+  const totalRevenue   = Number(data?.totalRevenue   ?? 0);
+  const penaltyRevenue = Number(data?.penaltyRevenue ?? 0);
+  const grandTotal     = Number(data?.grandTotal     ?? (totalRevenue + penaltyRevenue));
+  const bookingCount   = Number(data?.bookingCount   ?? 0);
+  const rows           = Array.isArray(data?.rows) ? data.rows : [];
+  const avgPerBooking  = bookingCount > 0 ? totalRevenue / bookingCount : 0;
+  const maxRevenue     = rows.length > 0 ? Math.max(...rows.map(r => Number(r.revenue || 0))) : 0;
 
   // Export CSV
   const exportCSV = () => {
@@ -287,23 +289,29 @@ const RevenueReport = () => {
       {!loading && searched && data !== null && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <SummaryCard
-              label="Tổng doanh thu thực tế"
-              value={fmtCurrency(totalRevenue)}
-              sub="Doanh thu từ các booking đã checkout"
+              label="Tổng thực thu toàn bộ"
+              value={fmtCurrency(grandTotal)}
+              sub="Bao gồm lưu trú + phạt hủy cọc"
               color="text-primary font-bold"
+            />
+            <SummaryCard
+              label="Doanh thu tiền phòng"
+              value={fmtCurrency(totalRevenue)}
+              sub="Từ các booking đã checkout"
+              color="text-on-surface font-bold"
+            />
+            <SummaryCard
+              label="Phí hủy & Phạt cọc"
+              value={fmtCurrency(penaltyRevenue)}
+              sub="Thu từ no-show và hủy phòng"
+              color="text-amber-700 font-bold"
             />
             <SummaryCard
               label="Tổng lượt checkout"
               value={bookingCount.toLocaleString('vi-VN')}
               sub="Số đơn phòng hoàn tất lưu trú"
-              color="text-on-surface font-bold"
-            />
-            <SummaryCard
-              label="Doanh thu TB / lượt"
-              value={bookingCount > 0 ? fmtCurrency(avgPerBooking) : '0 đ'}
-              sub="Giá trị trung bình mỗi lượt khách"
               color="text-tertiary font-bold"
             />
           </div>

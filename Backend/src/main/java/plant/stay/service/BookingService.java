@@ -36,4 +36,10 @@ public interface BookingService {
     RescheduleDatePreviewResponse previewReschedule(Long bookingId, RescheduleDateRequest req);
     // Confirm: lưu ngày mới vào DB (atomic, validate lại)
     BookingResponse confirmReschedule(Long bookingId, RescheduleDateRequest req, User actor);
+
+    // NCL-04-CN-NEW: Trả phòng sớm
+    // Preview: xem trước số tiền điều chỉnh — KHÔNG lưu DB
+    java.util.Map<String, Object> previewEarlyCheckout(Long bookingId);
+    // Confirm: cập nhật giá theo đêm thực tế rồi checkout
+    BookingResponse confirmEarlyCheckout(Long bookingId, User actor);
 }

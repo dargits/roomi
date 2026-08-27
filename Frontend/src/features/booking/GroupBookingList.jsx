@@ -812,7 +812,7 @@ const GroupBookingList = ({ refreshKey }) => {
                           {payMethod === 'TRANSFER' && parseFloat(payAmount) > 0 && (() => {
                             const currentPayAmountGroup = parseFloat(payAmount) || 0;
                             const invCodeGroup = invoiceState.data?.invoices?.[0]?.id ? `INV${String(invoiceState.data.invoices[0].id).padStart(6, '0')}` : '';
-                            const qrImageUrlGroup = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmountGroup}&addInfo=${invCodeGroup}&accountName=STAY%20AWAY`;
+                            const qrImageUrlGroup = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmountGroup}&addInfo=${invCodeGroup}&accountName=BAN%20HUU%20SU`;
 
                             return (
                               <div className="sm:col-span-2 bg-white p-3.5 rounded-lg border border-blue-200 bg-blue-50/30 space-y-3 mt-1">
@@ -833,13 +833,17 @@ const GroupBookingList = ({ refreshKey }) => {
                                       <strong className="font-semibold">MBBank</strong>
                                     </div>
                                     <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                                      <span className="text-on-surface-variant">Chủ tài khoản:</span>
+                                      <strong className="font-semibold uppercase text-primary">BAN HUU SU</strong>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
                                       <span className="text-on-surface-variant">Số TK:</span>
                                       <div className="flex items-center gap-1">
-                                        <strong className="font-mono font-bold text-primary">0365224245</strong>
+                                        <strong className="font-mono font-bold text-primary">0365221338</strong>
                                         <button
                                           type="button"
-                                          onClick={() => copyToClipboard('0365224245', 'acc')}
-                                          className="text-on-surface-variant hover:text-primary p-0.5"
+                                          onClick={() => copyToClipboard('0365221338', 'acc')}
+                                          className="text-on-surface-variant hover:text-primary p-0.5 cursor-pointer"
                                           title="Sao chép số TK"
                                         >
                                           {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}

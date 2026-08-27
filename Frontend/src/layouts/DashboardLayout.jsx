@@ -53,7 +53,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/manage/rooms',        label: 'Sơ đồ phòng',   icon: IoLayersOutline,   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
       { path: '/manage/room-types',   label: 'Loại phòng',     icon: IoBedOutline,      allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/housekeeping', label: 'Buồng phòng',    icon: IoSparklesOutline, allowedRoles: ['OWNER', 'HOUSEKEEPER'] }
+      { path: '/manage/housekeeping', label: 'Buồng phòng',    icon: IoSparklesOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
     ]
   },
   {
@@ -289,7 +289,9 @@ const DashboardLayout = () => {
 
       {/* ── Main Content ── */}
       <main className="flex-1 overflow-auto p-5 md:p-7 w-full max-w-screen-2xl mx-auto">
-        <Outlet />
+        <div key={location.pathname} className="animate-page-enter">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
