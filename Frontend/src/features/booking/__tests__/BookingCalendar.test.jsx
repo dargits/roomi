@@ -59,10 +59,10 @@ describe('BookingCalendar Component', () => {
       );
     });
 
-    expect(screen.getByText('Sơ đồ Lịch Phòng')).toBeInTheDocument();
-    expect(screen.getByText('7 ngày')).toBeInTheDocument();
-    expect(screen.getByText('14 ngày')).toBeInTheDocument();
-    expect(screen.getByText('21 ngày')).toBeInTheDocument();
+    expect(screen.getByText('Về Hôm nay')).toBeInTheDocument();
+    expect(screen.getByText('7 NGÀY')).toBeInTheDocument();
+    expect(screen.getByText('14 NGÀY')).toBeInTheDocument();
+    expect(screen.getByText('21 NGÀY')).toBeInTheDocument();
   });
 
   it('renders timeline legend and room data', async () => {
