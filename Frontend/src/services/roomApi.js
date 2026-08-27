@@ -59,7 +59,31 @@ export const roomApi = {
   markRoomMaintenance: async (id) => {
     const response = await api.put(`/rooms/${id}/maintenance`);
     return response.data;
-  }
+  },
+
+  // NCL-06-CN-NEW: Housekeeper gửi kiểm tra (DIRTY -> INSPECTING)
+  submitInspection: async (id) => {
+    const response = await api.put(`/rooms/${id}/submit-inspection`);
+    return response.data;
+  },
+
+  // NCL-06-CN-NEW: Supervisor duyệt phòng sạch (INSPECTING -> AVAILABLE)
+  approveClean: async (id) => {
+    const response = await api.put(`/rooms/${id}/approve-clean`);
+    return response.data;
+  },
+
+  // NCL-06-CN-NEW: Phân công nhân viên dọn phòng
+  assignCleaner: async (id, housekeeperId) => {
+    const response = await api.put(`/rooms/${id}/assign-cleaner`, null, { params: { housekeeperId } });
+    return response.data;
+  },
+
+  // NCL-06-CN-NEW: Hủy phân công
+  unassignCleaner: async (id) => {
+    const response = await api.delete(`/rooms/${id}/assign-cleaner`);
+    return response.data;
+  },
 };
 
 export default roomApi;

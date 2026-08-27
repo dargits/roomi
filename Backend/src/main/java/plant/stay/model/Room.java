@@ -34,6 +34,14 @@ public class Room {
     @Column(columnDefinition = "TEXT")
     private String notes; // Ghi chú nội bộ
 
+    // NCL-06-CN-NEW: Phân công nhân viên buồng phòng
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_housekeeper_id")
+    private User assignedHousekeeper;
+
+    @Column(name = "assigned_at")
+    private LocalDateTime assignedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

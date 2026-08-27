@@ -376,13 +376,7 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal expectedTotal = allBookings.stream()
-                .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
-                .map(Booking::getExpectedPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal requiredDeposit = expectedTotal.multiply(BigDecimal.valueOf(0.3)).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal requiredDeposit = calculateRequiredDepositForGroup(allBookings);
 
         if (totalCollectedDeposit.compareTo(BigDecimal.ZERO) <= 0 || (requiredDeposit.compareTo(BigDecimal.ZERO) > 0 && totalCollectedDeposit.compareTo(requiredDeposit) < 0)) {
             throw new IllegalArgumentException("Hồ sơ đoàn #" + groupBookingId + " chưa hoàn thành tiền đặt cọc (yêu cầu tối thiểu "
@@ -588,7 +582,6 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         }
         boolean depositPaid = totalDeposited.compareTo(BigDecimal.ZERO) > 0;
 
-
         return GroupBookingResponse.builder()
                 .id(group.getId())
                 .representativeGuestId(group.getRepresentativeGuest().getId())
@@ -604,12 +597,68 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 .expectedTotal(expectedTotal)
                 .depositPaid(depositPaid)
                 .depositAmount(totalDeposited)
-                .requiredDepositAmount(expectedTotal.multiply(BigDecimal.valueOf(0.3)).setScale(0, RoundingMode.HALF_UP))
+                .requiredDepositAmount(calculateRequiredDepositForGroup(bookings))
                 .bookings(bookings.stream().map(this::toBookingResponse).collect(Collectors.toList()))
                 .createdAt(group.getCreatedAt())
                 .build();
     }
 
+    /**
+     * Logic tính tiền đặt cọc theo đoàn:
+     * Dựa trên chính sách cọc của từng hạng phòng trong đoàn.
+     * Nếu hạng phòng có chính sách riêng -> áp dụng % cọc của hạng đó.
+     * Nếu không có chính sách riêng -> áp dụng % cọc của chính sách mặc định chung.
+     * Nếu chưa có chính sách -> thu mặc định 20% tiền phòng của hạng đó.
+     */
+    private BigDecimal calculateRequiredDepositForGroup(List<Booking> bookings) {
+        BigDecimal totalRequired = BigDecimal.ZERO;
+        Map<Long, BigDecimal> percentByRoomType = new HashMap<>();
+        BigDecimal defaultPercent = null;
+
+        for (Booking booking : bookings) {
+            if (booking.getStatus() == BookingStatus.CANCELLED || booking.getStatus() == BookingStatus.NO_SHOW) {
+                continue;
+            }
+
+            BigDecimal roomPrice = booking.getActualPrice() != null
+                    ? booking.getActualPrice()
+                    : (booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+
+            if (roomPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            Long roomTypeId = booking.getRoomType() != null ? booking.getRoomType().getId() : null;
+            BigDecimal percent = null;
+
+            if (roomTypeId != null) {
+                if (percentByRoomType.containsKey(roomTypeId)) {
+                    percent = percentByRoomType.get(roomTypeId);
+                } else {
+                    Optional<DepositPolicy> policyOpt = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(roomTypeId);
+                    if (policyOpt.isPresent()) {
+                        percent = policyOpt.get().getDepositPercent();
+                    }
+                    percentByRoomType.put(roomTypeId, percent);
+                }
+            }
+
+            if (percent == null) {
+                if (defaultPercent == null) {
+                    Optional<DepositPolicy> defaultPolicyOpt = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue();
+                    defaultPercent = defaultPolicyOpt.map(DepositPolicy::getDepositPercent)
+                            .orElse(BigDecimal.valueOf(20)); // Thu mặc định 20% nếu không có chính sách
+                }
+                percent = defaultPercent;
+            }
+
+            BigDecimal roomDeposit = roomPrice.multiply(percent)
+                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            totalRequired = totalRequired.add(roomDeposit);
+        }
+
+        return totalRequired;
+    }
 
     private String deriveStatus(List<Booking> bookings, int activeRooms, int assignedRooms) {
         if (activeRooms == 0) return "CANCELLED";

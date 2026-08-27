@@ -32,11 +32,17 @@ public class RoomController {
     public ResponseEntity<List<RoomResponse>> getAll(
             @RequestParam(required = false) RoomStatus status,
             HttpServletRequest request) {
-        checkStaff(request);
-        if (status != null) {
-            return ResponseEntity.ok(roomService.getByStatus(status));
+        User user = checkStaff(request);
+        List<RoomResponse> rooms = status != null ? roomService.getByStatus(status) : roomService.getAll();
+
+        // NCL-06-CN-004: Nhân viên buồng phòng khi đăng nhập chỉ thấy phần phòng được phân công cho mình và phần chưa ai phụ trách
+        if (user.getRole() == Role.HOUSEKEEPER && (status == RoomStatus.DIRTY || status == RoomStatus.INSPECTING)) {
+            rooms = rooms.stream()
+                    .filter(r -> r.getAssignedHousekeeperId() == null || r.getAssignedHousekeeperId().equals(user.getId()))
+                    .toList();
         }
-        return ResponseEntity.ok(roomService.getAll());
+
+        return ResponseEntity.ok(rooms);
     }
 
     @GetMapping("/{id}")
@@ -91,6 +97,36 @@ public class RoomController {
         return ResponseEntity.ok(roomService.markDirty(id, actor));
     }
 
+    // NCL-06-CN-NEW: Housekeeper báo hoàn thành dọn, gửi kiểm tra (DIRTY → INSPECTING)
+    @PutMapping("/{id}/submit-inspection")
+    public ResponseEntity<RoomResponse> submitForInspection(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkHousekeeping(request);
+        return ResponseEntity.ok(roomService.submitForInspection(id, actor));
+    }
+
+    // NCL-06-CN-NEW: Supervisor duyệt phòng sạch (INSPECTING → AVAILABLE)
+    @PutMapping("/{id}/approve-clean")
+    public ResponseEntity<RoomResponse> approveClean(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkSupervisor(request);
+        return ResponseEntity.ok(roomService.approveClean(id, actor));
+    }
+
+    // NCL-06-CN-NEW: Phân công nhân viên dọn phòng
+    @PutMapping("/{id}/assign-cleaner")
+    public ResponseEntity<RoomResponse> assignCleaner(@PathVariable Long id,
+                                                       @RequestParam Long housekeeperId,
+                                                       HttpServletRequest request) {
+        User actor = checkSupervisor(request);
+        return ResponseEntity.ok(roomService.assignCleaner(id, housekeeperId, actor));
+    }
+
+    // NCL-06-CN-NEW: Hủy phân công
+    @DeleteMapping("/{id}/assign-cleaner")
+    public ResponseEntity<RoomResponse> unassignCleaner(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkSupervisor(request);
+        return ResponseEntity.ok(roomService.unassignCleaner(id, actor));
+    }
+
     // Khóa phòng bảo trì (chỉ OWNER)
     @PutMapping("/{id}/maintenance")
     public ResponseEntity<RoomResponse> setMaintenance(@PathVariable Long id, HttpServletRequest request) {
@@ -114,7 +150,15 @@ public class RoomController {
     private User checkHousekeeping(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.HOUSEKEEPER && user.getRole() != Role.ADMIN))
-            throw new UnauthorizedException("Không có quyền thực hiện chức năng này");
+            throw new UnauthorizedException("Điều kiện: OWNER, ADMIN, hoặc HOUSEKEEPER");
+        return user;
+    }
+
+    // Supervisor: OWNER, ADMIN, RECEPTIONIST có thể duyệt phòng sạch và phân công
+    private User checkSupervisor(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST))
+            throw new UnauthorizedException("Điều kiện: OWNER, ADMIN, hoặc RECEPTIONIST");
         return user;
     }
 }

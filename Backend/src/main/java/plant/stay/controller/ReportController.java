@@ -9,11 +9,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Booking;
+import plant.stay.model.DepositStatus;
 import plant.stay.model.Role;
 import plant.stay.model.RoomStatus;
 import plant.stay.model.User;
 import plant.stay.model.Invoice;
 import plant.stay.repository.BookingRepository;
+import plant.stay.repository.DepositRepository;
 import plant.stay.repository.InvoiceRepository;
 import plant.stay.repository.RoomRepository;
 import plant.stay.util.AuthUtil;
@@ -34,6 +36,7 @@ public class ReportController {
     private final BookingRepository bookingRepository;
     private final RoomRepository roomRepository;
     private final InvoiceRepository invoiceRepository;
+    private final DepositRepository depositRepository;
     private final AuthUtil authUtil;
 
     /**
@@ -153,11 +156,23 @@ public class ReportController {
                     .collect(Collectors.toList());
         }
 
+        // Tính phí hủy/cọ phạt trong kỳ (FORFEITED và PARTIALLY_REFUNDED)
+        java.util.List<plant.stay.model.DepositStatus> penaltyStatuses =
+                java.util.List.of(DepositStatus.FORFEITED, DepositStatus.PARTIALLY_REFUNDED);
+        java.util.List<plant.stay.model.Deposit> penaltyDeposits =
+                depositRepository.findPenaltyDepositsBetween(penaltyStatuses, from, to);
+        BigDecimal penaltyRevenue = penaltyDeposits.stream()
+                .map(d -> d.getPenaltyAmount() != null ? d.getPenaltyAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal grandTotal = totalRevenue.add(penaltyRevenue);
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("from", from.toString());
         result.put("to", to.toString());
         result.put("groupBy", groupBy);
         result.put("totalRevenue", totalRevenue);
+        result.put("penaltyRevenue", penaltyRevenue);
+        result.put("grandTotal", grandTotal);
         result.put("bookingCount", bookingCount);
         result.put("rows", rows);
 

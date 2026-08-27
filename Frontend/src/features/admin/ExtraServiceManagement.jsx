@@ -120,16 +120,15 @@ const ExtraServiceManagement = () => {
 
   return (
     <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
-      <div className="p-6 border-b border-border-grey flex justify-between items-center bg-surface-container-lowest">
-        <div>
-          <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <IoCafeOutline size={28} className="text-primary" /> 
-            Quản lý Dịch vụ Phụ thu
+      <div className="px-4 py-3 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-lowest">
+        <div className="flex items-center gap-2">
+          <IoCafeOutline size={22} className="text-primary" /> 
+          <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
+            Dịch vụ Phụ thu
           </h2>
-          <p className="text-on-surface-variant font-body-md mt-1">Danh sách các dịch vụ bán kèm (Giặt là, thuê xe, spa,...)</p>
         </div>
         {isOwner && (
-          <Button onClick={openAddModal} icon={IoAddOutline} className="px-5 py-2.5">
+          <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
             Thêm Dịch vụ
           </Button>
         )}

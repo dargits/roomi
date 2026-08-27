@@ -78,13 +78,13 @@ const ConfirmDialog = ({
 
   const content = (
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-backdrop-in"
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all animate-scale-up relative border border-slate-100"
+        className="bg-white rounded-none shadow-2xl max-w-md w-full p-6 transform transition-all animate-modal-pop relative border border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}

@@ -39,23 +39,23 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => 
 
   const modalContent = (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in" 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-backdrop-in" 
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
       <div 
-        className={`bg-surface rounded-xl shadow-xl w-full ${maxWidth} max-h-[90vh] flex flex-col`}
+        className={`bg-surface rounded-none shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col animate-modal-pop`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {title && (
-          <div className="p-6 border-b border-border-grey flex justify-between items-center bg-surface-container-lowest shrink-0 rounded-t-xl">
+          <div className="p-6 border-b border-border-grey flex justify-between items-center bg-surface-container-lowest shrink-0 rounded-none">
             <h2 className="font-headline-md text-on-surface">{title}</h2>
             <button 
               type="button"
               onClick={onClose} 
-              className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1.5 rounded-md transition-colors"
+              className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1.5 transition-colors"
               title="Đóng"
             >
               <IoCloseOutline size={20} strokeWidth={2} />

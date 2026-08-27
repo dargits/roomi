@@ -34,9 +34,15 @@ const userApi = {
     return response.data;
   },
 
-  /** ADMIN/OWNER: Lấy danh sách toàn bộ nhân sự */
+  /** ADMIN/OWNER/RECEPTIONIST: Lấy danh sách toàn bộ nhân sự */
   getAllUsers: async () => {
     const response = await api.get('/users');
+    return response.data;
+  },
+
+  /** Lấy danh sách nhân viên buồng phòng đang hoạt động */
+  getHousekeepers: async () => {
+    const response = await api.get('/users/housekeepers');
     return response.data;
   },
 
