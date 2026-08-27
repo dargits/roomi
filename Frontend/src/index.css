@@ -9,40 +9,163 @@
     font-family: 'Arimo', sans-serif;
   }
 
+  /* Toàn bộ hệ thống theo phong cách hình học sắc nét, không bo góc */
+  *:not(.rounded-full):not(.logo-dot),
+  *:not(.rounded-full):not(.logo-dot)::before,
+  *:not(.rounded-full):not(.logo-dot)::after {
+    border-radius: 0 !important;
+  }
+
+  /* Riêng các chấm nhảy chuyển động dưới Logo giữ hình tròn */
+  .rounded-full,
+  .logo-dot {
+    border-radius: 9999px !important;
+  }
+
   /* Style all buttons according to the design system (Square, Uppercase, Bold) */
   button:not(.btn-override), 
   [role="button"]:not(.btn-override) {
-    @apply rounded-none uppercase font-bold tracking-wider;
+    @apply uppercase font-bold tracking-wider;
   }
 }
 
-@keyframes slideInRight {
-  from {
+/* ==========================================================================
+   HỆ THỐNG ANIMATION CHUYÊN NGHIỆP & MƯỢT MÀ (PREMIUM SMOOTH TRANSITIONS)
+   ========================================================================== */
+
+/* 1. Hiệu ứng chuyển trang mượt mà (Page Transitions) */
+@keyframes pageEnter {
+  0% {
     opacity: 0;
-    transform: translateX(100%) scale(0.95);
+    transform: translateY(10px);
   }
-  to {
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: pageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* 2. Hiệu ứng Modal & Popup xuất hiện */
+@keyframes backdropFadeIn {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(6px);
+  }
+}
+
+@keyframes modalPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(14px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.01) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-backdrop-in {
+  animation: backdropFadeIn 0.22s ease-out forwards;
+}
+
+.animate-modal-pop {
+  animation: modalPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* 3. Hiệu ứng Toast Notification */
+@keyframes toastSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(110%) scale(0.92);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-6px) scale(1.01);
+  }
+  100% {
     opacity: 1;
     transform: translateX(0) scale(1);
   }
 }
 
-@keyframes scaleUp {
-  from {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-  to {
+@keyframes toastSlideOut {
+  0% {
     opacity: 1;
-    transform: scale(1);
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(110%) scale(0.9);
   }
 }
 
-.animate-slide-in-right {
-  animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.animate-toast-slide-in {
+  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-toast-slide-out {
+  animation: toastSlideOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* Toast Progress Bar đếm ngược siêu mượt chạy bằng GPU Compositor */
+@keyframes toastProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.animate-toast-progress {
+  transform-origin: left center;
+  animation: toastProgress linear forwards;
+  will-change: transform;
+}
+
+/* 4. Hiệu ứng Skeleton Loading Shimmer */
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f0eded 25%, #e4e2e1 50%, #f0eded 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s infinite linear;
+}
+
+/* 5. Micro-interactions: Fade In / Scale Up */
+@keyframes smoothFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: smoothFadeIn 0.2s ease-out forwards;
 }
 
 .animate-scale-up {
-  animation: scaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

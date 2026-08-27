@@ -141,7 +141,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
 
   const currentPayAmount = parseFloat(recordForm.amount) || 0;
   const transferCode = `COC-${String(bookingId || '').padStart(5, '0')}`;
-  const qrImageUrl = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=STAY%20AWAY`;
+  const qrImageUrl = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=BAN%20HUU%20SU`;
 
   const openRecordModal = () => {
     const suggested = calculateSuggestedDeposit();
@@ -502,13 +502,17 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
                     <strong className="font-semibold">MBBank</strong>
                   </div>
                   <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                    <span className="text-on-surface-variant">Chủ tài khoản:</span>
+                    <strong className="font-semibold uppercase text-primary">BAN HUU SU</strong>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
                     <span className="text-on-surface-variant">Số TK:</span>
                     <div className="flex items-center gap-1">
-                      <strong className="font-mono font-bold text-primary">0365224245</strong>
+                      <strong className="font-mono font-bold text-primary">0365221338</strong>
                       <button
                         type="button"
-                        onClick={() => copyToClipboard('0365224245', 'acc')}
-                        className="text-on-surface-variant hover:text-primary p-0.5"
+                        onClick={() => copyToClipboard('0365221338', 'acc')}
+                        className="text-on-surface-variant hover:text-primary p-0.5 cursor-pointer"
                         title="Sao chép số TK"
                       >
                         {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}

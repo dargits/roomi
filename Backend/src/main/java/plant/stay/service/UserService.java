@@ -16,6 +16,8 @@ public interface UserService {
     void changePassword(Long userId, ChangePasswordRequest request);
 
     java.util.List<UserResponse> getAllUsers();
+    /** Lấy danh sách nhân viên buồng phòng (HOUSEKEEPER) đang hoạt động để phân công dọn phòng */
+    java.util.List<UserResponse> getHousekeepers();
     UserResponse updateUserByAdmin(Long id, UserUpdateRequest request);
     void changeUserRole(Long id, plant.stay.model.Role role);
     void lockUser(Long id);

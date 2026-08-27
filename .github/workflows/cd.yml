@@ -1,130 +1,148 @@
-name: StayAway CD Pipeline (Continuous Deployment to VPS via Docker)
+name: CD — Deploy to VPS
 
 on:
   push:
     branches:
-      - main # TỰ ĐỘNG TRIGGER KHI CÓ BẤT KỲ PUSH HOẶC MERGE NÀO VÀO NHÁNH MAIN
-  workflow_dispatch: # Cho phép bấm nút "Run workflow" thủ công trên GitHub khi cần
+      - main
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Lý do deploy thủ công'
+        required: false
+        default: 'Manual trigger'
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false   # Không hủy deploy đang chạy, tránh trạng thái nửa chừng
 
 jobs:
-  # ==========================================
-  # BƯỚC 1: KIỂM TRA CHẤT LƯỢNG TEST & BUILD (CI GATE)
-  # ==========================================
-  ci-gate:
-    name: 🛡️ CI Gate (Verify Tests & Build on Main)
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 1: Test Backend (song song với Frontend để tiết kiệm thời gian)
+  # ─────────────────────────────────────────────────────────────────
+  test-backend:
+    name: ☕ Backend Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: temurin
           cache: maven
 
-      - name: Make mvnw executable
+      - name: Run tests
         working-directory: ./Backend
-        run: chmod +x mvnw || true
+        run: chmod +x mvnw && ./mvnw test --batch-mode -q
 
-      - name: Run Backend Tests (29 tests)
-        working-directory: ./Backend
-        run: ./mvnw test --batch-mode
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 2: Test & Build Frontend (song song với Backend)
+  # ─────────────────────────────────────────────────────────────────
+  test-frontend:
+    name: ⚛️ Frontend Tests + Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: './Frontend/package-lock.json'
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
 
-      - name: Install Frontend Dependencies
+      - name: Install dependencies
         working-directory: ./Frontend
         run: npm ci --legacy-peer-deps
 
-      - name: Run Frontend Tests (14 tests)
+      - name: Run tests
         working-directory: ./Frontend
         run: npm test
 
-      - name: Build Frontend Production Bundle
+      - name: Build production bundle
         working-directory: ./Frontend
         run: npm run build
 
-  # ==========================================
-  # BƯỚC 2: TỰ ĐỘNG DEPLOY LÊN VPS BẰNG DOCKER
-  # ==========================================
-  deploy-docker-to-vps:
-    name: 🐳 Deploy Docker Containers to VPS (roomi.website)
-    needs: ci-gate
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 3: Deploy lên VPS (chỉ chạy khi cả 2 job trên đều PASS)
+  # ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy to VPS (roomi.website)
+    needs: [test-backend, test-frontend]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    environment: production
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: SSH and Auto Deploy via Docker Compose
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: VITE_API_BASE_URL_PROD
           script: |
-            echo "=========================================================="
-            echo "🚀 [StayAway CD] Bắt đầu tự động Deploy bản cập nhật mới..."
-            echo "=========================================================="
+            set -e
+            echo "▶ Starting deploy — $(date '+%Y-%m-%d %H:%M:%S')"
 
-            # 1. Xác định thư mục dự án trên VPS
+            # ── 1. Locate project directory ──────────────────────────
             PROJECT_DIR="$HOME/stayaway"
             if [ ! -d "$PROJECT_DIR" ]; then
-              if [ -d "/var/www/stayaway" ]; then
-                PROJECT_DIR="/var/www/stayaway"
-              else
-                echo "📁 Chưa có thư mục, tiến hành clone mới..."
+              [ -d "/var/www/stayaway" ] && PROJECT_DIR="/var/www/stayaway" || \
                 git clone https://github.com/dargits/roomi.git "$PROJECT_DIR"
-              fi
             fi
-
             cd "$PROJECT_DIR"
-            echo "📂 Đang làm việc tại: $(pwd)"
 
-            # 2. Đồng bộ mã nguồn mới nhất 100% từ nhánh main
+            # ── 2. Pull latest code from main ────────────────────────
             git remote set-url origin https://github.com/dargits/roomi.git 2>/dev/null || true
             git fetch origin main
             git reset --hard origin/main
+            echo "✓ Code synced: $(git log -1 --oneline)"
 
-            # 3. Trích xuất mật khẩu và network của container roomi-db
-            DB_PASS=$(docker inspect roomi-db -f '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep MYSQL_ROOT_PASSWORD | head -n1 | cut -d= -f2)
-            DB_NET=$(docker inspect roomi-db -f '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' 2>/dev/null | head -n1)
+            # ── 3. Write .env from existing roomi-db container ───────
+            DB_PASS=$(docker inspect roomi-db \
+              -f '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+              | grep MYSQL_ROOT_PASSWORD | cut -d= -f2 || echo "")
+            DB_NET=$(docker inspect roomi-db \
+              -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' 2>/dev/null \
+              | head -n1 || echo "")
 
-            cat <<EOF > .env
+            cat > .env <<EOF
             DB_URL=jdbc:mysql://roomi-db:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
             DB_USER=root
             DB_PASS=${DB_PASS}
             VITE_API_BASE_URL_PROD=https://roomi.website/api/v1
             EOF
 
-            # 4. Dừng triệt để các container cũ nếu có
-            docker stop roomi-frontend roomi-backend 2>/dev/null || true
-            docker rm roomi-frontend roomi-backend 2>/dev/null || true
+            # ── 4. Rebuild & restart containers ──────────────────────
+            docker compose down --remove-orphans 2>/dev/null || \
+              docker-compose down --remove-orphans 2>/dev/null || true
 
-            # 5. Tự động Build và Khởi chạy lại Docker Containers
-            echo "🐳 Đang đóng gói và khởi chạy Docker Containers mới..."
-            docker compose down --remove-orphans 2>/dev/null || docker-compose down --remove-orphans 2>/dev/null || true
-            docker compose up -d --build --remove-orphans || docker-compose up -d --build --remove-orphans
+            docker compose up -d --build --remove-orphans || \
+              docker-compose up -d --build --remove-orphans
+            echo "✓ Containers started"
 
-            # 6. Kết nối backend container vào network của database nếu chưa có
+            # ── 5. Attach backend to DB network (if needed) ──────────
             if [ -n "$DB_NET" ]; then
-              echo "🔌 Kết nối Backend vào Docker network: $DB_NET..."
               docker network connect "$DB_NET" stayaway_backend 2>/dev/null || true
               docker restart stayaway_backend 2>/dev/null || true
+              echo "✓ Backend connected to DB network: $DB_NET"
             fi
 
-            # 7. Dọn dẹp tài nguyên và các Docker image cũ
-            echo "🧹 Dọn dẹp các image cũ..."
-            docker image prune -f
+            # ── 6. Health check — wait up to 60s for backend ─────────
+            echo "⏳ Waiting for backend to be healthy..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1 || \
+                 curl -sf http://localhost:8080/api/v1/hotel-settings > /dev/null 2>&1; then
+                echo "✓ Backend is healthy"
+                break
+              fi
+              [ "$i" -eq 12 ] && echo "⚠ Backend health check timed out (may still be starting)" || \
+                (echo "  Attempt $i/12 — retrying in 5s..." && sleep 5)
+            done
 
-            echo "=========================================================="
-            echo "✅ [StayAway CD] Deploy thành công lên VPS roomi.website!"
-            echo "=========================================================="
+            # ── 7. Prune unused images ────────────────────────────────
+            docker image prune -f > /dev/null
+            echo "✓ Old images pruned"
+
+            echo "✅ Deploy complete — $(date '+%Y-%m-%d %H:%M:%S')"
