@@ -363,17 +363,14 @@ const StayDeclarationPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header & Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-grey pb-4">
-        <div>
-          <h1 className="text-headline-md font-bold text-on-surface flex items-center gap-2">
-            <IoDocumentTextOutline className="text-primary" size={28} />
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-grey pb-3">
+        <div className="flex items-center gap-2">
+          <IoDocumentTextOutline className="text-primary" size={22} />
+          <h1 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
             Khai báo lưu trú & Lịch sử
           </h1>
-          <p className="mt-1 text-body-md text-on-surface-variant">
-            Quản lý khai báo lưu trú theo quy định pháp luật và tra cứu lịch sử khách lưu trú
-          </p>
         </div>
       </div>
 

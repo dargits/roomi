@@ -21,13 +21,15 @@ import { useToast } from '../../context/ToastContext';
 const BookingRequestList = () => {
   const { success: toastSuccess } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'ROOM';
+  const activeTab = searchParams.get('sub') || 'ROOM';
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!searchParams.get('tab')) {
-      setSearchParams({ tab: 'ROOM' }, { replace: true });
+    if (!searchParams.get('sub')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('sub', 'ROOM');
+      setSearchParams(newParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
 
@@ -134,7 +136,7 @@ const BookingRequestList = () => {
 
   return (
     <div>
-      <Tabs tabs={tabOptions} paramKey="tab" defaultTab="ROOM" />
+      <Tabs tabs={tabOptions} paramKey="sub" defaultTab="ROOM" />
 
 
       {activeTab === 'ROOM' && (

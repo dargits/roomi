@@ -31,6 +31,7 @@ import ExtendStayModal from './ExtendStayModal';
 import RescheduleDateModal from './RescheduleDateModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
 import CheckInModal from './CheckInModal';
+import EarlyCheckoutModal from './EarlyCheckoutModal';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
@@ -92,6 +93,7 @@ const BookingDetailPage = () => {
   const [checkOutConfirm, setCheckOutConfirm] = useState(false);
   const [checkOutProcessing, setCheckOutProcessing] = useState(false);
   const [checkOutError, setCheckOutError] = useState('');
+  const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -282,14 +284,27 @@ const BookingDetailPage = () => {
               </Button>
             )}
             {booking.status === 'CHECKED_IN' && (
-              <Button
-                size="sm"
-                variant="primary"
-                icon={IoLogOutOutline}
-                onClick={() => { setCheckOutConfirm(true); setCheckOutError(''); }}
-              >
-                Trả phòng
-              </Button>
+              <>
+                {booking.checkOutDate > new Date().toISOString().split('T')[0] && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={IoTimeOutline}
+                    onClick={() => setShowEarlyCheckoutModal(true)}
+                    className="border-amber-400 text-amber-800 hover:bg-amber-50"
+                  >
+                    Trả phòng sớm
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={IoLogOutOutline}
+                  onClick={() => { setCheckOutConfirm(true); setCheckOutError(''); }}
+                >
+                  Trả phòng
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -652,6 +667,15 @@ const BookingDetailPage = () => {
         onClose={() => setShowRescheduleModal(false)}
         bookingId={bookingId}
         booking={booking}
+        onSuccess={fetchBookingDetails}
+      />
+
+      {/* NCL-04-CN-NEW: Trả phòng sớm */}
+      <EarlyCheckoutModal
+        isOpen={showEarlyCheckoutModal}
+        onClose={() => setShowEarlyCheckoutModal(false)}
+        bookingId={bookingId}
+        guestName={booking?.guestName}
         onSuccess={fetchBookingDetails}
       />
     </div>

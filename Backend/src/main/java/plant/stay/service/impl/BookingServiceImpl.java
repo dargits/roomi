@@ -870,6 +870,112 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(booking);
     }
 
+    // ===== NCL-04-CN-NEW: Trả phòng sớm =====
+
+    /**
+     * Preview trả phòng sớm: tính số đêm thực tế + tiền phòng điều chỉnh.
+     * KHÔNG lưu DB. An toàn để gọi nhiều lần.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> previewEarlyCheckout(Long bookingId) {
+        Booking booking = findById(bookingId);
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalArgumentException("Chỉ có thể trả phòng sớm khi khách đang ở phòng (CHECKED_IN)");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate originalCheckOut = booking.getCheckOutDate();
+
+        if (!today.isBefore(originalCheckOut)) {
+            throw new IllegalArgumentException("Hôm nay là ngày trả phòng hoặc đã qua — không cần trả phòng sớm. Dùng trả phòng thông thường.");
+        }
+
+        LocalDate actualCheckIn = booking.getCheckInDate();
+        long actualNights = ChronoUnit.DAYS.between(actualCheckIn, today);
+        if (actualNights <= 0) actualNights = 1;
+
+        long originalNights = ChronoUnit.DAYS.between(actualCheckIn, originalCheckOut);
+        long savedNights = originalNights - actualNights;
+
+        // Tính tiền phòng thực tế theo số đêm thực tế
+        BigDecimal actualRoomAmount = calculatePrice(booking.getRoomType(), actualCheckIn, today);
+        BigDecimal originalRoomAmount = booking.getExpectedPrice() != null
+                ? booking.getExpectedPrice() : BigDecimal.ZERO;
+        BigDecimal difference = originalRoomAmount.subtract(actualRoomAmount);
+
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("bookingId", bookingId);
+        result.put("originalCheckOut", originalCheckOut.toString());
+        result.put("newCheckOut", today.toString());
+        result.put("originalNights", originalNights);
+        result.put("actualNights", actualNights);
+        result.put("savedNights", savedNights);
+        result.put("originalRoomAmount", originalRoomAmount);
+        result.put("actualRoomAmount", actualRoomAmount);
+        result.put("difference", difference); // dương = khách được giảm tiền
+        result.put("hasInvoice", invoiceRepository.findByBookingId(bookingId).isPresent());
+        return result;
+    }
+
+    /**
+     * Xác nhận trả phòng sớm: cập nhật checkOutDate = hôm nay, tính lại giá,
+     * sau đó thực hiện checkout thông thường (sẽ validate hóa đơn).
+     */
+    @Override
+    @Transactional
+    public BookingResponse confirmEarlyCheckout(Long bookingId, User actor) {
+        Booking booking = findById(bookingId);
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalArgumentException("Chỉ có thể trả phòng sớm khi khách đang ở phòng (CHECKED_IN)");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate originalCheckOut = booking.getCheckOutDate();
+
+        if (!today.isBefore(originalCheckOut)) {
+            // Hôm nay >= ngày trả phòng dự kiến → checkout thông thường
+            return checkOut(bookingId, actor);
+        }
+
+        LocalDate actualCheckIn = booking.getCheckInDate();
+        long actualNights = ChronoUnit.DAYS.between(actualCheckIn, today);
+        if (actualNights <= 0) actualNights = 1;
+
+        // Tính lại tiền phòng theo số đêm thực tế
+        BigDecimal actualRoomAmount = calculatePrice(booking.getRoomType(), actualCheckIn, today);
+
+        // Ghi chú trả phòng sớm
+        String earlyNote = "[Trả phòng sớm: " + today + " thay vì " + originalCheckOut +
+                " | " + actualNights + " đêm thực tế | Tiền phòng điều chỉnh: " +
+                String.format("%,.0f", actualRoomAmount.doubleValue()) + "đ]";
+        booking.setNote((booking.getNote() != null && !booking.getNote().isBlank()
+                ? booking.getNote() + "\n" : "") + earlyNote);
+
+        // Cập nhật ngày trả phòng và giá
+        booking.setCheckOutDate(today);
+        booking.setExpectedPrice(actualRoomAmount);
+        booking.setActualPrice(actualRoomAmount);
+        bookingRepository.save(booking);
+
+        // Cập nhật hóa đơn PENDING nếu có
+        Invoice pendingInvoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        if (pendingInvoice != null && pendingInvoice.getStatus() == InvoiceStatus.PENDING) {
+            pendingInvoice.setRoomAmount(actualRoomAmount);
+            BigDecimal serviceAmt = pendingInvoice.getServiceAmount() != null ? pendingInvoice.getServiceAmount() : BigDecimal.ZERO;
+            BigDecimal discountAmt = pendingInvoice.getDiscountAmount() != null ? pendingInvoice.getDiscountAmount() : BigDecimal.ZERO;
+            pendingInvoice.setTotalAmount(actualRoomAmount.add(serviceAmt).subtract(discountAmt));
+            invoiceRepository.save(pendingInvoice);
+        }
+
+        auditLogService.log("Booking", bookingId, "EARLY_CHECKOUT", actor,
+                "Trả phòng sớm từ " + originalCheckOut + " về " + today +
+                ", tiền phòng điều chỉnh: " + actualRoomAmount + "đ");
+
+        // Thực hiện checkout thông thường (validate hóa đơn)
+        return checkOut(bookingId, actor);
+    }
+
     // Kiểm tra chống trùng phòng — gọi query có pessimistic lock (QTN-01)
     private void checkRoomConflict(Long roomId, LocalDate checkIn, LocalDate checkOut, Long excludeBookingId) {
         List<Booking> conflicts = bookingRepository.findConflictingBookings(

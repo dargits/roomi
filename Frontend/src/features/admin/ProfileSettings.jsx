@@ -134,10 +134,10 @@ const ProfileSettings = () => {
   }
 
   return (
-    <div className="w-full pb-12 space-y-8">
-      <div className="mb-8">
-        <h1 className="font-headline-lg text-on-surface mb-2">Hồ sơ Cá nhân</h1>
-
+    <div className="w-full pb-8 space-y-6">
+      <div className="flex items-center gap-2 pb-3 border-b border-border-grey">
+        <IoPersonOutline size={22} className="text-primary" />
+        <h1 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">Hồ sơ Cá nhân</h1>
       </div>
 
       {/* Thông tin cá nhân Form */}

@@ -83,27 +83,24 @@ const InventoryManagement = () => {
   const lowStockCount = items.filter(i => i.lowStock).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-headline-md text-on-surface flex items-center gap-2">
-            <IoCubeOutline size={26} className="text-primary" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-grey">
+        <div className="flex items-center gap-2">
+          <IoCubeOutline size={22} className="text-primary" />
+          <h1 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
             Kho Đồ Dùng
           </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            Quản lý đồ dùng phục vụ dịch vụ phụ thu
-          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {lowStockCount > 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-sm font-medium">
-              <IoWarningOutline size={15}/> {lowStockCount} mặt hàng sắp hết
+            <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-medium">
+              <IoWarningOutline size={14}/> {lowStockCount} sắp hết
             </span>
           )}
-          <Button variant="ghost" onClick={fetchItems} icon={IoRefreshOutline} className="!p-2.5">
+          <Button variant="ghost" size="sm" onClick={fetchItems} icon={IoRefreshOutline} className="!p-2" title="Làm mới">
           </Button>
-          <Button onClick={openCreate} icon={IoAddOutline}>
+          <Button size="sm" onClick={openCreate} icon={IoAddOutline}>
             Thêm mặt hàng
           </Button>
         </div>

@@ -30,7 +30,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
   const [copiedField, setCopiedField] = useState('');
 
   const expectedTotal = Number(group?.expectedTotal || 0);
-  const requiredDeposit = Math.round(expectedTotal * 0.3); // 30% default
+  const requiredDeposit = Number(group?.requiredDepositAmount != null ? group.requiredDepositAmount : Math.round(expectedTotal * 0.2));
 
   useEffect(() => {
     if (isOpen && group?.id) {
@@ -40,7 +40,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
       setNote(`Thu tiền đặt cọc ĐOÀN-${String(group.id).padStart(5, '0')}`);
       setErrorMsg('');
     }
-  }, [isOpen, group?.id]);
+  }, [isOpen, group?.id, requiredDeposit]);
 
   const loadDeposits = async () => {
     if (!group?.id) return;
@@ -68,7 +68,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
 
   const currentPayAmount = parseFloat(amount) || 0;
   const transferCode = `ĐOÀN-${String(group?.id || '').padStart(5, '0')}`;
-  const qrImageUrl = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=STAY%20AWAY`;
+  const qrImageUrl = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=BAN%20HUU%20SU`;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -135,7 +135,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-border-grey text-xs">
             <div className="bg-surface p-2 rounded-lg border border-border-grey">
-              <span className="text-on-surface-variant block">Mức cọc tối thiểu (30%):</span>
+              <span className="text-on-surface-variant block">Mức cọc yêu cầu:</span>
               <strong className="text-on-surface font-semibold">
                 {requiredDeposit.toLocaleString('vi-VN')} đ
               </strong>
@@ -201,13 +201,13 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
               placeholder="Nhập số tiền..."
             />
             {/* Quick buttons */}
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => setAmount(String(Math.round(expectedTotal * 0.3)))}
-                className="px-2.5 py-1 text-xs bg-surface-container-low hover:bg-surface-container border border-border-grey rounded-md font-medium text-on-surface cursor-pointer"
+                onClick={() => setAmount(String(requiredDeposit))}
+                className="px-2.5 py-1 text-xs bg-primary/10 hover:bg-primary/20 border border-primary/40 rounded-md font-semibold text-primary cursor-pointer"
               >
-                30% ({Math.round(expectedTotal * 0.3).toLocaleString('vi-VN')} đ)
+                Mức cọc yêu cầu ({requiredDeposit.toLocaleString('vi-VN')} đ)
               </button>
               <button
                 type="button"
@@ -276,13 +276,17 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
                     <strong className="font-semibold">MBBank</strong>
                   </div>
                   <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
+                    <span className="text-on-surface-variant">Chủ tài khoản:</span>
+                    <strong className="font-semibold uppercase text-primary">BAN HUU SU</strong>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
                     <span className="text-on-surface-variant">Số TK:</span>
                     <div className="flex items-center gap-1">
-                      <strong className="font-mono font-bold text-primary">0365224245</strong>
+                      <strong className="font-mono font-bold text-primary">0365221338</strong>
                       <button
                         type="button"
-                        onClick={() => copyToClipboard('0365224245', 'acc')}
-                        className="text-on-surface-variant hover:text-primary p-0.5"
+                        onClick={() => copyToClipboard('0365221338', 'acc')}
+                        className="text-on-surface-variant hover:text-primary p-0.5 cursor-pointer"
                         title="Sao chép số TK"
                       >
                         {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}

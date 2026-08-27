@@ -207,15 +207,14 @@ const StaffManagement = () => {
 
   return (
     <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
-      <div className="p-6 border-b border-border-grey flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-lowest">
-        <div>
-          <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <IoPersonOutline size={28} className="text-primary" /> 
+      <div className="px-4 py-3 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-lowest">
+        <div className="flex items-center gap-2">
+          <IoPersonOutline size={22} className="text-primary" /> 
+          <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
             Quản lý Nhân sự
           </h2>
-          <p className="text-on-surface-variant font-body-md mt-1">Danh sách tài khoản và phân quyền cho nhân viên</p>
         </div>
-        <Button onClick={handleOpenCreateModal} icon={IoPersonAddOutline} className="uppercase">
+        <Button size="sm" onClick={handleOpenCreateModal} icon={IoPersonAddOutline} className="shrink-0">
           Thêm nhân viên
         </Button>
       </div>

@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
  * GET    /api/v1/bookings/{bookingId}/deposit/fee    — tính phí hủy dự kiến (NCL-11-CN-004)
  * POST   /api/v1/bookings/{bookingId}/deposit/refund — hoàn tiền cọc (NCL-11-CN-003)
  * POST   /api/v1/bookings/{bookingId}/deposit/no-show — xử lý no-show (NCL-11-CN-005)
+ *
+ * GET    /api/v1/deposits/unsettled  — danh sách cọc chưa quyết toán toàn hệ thống
  */
 @RestController
 @RequestMapping("/api/v1/bookings/{bookingId}/deposit")

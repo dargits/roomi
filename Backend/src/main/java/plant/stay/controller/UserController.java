@@ -68,12 +68,27 @@ public class UserController {
         return user;
     }
 
-    // --- CÁC API DÀNH CHO ADMIN & OWNER QUẢN LÝ NHÂN SỰ ---
+    private User checkStaffOrAdminOrOwner(HttpServletRequest request) {
+        User user = checkAuth(request);
+        if (user.getRole() != Role.ADMIN && user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST) {
+            throw new UnauthorizedException("Chỉ ADMIN, OWNER hoặc RECEPTIONIST mới có quyền thực hiện chức năng này");
+        }
+        return user;
+    }
+
+    // --- CÁC API DÀNH CHO QUẢN LÝ & LỄ TÂN (PHÂN CÔNG BUỒNG PHÒNG, QUẢN LÝ NHÂN SỰ) ---
 
     @GetMapping
     public ResponseEntity<java.util.List<UserResponse>> getAllUsers(HttpServletRequest request) {
-        checkAdminOrOwner(request);
+        checkStaffOrAdminOrOwner(request);
         return ResponseEntity.ok(userService.getAllUsers());
+    }
+
+    @GetMapping("/housekeepers")
+    public ResponseEntity<java.util.List<UserResponse>> getHousekeepers(HttpServletRequest request) {
+        // Bất kỳ nhân viên nào đăng nhập đều có thể xem danh sách (dùng để hiển thị dropdown phân công)
+        checkAuth(request);
+        return ResponseEntity.ok(userService.getHousekeepers());
     }
 
     @PutMapping("/{id}")

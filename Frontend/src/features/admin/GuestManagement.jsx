@@ -157,29 +157,28 @@ const GuestManagement = () => {
 
   return (
     <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
-      <div className="p-6 border-b border-border-grey bg-surface-container-lowest">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-              <IoPeopleOutline size={28} className="text-primary" />
+      <div className="px-4 py-3 border-b border-border-grey bg-surface-container-lowest">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <IoPeopleOutline size={22} className="text-primary" />
+            <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
               Quản lý Khách hàng
             </h2>
-            <p className="text-on-surface-variant font-body-md mt-1">Danh sách khách hàng, điểm thưởng và lịch sử lưu trú</p>
           </div>
           
-          <div className="flex gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="relative flex-1 sm:w-60">
               <input 
                 type="text" 
                 placeholder="Tìm tên, SĐT, CCCD..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-border-grey rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-body-md"
+                className="w-full pl-9 pr-3 py-1.5 border border-border-grey rounded-lg focus:outline-none focus:ring-1 focus:ring-primary text-xs bg-white"
               />
-              <IoSearchOutline className="absolute left-3 top-2.5 text-on-surface-variant/70" size={18} />
+              <IoSearchOutline className="absolute left-3 top-2 text-on-surface-variant/70" size={15} />
             </div>
-            <Button onClick={openAddModal} icon={IoAddOutline}>
-              Thêm
+            <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
+              Thêm khách
             </Button>
           </div>
         </div>
