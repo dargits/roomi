@@ -42,7 +42,40 @@ export const invoiceApi = {
     // adjustData = { roomCharge: 1500000, servicesCharge: 200000, note: "..." }
     const response = await api.post(`/invoices/${invoiceId}/adjust`, adjustData);
     return response.data;
-  }
+  },
+
+  // ===== DISCOUNT =====
+
+  /** Lấy khoản giảm giá đang hiệu lực */
+  getActiveDiscount: async (invoiceId) => {
+    const response = await api.get(`/invoices/${invoiceId}/discount`);
+    return response.data;
+  },
+
+  /** Lễ tân áp dụng giảm giá */
+  applyDiscount: async (invoiceId, payload) => {
+    const response = await api.post(`/invoices/${invoiceId}/discount`, payload);
+    return response.data;
+  },
+
+  /** Xóa khoản giảm giá */
+  removeDiscount: async (invoiceId) => {
+    const response = await api.delete(`/invoices/${invoiceId}/discount`);
+    return response.data;
+  },
+
+  /** Owner phê duyệt giảm giá */
+  approveDiscount: async (invoiceId) => {
+    const response = await api.post(`/invoices/${invoiceId}/discount/approve`);
+    return response.data;
+  },
+
+  /** Owner từ chối giảm giá */
+  rejectDiscount: async (invoiceId, payload) => {
+    const response = await api.post(`/invoices/${invoiceId}/discount/reject`, payload);
+    return response.data;
+  },
 };
 
 export default invoiceApi;
+
