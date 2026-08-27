@@ -5,7 +5,7 @@ import {
   IoChevronDownOutline, IoChevronForwardOutline, IoDocumentOutline,
   IoEyeOutline, IoListOutline, IoLogOutOutline, IoPeopleOutline, IoPersonOutline,
   IoPrintOutline, IoReceiptOutline, IoRefreshOutline, IoTrashOutline, IoWarningOutline,
-  IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline,
+  IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline, IoTicketOutline
 } from 'react-icons/io5';
 import groupBookingApi from '../../services/groupBookingApi';
 import invoiceApi from '../../services/invoiceApi';
@@ -19,6 +19,8 @@ import GroupDepositModal from './GroupDepositModal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
+import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
+import DiscountFormModal from '../invoice/DiscountFormModal';
 
 
 
@@ -50,6 +52,7 @@ const GroupBookingList = ({ refreshKey }) => {
   const [invoiceError, setInvoiceError] = useState('');
   const [printInvoice, setPrintInvoice] = useState(null);
   const [invoiceTab, setInvoiceTab] = useState('combined'); // 'combined' | 'details'
+  const [showGroupDiscountModal, setShowGroupDiscountModal] = useState(false);
 
   // Payment state for combined invoice
   const [payAmount, setPayAmount] = useState('');
@@ -245,6 +248,56 @@ const GroupBookingList = ({ refreshKey }) => {
       setInvoiceError(error.response?.data?.message || 'Không thể lập hóa đơn đoàn.');
     } finally {
       setInvoiceSubmitting(false);
+    }
+  };
+
+  const handleCreateGroupInvoicesWithDiscount = async (discountPayload) => {
+    const { group } = invoiceState;
+    if (!group) return { success: false };
+    setInvoiceSubmitting(true);
+    setInvoiceError('');
+    try {
+      const data = await groupBookingApi.createInvoices(group.id, { mode: 'COMBINED' });
+      toastSuccess('Đã lập hóa đơn gộp đoàn!');
+
+      const combinedInvId = data?.invoices?.[0]?.id;
+      if (combinedInvId && discountPayload && discountPayload.discountValue > 0 && discountPayload.reason) {
+        try {
+          const discRes = await invoiceApi.applyDiscount(combinedInvId, discountPayload);
+          toastSuccess(discRes.statusMessage || 'Đã áp dụng giảm giá cho hóa đơn đoàn!');
+        } catch (discErr) {
+          toastError(discErr.response?.data?.message || 'Lỗi áp dụng giảm giá cho hóa đơn đoàn');
+        }
+      }
+
+      setShowGroupDiscountModal(false);
+      const refreshedData = await groupBookingApi.getInvoices(group.id);
+      setInvoiceState((prev) => ({ ...prev, data: refreshedData }));
+      const outstanding = Number(refreshedData?.outstandingAmount || 0);
+      if (outstanding > 0) {
+        setPayAmount(String(outstanding));
+      }
+      await loadGroups();
+      return { success: true };
+    } catch (error) {
+      setInvoiceError(error.response?.data?.message || 'Không thể lập hóa đơn đoàn.');
+      return { success: false };
+    } finally {
+      setInvoiceSubmitting(false);
+    }
+  };
+
+  const handleGroupDiscountChange = async () => {
+    const { group } = invoiceState;
+    if (!group) return;
+    try {
+      const refreshedData = await groupBookingApi.getInvoices(group.id);
+      setInvoiceState((prev) => ({ ...prev, data: refreshedData }));
+      const outstanding = Number(refreshedData?.outstandingAmount || 0);
+      setPayAmount(outstanding > 0 ? String(outstanding) : '');
+      await loadGroups();
+    } catch (err) {
+      console.error('Lỗi khi tải lại hóa đơn đoàn', err);
     }
   };
 
@@ -682,11 +735,26 @@ const GroupBookingList = ({ refreshKey }) => {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                         <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
-                          <span className="text-on-surface-variant block mb-0.5">Tổng tiền phòng & dịch vụ:</span>
-                          <strong className="text-on-surface font-bold text-sm">{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong>
+                          <span className="text-on-surface-variant block mb-0.5">Tiền phòng & Dịch vụ:</span>
+                          <strong className="text-on-surface font-bold text-sm">
+                            {(Number(invoiceState.data.roomAmount || 0) + Number(invoiceState.data.serviceAmount || 0)).toLocaleString('vi-VN')} đ
+                          </strong>
                         </div>
+                        {Number(invoiceState.data.discountAmount || 0) > 0 ? (
+                          <div className="bg-surface p-2.5 rounded-lg border border-green-200 text-green-700">
+                            <span className="block mb-0.5 font-medium">Giảm giá hóa đơn:</span>
+                            <strong className="font-bold text-sm">
+                              -{Number(invoiceState.data.discountAmount).toLocaleString('vi-VN')} đ
+                            </strong>
+                          </div>
+                        ) : (
+                          <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
+                            <span className="text-on-surface-variant block mb-0.5">Tổng hóa đơn:</span>
+                            <strong className="text-on-surface font-bold text-sm">{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong>
+                          </div>
+                        )}
                         <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
                           <span className="text-green-700 block mb-0.5">Tiền cọc & Đã thanh toán:</span>
                           <strong className="text-green-800 font-bold text-sm">{Number(invoiceState.data.paidAmount || 0).toLocaleString('vi-VN')} đ</strong>
@@ -702,8 +770,26 @@ const GroupBookingList = ({ refreshKey }) => {
                       </div>
                     </div>
 
+                    {/* Khu vực Giảm giá hóa đơn gộp đoàn */}
+                    {invoiceState.data?.invoices?.[0] && (
+                      <div className="bg-surface p-4 rounded-xl border border-border-grey shadow-2xs">
+                        <InvoiceDiscountSection
+                          invoice={invoiceState.data.invoices[0]}
+                          userRole={user?.role}
+                          onInvoiceChange={handleGroupDiscountChange}
+                          remainingAmount={Number(invoiceState.data.outstandingAmount || 0)}
+                        />
+                      </div>
+                    )}
+
+                    {invoiceState.data?.invoices?.[0]?.status === 'PENDING_DISCOUNT_APPROVAL' && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg text-center font-medium">
+                        ⚠️ Tạm khóa thanh toán: Khoản giảm giá hóa đơn đoàn đang chờ Chủ cơ sở (Owner) phê duyệt.
+                      </div>
+                    )}
+
                     {/* Form thanh toán trực tiếp khi còn nợ */}
-                    {Number(invoiceState.data.outstandingAmount || 0) > 0 && (
+                    {Number(invoiceState.data.outstandingAmount || 0) > 0 && invoiceState.data?.invoices?.[0]?.status !== 'PENDING_DISCOUNT_APPROVAL' && (
                       <div className="p-4 bg-surface-container-low rounded-xl border border-primary/30 space-y-3">
                         <div className="font-semibold text-sm text-primary flex items-center gap-1.5">
                           <IoCashOutline size={18} /> Thu tiền thanh toán hóa đơn đoàn
@@ -727,7 +813,7 @@ const GroupBookingList = ({ refreshKey }) => {
                             const currentPayAmountGroup = parseFloat(payAmount) || 0;
                             const invCodeGroup = invoiceState.data?.invoices?.[0]?.id ? `INV${String(invoiceState.data.invoices[0].id).padStart(6, '0')}` : '';
                             const qrImageUrlGroup = `https://img.vietqr.io/image/MB-0365224245-compact2.png?amount=${currentPayAmountGroup}&addInfo=${invCodeGroup}&accountName=STAY%20AWAY`;
-                            
+
                             return (
                               <div className="sm:col-span-2 bg-white p-3.5 rounded-lg border border-blue-200 bg-blue-50/30 space-y-3 mt-1">
                                 <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
@@ -803,25 +889,33 @@ const GroupBookingList = ({ refreshKey }) => {
 
                     {/* Danh sách hóa đơn và nút In */}
                     <div className="space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                        Chi tiết hóa đơn ({invoiceState.data.invoices.length})
+                      <div className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant flex justify-between items-center">
+                        <span>Chi tiết hóa đơn ({invoiceState.data.invoices.length})</span>
+                        {invoiceState.data.invoices.length > 1 && (
+                          <span className="text-[11px] font-normal text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Đoàn đang có {invoiceState.data.invoices.length} hóa đơn tách theo phòng
+                          </span>
+                        )}
                       </div>
-                      {invoiceState.data.invoices.map((invoice) => (
-                        <div key={invoice.id} className="flex items-center justify-between rounded-xl border border-border-grey bg-surface p-3 text-sm">
+                      {invoiceState.data.invoices.map((invoice, idx) => (
+                        <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-border-grey bg-surface p-3 text-sm gap-2">
                           <div>
                             <div className="font-semibold text-on-surface flex items-center gap-2">
-                              <span>Hóa đơn #{invoice.id} (Gộp cả đoàn)</span>
+                              <span>
+                                Hóa đơn #{invoice.id} {invoiceState.data.invoices.length === 1 ? '(Gộp cả đoàn)' : `(Phòng #${invoice.bookingId || idx + 1})`}
+                              </span>
                               <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${invoice.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                                {invoice.status === 'PAID' ? '✓ Đã thanh toán đủ' : 'Chờ thanh toán'}
+                                {invoice.status === 'PAID' ? '✓ Đã thanh toán đủ' : invoice.status === 'PENDING_DISCOUNT_APPROVAL' ? 'Chờ duyệt giảm giá' : 'Chờ thanh toán'}
                               </span>
                             </div>
-                            <div className="text-xs text-on-surface-variant mt-1">
-                              Tiền phòng: {Number(invoice.roomAmount || 0).toLocaleString('vi-VN')} đ
-                              {Number(invoice.serviceAmount || 0) > 0 && ` • Dịch vụ: ${Number(invoice.serviceAmount || 0).toLocaleString('vi-VN')} đ`}
-                              {Number(invoice.paidAmount || 0) > 0 && <span className="text-green-700"> • Đã trừ cọc / thanh toán: {Number(invoice.paidAmount || 0).toLocaleString('vi-VN')} đ</span>}
+                            <div className="text-xs text-on-surface-variant mt-1 flex flex-wrap gap-x-2">
+                              <span>Tiền phòng: {Number(invoice.roomAmount || 0).toLocaleString('vi-VN')} đ</span>
+                              {Number(invoice.serviceAmount || 0) > 0 && <span>• Dịch vụ: {Number(invoice.serviceAmount || 0).toLocaleString('vi-VN')} đ</span>}
+                              {Number(invoice.discountAmount || 0) > 0 && <span className="text-green-700 font-medium">• Giảm giá: -{Number(invoice.discountAmount).toLocaleString('vi-VN')} đ</span>}
+                              {Number(invoice.paidAmount || 0) > 0 && <span className="text-green-700">• Đã trừ cọc / thanh toán: {Number(invoice.paidAmount || 0).toLocaleString('vi-VN')} đ</span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 self-end sm:self-auto">
                             <div className="text-right">
                               <div className="font-bold text-on-surface text-sm">{Number(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ</div>
                             </div>
@@ -904,12 +998,45 @@ const GroupBookingList = ({ refreshKey }) => {
                   <div>• Lễ tân có thể thu nốt phần chênh lệch còn lại ngay sau khi tạo hóa đơn.</div>
                 </div>
 
-                <div className="flex justify-end gap-3 border-t border-border-grey pt-4">
+                <div className="flex flex-wrap justify-end gap-3 border-t border-border-grey pt-4">
                   <Button variant="ghost" onClick={closeInvoices} disabled={invoiceSubmitting}>Hủy</Button>
+                  <Button
+                    variant="outline"
+                    icon={IoTicketOutline}
+                    onClick={() => setShowGroupDiscountModal(true)}
+                    isLoading={invoiceSubmitting}
+                    className="text-primary border-primary hover:bg-primary/5"
+                  >
+                    Tạo hóa đơn gộp kèm giảm giá
+                  </Button>
                   <Button variant="primary" icon={IoDocumentOutline} onClick={createInvoices} isLoading={invoiceSubmitting}>
                     Tạo hóa đơn gộp đoàn
                   </Button>
                 </div>
+
+                {/* Modal nhập giảm giá trực tiếp trong quá trình lập hóa đơn gộp đoàn */}
+                {(() => {
+                  const groupRoomTotal = invoiceState.group?.totalRoomCharge
+                    || invoiceState.group?.bookings?.reduce((sum, b) => sum + (Number(b.expectedPrice) || 0), 0)
+                    || 0;
+                  const groupDeposit = Number(invoiceState.group?.depositAmount || 0);
+                  const groupRemaining = Math.max(0, groupRoomTotal - groupDeposit);
+                  return (
+                    <DiscountFormModal
+                      isOpen={showGroupDiscountModal}
+                      onClose={() => setShowGroupDiscountModal(false)}
+                      onSubmit={handleCreateGroupInvoicesWithDiscount}
+                      isLoading={invoiceSubmitting}
+                      invoice={{
+                        roomAmount: groupRoomTotal,
+                        serviceAmount: 0,
+                        totalAmount: groupRoomTotal,
+                        remainingAmount: groupRemaining
+                      }}
+                      remainingAmount={groupRemaining}
+                    />
+                  );
+                })()}
               </>
             )}
           </div>

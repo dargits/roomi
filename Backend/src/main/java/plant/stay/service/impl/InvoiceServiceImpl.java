@@ -371,10 +371,18 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .filter(inv -> inv.getStatus() != InvoiceStatus.ADJUSTED)
                 .collect(Collectors.toList());
 
-        BigDecimal roomAmount = activeInvoices.stream().map(Invoice::getRoomAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal serviceAmount = activeInvoices.stream().map(Invoice::getServiceAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal discountAmount = activeInvoices.stream().map(Invoice::getDiscountAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalAmount = activeInvoices.stream().map(Invoice::getTotalAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal roomAmount = activeInvoices.stream()
+                .map(inv -> inv.getRoomAmount() != null ? inv.getRoomAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal serviceAmount = activeInvoices.stream()
+                .map(inv -> inv.getServiceAmount() != null ? inv.getServiceAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal discountAmount = activeInvoices.stream()
+                .map(inv -> inv.getDiscountAmount() != null ? inv.getDiscountAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAmount = activeInvoices.stream()
+                .map(inv -> inv.getTotalAmount() != null ? inv.getTotalAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal paidAmount = activeInvoices.stream().flatMap(invoice -> paymentRepository.findByInvoiceId(invoice.getId()).stream())
                 .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -471,7 +479,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private Invoice syncInvoiceStatus(Invoice invoice) {
-        if (invoice == null || invoice.getStatus() != InvoiceStatus.PENDING) {
+        if (invoice == null || (invoice.getStatus() != InvoiceStatus.PENDING && invoice.getStatus() != InvoiceStatus.PENDING_PAYMENT)) {
             return invoice;
         }
 
@@ -501,14 +509,6 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
         }
 
-        // 2. Tính tổng thanh toán từ tất cả Payment
-        BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
-                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
-            invoice.setStatus(InvoiceStatus.PAID);
-            return invoiceRepository.save(invoice);
-        }
         return invoice;
     }
 
