@@ -137,6 +137,22 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.checkExtendAvailability(id, nights));
     }
 
+    // NCL-04-CN-NEW: Xem trước trả phòng sớm (không lưu DB)
+    @GetMapping("/{id}/early-checkout-preview")
+    public ResponseEntity<?> earlyCheckoutPreview(@PathVariable Long id,
+                                                   HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(bookingService.previewEarlyCheckout(id));
+    }
+
+    // NCL-04-CN-NEW: Xác nhận trả phòng sớm
+    @PutMapping("/{id}/early-checkout")
+    public ResponseEntity<BookingResponse> confirmEarlyCheckout(@PathVariable Long id,
+                                                                  HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.confirmEarlyCheckout(id, actor));
+    }
+
     // NCL-04-CN-NEW: Preview dời lịch đặt phòng (KHÔNG lưu DB)
     @GetMapping("/{id}/reschedule-preview")
     public ResponseEntity<?> previewReschedule(

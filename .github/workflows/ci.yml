@@ -1,58 +1,57 @@
-name: StayAway CI Pipeline (Continuous Integration)
+name: CI — Test & Build
 
 on:
   push:
-    branches:
-      - '**' # Chạy trên TẤT CẢ các nhánh (main, develop, feature/*, fix/*)
+    branches-ignore:
+      - main        # CD pipeline sẽ tự chạy CI gate riêng trên main
   pull_request:
     branches:
-      - '**'
+      - main
+      - develop
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true  # Hủy run cũ nếu có commit mới hơn đẩy lên
 
 jobs:
-  backend-test:
-    name: ☕ Backend (Spring Boot + JUnit 5 + H2) [ Loading ... ]
+  backend:
+    name: ☕ Backend — Spring Boot + JUnit 5
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: temurin
           cache: maven
 
-      - name: Make mvnw executable
+      - name: Run tests
         working-directory: ./Backend
-        run: chmod +x mvnw || true
+        run: chmod +x mvnw && ./mvnw test --batch-mode -q
 
-      - name: Run Backend Tests
-        working-directory: ./Backend
-        run: ./mvnw test --batch-mode
-
-  frontend-test:
-    name: ⚛️ Frontend (React + Vitest + Build) [ Pham Van Manh ]
+  frontend:
+    name: ⚛️ Frontend — Vitest + Vite Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: './Frontend/package-lock.json'
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
 
-      - name: Install Frontend Dependencies
+      - name: Install dependencies
         working-directory: ./Frontend
         run: npm ci --legacy-peer-deps
 
-      - name: Run Frontend Tests (Vitest)
+      - name: Run tests
         working-directory: ./Frontend
         run: npm test
 
-      - name: Build Frontend (Vite)
+      - name: Build production bundle
         working-directory: ./Frontend
         run: npm run build
