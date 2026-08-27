@@ -7,12 +7,15 @@ import Select from '../../components/ui/Select';
 import { guestApi } from '../../services/guestApi';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import bookingApi from '../../services/bookingApi';
+import { roomApi } from '../../services/roomApi';
 
 const BookingForm = ({ isOpen, onClose, onSuccess }) => {
   const [guests, setGuests] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [availableCount, setAvailableCount] = useState(null);
+  const [checkingAvail, setCheckingAvail] = useState(false);
 
   // Search Guest
   const [searchGuestTerm, setSearchGuestTerm] = useState('');
@@ -40,8 +43,25 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
       setSearchGuestTerm('');
       setGuests([]);
       setError('');
+      setAvailableCount(null);
     }
   }, [isOpen]);
+
+  // Tự động kiểm tra số phòng khả dụng khi có đủ 3 điều kiện
+  useEffect(() => {
+    const { roomTypeId, checkInDate, checkOutDate } = formData;
+    if (!roomTypeId || !checkInDate || !checkOutDate || checkInDate >= checkOutDate) {
+      setAvailableCount(null);
+      return;
+    }
+    let cancelled = false;
+    setCheckingAvail(true);
+    roomApi.getAvailableRooms(roomTypeId, checkInDate, checkOutDate)
+      .then(data => { if (!cancelled) setAvailableCount(data?.length ?? 0); })
+      .catch(() => { if (!cancelled) setAvailableCount(null); })
+      .finally(() => { if (!cancelled) setCheckingAvail(false); });
+    return () => { cancelled = true; };
+  }, [formData.roomTypeId, formData.checkInDate, formData.checkOutDate]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -106,6 +126,11 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
 
   const roomTypeOptions = roomTypes.map(rt => ({ value: rt.id, label: rt.name }));
 
+  // Badge màu số phòng trống
+  const availBadgeClass = availableCount === 0
+    ? 'bg-red-100 text-red-700 border border-red-200'
+    : 'bg-green-100 text-green-700 border border-green-200';
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Tạo Đặt phòng mới" maxWidth="max-w-2xl">
       {error && (
@@ -165,14 +190,28 @@ const BookingForm = ({ isOpen, onClose, onSuccess }) => {
 
         {/* Room & Dates */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Select 
-            label="Loại phòng" 
-            name="roomTypeId" 
-            value={formData.roomTypeId} 
-            onChange={handleInputChange} 
-            options={roomTypeOptions} 
-            required 
-          />
+          <div>
+            <Select 
+              label="Loại phòng" 
+              name="roomTypeId" 
+              value={formData.roomTypeId} 
+              onChange={handleInputChange} 
+              options={roomTypeOptions} 
+              required 
+            />
+            {/* Badge số phòng khả dụng */}
+            {formData.roomTypeId && formData.checkInDate && formData.checkOutDate && (
+              <div className="mt-1.5">
+                {checkingAvail ? (
+                  <span className="text-xs text-on-surface-variant">Đang kiểm tra phòng trống...</span>
+                ) : availableCount !== null ? (
+                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${availBadgeClass}`}>
+                    {availableCount === 0 ? '⚠️ Không còn phòng trống' : `✓ ${availableCount} phòng trống cho khoảng ngày này`}
+                  </span>
+                ) : null}
+              </div>
+            )}
+          </div>
           
           <div /> {/* Empty space */}
 

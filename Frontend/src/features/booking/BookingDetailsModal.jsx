@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   IoAlertCircleOutline, 
   IoCallOutline, 
+  IoCalendarOutline,
   IoCartOutline, 
   IoCheckmarkCircleOutline, 
   IoCloseOutline, 
@@ -28,6 +29,7 @@ import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
+import RescheduleDateModal from './RescheduleDateModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
@@ -76,6 +78,8 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
   // === NCL-04: Gia hạn & Nâng hạng ===
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  // === NCL-04-CN-NEW: Dời lịch đặt phòng chưa nhận phòng ===
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && bookingId) {
@@ -261,6 +265,16 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
                             className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
                           >
                             <IoSwapHorizontalOutline size={13}/> Đổi phòng
+                          </button>
+                        )}
+                        {/* NCL-04-CN-NEW: Dời lịch */}
+                        {(booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
+                          <button
+                            type="button"
+                            onClick={() => setShowRescheduleModal(true)}
+                            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-indigo-400/40 text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          >
+                            <IoCalendarOutline size={13}/> Dời lịch
                           </button>
                         )}
                         {/* NCL-04-CN-007: Gia hạn */}
@@ -487,6 +501,15 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingId }) => {
           onClose={() => setPrintingInvoice(null)} 
         />
       )}
+
+      {/* NCL-04-CN-NEW: Dời lịch đặt phòng */}
+      <RescheduleDateModal
+        isOpen={showRescheduleModal}
+        onClose={() => setShowRescheduleModal(false)}
+        bookingId={bookingId}
+        booking={booking}
+        onSuccess={fetchBookingDetails}
+      />
     </Modal>
   );
 };

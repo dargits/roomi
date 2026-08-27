@@ -1,8 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { roomApi } from '../../services/roomApi';
 import { roomTypeApi } from '../../services/roomTypeApi';
+import userApi from '../../services/userApi';
 import { useAuth } from '../../context/AuthContext';
-import { IoAddOutline, IoBrushOutline, IoCheckmarkCircleOutline, IoConstructOutline, IoLogOutOutline, IoPencilOutline, IoRefreshOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
+import { 
+  IoAddOutline, 
+  IoBedOutline,
+  IoBrushOutline, 
+  IoCheckmarkCircleOutline, 
+  IoConstructOutline, 
+  IoLayersOutline,
+  IoLogOutOutline, 
+  IoPencilOutline, 
+  IoRefreshOutline, 
+  IoSparklesOutline,
+  IoTrashOutline, 
+  IoWarningOutline,
+  IoPersonAddOutline,
+  IoPersonOutline,
+  IoPersonRemoveOutline,
+  IoFlameOutline,
+  IoFlashOutline,
+  IoTimeOutline
+} from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
@@ -13,8 +33,15 @@ const RoomManagement = () => {
   const { user } = useAuth();
   const [rooms, setRooms] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
+  const [housekeepers, setHousekeepers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
+
+  // Modal Phân công người dọn (NCL-06-CN-004)
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedRoomForAssign, setSelectedRoomForAssign] = useState(null);
+  const [selectedHousekeeperId, setSelectedHousekeeperId] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,9 +86,27 @@ const RoomManagement = () => {
     }
   };
 
+  const fetchHousekeepers = async () => {
+    try {
+      const hkList = await userApi.getHousekeepers();
+      setHousekeepers(Array.isArray(hkList) ? hkList : []);
+    } catch (e) {
+      try {
+        const allUsers = await userApi.getAllUsers();
+        const hkList = (Array.isArray(allUsers) ? allUsers : []).filter(
+          u => (u.role === 'HOUSEKEEPER' || u.role === 'STAFF' || u.role === 'OWNER' || u.role === 'ADMIN') && u.active !== false
+        );
+        setHousekeepers(hkList);
+      } catch (e2) {
+        // Ignore if cannot fetch
+      }
+    }
+  };
+
   useEffect(() => {
     fetchRooms();
     fetchRoomTypes();
+    fetchHousekeepers();
   }, [filterStatus]);
 
   const handleInputChange = (e) => {
@@ -155,28 +200,90 @@ const RoomManagement = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'AVAILABLE': return 'bg-green-100 text-green-800 border-green-200';
-      case 'OCCUPIED': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'DIRTY': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'MAINTENANCE': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+  // NCL-06-CN-004: Mở modal chỉ định người dọn
+  const openAssignModal = (room) => {
+    setSelectedRoomForAssign(room);
+    setSelectedHousekeeperId(room.assignedHousekeeperId ? String(room.assignedHousekeeperId) : '');
+    setIsAssignModalOpen(true);
+  };
+
+  // Lưu phân công dọn phòng
+  const handleSaveAssignment = async (e) => {
+    e.preventDefault();
+    if (!selectedRoomForAssign) return;
+    setAssignLoading(true);
+    try {
+      if (!selectedHousekeeperId) {
+        // Gỡ phân công
+        await roomApi.unassignCleaner(selectedRoomForAssign.id);
+        toastSuccess(`Đã gỡ phân công dọn phòng ${selectedRoomForAssign.roomNumber}`);
+      } else {
+        // Nếu chuyển giao sang người khác, gỡ người cũ trước
+        if (selectedRoomForAssign.assignedHousekeeperId && String(selectedRoomForAssign.assignedHousekeeperId) !== String(selectedHousekeeperId)) {
+          await roomApi.unassignCleaner(selectedRoomForAssign.id);
+        }
+        await roomApi.assignCleaner(selectedRoomForAssign.id, Number(selectedHousekeeperId));
+        const targetStaff = housekeepers.find(h => String(h.id) === String(selectedHousekeeperId));
+        toastSuccess(`Đã phân công ${targetStaff?.name || 'nhân viên'} dọn phòng ${selectedRoomForAssign.roomNumber}!`);
+      }
+      setIsAssignModalOpen(false);
+      fetchRooms();
+    } catch (error) {
+      toastError(error.response?.data?.message || "Lỗi khi phân công nhân viên.");
+    } finally {
+      setAssignLoading(false);
     }
   };
 
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case 'AVAILABLE': return 'Trống';
-      case 'OCCUPIED': return 'Đang ở';
-      case 'DIRTY': return 'Chưa dọn';
-      case 'MAINTENANCE': return 'Bảo trì';
-      default: return status;
+  const handleQuickUnassign = async (roomId, roomNumber) => {
+    try {
+      await roomApi.unassignCleaner(roomId);
+      toastSuccess(`Đã hủy phân công dọn phòng ${roomNumber}`);
+      fetchRooms();
+    } catch (error) {
+      toastError(error.response?.data?.message || "Lỗi khi hủy phân công.");
+    }
+  };
+
+  const STATUS_MAP = {
+    AVAILABLE: {
+      label: 'Trống',
+      badge: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+      accentBg: 'bg-emerald-500',
+      cardBorder: 'border-emerald-200 hover:border-emerald-400',
+      icon: IoCheckmarkCircleOutline
+    },
+    OCCUPIED: {
+      label: 'Đang ở',
+      badge: 'bg-blue-50 text-blue-700 border-blue-300',
+      accentBg: 'bg-blue-600',
+      cardBorder: 'border-blue-200 hover:border-blue-400',
+      icon: IoBedOutline
+    },
+    DIRTY: {
+      label: 'Chưa dọn',
+      badge: 'bg-amber-50 text-amber-700 border-amber-300',
+      accentBg: 'bg-amber-500',
+      cardBorder: 'border-amber-200 hover:border-amber-400',
+      icon: IoBrushOutline
+    },
+    INSPECTING: {
+      label: 'Chờ duyệt',
+      badge: 'bg-purple-50 text-purple-700 border-purple-300',
+      accentBg: 'bg-purple-600',
+      cardBorder: 'border-purple-200 hover:border-purple-400',
+      icon: IoSparklesOutline
+    },
+    MAINTENANCE: {
+      label: 'Bảo trì',
+      badge: 'bg-rose-50 text-rose-700 border-rose-300',
+      accentBg: 'bg-rose-600',
+      cardBorder: 'border-rose-200 hover:border-rose-400',
+      icon: IoConstructOutline
     }
   };
 
   const isOwner = user?.role === 'OWNER';
-
   const canMarkClean = user?.role === 'OWNER' || user?.role === 'HOUSEKEEPER';
 
   const roomTypeOptions = roomTypes.map(rt => ({ value: rt.id, label: rt.name }));
@@ -184,101 +291,247 @@ const RoomManagement = () => {
     { value: 'AVAILABLE', label: 'Trống' },
     { value: 'OCCUPIED', label: 'Đang ở' },
     { value: 'DIRTY', label: 'Chưa dọn' },
+    { value: 'INSPECTING', label: 'Chờ duyệt' },
     { value: 'MAINTENANCE', label: 'Bảo trì' }
   ];
 
+  // Tính số lượng theo trạng thái
+  const counts = rooms.reduce((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Nhóm phòng theo tầng
+  const roomsByFloor = rooms.reduce((acc, r) => {
+    const floorKey = r.floor ? (r.floor.startsWith('Tầng') ? r.floor : `Tầng ${r.floor}`) : 'Chưa phân tầng';
+    if (!acc[floorKey]) acc[floorKey] = [];
+    acc[floorKey].push(r);
+    return acc;
+  }, {});
+
   return (
-    <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden mb-12">
-      <div className="p-6 border-b border-border-grey flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-lowest">
-        <div>
-          <h2 className="font-headline-md text-on-surface flex items-center gap-2">
-            <IoLogOutOutline size={28} className="text-primary" />
+    <div className="bg-surface rounded-none shadow-sm border border-border-grey overflow-hidden mb-8">
+      {/* Header Bar */}
+      <div className="px-4 py-3 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-lowest">
+        <div className="flex items-center gap-2 shrink-0">
+          <IoLogOutOutline size={22} className="text-primary" />
+          <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
             Sơ đồ Phòng
           </h2>
-          <p className="text-on-surface-variant font-body-md mt-1">Quản lý danh sách phòng và trạng thái hiện tại</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <Select
-            options={[{ value: '', label: 'Tất cả trạng thái' }, ...statusOptions]}
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            containerClassName="w-full md:w-48"
-            className="bg-white"
-          />
-          {isOwner && (
-            <Button onClick={openAddModal} icon={IoAddOutline} className="uppercase shrink-0">
-              Thêm Phòng
-            </Button>
-          )}
-        </div>
+
+        {/* Action button */}
+        {isOwner && (
+          <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
+            Thêm Phòng
+          </Button>
+        )}
       </div>
 
-      <div className="p-6 bg-surface-container-low/30">
+      {/* Quick Status Filter Bar */}
+      <div className="px-4 py-2.5 bg-surface-container-low border-b border-border-grey flex items-center gap-2 overflow-x-auto">
+        <button
+          onClick={() => setFilterStatus('')}
+          className={`px-3 py-1.5 text-xs font-semibold border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+            filterStatus === ''
+              ? 'bg-primary text-white border-primary shadow-xs'
+              : 'bg-white text-on-surface-variant border-border-grey hover:border-primary/50'
+          }`}
+        >
+          <span>Tất cả</span>
+          <span className={`px-1.5 py-0.2 text-[11px] font-bold ${filterStatus === '' ? 'bg-white/20 text-white' : 'bg-surface-container text-on-surface'}`}>
+            {rooms.length}
+          </span>
+        </button>
+
+        {Object.entries(STATUS_MAP).map(([statusKey, cfg]) => {
+          const count = counts[statusKey] || 0;
+          const isActive = filterStatus === statusKey;
+          const Icon = cfg.icon;
+
+          return (
+            <button
+              key={statusKey}
+              onClick={() => setFilterStatus(filterStatus === statusKey ? '' : statusKey)}
+              className={`px-3 py-1.5 text-xs font-semibold border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                isActive
+                  ? 'bg-primary text-white border-primary shadow-xs'
+                  : 'bg-white text-on-surface-variant border-border-grey hover:border-primary/50'
+              }`}
+            >
+              <Icon size={14} className={isActive ? 'text-white' : cfg.accentBg.replace('bg-', 'text-')} />
+              <span>{cfg.label}</span>
+              <span className={`px-1.5 py-0.2 text-[11px] font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-surface-container text-on-surface'}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content Area */}
+      <div className="p-5 bg-surface-container-low/20 space-y-6">
         {loading ? (
           <div className="flex justify-center p-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-none h-10 w-10 border-b-2 border-primary"></div>
+          </div>
+        ) : Object.keys(roomsByFloor).length === 0 ? (
+          <div className="p-12 text-center text-on-surface-variant bg-white border border-border-grey">
+            Không tìm thấy phòng nào phù hợp với bộ lọc.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {rooms.map(room => (
-              <div key={room.id} className={`flex flex-col bg-surface rounded-xl border-2 transition-all hover:shadow-md ${getStatusColor(room.status).split(' ')[2]}`}>
-                <div className={`p-4 border-b ${getStatusColor(room.status).split(' ')[2]} flex justify-between items-center bg-opacity-50`}>
-                  <h3 className="font-title-lg font-bold text-on-surface">{room.roomNumber}</h3>
-                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${getStatusColor(room.status).replace('border-', '')}`}>
-                    {getStatusLabel(room.status)}
-                  </span>
-                </div>
-                <div className="p-4 flex-1 flex flex-col gap-2">
-                  <div className="text-on-surface-variant font-body-sm flex justify-between">
-                    <span>Loại phòng:</span>
-                    <span className="font-medium text-on-surface text-right truncate ml-2" title={room.roomTypeName || 'N/A'}>
-                      {room.roomTypeName || 'N/A'}
-                    </span>
-                  </div>
-                  <div className="text-on-surface-variant font-body-sm flex justify-between">
-                    <span>Tầng:</span>
-                    <span className="font-medium text-on-surface">{room.floor || '—'}</span>
-                  </div>
-                  {room.notes && (
-                    <div className="mt-2 text-xs text-on-surface-variant italic p-2 bg-surface-container-lowest rounded border border-border-grey truncate" title={room.notes}>
-                      {room.notes}
+          Object.entries(roomsByFloor).map(([floorName, floorRooms]) => (
+            <div key={floorName} className="space-y-3">
+              {/* Floor Header */}
+              <div className="flex items-center gap-2 pb-1.5 border-b border-border-grey/70">
+                <span className="font-bold text-sm text-on-surface tracking-wide uppercase flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-primary"></span>
+                  {floorName}
+                </span>
+                <span className="text-xs text-on-surface-variant font-medium">
+                  ({floorRooms.length} phòng)
+                </span>
+              </div>
+
+              {/* Floor Rooms Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+                {floorRooms.map(room => {
+                  const cfg = STATUS_MAP[room.status] || STATUS_MAP.AVAILABLE;
+                  const Icon = cfg.icon;
+
+                  return (
+                    <div
+                      key={room.id}
+                      className={`bg-white border transition-all duration-150 hover:shadow-md flex flex-col justify-between relative group ${cfg.cardBorder}`}
+                    >
+                      {/* Top Accent Strip */}
+                      <div className={`h-1 w-full ${cfg.accentBg}`} />
+
+                      {/* Card Body */}
+                      <div className="p-3.5 space-y-2.5">
+                        {/* Room Number & Status Badge */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-title-lg font-bold text-xl text-on-surface tracking-tight">
+                            {room.roomNumber}
+                          </div>
+                          <span className={`px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider border flex items-center gap-1 shrink-0 ${cfg.badge}`}>
+                            <Icon size={12} />
+                            {cfg.label}
+                          </span>
+                        </div>
+
+                        {/* Room Type */}
+                        <div className="text-xs text-on-surface-variant flex items-center gap-1.5 truncate" title={room.roomTypeName || 'N/A'}>
+                          <IoBedOutline size={14} className="text-primary shrink-0" />
+                          <span className="font-medium text-on-surface truncate">
+                            {room.roomTypeName || 'N/A'}
+                          </span>
+                        </div>
+
+                        {/* NCL-06-CN-004: Phân công & Ưu tiên dọn dẹp cho phòng DIRTY / INSPECTING */}
+                        {(room.status === 'DIRTY' || room.status === 'INSPECTING') && (
+                          <div className="pt-1.5 border-t border-border-grey/60 space-y-1.5">
+                            {/* Mức ưu tiên đón khách */}
+                            {room.priorityLevel === 'URGENT' && (
+                              <div className="text-[10px] font-bold text-red-700 bg-red-50 px-1.5 py-0.5 border border-red-200 flex items-center gap-1">
+                                <IoFlameOutline size={12} className="text-red-600 animate-pulse shrink-0" />
+                                <span className="truncate">🔥 Khách đến hôm nay ({room.nextCheckInDate})</span>
+                              </div>
+                            )}
+                            {room.priorityLevel === 'HIGH' && (
+                              <div className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 border border-amber-200 flex items-center gap-1">
+                                <IoFlashOutline size={12} className="text-amber-600 shrink-0" />
+                                <span className="truncate">⚡ Khách đến ngày mai ({room.nextCheckInDate})</span>
+                              </div>
+                            )}
+
+                            {/* Trạng thái phân công & Nút chỉ định người dọn */}
+                            {room.assignedHousekeeperName ? (
+                              <div className="flex items-center justify-between gap-1 text-[11px] text-blue-900 bg-blue-50/90 px-2 py-1 border border-blue-200">
+                                <span className="flex items-center gap-1 truncate font-semibold">
+                                  <IoPersonOutline size={12} className="text-blue-600 shrink-0" />
+                                  <span className="truncate">Dọn: {room.assignedHousekeeperName}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => openAssignModal(room)}
+                                  className="text-[10px] text-blue-700 hover:text-blue-900 font-bold hover:underline shrink-0 cursor-pointer"
+                                  title="Đổi nhân viên dọn phòng"
+                                >
+                                  Đổi
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openAssignModal(room)}
+                                className="w-full flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition-colors cursor-pointer"
+                              >
+                                <IoPersonAddOutline size={12} className="text-amber-700" />
+                                <span>Chỉ định người dọn</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Notes */}
+                        {room.notes && (
+                          <div className="text-[11px] text-on-surface-variant italic p-1.5 bg-surface-container-low border border-border-grey/60 truncate" title={room.notes}>
+                            {room.notes}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Bottom Actions */}
+                      <div className="px-3 py-2 border-t border-border-grey/60 bg-surface-container-lowest flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1">
+                          {room.status === 'DIRTY' && canMarkClean && (
+                            <button
+                              onClick={() => handleMarkClean(room.id)}
+                              className="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                              title="Chuyển sang sạch sẽ"
+                            >
+                              <IoBrushOutline size={14} />
+                              <span className="text-[10px]">Đã dọn</span>
+                            </button>
+                          )}
+                          {room.status !== 'MAINTENANCE' && room.status !== 'OCCUPIED' && isOwner && (
+                            <button
+                              onClick={() => handleMarkMaintenance(room.id)}
+                              className="p-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant transition-colors border border-border-grey/80 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                              title="Chuyển sang bảo trì"
+                            >
+                              <IoConstructOutline size={14} />
+                              <span className="text-[10px]">Bảo trì</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {isOwner && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => openEditModal(room)}
+                              className="p-1.5 hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant border border-transparent hover:border-primary/20 cursor-pointer"
+                              title="Chỉnh sửa"
+                            >
+                              <IoPencilOutline size={14} />
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(room)}
+                              className="p-1.5 hover:bg-red-50 hover:text-error transition-colors text-on-surface-variant border border-transparent hover:border-red-200 cursor-pointer"
+                              title="Xóa phòng"
+                            >
+                              <IoTrashOutline size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="p-3 border-t border-border-grey/50 bg-surface-container-lowest rounded-b-xl flex justify-between gap-1">
-                  <div className="flex gap-1">
-                    {room.status === 'DIRTY' && canMarkClean && (
-                      <button onClick={() => handleMarkClean(room.id)} className="p-2 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors tooltip-wrapper" title="Đã dọn sạch">
-                        <IoBrushOutline size={18} />
-                      </button>
-                    )}
-                    {room.status !== 'MAINTENANCE' && room.status !== 'OCCUPIED' && isOwner && (
-                      <button onClick={() => handleMarkMaintenance(room.id)} className="p-2 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface-variant tooltip-wrapper" title="Bảo trì">
-                        <IoConstructOutline size={18} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    {isOwner && (
-                      <>
-                        <button onClick={() => openEditModal(room)} className="p-2 rounded hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant" title="Sửa">
-                          <IoPencilOutline size={18} />
-                        </button>
-                        <button onClick={() => openDeleteModal(room)} className="p-2 rounded hover:bg-red-50 hover:text-error transition-colors text-on-surface-variant" title="Xóa">
-                          <IoTrashOutline size={18} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            ))}
-            {rooms.length === 0 && (
-              <div className="col-span-full p-12 text-center text-on-surface-variant bg-surface rounded-xl border border-border-grey dashed">
-                Không tìm thấy phòng nào.
-              </div>
-            )}
-          </div>
+            </div>
+          ))
         )}
       </div>
 
@@ -319,7 +572,9 @@ const RoomManagement = () => {
               <IoWarningOutline size={32} strokeWidth={1.5} />
             </div>
             <h3 className="font-title-lg text-on-surface mb-2">Xóa phòng này?</h3>
-            <p className="font-body-md text-on-surface-variant">Bạn có chắc chắn muốn xóa phòng <strong>{itemToDelete?.roomNumber}</strong> không? Hành động này không thể hoàn tác.</p>
+            <p className="font-body-md text-on-surface-variant">
+              Bạn có chắc chắn muốn xóa phòng <strong>{itemToDelete?.roomNumber}</strong> không? Hành động này không thể hoàn tác.
+            </p>
           </div>
           <div className="flex gap-3 pt-6 border-t border-border-grey">
             <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)} className="flex-1">Hủy bỏ</Button>
@@ -327,6 +582,92 @@ const RoomManagement = () => {
           </div>
         </Modal>
       )}
+
+      {/* Modal Chỉ định người dọn phòng (NCL-06-CN-004) */}
+      <Modal 
+        isOpen={isAssignModalOpen} 
+        onClose={() => setIsAssignModalOpen(false)} 
+        title={`Chỉ định người dọn - Phòng ${selectedRoomForAssign?.roomNumber || ''}`}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveAssignment} className="space-y-4">
+          {/* Thông tin phòng & mức ưu tiên */}
+          <div className="p-3 bg-surface-container-low border border-border-grey space-y-2 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-on-surface-variant">Hạng phòng:</span>
+              <strong className="text-on-surface">{selectedRoomForAssign?.roomTypeName || 'Tiêu chuẩn'}</strong>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-on-surface-variant">Tầng:</span>
+              <span className="font-semibold">{selectedRoomForAssign?.floor || '—'}</span>
+            </div>
+
+            {selectedRoomForAssign?.priorityLevel === 'URGENT' && (
+              <div className="p-2 bg-red-100 border border-red-300 text-red-900 font-bold flex items-center gap-1.5 mt-1">
+                <IoFlameOutline size={16} className="text-red-600 animate-pulse shrink-0" />
+                <span>🔥 Phòng cần dọn gấp: Có khách nhận phòng hôm nay! ({selectedRoomForAssign?.nextCheckInDate})</span>
+              </div>
+            )}
+            {selectedRoomForAssign?.priorityLevel === 'HIGH' && (
+              <div className="p-2 bg-amber-100 border border-amber-300 text-amber-900 font-bold flex items-center gap-1.5 mt-1">
+                <IoFlashOutline size={16} className="text-amber-600 shrink-0" />
+                <span>⚡ Khách nhận phòng ngày mai ({selectedRoomForAssign?.nextCheckInDate})</span>
+              </div>
+            )}
+          </div>
+
+          {/* Chọn nhân viên buồng phòng */}
+          <div>
+            <label className="block text-xs font-bold text-on-surface mb-1.5">
+              Chọn nhân viên buồng phòng phụ trách:
+            </label>
+            <select
+              value={selectedHousekeeperId}
+              onChange={(e) => setSelectedHousekeeperId(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-white border border-border-grey text-on-surface font-medium focus:outline-none focus:border-primary"
+            >
+              <option value="">— Chưa phân công (Bỏ trống) —</option>
+              {housekeepers.map(hk => {
+                const assignedCount = rooms.filter(r => (r.status === 'DIRTY' || r.status === 'INSPECTING') && String(r.assignedHousekeeperId) === String(hk.id)).length;
+                return (
+                  <option key={hk.id} value={hk.id}>
+                    {hk.name} ({hk.phone || 'NV'}) — Đang phụ trách {assignedCount} phòng
+                  </option>
+                );
+              })}
+            </select>
+            <p className="text-[11px] text-on-surface-variant mt-1 italic">
+              * Nhân viên buồng phòng khi đăng nhập sẽ chỉ nhìn thấy các phòng được giao cho mình và phòng chưa ai nhận.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-between items-center gap-2 pt-4 border-t border-border-grey mt-4">
+            {selectedRoomForAssign?.assignedHousekeeperId ? (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setSelectedHousekeeperId('');
+                }}
+                className="text-xs text-red-600 border-red-300 hover:bg-red-50"
+              >
+                <IoPersonRemoveOutline size={14} className="mr-1" />
+                Gỡ phân công
+              </Button>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" type="button" onClick={() => setIsAssignModalOpen(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" isLoading={assignLoading}>
+                Lưu phân công
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
