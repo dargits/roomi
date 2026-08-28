@@ -8,6 +8,7 @@ import {
   IoAlertCircleOutline,
   IoCalendarOutline,
   IoPersonOutline,
+  IoPeopleOutline,
   IoWarningOutline,
   IoCheckmarkCircleOutline
 } from 'react-icons/io5';
@@ -69,6 +70,7 @@ const PendingDepositList = () => {
   const filteredDeposits = deposits.filter((d) => {
     const matchesSearch = 
       (d.bookingId && String(d.bookingId).includes(searchTerm)) ||
+      (d.groupBookingId && String(d.groupBookingId).includes(searchTerm)) ||
       (d.collectedByName && d.collectedByName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (d.note && d.note.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'ALL' || d.status === statusFilter;
@@ -85,7 +87,7 @@ const PendingDepositList = () => {
           <div className="relative min-w-[240px]">
             <input
               type="text"
-              placeholder="Tìm mã đặt phòng, người thu, ghi chú..."
+              placeholder="Tìm mã đặt phòng, mã đoàn, người thu, ghi chú..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-surface-container border border-border-grey rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -154,12 +156,28 @@ const PendingDepositList = () => {
                         <button
                           type="button"
                           onClick={() => navigate(`/manage/bookings/${d.bookingId}?tab=deposit`)}
-                          className="font-semibold text-primary hover:underline"
+                          className="font-semibold text-primary hover:underline text-left"
                         >
                           Đặt phòng #{d.bookingId}
                         </button>
+                      ) : d.groupBookingId ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/manage/bookings?tab=groups&groupId=${d.groupBookingId}`)}
+                          className="font-semibold text-purple-700 hover:underline inline-flex items-center gap-1 text-left"
+                        >
+                          <IoPeopleOutline size={14} className="shrink-0 text-purple-600" />
+                          <span>Đoàn #{d.groupBookingId}</span>
+                        </button>
                       ) : (
-                        <span className="text-on-surface-variant italic">Đoàn</span>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/manage/bookings?tab=groups')}
+                          className="font-semibold text-purple-700 hover:underline inline-flex items-center gap-1 text-left"
+                        >
+                          <IoPeopleOutline size={14} className="shrink-0 text-purple-600" />
+                          <span>Hồ sơ đoàn</span>
+                        </button>
                       )}
                     </td>
                     <td className="py-3 px-4 text-on-surface-variant font-mono">
@@ -191,12 +209,21 @@ const PendingDepositList = () => {
                       <div className="text-[11px]">{fmtDateTime(d.collectedAt || d.createdAt)}</div>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      {d.bookingId && (
+                      {d.bookingId ? (
                         <Button
                           size="sm"
                           variant="ghost"
                           icon={IoEyeOutline}
                           onClick={() => navigate(`/manage/bookings/${d.bookingId}?tab=deposit`)}
+                        >
+                          Xem chi tiết
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={IoEyeOutline}
+                          onClick={() => navigate(`/manage/bookings?tab=groups${d.groupBookingId ? `&groupId=${d.groupBookingId}` : ''}`)}
                         >
                           Xem chi tiết
                         </Button>
