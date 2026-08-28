@@ -24,6 +24,23 @@ const fmtDateTime = (str) => {
   return new Date(str).toLocaleString('vi-VN');
 };
 
+const fmtPaymentMethod = (method) => {
+  if (!method) return '—';
+  switch (method) {
+    case 'CASH': return 'Tiền mặt';
+    case 'TRANSFER':
+    case 'BANK_TRANSFER':
+    case 'BANK': return 'Chuyển khoản';
+    case 'CREDIT_CARD':
+    case 'CARD':
+    case 'POS': return 'Thẻ';
+    case 'VNPAY': return 'VNPay';
+    case 'MOMO': return 'MoMo';
+    case 'MEMBER_CARD': return 'Thẻ thành viên';
+    default: return method;
+  }
+};
+
 const PendingDepositList = () => {
   const navigate = useNavigate();
   const { error: toastError } = useToast();
@@ -68,7 +85,7 @@ const PendingDepositList = () => {
           <div className="relative min-w-[240px]">
             <input
               type="text"
-              placeholder="Tìm mã booking, người thu, ghi chú..."
+              placeholder="Tìm mã đặt phòng, người thu, ghi chú..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-surface-container border border-border-grey rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -119,7 +136,7 @@ const PendingDepositList = () => {
               <thead className="bg-surface-container-low border-b border-border-grey text-xs uppercase tracking-wider text-on-surface-variant">
                 <tr>
                   <th className="py-3.5 px-4 font-semibold">Mã cọc</th>
-                  <th className="py-3.5 px-4 font-semibold">Mã Booking</th>
+                  <th className="py-3.5 px-4 font-semibold">Mã đặt phòng</th>
                   <th className="py-3.5 px-4 font-semibold">Yêu cầu</th>
                   <th className="py-3.5 px-4 font-semibold">Thực thu</th>
                   <th className="py-3.5 px-4 font-semibold">PT Thanh toán</th>
@@ -139,7 +156,7 @@ const PendingDepositList = () => {
                           onClick={() => navigate(`/manage/bookings/${d.bookingId}?tab=deposit`)}
                           className="font-semibold text-primary hover:underline"
                         >
-                          Booking #{d.bookingId}
+                          Đặt phòng #{d.bookingId}
                         </button>
                       ) : (
                         <span className="text-on-surface-variant italic">Đoàn</span>
@@ -152,10 +169,8 @@ const PendingDepositList = () => {
                       {fmtCurrency(d.collectedAmount)}
                     </td>
                     <td className="py-3 px-4 text-xs">
-                      <span className="bg-surface-container px-2 py-0.5 rounded text-on-surface">
-                        {d.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' :
-                         d.paymentMethod === 'CASH' ? 'Tiền mặt' :
-                         d.paymentMethod === 'CREDIT_CARD' ? 'Thẻ' : d.paymentMethod || '—'}
+                      <span className="bg-surface-container px-2 py-0.5 rounded text-on-surface font-medium">
+                        {fmtPaymentMethod(d.paymentMethod)}
                       </span>
                     </td>
                     <td className="py-3 px-4">
