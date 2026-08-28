@@ -124,7 +124,7 @@ const BookingManagement = () => {
                   Tạo đoàn
                 </Button>
                 <Button size="sm" onClick={openAddForm} icon={IoAddOutline}>
-                  Tạo Booking
+                  Tạo đặt phòng
                 </Button>
               </div>
             )}

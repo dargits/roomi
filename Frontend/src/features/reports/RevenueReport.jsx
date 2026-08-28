@@ -345,7 +345,7 @@ const RevenueReport = () => {
                   <thead>
                     <tr className="bg-surface-container-low border-b border-border-grey text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
                       <th className="p-4">Thời gian</th>
-                      <th className="p-4 text-right">Số booking</th>
+                      <th className="p-4 text-right">Số lượt đặt phòng</th>
                       <th className="p-4 text-right">Doanh thu</th>
                       <th className="p-4 w-48">Tỷ trọng</th>
                     </tr>
