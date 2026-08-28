@@ -775,7 +775,6 @@ const StayDeclarationPage = () => {
                       <th className="p-4">Thời gian lưu trú</th>
                       <th className="p-4 text-center">Tình trạng giấy tờ</th>
                       <th className="p-4 text-center">Khai báo</th>
-                      <th className="p-4 text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -784,7 +783,6 @@ const StayDeclarationPage = () => {
                       const declCfg = DECL_STATUS_CONFIG[guest.declarationStatus] || DECL_STATUS_CONFIG.PENDING;
                       const DeclIcon = declCfg.icon;
                       const isCompleted = guest.declarationStatus === 'COMPLETED';
-                      const isCompleting = completingId === guest.bookingId;
 
                       return (
                         <tr
@@ -882,20 +880,6 @@ const StayDeclarationPage = () => {
                                         className="h-8 w-12 object-cover rounded border border-border-grey group-hover:opacity-80 group-hover:border-primary transition-all cursor-pointer shadow-xs"
                                       />
                                     </button>
-                                    {canComplete && !isCompleted && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          handleDeleteDocument(guest.guestId, doc.id, isCompleted);
-                                        }}
-                                        className="absolute -top-1.5 -right-1.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-white shadow-md hover:bg-red-700 hover:scale-110 transition-all z-10"
-                                        title="Gỡ bỏ ảnh này"
-                                      >
-                                        <IoCloseOutline size={12} />
-                                      </button>
-                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -913,37 +897,6 @@ const StayDeclarationPage = () => {
                                   hour: '2-digit', minute: '2-digit',
                                 })}
                               </p>
-                            )}
-                          </td>
-
-                          <td className="p-4 text-center">
-                            {canComplete && !isCompleted && (
-                              <div className="flex flex-col gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  icon={IoCheckmarkCircleOutline}
-                                  isLoading={isCompleting}
-                                  disabled={isCompleting}
-                                  onClick={() => setConfirmModal({ open: true, guest })}
-                                >
-                                  Đánh dấu
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  icon={IoImageOutline}
-                                  onClick={() => handleOpenUploadModal(guest)}
-                                >
-                                  {guest.documents?.length > 0 ? 'Thêm ảnh' : 'Tải ảnh lên'}
-                                </Button>
-                              </div>
-                            )}
-                            {isCompleted && (
-                              <span className="text-xs text-emerald-600 flex items-center justify-center gap-1 font-semibold">
-                                <IoCheckmarkCircleOutline size={14} />
-                                Hoàn tất
-                              </span>
                             )}
                           </td>
                         </tr>
