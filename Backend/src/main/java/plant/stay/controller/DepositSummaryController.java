@@ -41,6 +41,7 @@ public class DepositSummaryController {
                 .stream().map(d -> DepositResponse.builder()
                         .id(d.getId())
                         .bookingId(d.getBooking() != null ? d.getBooking().getId() : null)
+                        .groupBookingId(d.getGroupBooking() != null ? d.getGroupBooking().getId() : null)
                         .requiredAmount(d.getRequiredAmount())
                         .collectedAmount(d.getCollectedAmount())
                         .refundedAmount(d.getRefundedAmount())
