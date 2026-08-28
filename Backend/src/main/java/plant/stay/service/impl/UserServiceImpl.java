@@ -76,6 +76,7 @@ public class UserServiceImpl implements plant.stay.service.UserService {
         sessionRepository.save(session);
 
         UserResponse userResponse = UserResponse.builder()
+                .id(user.getId())
                 .name(user.getName())
                 .account(user.getAccount())
                 .phone(user.getPhone())

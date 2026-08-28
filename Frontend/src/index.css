@@ -7,6 +7,9 @@
 @layer base {
   body {
     font-family: 'Arimo', sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
   }
 
   /* Toàn bộ hệ thống theo phong cách hình học sắc nét, không bo góc */
@@ -47,7 +50,6 @@
 
 .animate-page-enter {
   animation: pageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
 }
 
 /* 2. Hiệu ứng Modal & Popup xuất hiện */
@@ -83,7 +85,6 @@
 
 .animate-modal-pop {
   animation: modalPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
 }
 
 /* 3. Hiệu ứng Toast Notification */
@@ -115,12 +116,10 @@
 
 .animate-toast-slide-in {
   animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
 }
 
 .animate-toast-slide-out {
   animation: toastSlideOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
-  will-change: transform, opacity;
 }
 
 /* Toast Progress Bar đếm ngược siêu mượt chạy bằng GPU Compositor */
@@ -136,7 +135,6 @@
 .animate-toast-progress {
   transform-origin: left center;
   animation: toastProgress linear forwards;
-  will-change: transform;
 }
 
 /* 4. Hiệu ứng Skeleton Loading Shimmer */

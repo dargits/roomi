@@ -1,10 +1,11 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoadingScreen from '../components/common/LoadingScreen';
 
 /**
  * Bảo vệ route yêu cầu đăng nhập.
- * - Đang tải: hiển thị spinner
+ * - Đang tải: hiển thị màn hình loading đồng bộ
  * - Chưa đăng nhập: redirect về /login
  * - Đã đăng nhập: render children (Outlet)
  */
@@ -13,12 +14,11 @@ const ProtectedRoute = ({ allowedRoles }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="text-on-surface-variant font-body-md">Đang xác thực...</p>
-        </div>
-      </div>
+      <LoadingScreen
+        fullScreen
+        message="Đang xác thực tài khoản..."
+        submessage="Vui lòng chờ trong giây lát"
+      />
     );
   }
 

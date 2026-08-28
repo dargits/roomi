@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { IoAddOutline, IoChevronUpOutline, IoCloseOutline, IoCreateOutline, IoPeopleOutline, IoSaveOutline, IoStarOutline, IoTrashOutline, IoTrophyOutline } from 'react-icons/io5';
 import loyaltyApi from "../../services/loyaltyApi";
 import guestApi from "../../services/guestApi";
-import { useToast, useConfirm } from "../../context/ToastContext";
 import Button from "../../components/ui/Button";
+import LoadingScreen from "../../components/common/LoadingScreen";
 
 const TIER_COLORS = [
   "bg-amber-50 border-amber-200 text-amber-800",
@@ -117,7 +117,7 @@ const LoyaltyTierManagement = () => {
 
       {/* Tiers Grid */}
       {loading ? (
-        <div className="p-12 text-center text-on-surface-variant">Đang tải...</div>
+        <LoadingScreen message="Đang tải danh sách hạng thành viên..." />
       ) : tiers.length === 0 ? (
         <div className="p-12 text-center bg-surface-container-lowest border border-border-grey rounded-xl">
           <IoTrophyOutline size={48} className="mx-auto mb-3 text-amber-300"/>

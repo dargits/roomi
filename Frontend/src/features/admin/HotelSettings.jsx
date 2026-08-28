@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button';
 
 import Modal from '../../components/ui/Modal';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const HotelSettings = () => {
   const [settings, setSettings] = useState({
@@ -121,11 +122,7 @@ const HotelSettings = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-full min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <LoadingScreen message="Đang tải thông tin cài đặt..." />;
   }
 
   return (
