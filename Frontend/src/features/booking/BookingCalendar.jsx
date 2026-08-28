@@ -18,6 +18,7 @@ import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
 import AssignRoomModal from './AssignRoomModal';
 import { formatStayDateTime, formatDate, calculateNights } from '../../utils/formatDate';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const DAYS_OF_WEEK_VN = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
@@ -284,10 +285,7 @@ const BookingCalendar = () => {
       {/* ── Bảng Lịch Phòng Ma Trận (Room Timeline Grid) ── */}
       <div className="bg-surface-container-lowest rounded-xl border border-border-grey shadow-sm overflow-hidden">
         {loading ? (
-          <div className="py-20 text-center text-on-surface-variant flex flex-col items-center justify-center gap-3">
-            <IoRefreshOutline size={32} className="animate-spin text-primary" />
-            <p className="text-sm font-medium">Đang tải sơ đồ phòng & dữ liệu đặt phòng...</p>
-          </div>
+          <LoadingScreen message="Đang tải sơ đồ phòng & dữ liệu đặt phòng..." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left min-w-[950px]">

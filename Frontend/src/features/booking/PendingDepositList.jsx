@@ -14,6 +14,7 @@ import {
 import depositApi from '../../services/depositApi';
 import { useToast } from '../../context/ToastContext';
 import Button from '../../components/ui/Button';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const fmtCurrency = (amount) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount || 0);
@@ -103,10 +104,7 @@ const PendingDepositList = () => {
       {/* Table list */}
       <div className="bg-surface-container-lowest rounded-xl border border-border-grey shadow-xs overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center text-on-surface-variant">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
-            Đang tải danh sách khoản cọc chưa quyết toán...
-          </div>
+          <LoadingScreen message="Đang tải danh sách khoản cọc chưa quyết toán..." />
         ) : filteredDeposits.length === 0 ? (
           <div className="py-16 text-center text-on-surface-variant space-y-2">
             <IoCheckmarkCircleOutline size={40} className="mx-auto text-green-500" />
