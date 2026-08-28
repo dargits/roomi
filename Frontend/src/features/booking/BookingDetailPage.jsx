@@ -28,6 +28,7 @@ import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
+import LoadingScreen from '../../components/common/LoadingScreen';
 import RescheduleDateModal from './RescheduleDateModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
 import CheckInModal from './CheckInModal';
@@ -200,12 +201,7 @@ const BookingDetailPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="bg-surface rounded-lg shadow-sm border border-border-grey p-12 text-center text-on-surface-variant">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
-        Đang tải thông tin chi tiết đặt phòng #{bookingId}...
-      </div>
-    );
+    return <LoadingScreen message={`Đang tải thông tin chi tiết đặt phòng #${bookingId}...`} />;
   }
 
   if (!booking) {

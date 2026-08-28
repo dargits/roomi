@@ -8,6 +8,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import { useToast, useConfirm } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const StaffManagement = () => {
   const { user: currentUser } = useAuth();
@@ -198,11 +199,7 @@ const StaffManagement = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-full min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <LoadingScreen message="Đang tải danh sách nhân sự..." />;
   }
 
   return (

@@ -6,6 +6,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const ExtraServiceManagement = () => {
   const { user } = useAuth();
@@ -149,7 +150,11 @@ const ExtraServiceManagement = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={isOwner ? "7" : "6"} className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu...</td></tr>
+              <tr>
+                <td colSpan={isOwner ? "7" : "6"} className="p-8 text-center">
+                  <LoadingScreen message="Đang tải dữ liệu dịch vụ phụ thu..." />
+                </td>
+              </tr>
             ) : services.length === 0 ? (
               <tr><td colSpan={isOwner ? "7" : "6"} className="p-8 text-center text-on-surface-variant">Chưa có dữ liệu dịch vụ phụ thu.</td></tr>
             ) : (

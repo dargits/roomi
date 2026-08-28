@@ -12,6 +12,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 /**
  * NCL-11-CN-001: Cấu hình chính sách đặt cọc
@@ -155,7 +156,7 @@ const DepositPolicyPage = () => {
       {/* Bảng chính sách */}
       <div className="bg-surface-container-lowest rounded border border-border-grey overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-on-surface-variant">Đang tải...</div>
+          <LoadingScreen message="Đang tải chính sách đặt cọc..." />
         ) : policies.length === 0 ? (
           <div className="text-center py-16 text-on-surface-variant">
             <IoCashOutline size={48} className="mx-auto mb-3 opacity-30" />

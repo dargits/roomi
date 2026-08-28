@@ -33,6 +33,7 @@ import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import Tabs from '../../components/ui/Tabs/Tabs';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const VALID_TABS = ['info', 'services', 'invoice', 'deposit'];
 
@@ -172,8 +173,7 @@ const PublicBookingDetailPage = () => {
       <div className="min-h-screen flex flex-col bg-surface-container-lowest">
         <PublicHeader />
         <div className="flex-1 flex flex-col items-center justify-center p-8 mt-16">
-          <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
-          <div className="text-on-surface-variant font-medium text-base">Đang tải chi tiết đặt phòng...</div>
+          <LoadingScreen message="Đang tải chi tiết đặt phòng..." />
         </div>
         <Footer />
       </div>
@@ -445,10 +445,7 @@ const PublicBookingDetailPage = () => {
                 </div>
 
                 {servicesLoading ? (
-                  <div className="py-12 text-center text-on-surface-variant">
-                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-                    Đang tải danh sách dịch vụ phụ thu...
-                  </div>
+                  <LoadingScreen size="sm" message="Đang tải danh sách dịch vụ phụ thu..." />
                 ) : services.length === 0 ? (
                   <div className="bg-surface-container-low p-8 rounded-xl border border-border-grey text-center space-y-2">
                     <IoCartOutline size={40} className="text-on-surface-variant/40 mx-auto" />
@@ -526,10 +523,7 @@ const PublicBookingDetailPage = () => {
                 </div>
 
                 {invoiceLoading ? (
-                  <div className="py-12 text-center text-on-surface-variant">
-                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-                    Đang tải bảng kê hóa đơn...
-                  </div>
+                  <LoadingScreen size="sm" message="Đang tải bảng kê hóa đơn..." />
                 ) : (
                   <div className="space-y-6">
                     {/* Thẻ tóm tắt tài chính */}
@@ -663,10 +657,7 @@ const PublicBookingDetailPage = () => {
                 </div>
 
                 {depositLoading ? (
-                  <div className="py-12 text-center text-on-surface-variant">
-                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-                    Đang tải thông tin đặt cọc...
-                  </div>
+                  <LoadingScreen size="sm" message="Đang tải thông tin đặt cọc..." />
                 ) : deposits.length === 0 ? (
                   <div className="bg-surface-container-low p-8 rounded-xl border border-border-grey text-center space-y-2">
                     <IoCashOutline size={40} className="text-on-surface-variant/40 mx-auto" />

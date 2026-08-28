@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Input from '../../components/ui/Input';
 import { useToast, useConfirm } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const BookingServicesTab = ({ bookingId, status }) => {
   const [services, setServices] = useState([]);
@@ -111,7 +112,7 @@ const BookingServicesTab = ({ bookingId, status }) => {
     0
   );
 
-  if (loading) return <div className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu dịch vụ...</div>;
+  if (loading) return <LoadingScreen size="sm" message="Đang tải dữ liệu dịch vụ..." />;
 
   return (
     <div className="space-y-5">

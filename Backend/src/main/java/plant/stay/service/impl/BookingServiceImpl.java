@@ -331,6 +331,56 @@ public class BookingServiceImpl implements BookingService {
                         guest = guestRepository.save(guest);
                     }
                 }
+
+                if (guest.getIdentityDocuments() == null) {
+                    guest.setIdentityDocuments(new java.util.ArrayList<>());
+                }
+                boolean docsUpdated = false;
+                if (dto.getFrontImage() != null && !dto.getFrontImage().trim().isEmpty()) {
+                    IdentityDocument frontDoc = guest.getIdentityDocuments().stream()
+                            .filter(d -> d.getDocumentType() == IdentityDocumentType.NATIONAL_ID_FRONT)
+                            .findFirst().orElse(null);
+                    if (frontDoc == null) {
+                        frontDoc = IdentityDocument.builder()
+                                .guest(guest)
+                                .documentType(IdentityDocumentType.NATIONAL_ID_FRONT)
+                                .documentNumber(cleanIdNumber)
+                                .imageUrl(dto.getFrontImage().trim())
+                                .verified(false)
+                                .build();
+                        guest.getIdentityDocuments().add(frontDoc);
+                        docsUpdated = true;
+                    } else if (!dto.getFrontImage().trim().equals(frontDoc.getImageUrl())) {
+                        frontDoc.setImageUrl(dto.getFrontImage().trim());
+                        frontDoc.setDocumentNumber(cleanIdNumber);
+                        docsUpdated = true;
+                    }
+                }
+
+                if (dto.getBackImage() != null && !dto.getBackImage().trim().isEmpty()) {
+                    IdentityDocument backDoc = guest.getIdentityDocuments().stream()
+                            .filter(d -> d.getDocumentType() == IdentityDocumentType.NATIONAL_ID_BACK)
+                            .findFirst().orElse(null);
+                    if (backDoc == null) {
+                        backDoc = IdentityDocument.builder()
+                                .guest(guest)
+                                .documentType(IdentityDocumentType.NATIONAL_ID_BACK)
+                                .documentNumber(cleanIdNumber)
+                                .imageUrl(dto.getBackImage().trim())
+                                .verified(false)
+                                .build();
+                        guest.getIdentityDocuments().add(backDoc);
+                        docsUpdated = true;
+                    } else if (!dto.getBackImage().trim().equals(backDoc.getImageUrl())) {
+                        backDoc.setImageUrl(dto.getBackImage().trim());
+                        backDoc.setDocumentNumber(cleanIdNumber);
+                        docsUpdated = true;
+                    }
+                }
+                if (docsUpdated) {
+                    guest = guestRepository.save(guest);
+                }
+
                 stayingGuests.add(guest);
             }
         }
@@ -972,8 +1022,7 @@ public class BookingServiceImpl implements BookingService {
                 "Trả phòng sớm từ " + originalCheckOut + " về " + today +
                 ", tiền phòng điều chỉnh: " + actualRoomAmount + "đ");
 
-        // Thực hiện checkout thông thường (validate hóa đơn)
-        return checkOut(bookingId, actor);
+        return toResponse(booking);
     }
 
     // Kiểm tra chống trùng phòng — gọi query có pessimistic lock (QTN-01)

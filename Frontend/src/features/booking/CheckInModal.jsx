@@ -183,7 +183,9 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
         guests: validGuests.map(g => ({
           name: g.name.trim(),
           idNumber: g.idNumber.trim(),
-          phone: g.phone?.trim() || null
+          phone: g.phone?.trim() || null,
+          frontImage: g.frontImage || null,
+          backImage: g.backImage || null
         }))
       });
       toastSuccess(`Đã nhận phòng thành công cho ${validGuests.length} khách!`);
