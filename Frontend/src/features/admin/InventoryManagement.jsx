@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { IoAddOutline, IoCloseOutline, IoCreateOutline, IoCubeOutline, IoRefreshOutline, IoSaveOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
 import inventoryApi from "../../services/inventoryApi";
-import { useToast, useConfirm } from "../../context/ToastContext";
 import Button from "../../components/ui/Button";
+import LoadingScreen from "../../components/common/LoadingScreen";
 
 const fmtDate = (dt) => dt ? new Date(dt).toLocaleDateString("vi-VN") : "";
 
@@ -109,7 +109,7 @@ const InventoryManagement = () => {
       {/* Table */}
       <div className="bg-surface-container-lowest border border-border-grey rounded-xl shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-on-surface-variant">Đang tải...</div>
+          <LoadingScreen message="Đang tải kho đồ dùng..." />
         ) : items.length === 0 ? (
           <div className="p-12 text-center text-on-surface-variant">
             <IoCubeOutline size={48} className="mx-auto mb-3 opacity-30"/>

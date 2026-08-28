@@ -19,6 +19,7 @@ import {
   IoSparklesOutline,
   IoCheckmarkCircleOutline
 } from 'react-icons/io5';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const RoomsPage = () => {
   const navigate = useNavigate();
@@ -176,10 +177,7 @@ const RoomsPage = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-on-surface-variant">
-            <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p>Đang tải thông tin bảng giá và phòng trống...</p>
-          </div>
+          <LoadingScreen message="Đang tải thông tin bảng giá và phòng trống..." />
         ) : filteredRooms.length === 0 ? (
           <div className="text-center py-20 bg-surface-container-low rounded-2xl border border-border-grey">
             <IoBedOutline size={48} className="mx-auto text-on-surface-variant/40 mb-3" />

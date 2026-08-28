@@ -25,6 +25,7 @@ import bookingApi from '../../services/bookingApi';
 import { useToast } from '../../context/ToastContext';
 import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
 import DiscountFormModal from '../invoice/DiscountFormModal';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const { user } = useAuth();
@@ -286,7 +287,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const invCode = invoice ? `INV${String(invoice.id).padStart(6, '0')}` : '';
   const qrImageUrl = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmount}&addInfo=${invCode}&accountName=BAN%20HUU%20SU`;
 
-  if (loading) return <div className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu hóa đơn...</div>;
+  if (loading) return <LoadingScreen size="sm" message="Đang tải dữ liệu hóa đơn..." />;
 
   if (!invoice) {
     const provisionalRoomAmount = Number(booking?.expectedPrice) || 0;

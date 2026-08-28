@@ -12,6 +12,7 @@ import {
 } from 'react-icons/io5';
 import auditLogApi from '../../services/auditLogApi';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 // ─── Cấu hình action labels & icons ─────────────────────────────────────────
 
@@ -163,10 +164,7 @@ const PersonalDataAuditLogPage = () => {
       {/* Bảng nhật ký */}
       <div className="rounded-lg border border-border-grey bg-surface-container-lowest">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-on-surface-variant">
-            <IoRefreshOutline className="mr-2 animate-spin" size={20} />
-            <span>Đang tải nhật ký...</span>
-          </div>
+          <LoadingScreen message="Đang tải nhật ký truy cập dữ liệu cá nhân..." />
         ) : logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant">
             <IoShieldCheckmarkOutline size={40} className="mb-3 text-on-surface-variant/40" />
