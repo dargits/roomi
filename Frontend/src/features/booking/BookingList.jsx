@@ -25,6 +25,7 @@ import AssignRoomModal from './AssignRoomModal';
 import CheckInModal from './CheckInModal';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import LoadingScreen from '../../components/common/LoadingScreen';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
@@ -241,7 +242,11 @@ const BookingList = ({ onEditBooking }) => {
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu...</td></tr>
+            <tr>
+              <td colSpan="5" className="p-8 text-center">
+                <LoadingScreen message="Đang tải dữ liệu đặt phòng..." />
+              </td>
+            </tr>
           ) : filteredBookings.length === 0 ? (
             <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">
               {searchText || activeFilter !== 'ALL' ? 'Không tìm thấy đặt phòng nào phù hợp bộ lọc.' : 'Chưa có đặt phòng nào.'}

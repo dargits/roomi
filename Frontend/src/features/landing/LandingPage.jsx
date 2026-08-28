@@ -11,6 +11,7 @@ import PublicBookingModal from './PublicBookingModal';
 import PublicGroupBookingModal from '../public/PublicGroupBookingModal';
 import { toast } from '../../context/ToastContext';
 import { IoBedOutline } from 'react-icons/io5';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const LandingPage = () => {
   const { hotelSetting, isAppLoading } = useAppConfig();
@@ -151,28 +152,13 @@ const LandingPage = () => {
   
   return (
     <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
-      {/* Full Page Initial Loading Overlay - 100% Opaque Solid Screen */}
+      {/* Full Page Initial Loading Overlay */}
       {isInitialLoading && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-surface transition-opacity duration-300">
-          <div className="relative flex items-center justify-center">
-            {/* Pulsing glow */}
-            <div className="absolute w-24 h-24 rounded-full bg-primary/20 animate-ping opacity-75" />
-            {/* Spinning gradient ring */}
-            <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-            {/* Center icon / hotel symbol */}
-            <div className="absolute flex items-center justify-center">
-              <IoBedOutline className="text-primary text-2xl animate-pulse" />
-            </div>
-          </div>
-          <div className="mt-6 text-center space-y-1.5">
-            <p className="text-sm font-medium text-on-surface animate-pulse">
-              Đang tải dữ liệu...
-            </p>
-            <p className="text-xs text-on-surface-variant">
-              Vui lòng chờ trong giây lát
-            </p>
-          </div>
-        </div>
+        <LoadingScreen
+          fullScreen
+          message="Đang tải dữ liệu..."
+          submessage="Vui lòng chờ trong giây lát"
+        />
       )}
 
       <PublicHeader />

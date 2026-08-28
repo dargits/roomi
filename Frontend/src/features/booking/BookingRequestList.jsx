@@ -17,6 +17,7 @@ import Tabs from '../../components/ui/Tabs/Tabs';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import PublicGroupBookingRequestList from './PublicGroupBookingRequestList';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const BookingRequestList = () => {
   const { success: toastSuccess } = useToast();
@@ -154,7 +155,11 @@ const BookingRequestList = () => {
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">Đang tải yêu cầu...</td></tr>
+            <tr>
+              <td colSpan="5" className="p-8 text-center">
+                <LoadingScreen message="Đang tải yêu cầu đặt phòng..." />
+              </td>
+            </tr>
           ) : requests.length === 0 ? (
             <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">Chưa có yêu cầu đặt phòng nào từ Web.</td></tr>
           ) : (

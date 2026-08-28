@@ -6,6 +6,7 @@ import { IoAddOutline, IoCallOutline, IoDocumentOutline, IoMailOutline, IoPencil
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import LoadingScreen from '../../components/common/LoadingScreen';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 
 const getBookingStatusBadge = (status) => {
@@ -196,7 +197,11 @@ const GuestManagement = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="4" className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu...</td></tr>
+              <tr>
+                <td colSpan="4" className="p-8 text-center">
+                  <LoadingScreen message="Đang tải danh sách khách hàng..." />
+                </td>
+              </tr>
             ) : guests.length === 0 ? (
               <tr><td colSpan="4" className="p-8 text-center text-on-surface-variant">Không tìm thấy khách hàng nào.</td></tr>
             ) : (

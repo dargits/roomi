@@ -142,6 +142,28 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
     }
   };
 
+  // Supervisor đánh dấu phòng đã sạch trực tiếp (DIRTY -> AVAILABLE)
+  const handleMarkClean = async (room) => {
+    const isConfirmed = await confirm({
+      title: 'Đánh dấu phòng đã sạch',
+      message: `Xác nhận phòng ${room.roomNumber} đã dọn dẹp xong và sẵn sàng đón khách?`,
+      confirmText: 'Đánh dấu sạch',
+      type: 'success'
+    });
+    if (!isConfirmed) return;
+
+    setProcessingId(room.id);
+    try {
+      await roomApi.markRoomClean(room.id);
+      toast.success(`Phòng ${room.roomNumber} đã được đánh dấu sạch!`);
+      await fetchRoomsAndStaff();
+      if (onRoomCleaned) onRoomCleaned();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi cập nhật phòng.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
   // Supervisor yêu cầu dọn lại -> DIRTY
   const handleRejectClean = async (room) => {
     const isConfirmed = await confirm({
@@ -229,7 +251,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
   const roleFilteredList = useMemo(() => {
     if (!isHousekeeper) return rawList;
     return rawList.filter(room => {
-      const isAssignedToMe = String(room.assignedHousekeeperId) === String(user?.id);
+      const isAssignedToMe = Boolean(room.assignedHousekeeperId && user?.id && String(room.assignedHousekeeperId) === String(user.id));
       const isUnassigned = !room.assignedHousekeeperId;
       return isAssignedToMe || isUnassigned;
     });
@@ -291,7 +313,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
       let matchHkFilter = true;
       if (isHousekeeper) {
         if (housekeeperTaskFilter === 'MY_TASKS') {
-          matchHkFilter = String(room.assignedHousekeeperId) === String(user?.id);
+          matchHkFilter = Boolean(room.assignedHousekeeperId && user?.id && String(room.assignedHousekeeperId) === String(user.id));
         } else if (housekeeperTaskFilter === 'UNASSIGNED') {
           matchHkFilter = !room.assignedHousekeeperId;
         }
@@ -694,12 +716,12 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                         ) : (
                           /* Giao diện cho Housekeeper: Chỉ hiển thị tên */
                           <div className={`p-1.5 border text-xs font-semibold ${
-                            room.assignedHousekeeperId === user?.id
+                            room.assignedHousekeeperId && user?.id && String(room.assignedHousekeeperId) === String(user.id)
                               ? 'bg-green-50 border-green-300 text-green-900'
                               : 'bg-surface-container-low border-border-grey text-on-surface-variant'
                           }`}>
                             {room.assignedHousekeeperName 
-                              ? (room.assignedHousekeeperId === user?.id ? '⭐ Bạn đang phụ trách' : room.assignedHousekeeperName)
+                              ? ((room.assignedHousekeeperId && user?.id && String(room.assignedHousekeeperId) === String(user.id)) ? '⭐ Bạn đang phụ trách' : room.assignedHousekeeperName)
                               : 'Chưa có người nhận'}
                           </div>
                         )}
@@ -737,7 +759,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                           {/* Supervisor: Lễ tân / Quản lý duyệt sạch ngay */}
                           {isSupervisor && (
                             <button
-                              onClick={() => handleApproveClean(room)}
+                              onClick={() => handleMarkClean(room)}
                               disabled={processingId === room.id}
                               className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                             >

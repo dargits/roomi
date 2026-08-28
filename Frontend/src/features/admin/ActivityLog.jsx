@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import PageHeader from '../../components/ui/PageHeader';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const ENTITY_OPTIONS = [
   { value: '', label: 'Tất cả' },
@@ -155,12 +156,7 @@ const ActivityLog = () => {
       </div>
 
       {/* Loading */}
-      {loading && (
-        <div className="py-12 text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3" />
-          <p className="font-body-md text-on-surface-variant">Đang tải dữ liệu...</p>
-        </div>
-      )}
+      {loading && <LoadingScreen message="Đang tải nhật ký hoạt động..." />}
 
       {/* Results */}
       {!loading && hasSearched && (
