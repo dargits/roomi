@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IoCloseOutline, IoPrintOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import { numberToWords } from '../../utils/numberToWords';
@@ -11,6 +12,14 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
   const { config } = useAppConfig();
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
+
+  // Prevent background scrolling while modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const hotelInfo = {
     name: config?.hotelName || 'STAY AWAY HOTEL',
@@ -111,8 +120,8 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
   const invoiceMonth = String(invoiceDate.getMonth() + 1).padStart(2, '0');
   const invoiceYear = invoiceDate.getFullYear();
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 invoice-modal-container font-sans">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 invoice-modal-container font-sans">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative border border-gray-200">
         
         {/* Thanh công cụ (ẩn khi in) */}
@@ -376,6 +385,8 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.getElementById('modal-root') || document.body);
 };
 
 export default InvoicePrintTemplate;

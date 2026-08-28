@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { IoAlertCircleOutline, IoCallOutline, IoCheckmarkCircleOutline, IoCheckmarkOutline, IoInformationCircleOutline, IoKeyOutline, IoLockClosedOutline, IoMailOutline, IoPersonOutline, IoSaveOutline, IoShieldCheckmarkOutline } from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import LoadingScreen from '../../components/common/LoadingScreen';
 const ProfileSettings = () => {
   const { user, login } = useAuth(); // Need login to update context if possible, or just refresh
   const [profile, setProfile] = useState({
@@ -126,11 +127,7 @@ const ProfileSettings = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-full min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <LoadingScreen message="Đang tải thông tin tài khoản..." />;
   }
 
   return (

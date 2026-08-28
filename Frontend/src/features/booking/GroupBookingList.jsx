@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   IoBedOutline, IoCallOutline, IoCashOutline, IoCheckmarkCircleOutline,
   IoChevronDownOutline, IoChevronForwardOutline, IoDocumentOutline,
@@ -21,6 +21,7 @@ import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
 import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
 import DiscountFormModal from '../invoice/DiscountFormModal';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 
 
@@ -39,9 +40,20 @@ const STATUS_LABELS = {
 };
 
 const GroupBookingList = ({ refreshKey }) => {
+  const [searchParams] = useSearchParams();
+  const paramGroupId = searchParams.get('groupId');
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
+
+  useEffect(() => {
+    if (paramGroupId) {
+      const numId = Number(paramGroupId);
+      if (!isNaN(numId)) {
+        setExpandedGroupIds((prev) => new Set([...prev, numId]));
+      }
+    }
+  }, [paramGroupId]);
   const [assignmentState, setAssignmentState] = useState({ group: null, suggestion: null, selections: {} });
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
@@ -381,7 +393,7 @@ const GroupBookingList = ({ refreshKey }) => {
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-on-surface-variant"><IoRefreshOutline className="animate-spin mx-auto mb-2" size={24} />Đang tải hồ sơ đoàn...</div>;
+  if (loading) return <LoadingScreen message="Đang tải hồ sơ đoàn..." />;
 
   return (
     <div className="overflow-x-auto">

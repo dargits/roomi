@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 public class DepositResponse {
     private Long id;
     private Long bookingId;
+    private Long groupBookingId;
     private BigDecimal requiredAmount;
     private BigDecimal collectedAmount;
     private BigDecimal refundedAmount;

@@ -145,7 +145,7 @@ public class RoomServiceImpl implements RoomService {
     public RoomResponse submitForInspection(Long id, User actor) {
         Room room = findById(id);
         if (room.getStatus() != RoomStatus.DIRTY) {
-            throw new IllegalArgumentException("Chỉ có thể gửi kiểm tra khi phòng ở trạng thái DIRTY");
+            throw new IllegalArgumentException("Chỉ có thể gửi kiểm tra khi phòng ở trạng thái Cần dọn (DIRTY)");
         }
         room.setStatus(RoomStatus.INSPECTING);
         room = roomRepository.save(room);
@@ -159,7 +159,7 @@ public class RoomServiceImpl implements RoomService {
     public RoomResponse approveClean(Long id, User actor) {
         Room room = findById(id);
         if (room.getStatus() != RoomStatus.INSPECTING) {
-            throw new IllegalArgumentException("Chỉ có thể duyệt sạch khi phòng đang ở trạng thái INSPECTING");
+            throw new IllegalArgumentException("Chỉ có thể duyệt sạch khi phòng đang ở trạng thái Chờ duyệt (INSPECTING)");
         }
         room.setStatus(RoomStatus.AVAILABLE);
         room.setAssignedHousekeeper(null);

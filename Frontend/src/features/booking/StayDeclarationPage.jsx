@@ -28,6 +28,7 @@ import Modal from '../../components/ui/Modal';
 import Tabs from '../../components/ui/Tabs/Tabs';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 // ─── Hằng số ──────────────────────────────────────────────────────────────────
 
@@ -457,10 +458,7 @@ const StayDeclarationPage = () => {
           {/* Bảng danh sách */}
           <div className="rounded-xl border border-border-grey bg-surface-container-lowest overflow-hidden shadow-sm">
             {loading ? (
-              <div className="flex items-center justify-center py-16 text-on-surface-variant">
-                <IoRefreshOutline className="mr-2 animate-spin" size={20} />
-                <span>Đang tải danh sách khai báo...</span>
-              </div>
+              <LoadingScreen message="Đang tải danh sách khai báo..." />
             ) : !data || data.guests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant">
                 <IoDocumentTextOutline size={40} className="mb-3 text-on-surface-variant/40" />
@@ -757,10 +755,7 @@ const StayDeclarationPage = () => {
           {/* Bảng lịch sử */}
           <div className="rounded-xl border border-border-grey bg-surface-container-lowest overflow-hidden shadow-sm">
             {historyLoading ? (
-              <div className="flex items-center justify-center py-16 text-on-surface-variant">
-                <IoRefreshOutline className="mr-2 animate-spin" size={20} />
-                <span>Đang tải lịch sử lưu trú...</span>
-              </div>
+              <LoadingScreen message="Đang tải lịch sử lưu trú..." />
             ) : !historyData || historyData.guests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant">
                 <IoLayersOutline size={40} className="mb-3 text-on-surface-variant/40" />

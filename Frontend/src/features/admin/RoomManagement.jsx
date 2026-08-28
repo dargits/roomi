@@ -28,6 +28,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const RoomManagement = () => {
   const { user } = useAuth();
@@ -63,7 +64,7 @@ const RoomManagement = () => {
   const fetchRooms = async () => {
     setLoading(true);
     try {
-      const data = await roomApi.getAllRooms(filterStatus || null);
+      const data = await roomApi.getAllRooms(); // Always fetch all to keep counts accurate
       setRooms(data);
     } catch (error) {
       console.error("Failed to fetch rooms", error);
@@ -107,7 +108,7 @@ const RoomManagement = () => {
     fetchRooms();
     fetchRoomTypes();
     fetchHousekeepers();
-  }, [filterStatus]);
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -184,6 +185,16 @@ const RoomManagement = () => {
     try {
       await roomApi.markRoomClean(id);
       toastSuccess("Đã cập nhật phòng sang trạng thái Sạch sẽ!");
+      fetchRooms();
+    } catch (error) {
+      toastError(error.response?.data?.message || "Lỗi thao tác.");
+    }
+  };
+
+  const handleApproveClean = async (id) => {
+    try {
+      await roomApi.approveClean(id);
+      toastSuccess("Đã duyệt phòng sạch sẽ thành công!");
       fetchRooms();
     } catch (error) {
       toastError(error.response?.data?.message || "Lỗi thao tác.");
@@ -295,14 +306,17 @@ const RoomManagement = () => {
     { value: 'MAINTENANCE', label: 'Bảo trì' }
   ];
 
-  // Tính số lượng theo trạng thái
+  // Tính số lượng theo trạng thái dựa trên toàn bộ danh sách phòng
   const counts = rooms.reduce((acc, r) => {
     acc[r.status] = (acc[r.status] || 0) + 1;
     return acc;
   }, {});
 
-  // Nhóm phòng theo tầng
-  const roomsByFloor = rooms.reduce((acc, r) => {
+  // Lọc phòng theo trạng thái được chọn
+  const displayedRooms = filterStatus ? rooms.filter(r => r.status === filterStatus) : rooms;
+
+  // Nhóm phòng theo tầng dựa trên danh sách đã lọc
+  const roomsByFloor = displayedRooms.reduce((acc, r) => {
     const floorKey = r.floor ? (r.floor.startsWith('Tầng') ? r.floor : `Tầng ${r.floor}`) : 'Chưa phân tầng';
     if (!acc[floorKey]) acc[floorKey] = [];
     acc[floorKey].push(r);
@@ -372,9 +386,7 @@ const RoomManagement = () => {
       {/* Content Area */}
       <div className="p-5 bg-surface-container-low/20 space-y-6">
         {loading ? (
-          <div className="flex justify-center p-12">
-            <div className="animate-spin rounded-none h-10 w-10 border-b-2 border-primary"></div>
-          </div>
+          <LoadingScreen message="Đang tải sơ đồ phòng..." />
         ) : Object.keys(roomsByFloor).length === 0 ? (
           <div className="p-12 text-center text-on-surface-variant bg-white border border-border-grey">
             Không tìm thấy phòng nào phù hợp với bộ lọc.
@@ -420,12 +432,20 @@ const RoomManagement = () => {
                           </span>
                         </div>
 
-                        {/* Room Type */}
-                        <div className="text-xs text-on-surface-variant flex items-center gap-1.5 truncate" title={room.roomTypeName || 'N/A'}>
-                          <IoBedOutline size={14} className="text-primary shrink-0" />
-                          <span className="font-medium text-on-surface truncate">
-                            {room.roomTypeName || 'N/A'}
-                          </span>
+                        {/* Room Type & Capacity */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs text-on-surface-variant flex items-center gap-1.5 truncate" title={room.roomTypeName || 'Chưa xác định'}>
+                            <IoBedOutline size={14} className="text-primary shrink-0" />
+                            <span className="font-medium text-on-surface truncate">
+                              {room.roomTypeName || 'Chưa xác định'}
+                            </span>
+                          </div>
+                          {room.maxCapacity && (
+                            <div className="text-[11px] text-on-surface-variant flex items-center gap-1 shrink-0 bg-surface-container px-1.5 py-0.5" title={`Sức chứa tối đa: ${room.maxCapacity} người`}>
+                              <IoPersonOutline size={12} className="text-primary" />
+                              <span className="font-semibold">{room.maxCapacity}</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* NCL-06-CN-004: Phân công & Ưu tiên dọn dẹp cho phòng DIRTY / INSPECTING */}
@@ -507,24 +527,36 @@ const RoomManagement = () => {
                           )}
                         </div>
 
-                        {isOwner && (
-                          <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 ml-auto">
+                          {room.status === 'INSPECTING' && (isOwner || user?.role === 'RECEPTIONIST') && (
                             <button
-                              onClick={() => openEditModal(room)}
-                              className="p-1.5 hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant border border-transparent hover:border-primary/20 cursor-pointer"
-                              title="Chỉnh sửa"
+                              onClick={() => handleApproveClean(room.id)}
+                              className="p-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                              title="Duyệt phòng sạch sẽ"
                             >
-                              <IoPencilOutline size={14} />
+                              <IoCheckmarkCircleOutline size={14} />
+                              <span className="text-[10px]">Duyệt sạch</span>
                             </button>
-                            <button
-                              onClick={() => openDeleteModal(room)}
-                              className="p-1.5 hover:bg-red-50 hover:text-error transition-colors text-on-surface-variant border border-transparent hover:border-red-200 cursor-pointer"
-                              title="Xóa phòng"
-                            >
-                              <IoTrashOutline size={14} />
-                            </button>
-                          </div>
-                        )}
+                          )}
+                          {isOwner && (
+                            <>
+                              <button
+                                onClick={() => openEditModal(room)}
+                                className="p-1.5 hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant border border-transparent hover:border-primary/20 cursor-pointer"
+                                title="Chỉnh sửa"
+                              >
+                                <IoPencilOutline size={14} />
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(room)}
+                                className="p-1.5 hover:bg-red-50 hover:text-error transition-colors text-on-surface-variant border border-transparent hover:border-red-200 cursor-pointer"
+                                title="Xóa phòng"
+                              >
+                                <IoTrashOutline size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -588,7 +620,7 @@ const RoomManagement = () => {
         isOpen={isAssignModalOpen} 
         onClose={() => setIsAssignModalOpen(false)} 
         title={`Chỉ định người dọn - Phòng ${selectedRoomForAssign?.roomNumber || ''}`}
-        maxWidth="max-w-md"
+        maxWidth="max-w-lg"
       >
         <form onSubmit={handleSaveAssignment} className="space-y-4">
           {/* Thông tin phòng & mức ưu tiên */}
@@ -642,7 +674,7 @@ const RoomManagement = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-between items-center gap-2 pt-4 border-t border-border-grey mt-4">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-5 border-t border-border-grey mt-5">
             {selectedRoomForAssign?.assignedHousekeeperId ? (
               <Button 
                 type="button" 
@@ -650,18 +682,18 @@ const RoomManagement = () => {
                 onClick={() => {
                   setSelectedHousekeeperId('');
                 }}
-                className="text-xs text-red-600 border-red-300 hover:bg-red-50"
+                className="text-red-600 border-red-300 hover:bg-red-50 whitespace-nowrap"
               >
-                <IoPersonRemoveOutline size={14} className="mr-1" />
+                <IoPersonRemoveOutline size={18} className="mr-1 shrink-0" />
                 Gỡ phân công
               </Button>
-            ) : <div />}
+            ) : <div className="hidden sm:block" />}
 
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" type="button" onClick={() => setIsAssignModalOpen(false)}>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <Button variant="ghost" type="button" onClick={() => setIsAssignModalOpen(false)} className="whitespace-nowrap w-full sm:w-auto">
                 Hủy
               </Button>
-              <Button type="submit" isLoading={assignLoading}>
+              <Button type="submit" isLoading={assignLoading} className="whitespace-nowrap w-full sm:w-auto">
                 Lưu phân công
               </Button>
             </div>

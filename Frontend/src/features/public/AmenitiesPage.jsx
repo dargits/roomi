@@ -16,6 +16,7 @@ import {
   IoHeadsetOutline,
   IoPricetagOutline
 } from 'react-icons/io5';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const FEATURED_FACILITIES = [
   {
@@ -193,7 +194,7 @@ const AmenitiesPage = () => {
           </div>
 
           {loading ? (
-            <div className="text-center py-12 text-on-surface-variant">Đang tải bảng giá dịch vụ...</div>
+            <LoadingScreen message="Đang tải bảng giá dịch vụ..." />
           ) : extraServices.length === 0 ? (
             <div className="text-center py-8 text-on-surface-variant text-sm">
               Không có phụ phí phát sinh. Tất cả dịch vụ cơ bản đều miễn phí kèm theo phòng.
