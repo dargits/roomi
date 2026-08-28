@@ -21,6 +21,7 @@ import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
 import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
 import DiscountFormModal from '../invoice/DiscountFormModal';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 
 
@@ -381,7 +382,7 @@ const GroupBookingList = ({ refreshKey }) => {
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-on-surface-variant"><IoRefreshOutline className="animate-spin mx-auto mb-2" size={24} />Đang tải hồ sơ đoàn...</div>;
+  if (loading) return <LoadingScreen message="Đang tải hồ sơ đoàn..." />;
 
   return (
     <div className="overflow-x-auto">
