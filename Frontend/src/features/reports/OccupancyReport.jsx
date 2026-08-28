@@ -4,6 +4,7 @@ import reportApi from '../../services/reportApi';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const fmtDate = (str) => {
   if (!str) return '';
@@ -250,12 +251,7 @@ const OccupancyReport = () => {
       </div>
 
       {/* ── Loading ── */}
-      {loading && (
-        <div className="py-16 text-center">
-          <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-on-surface-variant font-medium">Đang tổng hợp số liệu công suất phòng...</p>
-        </div>
-      )}
+      {loading && <LoadingScreen message="Đang tổng hợp số liệu công suất phòng..." />}
 
       {/* ── Kết quả ── */}
       {!loading && searched && data !== null && (

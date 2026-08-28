@@ -7,6 +7,7 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import SeasonalPricing from '../rooms/SeasonalPricing';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
 const RoomTypeManagement = () => {
   const { user } = useAuth();
   const [roomTypes, setRoomTypes] = useState([]);
@@ -157,7 +158,11 @@ const RoomTypeManagement = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="p-8 text-center text-on-surface-variant">Đang tải dữ liệu...</td></tr>
+              <tr>
+                <td colSpan="7" className="p-8 text-center">
+                  <LoadingScreen message="Đang tải danh sách loại phòng..." />
+                </td>
+              </tr>
             ) : roomTypes.length === 0 ? (
               <tr><td colSpan="7" className="p-8 text-center text-on-surface-variant">Chưa có dữ liệu loại phòng.</td></tr>
             ) : (

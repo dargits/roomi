@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const GROUP_BY_OPTIONS = [
   { value: 'day', label: 'Theo ngày' },
@@ -278,12 +279,7 @@ const RevenueReport = () => {
       </div>
 
       {/* ── Loading ── */}
-      {loading && (
-        <div className="py-16 text-center">
-          <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-on-surface-variant font-medium">Đang tính toán số liệu doanh thu...</p>
-        </div>
-      )}
+      {loading && <LoadingScreen message="Đang tính toán số liệu doanh thu..." />}
 
       {/* ── Kết quả ── */}
       {!loading && searched && data !== null && (
@@ -349,7 +345,7 @@ const RevenueReport = () => {
                   <thead>
                     <tr className="bg-surface-container-low border-b border-border-grey text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
                       <th className="p-4">Thời gian</th>
-                      <th className="p-4 text-right">Số booking</th>
+                      <th className="p-4 text-right">Số lượt đặt phòng</th>
                       <th className="p-4 text-right">Doanh thu</th>
                       <th className="p-4 w-48">Tỷ trọng</th>
                     </tr>

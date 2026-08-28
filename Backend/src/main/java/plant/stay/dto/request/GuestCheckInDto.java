@@ -13,4 +13,8 @@ public class GuestCheckInDto {
     private String idNumber;
 
     private String phone;
+    
+    private String frontImage;
+    
+    private String backImage;
 }

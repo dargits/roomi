@@ -47,7 +47,7 @@ const EarlyCheckoutModal = ({ isOpen, onClose, bookingId, guestName, onSuccess }
     setErrorMsg('');
     try {
       await bookingApi.confirmEarlyCheckout(bookingId);
-      toastSuccess(`Đã hoàn tất trả phòng sớm cho khách ${guestName || ''}!`);
+      toastSuccess(`Đã cập nhật thông tin trả phòng sớm! Vui lòng thanh toán hóa đơn để hoàn tất trả phòng.`);
       onClose();
       if (onSuccess) onSuccess();
     } catch (err) {
@@ -122,7 +122,7 @@ const EarlyCheckoutModal = ({ isOpen, onClose, bookingId, guestName, onSuccess }
             </div>
 
             <div className="text-xs text-on-surface-variant">
-              * Lưu ý: Sau khi xác nhận, hóa đơn PENDING sẽ được cập nhật số tiền phòng mới và booking sẽ chuyển sang trạng thái đã trả phòng.
+              * Lưu ý: Sau khi xác nhận, số tiền phòng sẽ được cập nhật. Bạn cần hoàn tất thanh toán hóa đơn để tiến hành trả phòng.
             </div>
           </div>
         ) : null}
