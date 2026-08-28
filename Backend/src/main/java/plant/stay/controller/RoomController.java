@@ -143,14 +143,14 @@ public class RoomController {
     private User checkOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || user.getRole() != Role.OWNER)
-            throw new UnauthorizedException("Chỉ OWNER mới có quyền thực hiện chức năng này");
+            throw new UnauthorizedException("Tài khoản không có quyền! Chức năng này chỉ dành cho CHỦ CƠ SỞ (OWNER)");
         return user;
     }
 
     private User checkHousekeeping(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.HOUSEKEEPER && user.getRole() != Role.ADMIN))
-            throw new UnauthorizedException("Điều kiện: OWNER, ADMIN, hoặc HOUSEKEEPER");
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.HOUSEKEEPER && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST))
+            throw new UnauthorizedException("Tài khoản không có quyền! Yêu cầu vai trò: CHỦ CƠ SỞ, QUẢN TRỊ, LỄ TÂN hoặc BUỒNG PHÒNG");
         return user;
     }
 
@@ -158,7 +158,7 @@ public class RoomController {
     private User checkSupervisor(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST))
-            throw new UnauthorizedException("Điều kiện: OWNER, ADMIN, hoặc RECEPTIONIST");
+            throw new UnauthorizedException("Tài khoản không có quyền! Yêu cầu vai trò: CHỦ CƠ SỞ, QUẢN TRỊ hoặc LỄ TÂN");
         return user;
     }
 }

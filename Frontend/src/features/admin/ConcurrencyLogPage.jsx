@@ -14,6 +14,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import PageHeader from '../../components/ui/PageHeader';
 import Tabs from '../../components/ui/Tabs/Tabs';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 /**
  * NCL-03-CN-007: Nhật ký va chạm đồng thời (log từ hệ thống thật)
@@ -129,7 +130,7 @@ const ConcurrencyLogPage = () => {
 
           <div className="bg-surface-container-lowest rounded border border-border-grey overflow-hidden">
             {logsLoading ? (
-              <div className="text-center py-12 text-on-surface-variant">Đang tải...</div>
+              <LoadingScreen message="Đang tải nhật ký va chạm..." />
             ) : logs.length === 0 ? (
               /* NCL-03-CN-007-TC-02 (tương tự): Trang trống hiển thị lời mời */
               <div className="text-center py-16 text-on-surface-variant">
