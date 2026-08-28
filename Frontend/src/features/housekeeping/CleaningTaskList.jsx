@@ -257,13 +257,13 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
     });
   }, [rawList, isHousekeeper, user?.id]);
 
-  // Thống kê khối lượng công việc của từng nhân viên buồng phòng (Workload Distribution)
+  // Thống kê khối lượng công việc theo tab đang chọn (Cần dọn hoặc Chờ duyệt)
   const workloadStats = useMemo(() => {
-    const allPendingRooms = [...dirtyRooms, ...inspectingRooms];
-    const unassignedCount = allPendingRooms.filter(r => !r.assignedHousekeeperId).length;
+    const currentTabRooms = activeSubTab === 'DIRTY' ? dirtyRooms : inspectingRooms;
+    const unassignedCount = currentTabRooms.filter(r => !r.assignedHousekeeperId).length;
 
     const staffCounts = housekeepers.map(hk => {
-      const assignedCount = allPendingRooms.filter(r => String(r.assignedHousekeeperId) === String(hk.id)).length;
+      const assignedCount = currentTabRooms.filter(r => String(r.assignedHousekeeperId) === String(hk.id)).length;
       return {
         id: hk.id,
         name: hk.name,
@@ -275,9 +275,51 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
     return {
       unassignedCount,
       staffCounts,
-      totalPending: allPendingRooms.length
+      totalCount: currentTabRooms.length,
+      totalPendingAcrossTabs: dirtyRooms.length + inspectingRooms.length
     };
-  }, [dirtyRooms, inspectingRooms, housekeepers]);
+  }, [dirtyRooms, inspectingRooms, housekeepers, activeSubTab]);
+
+  // Thông tin nhân viên đang được lọc
+  const selectedStaffObj = useMemo(() => {
+    if (selectedStaffFilter === 'ALL' || selectedStaffFilter === 'UNASSIGNED') return null;
+    return housekeepers.find(hk => String(hk.id) === String(selectedStaffFilter));
+  }, [housekeepers, selectedStaffFilter]);
+
+  const selectedStaffLabel = selectedStaffFilter === 'UNASSIGNED'
+    ? 'Chưa phân công'
+    : (selectedStaffObj ? selectedStaffObj.name : null);
+
+  // Số lượng phòng động theo từng tab ứng với bộ lọc nhân viên đang chọn
+  const tabCounts = useMemo(() => {
+    let dirtyList = dirtyRooms;
+    let inspectingList = inspectingRooms;
+
+    if (isSupervisor) {
+      if (selectedStaffFilter === 'UNASSIGNED') {
+        dirtyList = dirtyRooms.filter(r => !r.assignedHousekeeperId);
+        inspectingList = inspectingRooms.filter(r => !r.assignedHousekeeperId);
+      } else if (selectedStaffFilter !== 'ALL') {
+        dirtyList = dirtyRooms.filter(r => String(r.assignedHousekeeperId) === String(selectedStaffFilter));
+        inspectingList = inspectingRooms.filter(r => String(r.assignedHousekeeperId) === String(selectedStaffFilter));
+      }
+    } else if (isHousekeeper) {
+      if (housekeeperTaskFilter === 'MY_TASKS') {
+        dirtyList = dirtyRooms.filter(r => Boolean(r.assignedHousekeeperId && user?.id && String(r.assignedHousekeeperId) === String(user.id)));
+        inspectingList = inspectingRooms.filter(r => Boolean(r.assignedHousekeeperId && user?.id && String(r.assignedHousekeeperId) === String(user.id)));
+      } else if (housekeeperTaskFilter === 'UNASSIGNED') {
+        dirtyList = dirtyRooms.filter(r => !r.assignedHousekeeperId);
+        inspectingList = inspectingRooms.filter(r => !r.assignedHousekeeperId);
+      }
+    }
+
+    return {
+      dirty: dirtyList.length,
+      inspecting: inspectingList.length,
+      totalDirty: dirtyRooms.length,
+      totalInspecting: inspectingRooms.length
+    };
+  }, [dirtyRooms, inspectingRooms, isSupervisor, selectedStaffFilter, isHousekeeper, housekeeperTaskFilter, user?.id]);
 
   // Danh sách các tầng
   const floors = useMemo(() => {
@@ -350,11 +392,11 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
             <div className="flex items-center gap-2">
               <IoPersonOutline className="text-primary" size={18} />
               <h3 className="font-title-md text-on-surface font-bold text-sm">
-                Phân bổ khối lượng dọn phòng ({workloadStats.totalPending} phòng chưa xong)
+                Phân bổ {activeSubTab === 'DIRTY' ? 'phòng cần dọn' : 'phòng chờ duyệt'} ({workloadStats.totalCount} phòng)
               </h3>
             </div>
             <span className="text-[11px] text-on-surface-variant italic">
-              Nhấp vào nhân viên để lọc nhanh danh sách phòng được giao
+              Nhấp vào nhân viên để lọc riêng danh sách phòng của từng người
             </span>
           </div>
 
@@ -369,12 +411,12 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                   : 'bg-surface border-border-grey text-on-surface hover:border-primary'
               }`}
             >
-              Tất cả ({workloadStats.totalPending})
+              Tất cả ({workloadStats.totalCount})
             </button>
 
             {/* Chip Chưa phân công */}
             <button
-              onClick={() => setSelectedStaffFilter('UNASSIGNED')}
+              onClick={() => setSelectedStaffFilter(prev => prev === 'UNASSIGNED' ? 'ALL' : 'UNASSIGNED')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
                 selectedStaffFilter === 'UNASSIGNED'
                   ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
@@ -388,31 +430,35 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
             </button>
 
             {/* Chips từng nhân viên buồng phòng */}
-            {workloadStats.staffCounts.map(st => (
-              <button
-                key={st.id}
-                onClick={() => setSelectedStaffFilter(String(st.id))}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
-                  selectedStaffFilter === String(st.id)
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                    : st.assignedCount > 0
-                    ? 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100'
-                    : 'bg-surface border-border-grey text-on-surface-variant hover:border-primary'
-                }`}
-              >
-                <IoPersonOutline size={13} />
-                <span>{st.name}</span>
-                <span className={`px-1.5 py-0.2 text-[10px] font-bold ${
-                  selectedStaffFilter === String(st.id)
-                    ? 'bg-white/20 text-white'
-                    : st.assignedCount > 0
-                    ? 'bg-blue-200 text-blue-900'
-                    : 'bg-surface-container text-on-surface-variant'
-                }`}>
-                  {st.assignedCount} phòng
-                </span>
-              </button>
-            ))}
+            {workloadStats.staffCounts.map(st => {
+              const isSelected = selectedStaffFilter === String(st.id);
+              return (
+                <button
+                  key={st.id}
+                  onClick={() => setSelectedStaffFilter(prev => prev === String(st.id) ? 'ALL' : String(st.id))}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : st.assignedCount > 0
+                      ? 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100'
+                      : 'bg-surface border-border-grey text-on-surface-variant hover:border-primary'
+                  }`}
+                  title={isSelected ? 'Bấm để hủy lọc' : `Lọc phòng của ${st.name}`}
+                >
+                  <IoPersonOutline size={13} />
+                  <span>{st.name}</span>
+                  <span className={`px-1.5 py-0.2 text-[10px] font-bold ${
+                    isSelected
+                      ? 'bg-white/20 text-white'
+                      : st.assignedCount > 0
+                      ? 'bg-blue-200 text-blue-900'
+                      : 'bg-surface-container text-on-surface-variant'
+                  }`}>
+                    {st.assignedCount} phòng
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -473,9 +519,15 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                 {activeSubTab === 'DIRTY' ? 'Danh sách phòng cần dọn dẹp' : 'Phòng chờ kiểm tra & duyệt sạch'}
               </h2>
               <p className="text-on-surface-variant text-xs">
-                {activeSubTab === 'DIRTY' 
-                  ? `${dirtyRooms.length} phòng cần vệ sinh sạch sẽ`
-                  : `${inspectingRooms.length} phòng đã dọn xong, chờ quản lý nghiệm thu`}
+                {selectedStaffLabel ? (
+                  <span>
+                    Đang lọc: <strong className="text-on-surface">{selectedStaffLabel}</strong> — {filteredAndSortedRooms.length} phòng {activeSubTab === 'DIRTY' ? 'cần dọn' : 'chờ duyệt'}
+                  </span>
+                ) : (
+                  activeSubTab === 'DIRTY' 
+                    ? `${dirtyRooms.length} phòng cần vệ sinh sạch sẽ`
+                    : `${inspectingRooms.length} phòng đã dọn xong, chờ quản lý nghiệm thu`
+                )}
               </p>
             </div>
           </div>
@@ -491,7 +543,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                <IoBrushOutline size={14} /> Cần dọn ({dirtyRooms.length})
+                <IoBrushOutline size={14} /> Cần dọn ({tabCounts.dirty})
               </button>
               <button
                 onClick={() => { setActiveSubTab('INSPECTING'); setSelectedFloor(''); }}
@@ -501,7 +553,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                <IoSparklesOutline size={14} /> Chờ duyệt ({inspectingRooms.length})
+                <IoSparklesOutline size={14} /> Chờ duyệt ({tabCounts.inspecting})
               </button>
             </div>
 
@@ -515,6 +567,25 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
             </button>
           </div>
         </div>
+
+        {/* Active Filter Notification (Khi đang lọc theo nhân viên) */}
+        {selectedStaffLabel && (
+          <div className="flex items-center justify-between px-4 py-2 bg-blue-50/80 border-b border-blue-200 text-xs text-blue-950">
+            <div className="flex items-center gap-2">
+              <IoPersonOutline className="text-blue-600" size={14} />
+              <span>
+                Đang hiển thị danh sách phòng của: <strong>{selectedStaffLabel}</strong> ({filteredAndSortedRooms.length} phòng {activeSubTab === 'DIRTY' ? 'cần dọn' : 'chờ duyệt'})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedStaffFilter('ALL')}
+              className="text-blue-700 hover:text-blue-900 font-semibold underline cursor-pointer"
+            >
+              ✕ Hiển thị tất cả nhân viên
+            </button>
+          </div>
+        )}
 
         {/* Filter & Search Bar */}
         <div className="p-4 bg-surface-container-low/40 border-b border-border-grey flex flex-wrap items-center gap-3">
@@ -539,7 +610,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                 onChange={(e) => setSelectedFloor(e.target.value)}
                 className="px-3 py-2 text-xs bg-white border border-border-grey text-on-surface focus:outline-none focus:border-primary shadow-xs"
               >
-                <option value="">Tất cả tầng ({roleFilteredList.length})</option>
+                <option value="">Tất cả tầng ({filteredAndSortedRooms.length})</option>
                 {floors.map(floor => (
                   <option key={floor} value={floor}>Tầng {floor}</option>
                 ))}
