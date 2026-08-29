@@ -457,7 +457,34 @@ const GroupBookingList = ({ refreshKey }) => {
                       </div>
                     )}
                   </td>
-                  <td className="p-4 font-semibold text-on-surface">{Number(group.expectedTotal || 0).toLocaleString('vi-VN')} đ</td>
+                  <td className="p-4">
+                    <div className="font-semibold text-on-surface">
+                      {Number(group.expectedTotal || 0).toLocaleString('vi-VN')} đ
+                    </div>
+                    {/* Trạng thái thanh toán của đoàn */}
+                    {group.hasInvoice ? (
+                      group.invoiceStatus === 'PAID' || Number(group.invoiceOutstandingAmount || 0) === 0 ? (
+                        <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md mt-1">
+                          <IoCheckmarkCircleOutline size={13} className="text-emerald-600 shrink-0" />
+                          <span>Đã thanh toán đủ</span>
+                        </div>
+                      ) : group.invoiceStatus === 'PARTIALLY_PAID' || Number(group.invoicePaidAmount || 0) > 0 ? (
+                        <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md mt-1">
+                          <IoWarningOutline size={12} className="text-amber-600 shrink-0" />
+                          <span>Còn nợ: {Number(group.invoiceOutstandingAmount || 0).toLocaleString('vi-VN')} đ</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md mt-1">
+                          <IoWarningOutline size={12} className="text-rose-600 shrink-0" />
+                          <span>Chưa thanh toán</span>
+                        </div>
+                      )
+                    ) : (
+                      <div className="text-[11px] text-on-surface-variant/70 mt-1">
+                        Chưa lập hóa đơn
+                      </div>
+                    )}
+                  </td>
                   <td className="p-4 text-center">
                     <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${STATUS_STYLES[group.status] || 'bg-gray-100 text-gray-800'}`}>
                       {STATUS_LABELS[group.status] || group.status}
@@ -499,21 +526,65 @@ const GroupBookingList = ({ refreshKey }) => {
                         </Button>
                       )}
 
-                      {/* Nút Gộp hóa đơn */}
+                      {/* Nút Hóa đơn & Thanh toán: Đổi nhãn & style theo trạng thái thanh toán */}
                       {canManageInvoices && (group.depositPaid || ['CHECKED_IN', 'COMPLETED', 'CONFIRMED'].includes(group.status)) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          icon={IoDocumentOutline}
-                          className="border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-semibold"
-                          onClick={() => {
-                            setInvoiceTab('combined');
-                            openInvoices(group);
-                          }}
-                          title="Lập hoặc xem hóa đơn gộp toàn bộ đoàn"
-                        >
-                          Gộp hóa đơn
-                        </Button>
+                        group.hasInvoice && (group.invoiceStatus === 'PAID' || Number(group.invoiceOutstandingAmount || 0) === 0) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            icon={IoCheckmarkCircleOutline}
+                            className="border-emerald-400 text-emerald-800 bg-emerald-100 hover:bg-emerald-200 font-bold shadow-2xs"
+                            onClick={() => {
+                              setInvoiceTab('combined');
+                              openInvoices(group);
+                            }}
+                            title="Đoàn đã thanh toán đủ hóa đơn. Bấm để xem hoặc in hóa đơn."
+                          >
+                            Đã thanh toán
+                          </Button>
+                        ) : group.hasInvoice && (group.invoiceStatus === 'PARTIALLY_PAID' || Number(group.invoicePaidAmount || 0) > 0) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            icon={IoCashOutline}
+                            className="border-amber-400 text-amber-900 bg-amber-50 hover:bg-amber-100 font-semibold"
+                            onClick={() => {
+                              setInvoiceTab('combined');
+                              openInvoices(group);
+                            }}
+                            title={`Đoàn còn nợ ${Number(group.invoiceOutstandingAmount || 0).toLocaleString('vi-VN')} đ. Bấm để thu tiếp.`}
+                          >
+                            Chưa thu đủ
+                          </Button>
+                        ) : group.hasInvoice ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            icon={IoReceiptOutline}
+                            className="border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100 font-semibold"
+                            onClick={() => {
+                              setInvoiceTab('combined');
+                              openInvoices(group);
+                            }}
+                            title="Đã lập hóa đơn đoàn nhưng chưa thanh toán. Bấm để thanh toán."
+                          >
+                            Chưa thanh toán
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            icon={IoDocumentOutline}
+                            className="border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-semibold"
+                            onClick={() => {
+                              setInvoiceTab('combined');
+                              openInvoices(group);
+                            }}
+                            title="Lập hóa đơn gộp toàn bộ đoàn"
+                          >
+                            Gộp hóa đơn
+                          </Button>
+                        )
                       )}
 
                       {/* Nút Trả phòng đoàn: Khi đoàn có phòng đang ở */}
@@ -796,7 +867,7 @@ const GroupBookingList = ({ refreshKey }) => {
 
                     {invoiceState.data?.invoices?.[0]?.status === 'PENDING_DISCOUNT_APPROVAL' && (
                       <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg text-center font-medium">
-                        ⚠️ Tạm khóa thanh toán: Khoản giảm giá hóa đơn đoàn đang chờ Chủ cơ sở (Owner) phê duyệt.
+                        ⚠️ Tạm khóa thanh toán: Khoản giảm giá hóa đơn đoàn đang chờ Chủ cơ sở phê duyệt.
                       </div>
                     )}
 
@@ -1219,7 +1290,7 @@ const GroupBookingList = ({ refreshKey }) => {
               <IoLogOutOutline size={18} /> Trả phòng nhanh toàn bộ đoàn
             </div>
             <div>
-              Hệ thống sẽ thực hiện trả phòng (Check-out) cho tất cả các phòng đang ở trong đoàn và chuyển trạng thái phòng sang cần dọn dẹp (Dirty).
+              Hệ thống sẽ thực hiện trả phòng cho tất cả các phòng đang ở trong đoàn và chuyển trạng thái phòng sang cần dọn dẹp.
             </div>
             <div className="font-semibold text-purple-800">
               Yêu cầu: Hóa đơn gộp của đoàn đã được tạo và thanh toán đầy đủ.

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { IoCloseOutline } from 'react-icons/io5';
+import { stopAllCameraStreams } from '../../utils/qrDecoder';
 
 const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => {
   const [mounted, setMounted] = useState(false);
@@ -16,9 +17,11 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => 
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
+      stopAllCameraStreams();
     }
     return () => {
       document.body.style.overflow = 'unset';
+      stopAllCameraStreams();
     };
   }, [isOpen]);
 

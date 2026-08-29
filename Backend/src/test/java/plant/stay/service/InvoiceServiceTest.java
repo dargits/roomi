@@ -201,6 +201,45 @@ public class InvoiceServiceTest {
         assertTrue(invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBooking.getId()).isEmpty());
     }
 
+    @Test
+    @DisplayName("Hoàn tiền cọc tự động đồng bộ sang hóa đơn: ghi nhận payment âm và chuyển status về PENDING")
+    void depositRefundUpdatesInvoiceStatusToPendingAndRecordsNegativePayment() {
+        // 1. Thu cọc 1.000.000 đ
+        Deposit deposit = depositRepository.save(Deposit.builder()
+                .booking(testBooking)
+                .requiredAmount(new BigDecimal("1000000"))
+                .collectedAmount(new BigDecimal("1000000"))
+                .status(DepositStatus.COLLECTED)
+                .paymentMethod(PaymentMethod.CASH)
+                .collectedAt(java.time.LocalDateTime.now())
+                .collectedBy(testUser)
+                .build());
+
+        // 2. Tạo hóa đơn (tổng 1.000.000 đ) -> cọc tự động khấu trừ, hóa đơn sang PAID
+        InvoiceResponse invoiceRes = invoiceService.createInvoice(testBooking.getId(), testUser);
+        assertEquals(InvoiceStatus.PAID, invoiceRes.getStatus());
+
+        // 3. Hoàn cọc 1.000.000 đ
+        deposit.setStatus(DepositStatus.REFUNDED);
+        deposit.setRefundedAmount(new BigDecimal("1000000"));
+        deposit.setProcessedAt(java.time.LocalDateTime.now());
+        deposit.setProcessedBy(testUser);
+        depositRepository.save(deposit);
+
+        // 4. Lấy lại thông tin hóa đơn
+        InvoiceResponse syncedInvoice = invoiceService.getByBooking(testBooking.getId());
+        assertNotNull(syncedInvoice);
+        assertEquals(InvoiceStatus.PENDING, syncedInvoice.getStatus());
+
+        // 5. Kiểm tra danh sách payments: có lượt khấu trừ ban đầu (+1.000.000) và lượt hoàn (-1.000.000)
+        java.util.List<PaymentResponse> payments = invoiceService.getPayments(syncedInvoice.getId());
+        assertEquals(2, payments.size());
+        BigDecimal totalPaid = payments.stream().map(PaymentResponse::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, BigDecimal.ZERO.compareTo(totalPaid));
+        assertTrue(payments.stream().anyMatch(p -> p.getAmount().compareTo(new BigDecimal("1000000")) == 0));
+        assertTrue(payments.stream().anyMatch(p -> p.getAmount().compareTo(new BigDecimal("-1000000")) == 0));
+    }
+
     private GroupInvoiceCreateRequest groupInvoiceRequest(InvoiceMode mode) {
         GroupInvoiceCreateRequest request = new GroupInvoiceCreateRequest();
         request.setMode(mode);
