@@ -221,6 +221,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
       toastSuccess('Đã xử lý hoàn tiền cọc thành công!');
       setActionMsg({ type: 'success', text: 'Đã xử lý hoàn tiền cọc.' });
       fetchDeposits();
+      onRefresh?.();
     } catch (err) {
       setRefundError(err.response?.data?.message || 'Không thể hoàn tiền. Vui lòng thử lại.');
     } finally {
@@ -241,6 +242,7 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
       toastSuccess('Đã xử lý phạt tiền cọc khách vắng mặt (No-Show)!');
       setActionMsg({ type: 'success', text: 'Đã chuyển toàn bộ tiền cọc thành phí phạt no-show.' });
       fetchDeposits();
+      onRefresh?.();
     } catch (err) {
       setNoShowError(err.response?.data?.message || 'Không thể xử lý. Vui lòng thử lại.');
     } finally {
@@ -456,15 +458,6 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-sm font-medium text-on-surface">Số tiền đặt cọc (đ)</label>
-              {suggestedDepositAmount != null && recordForm.amount !== String(suggestedDepositAmount) && (
-                <button
-                  type="button"
-                  onClick={() => handleAmountChange(String(suggestedDepositAmount))}
-                  className="text-xs text-primary hover:underline font-semibold"
-                >
-                  ↺ Theo chính sách ({fmt(suggestedDepositAmount)})
-                </button>
-              )}
             </div>
             <Input
               type="number"
@@ -473,6 +466,59 @@ const DepositTab = ({ bookingId, booking, onRefresh }) => {
               onChange={e => handleAmountChange(e.target.value)}
               placeholder="VD: 500000"
             />
+            {/* Quick buttons */}
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {(() => {
+                const currentNum = parseFloat(recordForm.amount) || 0;
+                const expectedPrice = Number(booking?.expectedPrice) || 0;
+                const valSuggested = suggestedDepositAmount || 0;
+                const val50 = Math.round(expectedPrice * 0.5);
+                const val100 = expectedPrice;
+
+                const isSuggestedActive = currentNum === valSuggested && valSuggested > 0;
+                const is50Active = currentNum === val50 && !isSuggestedActive && val50 > 0;
+                const is100Active = currentNum === val100 && !isSuggestedActive && !is50Active && val100 > 0;
+
+                const getChipClass = (isActive) =>
+                  `px-2.5 py-1 text-xs border rounded-md transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-primary text-white border-primary font-bold shadow-xs'
+                      : 'bg-surface-container-low text-on-surface border-border-grey hover:bg-surface-container font-medium'
+                  }`;
+
+                return (
+                  <>
+                    {valSuggested > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleAmountChange(String(valSuggested))}
+                        className={getChipClass(isSuggestedActive)}
+                      >
+                        Theo chính sách ({fmt(valSuggested)})
+                      </button>
+                    )}
+                    {expectedPrice > 0 && val50 !== valSuggested && (
+                      <button
+                        type="button"
+                        onClick={() => handleAmountChange(String(val50))}
+                        className={getChipClass(is50Active)}
+                      >
+                        50% ({fmt(val50)})
+                      </button>
+                    )}
+                    {expectedPrice > 0 && val100 !== valSuggested && (
+                      <button
+                        type="button"
+                        onClick={() => handleAmountChange(String(val100))}
+                        className={getChipClass(is100Active)}
+                      >
+                        100% ({fmt(val100)})
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           </div>
 
           <Select

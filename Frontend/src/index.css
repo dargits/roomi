@@ -30,6 +30,15 @@
   [role="button"]:not(.btn-override) {
     @apply uppercase font-bold tracking-wider;
   }
+
+  /* Vô hiệu hóa thanh công cụ hover media của Edge/Chrome trên thẻ video camera */
+  video::-webkit-media-controls,
+  video::-webkit-media-controls-enclosure,
+  video::-webkit-media-controls-panel {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
 }
 
 /* ==========================================================================
@@ -85,6 +94,29 @@
 
 .animate-modal-pop {
   animation: modalPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 4. Hiệu ứng tia Laser quét mã QR CCCD (Chạy mượt mà 60fps từ trên xuống dưới) */
+@keyframes qrLaserScanDown {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(220px);
+    opacity: 0;
+  }
+}
+
+.animate-laser-scan-down {
+  will-change: transform, opacity;
+  animation: qrLaserScanDown 1.8s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
 }
 
 /* 3. Hiệu ứng Toast Notification */

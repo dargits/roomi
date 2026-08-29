@@ -179,6 +179,9 @@ public class DepositController {
         deposit.setProcessedAt(LocalDateTime.now());
         deposit = depositRepo.save(deposit);
 
+        // Đồng bộ hoàn tiền cọc vào hóa đơn (nếu có)
+        syncInvoiceForDepositChange(deposit, actor);
+
         auditLogService.log("Deposit", deposit.getId(), "REFUND", actor,
                 "Hoàn cọc " + refund + "đ (phí hủy: " + fee + "đ) booking #" + bookingId);
         return ResponseEntity.ok(toResponse(deposit));
@@ -215,12 +218,71 @@ public class DepositController {
         deposit.setProcessedAt(LocalDateTime.now());
         deposit = depositRepo.save(deposit);
 
+        // Đồng bộ khấu trừ/phạt cọc vào hóa đơn (nếu có)
+        syncInvoiceForDepositChange(deposit, actor);
+
         auditLogService.log("Deposit", deposit.getId(), "NO_SHOW_FORFEIT", actor,
                 "Tịch thu cọc " + penalty + "đ do no-show booking #" + bookingId);
         return ResponseEntity.ok(toResponse(deposit));
     }
 
     // ===== Private helpers =====
+
+    private void syncInvoiceForDepositChange(Deposit deposit, User actor) {
+        if (deposit == null || deposit.getBooking() == null) return;
+        Long bookingId = deposit.getBooking().getId();
+        List<Invoice> invoices = invoiceRepo.findInvoicesCoveringBooking(bookingId);
+        for (Invoice inv : invoices) {
+            if (inv.getStatus() == InvoiceStatus.ADJUSTED) continue;
+
+            List<Payment> currentPayments = paymentRepo.findByInvoiceId(inv.getId());
+            BigDecimal netDepositPaid = currentPayments.stream()
+                    .filter(p -> p.getNote() != null && (
+                            p.getNote().contains("Mã cọc #" + deposit.getId()) ||
+                            p.getNote().contains("đặt cọc") || p.getNote().contains("cọc")
+                    ))
+                    .map(Payment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal effectiveDeposit = BigDecimal.ZERO;
+            if (deposit.getStatus() == DepositStatus.COLLECTED || deposit.getStatus() == DepositStatus.SHORT_PAID) {
+                BigDecimal collected = deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
+                BigDecimal refunded = deposit.getRefundedAmount() != null ? deposit.getRefundedAmount() : BigDecimal.ZERO;
+                BigDecimal penalty = deposit.getPenaltyAmount() != null ? deposit.getPenaltyAmount() : BigDecimal.ZERO;
+                effectiveDeposit = collected.subtract(refunded).subtract(penalty).max(BigDecimal.ZERO);
+            }
+
+            if (netDepositPaid.compareTo(effectiveDeposit) > 0) {
+                BigDecimal excess = netDepositPaid.subtract(effectiveDeposit);
+                Payment refundPayment = Payment.builder()
+                        .invoice(inv)
+                        .amount(excess.negate())
+                        .method(deposit.getPaymentMethod() != null ? deposit.getPaymentMethod() : PaymentMethod.CASH)
+                        .paidAt(deposit.getProcessedAt() != null ? deposit.getProcessedAt() : LocalDateTime.now())
+                        .collectedBy(actor)
+                        .note("Hoàn trả tiền cọc đã khấu trừ (Mã cọc #" + deposit.getId() + ")")
+                        .build();
+                paymentRepo.save(refundPayment);
+            }
+
+            BigDecimal totalPaid = paymentRepo.findByInvoiceId(inv.getId()).stream()
+                    .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (inv.getStatus() != InvoiceStatus.PENDING_DISCOUNT_APPROVAL && inv.getStatus() != InvoiceStatus.ADJUSTED) {
+                if (totalPaid.compareTo(inv.getTotalAmount()) >= 0) {
+                    if (inv.getStatus() != InvoiceStatus.PAID) {
+                        inv.setStatus(InvoiceStatus.PAID);
+                        invoiceRepo.save(inv);
+                    }
+                } else {
+                    if (inv.getStatus() == InvoiceStatus.PAID) {
+                        inv.setStatus(InvoiceStatus.PENDING);
+                        invoiceRepo.save(inv);
+                    }
+                }
+            }
+        }
+    }
 
     private Booking findBooking(Long bookingId) {
         return bookingRepo.findById(bookingId)
