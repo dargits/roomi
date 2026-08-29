@@ -15,6 +15,7 @@ import {
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import CameraQrScanner from '../../components/common/CameraQrScanner';
 import bookingApi from '../../services/bookingApi';
 import guestApi from '../../services/guestApi';
 import { useToast } from '../../context/ToastContext';
@@ -27,8 +28,6 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
   
   // QR Scan state for the active room
   const [activeRoomIndex, setActiveRoomIndex] = useState(null);
-  const [qrInput, setQrInput] = useState('');
-  const qrInputRef = useRef(null);
 
   // Import modal state (P1.3)
   const [showImportModal, setShowImportModal] = useState(false);
@@ -88,17 +87,21 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
       setRoomsData(initialRoomsData);
       setErrorMsg(initialRoomsData.length === 0 ? 'Không có phòng nào đủ điều kiện để nhận phòng theo đoàn.' : '');
       setActiveRoomIndex(null);
-      setQrInput('');
       setShowImportModal(false);
       setImportText('');
     }
   }, [isOpen, group]);
 
   useEffect(() => {
-    if (activeRoomIndex !== null && qrInputRef.current) {
-      qrInputRef.current.focus();
+    if (!isOpen) {
+      setActiveRoomIndex(null);
     }
-  }, [activeRoomIndex]);
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setActiveRoomIndex(null);
+    onClose();
+  };
 
   const handleAddGuest = (roomIndex) => {
     const newData = [...roomsData];
@@ -129,8 +132,12 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
       const guest = await guestApi.getGuestByIdNumber(idNumber);
       if (guest && guest.name) {
         const updatedData = [...currentData];
-        updatedData[roomIndex].guests[guestIndex].name = guest.name;
-        if (guest.phone) updatedData[roomIndex].guests[guestIndex].phone = guest.phone;
+        if (!updatedData[roomIndex].guests[guestIndex].name) {
+          updatedData[roomIndex].guests[guestIndex].name = guest.name;
+        }
+        if (guest.phone && !updatedData[roomIndex].guests[guestIndex].phone) {
+          updatedData[roomIndex].guests[guestIndex].phone = guest.phone;
+        }
         setRoomsData(updatedData);
         toastSuccess(`Đã tự động điền thông tin khách: ${guest.name}`);
       }
@@ -139,39 +146,52 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
     }
   };
 
-  const handleQrInput = (e) => {
-    const value = e.target.value;
-    setQrInput(value);
+  const handleScanQrForActiveRoom = (parsedData, rawText) => {
+    if (activeRoomIndex === null) return;
+    const { idNumber, name } = parsedData;
+    const targetId = idNumber || rawText?.trim() || '';
+    const targetName = name || '';
+
+    if (!targetId && !targetName) return;
+
+    const newData = [...roomsData];
+    const currentRoom = newData[activeRoomIndex];
+    const guests = currentRoom.guests;
     
-    if (value.includes('|') && activeRoomIndex !== null) {
-      const parts = value.split('|');
-      if (parts.length >= 3) {
-        const idNumber = parts[0]?.trim();
-        const name = parts[2]?.trim();
-        
-        const newData = [...roomsData];
-        const guests = newData[activeRoomIndex].guests;
-        
-        // Check if there is an existing guest to match or empty slot
-        const existingIndex = guests.findIndex(g => g.idNumber === idNumber || (!g.idNumber && g.name === name));
-        if (existingIndex !== -1) {
-          guests[existingIndex].name = name;
-          guests[existingIndex].idNumber = idNumber;
-          guests[existingIndex].matched = true;
-          toastSuccess(`Đã đối chiếu khớp CCCD: ${name} (Phòng ${newData[activeRoomIndex].roomNumber})`);
-        } else {
-          const emptyIndex = guests.findIndex(g => !g.name && !g.idNumber);
-          if (emptyIndex !== -1) {
-            guests[emptyIndex] = { name, idNumber, phone: '', matched: true };
-          } else {
-            guests.push({ name, idNumber, phone: '', matched: true });
-          }
-          toastSuccess(`Đã quét mã QR cho khách: ${name} vào Phòng ${newData[activeRoomIndex].roomNumber}`);
-        }
-        
-        setRoomsData(newData);
-        setQrInput(''); // Reset for next scan
-      }
+    // 1. Tìm dòng khách đã có số CCCD này từ trước
+    let targetGuestIndex = guests.findIndex(g => g.idNumber && g.idNumber === targetId);
+
+    // 2. Nếu chưa có, tìm dòng khách trùng tên và chưa có số CCCD
+    if (targetGuestIndex === -1 && targetName) {
+      targetGuestIndex = guests.findIndex(g => (!g.idNumber || !g.idNumber.trim()) && g.name && g.name.trim().toLowerCase() === targetName.trim().toLowerCase());
+    }
+
+    // 3. Nếu vẫn chưa có, tìm dòng khách đầu tiên chưa có số CCCD trong phòng này
+    if (targetGuestIndex === -1) {
+      targetGuestIndex = guests.findIndex(g => !g.idNumber || !g.idNumber.trim());
+    }
+
+    if (targetGuestIndex !== -1) {
+      guests[targetGuestIndex] = {
+        ...guests[targetGuestIndex],
+        idNumber: targetId,
+        name: targetName || guests[targetGuestIndex].name || '',
+        matched: true
+      };
+      toastSuccess(`Đã cập nhật CCCD: ${targetName || targetId} (Phòng ${currentRoom.roomNumber})`);
+    } else {
+      targetGuestIndex = guests.length;
+      guests.push({ name: targetName, idNumber: targetId, phone: '', matched: true });
+      toastSuccess(`Đã quét thêm khách: ${targetName || targetId} vào Phòng ${currentRoom.roomNumber}`);
+    }
+    
+    setRoomsData(newData);
+
+    // Tự động đóng camera quét ngay khi nhận diện thành công cho phòng
+    setActiveRoomIndex(null);
+
+    if (targetId && /^\d{9,12}$/.test(targetId)) {
+      fetchGuestInfo(targetId, activeRoomIndex, targetGuestIndex, newData);
     }
   };
 
@@ -316,7 +336,7 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Nhận phòng đoàn (Bulk Check-in)" maxWidth="max-w-4xl">
+      <Modal isOpen={isOpen} onClose={handleClose} title="Nhận phòng đoàn" maxWidth="max-w-4xl">
         <div className="space-y-4">
           {errorMsg && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2 sticky top-0 z-10">
@@ -357,36 +377,31 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
                 }}
                 className="border-primary/40 text-primary hover:bg-primary/5"
               >
-                Nhập danh sách (CSV / Excel)
+                Nhập danh sách từ Excel
               </Button>
             </div>
           </div>
 
           {/* Active QR scanner box if opened */}
           {activeRoomIndex !== null && (
-            <div className="p-4 bg-primary/5 border border-primary/30 rounded-xl space-y-2">
+            <div className="p-3 bg-primary/5 border border-primary/30 rounded-xl space-y-2 animate-fade-in">
               <div className="flex justify-between items-center text-sm font-semibold text-primary">
                 <span className="flex items-center gap-1.5">
                   <IoQrCodeOutline size={18} /> Đang quét mã QR cho Phòng {roomsData[activeRoomIndex]?.roomNumber}
                 </span>
                 <button 
                   onClick={() => setActiveRoomIndex(null)}
-                  className="text-xs text-on-surface-variant hover:text-on-surface p-1"
+                  className="text-xs text-on-surface-variant hover:text-on-surface p-1 rounded hover:bg-surface-container"
+                  title="Đóng quét QR"
                 >
                   <IoCloseOutline size={20} />
                 </button>
               </div>
-              <input 
-                ref={qrInputRef}
-                type="text" 
-                value={qrInput}
-                onChange={handleQrInput}
-                placeholder="Đặt con trỏ vào đây và quét mã QR trên thẻ CCCD..."
-                className="w-full p-2.5 bg-surface border border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              <CameraQrScanner 
+                onScan={handleScanQrForActiveRoom}
+                placeholder="Dán hoặc dùng máy quét bắn mã QR CCCD vào đây..."
+                autoStopOnScan={false}
               />
-              <p className="text-xs text-on-surface-variant italic">
-                * Dùng máy quét QR bắn vào ô trên. Thông tin sẽ tự động điền vào danh sách khách bên dưới.
-              </p>
             </div>
           )}
 
@@ -484,7 +499,7 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-            <Button variant="ghost" onClick={onClose} disabled={processing} icon={IoCloseOutline}>
+            <Button variant="ghost" onClick={handleClose} disabled={processing} icon={IoCloseOutline}>
               Hủy
             </Button>
             <Button
@@ -504,7 +519,7 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
       <Modal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        title="Nhập danh sách khách đoàn (Paste / CSV)"
+        title="Nhập danh sách khách đoàn từ văn bản / Excel"
         maxWidth="max-w-xl"
       >
         <div className="space-y-4">
@@ -515,7 +530,7 @@ const BulkCheckInModal = ({ isOpen, onClose, group, onSuccess }) => {
           )}
 
           <div className="text-xs text-on-surface-variant space-y-1">
-            <p className="font-semibold text-on-surface">Định dạng hỗ trợ (Copy từ Excel hoặc dán văn bản):</p>
+            <p className="font-semibold text-on-surface">Định dạng hỗ trợ (Sao chép từ Excel hoặc dán văn bản):</p>
             <div className="p-2.5 bg-surface-container-low rounded border border-border-grey font-mono text-[11px]">
               Số phòng, Họ tên, Số CCCD, SĐT<br />
               101, Nguyễn Văn A, 001099001234, 0912345678<br />
