@@ -243,6 +243,12 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .build());
         applyDeposits(invoice, bookings, actor);
         invoice = syncInvoiceStatus(invoice);
+        BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0 && invoice.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            invoice = invoiceRepository.save(invoice);
+        }
         auditLogService.log("Invoice", invoice.getId(), "CREATE", actor,
                 "Lập hóa đơn " + (mode == InvoiceMode.COMBINED ? "gộp" : "tách") + " cho đoàn #"
                         + groupBooking.getId());
@@ -479,25 +485,43 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private Invoice syncInvoiceStatus(Invoice invoice) {
-        if (invoice == null || (invoice.getStatus() != InvoiceStatus.PENDING && invoice.getStatus() != InvoiceStatus.PENDING_PAYMENT)) {
+        if (invoice == null || invoice.getStatus() == InvoiceStatus.ADJUSTED) {
             return invoice;
         }
 
-        // 1. Kiểm tra xem cọc đã được tạo thành Payment chưa
-        boolean hasDepositPayment = paymentRepository.findByInvoiceId(invoice.getId()).stream()
-                .anyMatch(p -> p.getNote() != null && (p.getNote().contains("đặt cọc") || p.getNote().contains("cọc") || p.getNote().contains("Deposit")));
+        List<Payment> currentPayments = paymentRepository.findByInvoiceId(invoice.getId());
+        boolean hasDepositRefund = currentPayments.stream().anyMatch(p -> p.getAmount().compareTo(BigDecimal.ZERO) < 0);
 
-        if (!hasDepositPayment && invoice.getBooking() != null) {
+        // 1. Đối soát cọc cho booking đơn lẻ
+        if (invoice.getBooking() != null) {
             List<Deposit> deposits = depositRepository.findByBookingIdOrderByCreatedAtDesc(invoice.getBooking().getId());
+
             for (Deposit d : deposits) {
+                // Tính cọc hiệu lực thực tế còn lại
+                BigDecimal effectiveDeposit = BigDecimal.ZERO;
                 if (d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID) {
-                    BigDecimal effectiveDeposit = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
-                    if (d.getRefundedAmount() != null) effectiveDeposit = effectiveDeposit.subtract(d.getRefundedAmount());
-                    if (d.getPenaltyAmount() != null) effectiveDeposit = effectiveDeposit.subtract(d.getPenaltyAmount());
-                    if (effectiveDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal collected = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                    BigDecimal refunded = d.getRefundedAmount() != null ? d.getRefundedAmount() : BigDecimal.ZERO;
+                    BigDecimal penalty = d.getPenaltyAmount() != null ? d.getPenaltyAmount() : BigDecimal.ZERO;
+                    effectiveDeposit = collected.subtract(refunded).subtract(penalty).max(BigDecimal.ZERO);
+                }
+
+                // Tính tổng các lượt trừ/hoàn cọc hiện có trên invoice đối với khoản cọc này
+                BigDecimal netDepositPaidOnInvoice = currentPayments.stream()
+                        .filter(p -> p.getNote() != null && (
+                                p.getNote().contains("Mã cọc #" + d.getId()) ||
+                                (deposits.size() == 1 && (p.getNote().contains("đặt cọc") || p.getNote().contains("cọc") || p.getNote().contains("Deposit")))
+                        ))
+                        .map(Payment::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                if (netDepositPaidOnInvoice.compareTo(effectiveDeposit) < 0) {
+                    // Cần bù thêm lượt khấu trừ cọc
+                    BigDecimal diff = effectiveDeposit.subtract(netDepositPaidOnInvoice);
+                    if (diff.compareTo(BigDecimal.ZERO) > 0) {
                         Payment depositPayment = Payment.builder()
                                 .invoice(invoice)
-                                .amount(effectiveDeposit)
+                                .amount(diff)
                                 .method(d.getPaymentMethod() != null ? d.getPaymentMethod() : PaymentMethod.CASH)
                                 .paidAt(d.getCollectedAt() != null ? d.getCollectedAt() : LocalDateTime.now())
                                 .collectedBy(d.getCollectedBy() != null ? d.getCollectedBy() : invoice.getCreatedBy())
@@ -505,6 +529,38 @@ public class InvoiceServiceImpl implements InvoiceService {
                                 .build();
                         paymentRepository.save(depositPayment);
                     }
+                } else if (netDepositPaidOnInvoice.compareTo(effectiveDeposit) > 0) {
+                    // Đã hoàn cọc hoặc phạt cọc -> ghi nhận lượt hoàn tiền âm
+                    BigDecimal excess = netDepositPaidOnInvoice.subtract(effectiveDeposit);
+                    Payment refundPayment = Payment.builder()
+                            .invoice(invoice)
+                            .amount(excess.negate())
+                            .method(d.getPaymentMethod() != null ? d.getPaymentMethod() : PaymentMethod.CASH)
+                            .paidAt(d.getProcessedAt() != null ? d.getProcessedAt() : LocalDateTime.now())
+                            .collectedBy(d.getProcessedBy() != null ? d.getProcessedBy() : invoice.getCreatedBy())
+                            .note("Hoàn trả tiền cọc đã khấu trừ (Mã cọc #" + d.getId() + ")")
+                            .build();
+                    paymentRepository.save(refundPayment);
+                    hasDepositRefund = true;
+                }
+            }
+        }
+
+        // 2. Tính lại tổng đã thanh toán sau khi đồng bộ
+        BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 3. Cập nhật trạng thái hóa đơn phù hợp (không can thiệp nếu PENDING_DISCOUNT_APPROVAL hoặc ADJUSTED)
+        if (invoice.getStatus() != InvoiceStatus.PENDING_DISCOUNT_APPROVAL && invoice.getStatus() != InvoiceStatus.ADJUSTED) {
+            if (invoice.getStatus() == InvoiceStatus.PENDING || invoice.getStatus() == InvoiceStatus.PENDING_PAYMENT) {
+                if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
+                    invoice.setStatus(InvoiceStatus.PAID);
+                    invoice = invoiceRepository.save(invoice);
+                }
+            } else if (invoice.getStatus() == InvoiceStatus.PAID) {
+                if (hasDepositRefund && totalPaid.compareTo(invoice.getTotalAmount()) < 0) {
+                    invoice.setStatus(InvoiceStatus.PENDING);
+                    invoice = invoiceRepository.save(invoice);
                 }
             }
         }

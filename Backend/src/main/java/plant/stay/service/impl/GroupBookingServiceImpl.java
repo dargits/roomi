@@ -582,6 +582,40 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         }
         boolean depositPaid = totalDeposited.compareTo(BigDecimal.ZERO) > 0;
 
+        List<Invoice> groupInvoices = invoiceRepository.findByGroupBookingIdOrderByIdAsc(group.getId()).stream()
+                .filter(inv -> inv.getStatus() != InvoiceStatus.ADJUSTED)
+                .collect(Collectors.toList());
+
+        boolean hasInvoice = !groupInvoices.isEmpty();
+        String invoiceStatus = "NO_INVOICE";
+        BigDecimal invoiceTotalAmount = BigDecimal.ZERO;
+        BigDecimal invoicePaidAmount = BigDecimal.ZERO;
+        BigDecimal invoiceOutstandingAmount = BigDecimal.ZERO;
+
+        if (hasInvoice) {
+            invoiceTotalAmount = groupInvoices.stream()
+                    .map(inv -> inv.getTotalAmount() != null ? inv.getTotalAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            invoicePaidAmount = groupInvoices.stream()
+                    .flatMap(inv -> paymentRepository.findByInvoiceId(inv.getId()).stream())
+                    .map(Payment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            invoiceOutstandingAmount = invoiceTotalAmount.subtract(invoicePaidAmount).max(BigDecimal.ZERO);
+
+            boolean allPaid = groupInvoices.stream().allMatch(inv -> inv.getStatus() == InvoiceStatus.PAID)
+                    || (invoiceTotalAmount.compareTo(BigDecimal.ZERO) > 0 && invoiceOutstandingAmount.compareTo(BigDecimal.ZERO) <= 0);
+
+            if (allPaid) {
+                invoiceStatus = "PAID";
+            } else if (invoicePaidAmount.compareTo(BigDecimal.ZERO) > 0) {
+                invoiceStatus = "PARTIALLY_PAID";
+            } else {
+                invoiceStatus = "UNPAID";
+            }
+        }
+
         return GroupBookingResponse.builder()
                 .id(group.getId())
                 .representativeGuestId(group.getRepresentativeGuest().getId())
@@ -598,6 +632,11 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 .depositPaid(depositPaid)
                 .depositAmount(totalDeposited)
                 .requiredDepositAmount(calculateRequiredDepositForGroup(bookings))
+                .hasInvoice(hasInvoice)
+                .invoiceStatus(invoiceStatus)
+                .invoiceTotalAmount(invoiceTotalAmount)
+                .invoicePaidAmount(invoicePaidAmount)
+                .invoiceOutstandingAmount(invoiceOutstandingAmount)
                 .bookings(bookings.stream().map(this::toBookingResponse).collect(Collectors.toList()))
                 .createdAt(group.getCreatedAt())
                 .build();
