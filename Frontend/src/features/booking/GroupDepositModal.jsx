@@ -202,27 +202,49 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
             />
             {/* Quick buttons */}
             <div className="flex gap-2 mt-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setAmount(String(requiredDeposit))}
-                className="px-2.5 py-1 text-xs bg-primary/10 hover:bg-primary/20 border border-primary/40 rounded-md font-semibold text-primary cursor-pointer"
-              >
-                Mức cọc yêu cầu ({requiredDeposit.toLocaleString('vi-VN')} đ)
-              </button>
-              <button
-                type="button"
-                onClick={() => setAmount(String(Math.round(expectedTotal * 0.5)))}
-                className="px-2.5 py-1 text-xs bg-surface-container-low hover:bg-surface-container border border-border-grey rounded-md font-medium text-on-surface cursor-pointer"
-              >
-                50% ({Math.round(expectedTotal * 0.5).toLocaleString('vi-VN')} đ)
-              </button>
-              <button
-                type="button"
-                onClick={() => setAmount(String(expectedTotal))}
-                className="px-2.5 py-1 text-xs bg-surface-container-low hover:bg-surface-container border border-border-grey rounded-md font-medium text-on-surface cursor-pointer"
-              >
-                100% ({expectedTotal.toLocaleString('vi-VN')} đ)
-              </button>
+              {(() => {
+                const currentNum = parseFloat(amount) || 0;
+                const valRequired = requiredDeposit;
+                const val50 = Math.round(expectedTotal * 0.5);
+                const val100 = expectedTotal;
+
+                const isRequiredActive = currentNum === valRequired && valRequired > 0;
+                const is50Active = currentNum === val50 && !isRequiredActive && val50 > 0;
+                const is100Active = currentNum === val100 && !isRequiredActive && !is50Active && val100 > 0;
+
+                const getChipClass = (isActive) =>
+                  `px-2.5 py-1 text-xs border rounded-md transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-primary text-white border-primary font-bold shadow-xs'
+                      : 'bg-surface-container-low text-on-surface border-border-grey hover:bg-surface-container font-medium'
+                  }`;
+
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setAmount(String(valRequired))}
+                      className={getChipClass(isRequiredActive)}
+                    >
+                      Mức cọc yêu cầu ({valRequired.toLocaleString('vi-VN')} đ)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAmount(String(val50))}
+                      className={getChipClass(is50Active)}
+                    >
+                      50% ({val50.toLocaleString('vi-VN')} đ)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAmount(String(val100))}
+                      className={getChipClass(is100Active)}
+                    >
+                      100% ({val100.toLocaleString('vi-VN')} đ)
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -231,7 +253,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
               Phương thức thanh toán <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer text-sm font-semibold transition-all ${paymentMethod === 'TRANSFER' ? 'border-primary bg-primary/10 text-primary' : 'border-border-grey bg-surface text-on-surface hover:bg-surface-container-low'}`}>
+              <label className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer text-sm transition-all ${paymentMethod === 'TRANSFER' ? 'border-primary bg-primary text-white font-bold shadow-xs' : 'border-border-grey bg-surface text-on-surface hover:bg-surface-container-low font-medium'}`}>
                 <input
                   type="radio"
                   name="depositMethod"
@@ -242,7 +264,7 @@ const GroupDepositModal = ({ isOpen, onClose, group, onSuccess }) => {
                 />
                 Chuyển khoản
               </label>
-              <label className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer text-sm font-semibold transition-all ${paymentMethod === 'CASH' ? 'border-primary bg-primary/10 text-primary' : 'border-border-grey bg-surface text-on-surface hover:bg-surface-container-low'}`}>
+              <label className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer text-sm transition-all ${paymentMethod === 'CASH' ? 'border-primary bg-primary text-white font-bold shadow-xs' : 'border-border-grey bg-surface text-on-surface hover:bg-surface-container-low font-medium'}`}>
                 <input
                   type="radio"
                   name="depositMethod"
