@@ -26,6 +26,11 @@ public class GroupBookingResponse {
     private boolean depositPaid;
     private BigDecimal depositAmount;
     private BigDecimal requiredDepositAmount;
+    private boolean hasInvoice;
+    private String invoiceStatus;
+    private BigDecimal invoiceTotalAmount;
+    private BigDecimal invoicePaidAmount;
+    private BigDecimal invoiceOutstandingAmount;
     private List<BookingResponse> bookings;
     private LocalDateTime createdAt;
 }

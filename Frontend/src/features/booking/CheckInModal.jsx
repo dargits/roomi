@@ -13,6 +13,7 @@ import {
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import CameraQrScanner from '../../components/common/CameraQrScanner';
 import bookingApi from '../../services/bookingApi';
 import guestApi from '../../services/guestApi';
 import { fileApi } from '../../services/fileApi';
@@ -27,8 +28,6 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
   
   // QR Scan state
   const [isScanning, setIsScanning] = useState(false);
-  const [qrInput, setQrInput] = useState('');
-  const qrInputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && booking) {
@@ -43,16 +42,20 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
       }]);
       setErrorMsg('');
       setIsScanning(false);
-      setQrInput('');
       setPreviewImage(null);
     }
   }, [isOpen, booking]);
 
   useEffect(() => {
-    if (isScanning && qrInputRef.current) {
-      qrInputRef.current.focus();
+    if (!isOpen) {
+      setIsScanning(false);
     }
-  }, [isScanning]);
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setIsScanning(false);
+    onClose();
+  };
 
   const handleAddGuest = () => {
     setGuests([...guests, { name: '', idNumber: '', frontImage: '', backImage: '', isUploadingFront: false, isUploadingBack: false }]);
@@ -113,7 +116,9 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
       const guest = await guestApi.getGuestByIdNumber(idNumber);
       if (guest && guest.name) {
         const updatedGuests = [...currentGuests];
-        updatedGuests[index].name = guest.name;
+        if (!updatedGuests[index].name) {
+          updatedGuests[index].name = guest.name;
+        }
         setGuests(updatedGuests);
         toastSuccess(`Đã tự động điền thông tin khách: ${guest.name}`);
       }
@@ -122,32 +127,55 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
     }
   };
 
-  const handleQrInput = (e) => {
-    const value = e.target.value;
-    setQrInput(value);
+  const handleScanQr = (parsedData, rawText) => {
+    const { idNumber, name } = parsedData;
+    const targetId = idNumber || rawText?.trim() || '';
+    const targetName = name || '';
+
+    if (!targetId && !targetName) return;
+
+    let newGuests = [...guests];
     
-    // Parse VN CCCD QR format: UID|CMND_old|Name|DOB|Gender|Address|Date
-    // Example: 001090123456|123456789|NGUYEN VAN A|01011990|Nam|Ha Noi|01012021
-    if (value.includes('|')) {
-      const parts = value.split('|');
-      if (parts.length >= 3) {
-        const idNumber = parts[0];
-        const name = parts[2];
-        
-        // Check if we have an empty slot, otherwise add new
-        const emptyIndex = guests.findIndex(g => !g.name && !g.idNumber);
-        const newGuests = [...guests];
-        
-        if (emptyIndex !== -1) {
-          newGuests[emptyIndex] = { ...newGuests[emptyIndex], name, idNumber };
-        } else {
-          newGuests.push({ name, idNumber, frontImage: '', backImage: '', isUploadingFront: false, isUploadingBack: false });
-        }
-        
-        setGuests(newGuests);
-        toastSuccess(`Đã quét mã QR cho khách: ${name}`);
-        setQrInput(''); // Reset for next scan
-      }
+    // 1. Tìm dòng khách đã có số CCCD này từ trước
+    let targetIndex = newGuests.findIndex(g => g.idNumber && g.idNumber === targetId);
+
+    // 2. Nếu chưa có, tìm dòng khách trùng tên và chưa có số CCCD
+    if (targetIndex === -1 && targetName) {
+      targetIndex = newGuests.findIndex(g => (!g.idNumber || !g.idNumber.trim()) && g.name && g.name.trim().toLowerCase() === targetName.trim().toLowerCase());
+    }
+
+    // 3. Nếu vẫn chưa có, tìm dòng khách đầu tiên chưa có số CCCD (bao gồm dòng mặc định khởi tạo của trưởng đoàn)
+    if (targetIndex === -1) {
+      targetIndex = newGuests.findIndex(g => !g.idNumber || !g.idNumber.trim());
+    }
+
+    if (targetIndex !== -1) {
+      newGuests[targetIndex] = { 
+        ...newGuests[targetIndex], 
+        idNumber: targetId,
+        name: targetName || newGuests[targetIndex].name || ''
+      };
+    } else {
+      // Nếu tất cả các dòng hiện có đều đã có CCCD -> Thêm khách mới
+      targetIndex = newGuests.length;
+      newGuests.push({ 
+        name: targetName, 
+        idNumber: targetId, 
+        frontImage: '', 
+        backImage: '', 
+        isUploadingFront: false, 
+        isUploadingBack: false 
+      });
+    }
+    
+    setGuests(newGuests);
+    toastSuccess(`Đã nhận diện CCCD: ${targetName ? targetName + ' (' + targetId + ')' : targetId}`);
+
+    // Tự động đóng camera quét ngay khi nhận diện thành công
+    setIsScanning(false);
+
+    if (targetId && /^\d{9,12}$/.test(targetId)) {
+      fetchGuestInfo(targetId, targetIndex, newGuests);
     }
   };
 
@@ -208,7 +236,7 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
   if (!isOpen || !booking) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Nhận phòng & Cập nhật CCCD" maxWidth="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Nhận phòng & Cập nhật CCCD" maxWidth="max-w-2xl">
       <div className="space-y-4">
         {errorMsg && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2">
@@ -246,14 +274,18 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
               <button 
                 type="button" 
                 onClick={() => setIsScanning(!isScanning)}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border transition-colors ${isScanning ? 'bg-primary text-white border-primary' : 'bg-surface-container border-border-grey text-on-surface hover:bg-surface-container-high'}`}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
+                  isScanning 
+                    ? 'bg-primary text-white border-primary shadow-xs' 
+                    : 'bg-surface-container border-border-grey text-on-surface hover:bg-surface-container-high'
+                }`}
               >
-                <IoQrCodeOutline size={14} /> {isScanning ? 'Đang quét QR...' : 'Quét QR CCCD'}
+                <IoQrCodeOutline size={14} /> {isScanning ? 'Đang bật quét QR' : 'Quét QR CCCD'}
               </button>
               <button 
                 type="button" 
                 onClick={handleAddGuest}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors font-medium cursor-pointer"
               >
                 <IoPersonAddOutline size={14} /> Thêm khách
               </button>
@@ -261,21 +293,11 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
           </div>
 
           {isScanning && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg relative overflow-hidden">
-              <div className="text-xs text-blue-800 mb-2 font-medium flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-                </span>
-                Vui lòng đặt con trỏ vào ô bên dưới và sử dụng máy quét mã QR
-              </div>
-              <input
-                ref={qrInputRef}
-                type="text"
-                value={qrInput}
-                onChange={handleQrInput}
-                placeholder="Dữ liệu mã QR sẽ xuất hiện ở đây..."
-                className="w-full px-3 py-2 bg-white border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="mb-4 animate-fade-in">
+              <CameraQrScanner 
+                onScan={handleScanQr}
+                placeholder="Dán hoặc dùng máy quét bắn mã QR CCCD vào đây..."
+                autoStopOnScan={false}
               />
             </div>
           )}
@@ -429,7 +451,7 @@ const CheckInModal = ({ isOpen, onClose, booking, onSuccess }) => {
         )}
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={onClose} disabled={processing} icon={IoCloseOutline}>
+          <Button variant="ghost" onClick={handleClose} disabled={processing} icon={IoCloseOutline}>
             Đóng
           </Button>
           <Button variant="primary" onClick={handleSubmit} disabled={processing} icon={IoCheckmarkCircleOutline}>

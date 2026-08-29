@@ -12,8 +12,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@zxing/library": "^0.23.0",
     "axios": "^1.19.0",
     "date-fns": "^4.4.0",
+    "html5-qrcode": "^2.3.8",
+    "jsqr": "^1.4.0",
     "react": "^18.2.0",
     "react-date-range": "^2.0.1",
     "react-dom": "^18.2.0",
@@ -29,6 +32,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.19",
     "happy-dom": "^20.11.2",
+    "jpeg-js": "^0.4.4",
     "jsdom": "^30.0.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.1",
