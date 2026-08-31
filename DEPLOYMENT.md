@@ -18,11 +18,15 @@ Dự án StayAway được thiết lập **100% bằng Docker & Docker Compose**
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ 2. Push / Merge vào nhánh MAIN                                              │
 │    └─► Chạy CD Pipeline (.github/workflows/cd.yml)                         │
-│        ├─► 🛡️ Bước 1: CI Gate (Chạy toàn bộ Test BE + FE + Build)          │
-│        └─► 🚀 Bước 2: Tự động SSH vào VPS                                   │
+│        ├─► 🛡️ Bước 1: CI Gate (Chạy toàn bộ Test BE & FE)                   │
+│        ├─► 🐳 Bước 2: Build & Push Images lên GitHub Container Registry     │
+│        │        ├─► ghcr.io/dargits/roomi-backend:latest                    │
+│        │        └─► ghcr.io/dargits/roomi-frontend:latest                   │
+│        └─► 🚀 Bước 3: Tự động SSH vào VPS                                   │
 │            ├─► Pull code mới nhất từ nhánh `main`                           │
-│            ├─► `docker compose up -d --build` (Build lại Backend & Frontend)│
-│            └─► ✅ Dịch vụ sẵn sàng tại: http://roomi.website                │
+│            ├─► `docker compose pull` (Kéo Image về siêu tốc < 15s)          │
+│            ├─► `docker compose up -d` (Khởi chạy ngay lập tức)              │
+│            └─► ✅ Dịch vụ sẵn sàng tại: https://roomi.website (Dưới 45s)     │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
