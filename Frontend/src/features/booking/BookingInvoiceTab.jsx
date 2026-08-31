@@ -155,18 +155,25 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
     } else if (method === 'CREDIT_CARD') {
       defaultNote = 'Quẹt thẻ POS';
     }
+    const currentNum = Number(newPayment.amount);
+    const targetAmt = currentNum > 0 && currentNum <= remainingAmount ? currentNum : remainingAmount;
+
     setNewPayment(prev => ({
       ...prev,
       paymentMethod: method,
+      amount: targetAmt > 0 ? targetAmt : '',
       note: defaultNote
     }));
+    if (method === 'CASH') {
+      setReceivedCash(targetAmt > 0 ? targetAmt : '');
+    }
   };
 
   const handleSetAmount = (amt, remAmount) => {
     const validAmt = Math.min(Math.max(0, amt), remAmount);
-    setNewPayment(prev => ({ ...prev, amount: validAmt }));
+    setNewPayment(prev => ({ ...prev, amount: validAmt > 0 ? validAmt : '' }));
     if (newPayment.paymentMethod === 'CASH') {
-      setReceivedCash(validAmt);
+      setReceivedCash(validAmt > 0 ? validAmt : '');
     }
   };
 
@@ -281,6 +288,25 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const rawPaymentsTotal = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const paidAmount = rawPaymentsTotal + effectiveDepositDeduction;
   const remainingAmount = invoice ? Math.max(0, Number(invoice.totalAmount) - paidAmount) : 0;
+
+  // Tự động đồng bộ số tiền thanh toán đầy đủ khi số tiền còn lại cần thanh toán thay đổi
+  // (ví dụ khi áp dụng mã giảm giá, xóa mã giảm giá, dịch vụ thay đổi...)
+  useEffect(() => {
+    if (remainingAmount > 0) {
+      setNewPayment(prev => ({
+        ...prev,
+        amount: remainingAmount
+      }));
+      setReceivedCash(remainingAmount);
+    } else {
+      setNewPayment(prev => ({
+        ...prev,
+        amount: ''
+      }));
+      setReceivedCash('');
+    }
+  }, [remainingAmount]);
+
   const currentPayAmount = parseFloat(newPayment.amount) || 0;
   const currentReceivedCash = parseFloat(receivedCash) || 0;
   const cashChange = currentReceivedCash - currentPayAmount;
@@ -484,7 +510,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             <div className="text-xs">
               <p className="font-bold">Hóa đơn đang chờ phê duyệt giảm giá</p>
               <p className="mt-0.5 text-amber-800">
-                Chức năng thanh toán và trả phòng tạm thời bị khóa cho đến khi Chủ cơ sở (Owner) duyệt hoặc từ chối khoản giảm giá.
+                Chức năng thanh toán và trả phòng tạm thời bị khóa cho đến khi Chủ cơ sở duyệt hoặc từ chối khoản giảm giá.
               </p>
             </div>
           </div>
@@ -579,22 +605,37 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                 Chưa có giao dịch thanh toán nào.
               </div>
             ) : (
-              payments.map((p, idx) => (
-                <div key={p.id || idx} className="flex justify-between items-center p-3 bg-surface-container-low rounded-lg border border-border-grey">
-                  <div>
-                    <div className="font-title-sm text-on-surface flex items-center gap-2">
-                      {p.method === 'CASH' ? 'Tiền mặt' : p.method === 'TRANSFER' ? 'Chuyển khoản' : 'Thẻ POS'}
+              payments.map((p, idx) => {
+                const isRefund = Number(p.amount) < 0;
+                return (
+                  <div
+                    key={p.id || idx}
+                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                      isRefund ? 'bg-red-50/70 border-red-200' : 'bg-surface-container-low border-border-grey'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-title-sm text-on-surface flex items-center gap-2">
+                        {p.method === 'CASH' ? 'Tiền mặt' : p.method === 'TRANSFER' ? 'Chuyển khoản' : 'Thẻ POS'}
+                        {isRefund && (
+                          <span className="text-[11px] bg-red-100 text-red-700 font-semibold px-1.5 py-0.5 rounded">
+                            Hoàn trả
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-on-surface-variant mt-0.5">
+                        {new Date(p.paidAt).toLocaleString('vi-VN')} {p.collectedByName ? `• ${p.collectedByName}` : ''}
+                      </div>
+                      {p.note && <div className="text-xs text-on-surface-variant/80 italic mt-0.5">"{p.note}"</div>}
                     </div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">
-                      {new Date(p.paidAt).toLocaleString('vi-VN')} {p.collectedByName ? `• ${p.collectedByName}` : ''}
+                    <div className={`font-title-md font-bold ${isRefund ? 'text-red-600' : 'text-green-600'}`}>
+                      {isRefund
+                        ? `-${Math.abs(Number(p.amount)).toLocaleString('vi-VN')} đ`
+                        : `+${Number(p.amount)?.toLocaleString('vi-VN')} đ`}
                     </div>
-                    {p.note && <div className="text-xs text-on-surface-variant/80 italic mt-0.5">"{p.note}"</div>}
                   </div>
-                  <div className="font-title-md text-green-600 font-bold">
-                    +{p.amount?.toLocaleString('vi-VN')} đ
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -604,10 +645,10 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               <span className="text-on-surface-variant">Tổng hóa đơn:</span>
               <span className="font-medium">{invoice.totalAmount?.toLocaleString('vi-VN')} đ</span>
             </div>
-            {collectedDepositAmount > 0 && (
+            {effectiveDepositDeduction > 0 && (
               <div className="flex justify-between text-sm text-green-700 font-medium">
                 <span>Đã khấu trừ cọc:</span>
-                <span>-{collectedDepositAmount.toLocaleString('vi-VN')} đ</span>
+                <span>-{effectiveDepositDeduction.toLocaleString('vi-VN')} đ</span>
               </div>
             )}
             <div className="flex justify-between text-sm">
@@ -690,47 +731,67 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
 
                       {/* Nút bấm nhanh số tiền */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSetAmount(remainingAmount, remainingAmount)}
-                          className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-medium cursor-pointer transition-colors"
-                        >
-                          Trả hết (100%)
-                        </button>
-                        {remainingAmount > 100000 && (
-                          <button
-                            type="button"
-                            onClick={() => handleSetAmount(Math.round(remainingAmount / 2), remainingAmount)}
-                            className="px-2.5 py-1 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high border border-border-grey text-xs font-medium cursor-pointer transition-colors"
-                          >
-                            50% ({Math.round(remainingAmount / 2 / 1000).toLocaleString()}k)
-                          </button>
-                        )}
-                        {remainingAmount >= 500000 && (
-                          <button
-                            type="button"
-                            onClick={() => handleSetAmount(500000, remainingAmount)}
-                            className="px-2.5 py-1 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high border border-border-grey text-xs font-medium cursor-pointer transition-colors"
-                          >
-                            500k
-                          </button>
-                        )}
-                        {remainingAmount >= 1000000 && (
-                          <button
-                            type="button"
-                            onClick={() => handleSetAmount(1000000, remainingAmount)}
-                            className="px-2.5 py-1 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high border border-border-grey text-xs font-medium cursor-pointer transition-colors"
-                          >
-                            1 Tr
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleSetAmount(0, remainingAmount)}
-                          className="px-2 py-1 rounded text-xs text-on-surface-variant hover:text-error hover:bg-red-50 cursor-pointer ml-auto transition-colors"
-                        >
-                          Xóa
-                        </button>
+                        {(() => {
+                          const val100 = remainingAmount;
+                          const val50 = Math.round(remainingAmount / 2);
+                          const is100Active = currentPayAmount === val100 && val100 > 0;
+                          const is50Active = currentPayAmount === val50 && !is100Active && val50 > 0;
+                          const is500kActive = currentPayAmount === 500000 && !is100Active && !is50Active;
+                          const is1TrActive = currentPayAmount === 1000000 && !is100Active && !is50Active;
+
+                          const getChipClass = (isActive) =>
+                            `px-2.5 py-1 rounded text-xs border transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-primary text-white border-primary font-bold shadow-xs'
+                                : 'bg-surface-container-low text-on-surface border-border-grey hover:bg-surface-container font-medium'
+                            }`;
+
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleSetAmount(val100, remainingAmount)}
+                                className={getChipClass(is100Active)}
+                              >
+                                Trả hết (100%)
+                              </button>
+                              {remainingAmount > 100000 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetAmount(val50, remainingAmount)}
+                                  className={getChipClass(is50Active)}
+                                >
+                                  50% ({Math.round(val50 / 1000).toLocaleString()}k)
+                                </button>
+                              )}
+                              {remainingAmount >= 500000 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetAmount(500000, remainingAmount)}
+                                  className={getChipClass(is500kActive)}
+                                >
+                                  500k
+                                </button>
+                              )}
+                              {remainingAmount >= 1000000 && val50 !== 1000000 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetAmount(1000000, remainingAmount)}
+                                  className={getChipClass(is1TrActive)}
+                                >
+                                  1 Tr
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleSetAmount(0, remainingAmount)}
+                                className="px-2 py-1 rounded text-xs text-on-surface-variant hover:text-error hover:bg-red-50 cursor-pointer ml-auto transition-colors font-medium"
+                              >
+                                Xóa
+                              </button>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
