@@ -3,6 +3,7 @@ services:
   # DỊCH VỤ 1: BACKEND SPRING BOOT
   # ==========================================
   backend:
+    image: ghcr.io/dargits/roomi-backend:latest
     build:
       context: ./Backend
       dockerfile: Dockerfile
@@ -27,6 +28,7 @@ services:
   # DỊCH VỤ 2: FRONTEND REACT + VITE + NGINX
   # ==========================================
   frontend:
+    image: ghcr.io/dargits/roomi-frontend:latest
     build:
       context: ./Frontend
       dockerfile: Dockerfile
