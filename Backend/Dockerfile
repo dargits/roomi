@@ -4,8 +4,11 @@
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 
-# Copy mã nguồn và đóng gói JAR
+# Copy tệp pom.xml và tải trước các dependency để tận dụng Docker cache
 COPY pom.xml .
+RUN mvn dependency:go-offline -B || true
+
+# Copy mã nguồn và đóng gói JAR
 COPY src ./src
 RUN mvn clean package -DskipTests -B
 
