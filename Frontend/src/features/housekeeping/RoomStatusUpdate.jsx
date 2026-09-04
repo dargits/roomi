@@ -264,39 +264,7 @@ const RoomStatusUpdate = () => {
                   )}
                 </div>
 
-                {canManageStatus && (
-                  <div className="p-3 pt-0">
-                    {room.status === 'DIRTY' && (
-                      <button
-                        onClick={() => handleMarkClean(room)}
-                        disabled={isProcessing}
-                        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
-                      >
-                        {isProcessing ? (
-                          <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <IoCheckmarkCircleOutline size={14} />
-                        )}
-                        Đã dọn xong
-                      </button>
-                    )}
-
-                    {room.status === 'AVAILABLE' && (
-                      <button
-                        onClick={() => handleMarkDirty(room)}
-                        disabled={isProcessing}
-                        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 disabled:opacity-50 rounded-xl text-xs font-medium transition-colors"
-                      >
-                        {isProcessing ? (
-                          <span className="w-3 h-3 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <IoBrushOutline size={13} />
-                        )}
-                        Yêu cầu dọn
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* Tab tổng quan: chỉ xem, không có nút thao tác */}
               </div>
             );
           })}
