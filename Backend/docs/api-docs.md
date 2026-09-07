@@ -748,8 +748,12 @@ GET: moi tai khoan. POST/PUT/DELETE: OWNER.
 
 ## 24. Che thong tin ca nhan theo vai tro (QTN-24)
 
-- `OWNER` va `RECEPTIONIST` xem day du CCCD/CMND/ho chieu.
-- Tat ca vai tro khac, bao gom `ADMIN`, `ACCOUNTANT`, khach hang va request chua dang nhap, chi nhan `****` kem bon ky tu cuoi. Gia tri rong van giu rong va ma dinh danh ngan khong lo ky tu goc.
-- Quy tac ap dung cho JSON guest, booking, khai bao luu tru va cac danh sach long nhau; du lieu luu tru va request tao/cap nhat khong bi thay doi.
+- `OWNER` va `RECEPTIONIST` xem day du thong tin ca nhan: CCCD/CMND/ho chieu, So dien thoai, Email. Ho ten luon hien thi day du.
+- Tat ca vai tro khac, bao gom `ADMIN`, `ACCOUNTANT`, `HOUSEKEEPER`, khach hang va request chua dang nhap, se nhan thong tin da duoc che (mask):
+  - **CCCD / CMND**: Chi nhan `****` kem bon ky tu cuoi (<= 4 ky tu thi hien thi `****`).
+  - **So dien thoai**: Giu 3 so dau (nhan dien nha mang), che cac so o giua bang `*`, giu 3 so cuoi (VD: `0912345678` -> `091****678`, `0834554953` -> `083****953`, `02633888999` -> `026*****999`).
+  - **Email**: Giu ky tu dau cua username, che phan con lai cua username bang `***`, giu nguyen toan bo domain tu `@` (VD: `nguyenvana@gmail.com` -> `n***@gmail.com`).
+  - **Ho ten**: Khong che (hien thi day du).
+- Quy tac ap dung tu dong cho JSON guest, booking, khai bao luu tru, group booking, booking request va cac danh sach long nhau; du lieu luu tru va request tao/cap nhat khong bi thay doi.
 - `GET /api/v1/stay-declarations/export` va `GET /api/v1/data/export?type=guests` ap dung cung quy tac theo vai tro nguoi xuat file.
-- Audit check-in chi ghi nhan viec cap nhat giay to, khong luu lai so dinh danh trong noi dung log.
+- Audit check-in chi ghi nhan viec cap nhat giay to, khong luu lai thong tin ca nhan trong noi dung log.

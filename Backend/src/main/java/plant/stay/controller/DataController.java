@@ -174,9 +174,9 @@ public class DataController {
                     csv.append(String.format("%d,\"%s\",\"%s\",\"%s\",\"%s\",%d\n",
                             g.getId(),
                             g.getName(),
-                            g.getPhone() != null ? g.getPhone() : "",
+                            PersonalDataMasker.displayPhone(g.getPhone(), actor.getRole()),
                             PersonalDataMasker.displayIdentifier(g.getIdNumber(), actor.getRole()),
-                            g.getEmail() != null ? g.getEmail() : "",
+                            PersonalDataMasker.displayEmail(g.getEmail(), actor.getRole()),
                             g.getLoyaltyPoints())));
         } else if ("rooms".equalsIgnoreCase(type)) {
             csv.append("ID,Số phòng,ID Loại phòng,Tên Loại phòng,Tầng,Trạng thái\n");
