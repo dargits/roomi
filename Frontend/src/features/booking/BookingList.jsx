@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   IoArrowForwardOutline, 
@@ -20,15 +20,17 @@ import {
   IoPeopleOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
-import BookingDetailsModal from './BookingDetailsModal';
 import AssignRoomModal from './AssignRoomModal';
 import CheckInModal from './CheckInModal';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
+
+const ITEMS_PER_PAGE = 10;
 
 const BookingList = ({ onEditBooking }) => {
   const { user } = useAuth();
@@ -36,10 +38,10 @@ const BookingList = ({ onEditBooking }) => {
   const isAccountant = user?.role === 'ACCOUNTANT';
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [assigningBooking, setAssigningBooking] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL'); // ALL | TODAY_CHECKIN | TODAY_CHECKOUT | CHECKED_IN
+  const [currentPage, setCurrentPage] = useState(1);
 
   // State cho Modal xác nhận thao tác
   const [actionConfirm, setActionConfirm] = useState({
@@ -96,6 +98,24 @@ const BookingList = ({ onEditBooking }) => {
     if (activeFilter === 'GROUP') return Boolean(b.groupBookingId);
     return true;
   });
+
+  // Reset về trang 1 khi tìm kiếm hoặc đổi filter
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, activeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedBookings = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredBookings.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredBookings, currentPage]);
 
   const filterCounts = {
     TODAY_CHECKIN: bookings.filter(b => b.checkInDate?.slice(0, 10) === todayStr && b.status !== 'CANCELLED' && b.status !== 'NO_SHOW').length,
@@ -194,43 +214,46 @@ const BookingList = ({ onEditBooking }) => {
   };
 
   return (
-    <div className="overflow-x-auto">
-      {/* Thanh search + filter nhanh */}
-      <div className="p-4 border-b border-border-grey bg-surface-container-lowest flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <IoSearchOutline size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-          <input
-            type="text"
-            placeholder="Tìm theo tên khách, SĐT, số phòng..."
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg border border-border-grey bg-surface text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary"
-          />
+    <>
+      <div className="flex flex-col min-h-[580px] justify-between">
+        <div className="flex-1">
+        {/* Thanh search + filter nhanh */}
+        <div className="p-4 border-b border-border-grey bg-surface-container-lowest flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <IoSearchOutline size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+            <input
+              type="text"
+              placeholder="Tìm theo tên khách, SĐT, số phòng..."
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-border-grey bg-surface text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary"
+            />
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {[
+              { key: 'ALL', label: 'Tất cả' },
+              { key: 'TODAY_CHECKIN', label: `Hôm nay nhận${filterCounts.TODAY_CHECKIN ? ` (${filterCounts.TODAY_CHECKIN})` : ''}` },
+              { key: 'TODAY_CHECKOUT', label: `Hôm nay trả${filterCounts.TODAY_CHECKOUT ? ` (${filterCounts.TODAY_CHECKOUT})` : ''}` },
+              { key: 'CHECKED_IN', label: `Đang ở${filterCounts.CHECKED_IN ? ` (${filterCounts.CHECKED_IN})` : ''}` },
+              { key: 'GROUP', label: `Theo đoàn${filterCounts.GROUP ? ` (${filterCounts.GROUP})` : ''}` },
+            ].map(f => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setActiveFilter(f.key)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors cursor-pointer ${
+                  activeFilter === f.key
+                    ? 'bg-primary text-on-primary border-primary'
+                    : 'bg-surface text-on-surface-variant border-border-grey hover:border-primary/50 hover:text-primary'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {[
-            { key: 'ALL', label: 'Tất cả' },
-            { key: 'TODAY_CHECKIN', label: `Hôm nay nhận${filterCounts.TODAY_CHECKIN ? ` (${filterCounts.TODAY_CHECKIN})` : ''}` },
-            { key: 'TODAY_CHECKOUT', label: `Hôm nay trả${filterCounts.TODAY_CHECKOUT ? ` (${filterCounts.TODAY_CHECKOUT})` : ''}` },
-            { key: 'CHECKED_IN', label: `Đang ở${filterCounts.CHECKED_IN ? ` (${filterCounts.CHECKED_IN})` : ''}` },
-            { key: 'GROUP', label: `Theo đoàn${filterCounts.GROUP ? ` (${filterCounts.GROUP})` : ''}` },
-          ].map(f => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setActiveFilter(f.key)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors cursor-pointer ${
-                activeFilter === f.key
-                  ? 'bg-primary text-on-primary border-primary'
-                  : 'bg-surface text-on-surface-variant border-border-grey hover:border-primary/50 hover:text-primary'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
             <th className="p-4 font-semibold">Khách Hàng</th>
@@ -252,7 +275,7 @@ const BookingList = ({ onEditBooking }) => {
               {searchText || activeFilter !== 'ALL' ? 'Không tìm thấy đặt phòng nào phù hợp bộ lọc.' : 'Chưa có đặt phòng nào.'}
             </td></tr>
           ) : (
-            filteredBookings.map(booking => (
+            paginatedBookings.map(booking => (
               <tr key={booking.id} className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
                 <td className="p-4">
                   <Link 
@@ -261,41 +284,43 @@ const BookingList = ({ onEditBooking }) => {
                     className="font-title-sm text-on-surface hover:text-primary transition-colors flex items-center gap-2 font-semibold group-hover:text-primary"
                     title="Bấm để mở trang chi tiết đặt phòng"
                   >
-                    <IoPersonOutline size={16} className="text-primary shrink-0" />
-                    <span>{booking.guestName}</span>
+                    <IoPersonOutline size={16} className="text-on-surface-variant group-hover:text-primary transition-colors" />
+                    {booking.guestName}
                   </Link>
-                  <div className="text-sm text-on-surface-variant mt-1 flex items-center gap-2">
+                  <div className="text-sm text-on-surface-variant flex items-center gap-1 mt-1">
                     <IoCallOutline size={14} /> {booking.guestPhone}
                   </div>
-                  <div className="mt-1.5 flex items-center">
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     {booking.groupBookingId ? (
-                      <Link
-                        to="/manage/bookings/groups"
-                        className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-semibold rounded border border-purple-200 inline-flex items-center gap-1 transition-colors"
-                        title="Bấm để xem hồ sơ đoàn"
-                      >
-                        <IoPeopleOutline size={13} /> ĐOÀN-{String(booking.groupBookingId).padStart(5, '0')}
-                      </Link>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                        <IoPeopleOutline size={12} />
+                        Đoàn #{booking.groupBookingId}
+                      </span>
                     ) : (
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded border border-blue-200">Cá nhân</span>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        Cá nhân
+                      </span>
                     )}
                   </div>
                 </td>
                 <td className="p-4">
-                  <div className="font-title-sm text-on-surface font-medium">{booking.roomTypeName}</div>
-                  {booking.roomCapacity && (
-                    <div className="text-[11px] text-on-surface-variant flex items-center gap-1 mt-0.5">
-                      <IoPersonOutline size={12} /> {booking.roomCapacity} người
+                  <div className="font-semibold text-on-surface">
+                    {booking.roomTypeName || 'Tiêu chuẩn'}
+                  </div>
+                  <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-1">
+                    <IoPersonOutline size={12} /> {booking.guestCount || 1} người
+                  </div>
+                  {booking.roomNumber ? (
+                    <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+                      <IoHomeOutline size={12} />
+                      Phòng {booking.roomNumber}
+                    </div>
+                  ) : (
+                    <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 italic">
+                      <IoHomeOutline size={12} />
+                      Chưa xếp phòng
                     </div>
                   )}
-                  <div className="text-sm text-on-surface-variant mt-1 flex items-center gap-1">
-                    <IoHomeOutline size={14} /> 
-                    {booking.roomNumber ? (
-                      <span className="font-semibold text-primary">Phòng {booking.roomNumber}</span>
-                    ) : (
-                      <span className="italic text-amber-600">Chưa xếp phòng</span>
-                    )}
-                  </div>
                 </td>
                 <td className="p-4">
                   <div className="font-body-sm text-on-surface flex items-center gap-2">
@@ -311,48 +336,58 @@ const BookingList = ({ onEditBooking }) => {
                   </div>
                 </td>
                 <td className="p-4 text-center">
-                  {getStatusBadge(booking.status)}
-                  <div className="text-xs font-medium text-on-surface mt-2">
-                    {formatCurrency(booking.expectedPrice)}
+                  <div className="flex flex-col items-center gap-1">
+                    {getStatusBadge(booking.status)}
+                    {booking.totalAmount != null && (
+                      <span className="text-xs font-semibold text-on-surface mt-1">
+                        {formatCurrency(booking.totalAmount)}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="p-4 text-center">
-                  <div className="flex flex-wrap justify-center items-center gap-1.5">
-                    <Link 
+                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                    <Link
                       to={`/manage/bookings/${booking.id}?tab=info`}
                       state={{ from: '/manage/bookings/list' }}
-                      className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 cursor-pointer shadow-xs inline-flex items-center gap-1"
-                      title="Mở trang chi tiết đặt phòng"
+                      className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 flex items-center gap-1 cursor-pointer shadow-xs"
+                      title="Mở trang chi tiết đặt phòng & Hóa đơn"
                     >
                       <IoDocumentOutline size={14} /> Chi tiết & Hóa đơn
                     </Link>
-                    {!isAccountant && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && !booking.roomId && (
+                    
+                    {/* Nút Xếp phòng: Chỉ hiển thị khi CHƯA xếp phòng và đơn ở trạng thái Mới hoặc Đã xác nhận (Ẩn khi Không đến, Đã hủy, Đang ở, Đã đi) */}
+                    {!isAccountant && !booking.roomNumber && !booking.roomId && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
                       <button 
                         type="button"
-                        onClick={() => setAssigningBooking(booking)} 
+                        onClick={() => setAssigningBooking(booking)}
                         className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-semibold transition-colors border border-indigo-200 cursor-pointer shadow-xs"
                       >
                         Xếp phòng
                       </button>
                     )}
-                    {!isAccountant && booking.status === 'CONFIRMED' && booking.roomId && (
+
+                    {/* Nút Nhận phòng: Bắt buộc ĐÃ XẾP PHÒNG mới được nhận phòng, ẩn khi chưa xếp phòng */}
+                    {!isAccountant && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && Boolean(booking.roomNumber || booking.roomId) && (
                       <button 
                         type="button"
-                        onClick={() => openActionModal('CHECK_IN', booking)} 
-                        className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded text-xs font-semibold transition-colors border border-green-200 cursor-pointer shadow-xs"
+                        onClick={() => openActionModal('CHECK_IN', booking)}
+                        className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded text-xs font-semibold transition-colors border border-green-200 cursor-pointer shadow-xs flex items-center gap-1"
                       >
-                        Nhận phòng
+                        <IoLogInOutline size={14} /> Nhận phòng
                       </button>
                     )}
-                    {!isAccountant && booking.status === 'CONFIRMED' && (
+
+                    {!isAccountant && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
                       <button 
                         type="button"
-                        onClick={() => openActionModal('NO_SHOW', booking)} 
+                        onClick={() => openActionModal('NO_SHOW', booking)}
                         className="px-3 py-1.5 bg-orange-50 text-orange-700 hover:bg-orange-100 rounded text-xs font-semibold transition-colors border border-orange-200 cursor-pointer shadow-xs"
                       >
                         Không đến
                       </button>
                     )}
+
                     {!isAccountant && booking.status === 'CHECKED_IN' && (
                       <button 
                         type="button"
@@ -362,6 +397,7 @@ const BookingList = ({ onEditBooking }) => {
                         Trả phòng
                       </button>
                     )}
+                    
                     {!isAccountant && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
                       <button 
                         type="button"
@@ -377,19 +413,20 @@ const BookingList = ({ onEditBooking }) => {
             ))
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
+    </div>
 
-      {/* Modal Chi tiết & Hóa đơn */}
-      {selectedBookingId && (
-        <BookingDetailsModal 
-          isOpen={true} 
-          onClose={() => {
-            setSelectedBookingId(null);
-            fetchBookings();
-          }} 
-          bookingId={selectedBookingId} 
-        />
+      {filteredBookings.length > ITEMS_PER_PAGE && (
+        <div className="mt-auto">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
       )}
+    </div>
 
       {/* Modal Xếp phòng */}
       {assigningBooking && (
@@ -492,7 +529,7 @@ const BookingList = ({ onEditBooking }) => {
           fetchBookings();
         }}
       />
-    </div>
+    </>
   );
 };
 

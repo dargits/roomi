@@ -16,6 +16,9 @@ import depositApi from '../../services/depositApi';
 import { useToast } from '../../context/ToastContext';
 import Button from '../../components/ui/Button';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 10;
 
 const fmtCurrency = (amount) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount || 0);
@@ -49,6 +52,7 @@ const PendingDepositList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchDeposits();
@@ -76,6 +80,20 @@ const PendingDepositList = () => {
     const matchesStatus = statusFilter === 'ALL' || d.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredDeposits.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedDeposits = filteredDeposits.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const totalCollected = filteredDeposits.reduce((sum, d) => sum + Number(d.collectedAmount || 0), 0);
 
@@ -121,7 +139,7 @@ const PendingDepositList = () => {
       </div>
 
       {/* Table list */}
-      <div className="bg-surface-container-lowest rounded-xl border border-border-grey shadow-xs overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-xl border border-border-grey shadow-xs overflow-hidden min-h-[580px] flex flex-col justify-between">
         {loading ? (
           <LoadingScreen message="Đang tải danh sách khoản cọc chưa quyết toán..." />
         ) : filteredDeposits.length === 0 ? (
@@ -133,7 +151,7 @@ const PendingDepositList = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-1">
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-container-low border-b border-border-grey text-xs uppercase tracking-wider text-on-surface-variant">
                 <tr>
@@ -148,7 +166,7 @@ const PendingDepositList = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-grey/60">
-                {filteredDeposits.map((d) => (
+                {paginatedDeposits.map((d) => (
                   <tr key={d.id} className="hover:bg-surface-container-low/40 transition-colors">
                     <td className="py-3 px-4 font-mono font-medium text-on-surface">#{d.id}</td>
                     <td className="py-3 px-4">
@@ -233,6 +251,16 @@ const PendingDepositList = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {filteredDeposits.length > ITEMS_PER_PAGE && (
+          <div className="mt-auto">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
         )}
       </div>
