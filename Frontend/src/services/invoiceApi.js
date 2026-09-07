@@ -75,6 +75,12 @@ export const invoiceApi = {
     const response = await api.post(`/invoices/${invoiceId}/discount/reject`, payload);
     return response.data;
   },
+
+  /** NCL-05-CN-009: Ghi nhật ký in hoặc kết xuất hóa đơn (QTN-10) */
+  logPrint: async (invoiceId, actionType = 'PRINT') => {
+    const response = await api.post(`/invoices/${invoiceId}/log-print`, null, { params: { actionType } });
+    return response.data;
+  },
 };
 
 export default invoiceApi;

@@ -37,6 +37,7 @@ public class ReportController {
     private final RoomRepository roomRepository;
     private final InvoiceRepository invoiceRepository;
     private final DepositRepository depositRepository;
+    private final plant.stay.repository.PaymentRepository paymentRepository;
     private final AuthUtil authUtil;
 
     /**
@@ -57,6 +58,17 @@ public class ReportController {
             return b.getExpectedPrice();
         }
         return BigDecimal.ZERO;
+    }
+
+    private BigDecimal getBookingPaidAmount(Booking b) {
+        if (b == null) return BigDecimal.ZERO;
+        Optional<Invoice> invOpt = invoiceRepository.findByBookingId(b.getId());
+        if (invOpt.isPresent()) {
+            return paymentRepository.findByInvoiceId(invOpt.get().getId()).stream()
+                    .map(plant.stay.model.Payment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+        return getEffectiveRevenue(b);
     }
 
     // ========================
@@ -85,6 +97,10 @@ public class ReportController {
         BigDecimal monthRevenue = monthBookings.stream()
                 .map(this::getEffectiveRevenue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal monthCollected = monthBookings.stream()
+                .map(this::getBookingPaidAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal monthDebt = monthRevenue.subtract(monthCollected).max(BigDecimal.ZERO);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalRooms", totalRooms);
@@ -96,6 +112,8 @@ public class ReportController {
         result.put("todayCheckOuts", todayCheckOuts);
         result.put("todayBookings", todayBookings.size());
         result.put("monthRevenue", monthRevenue);
+        result.put("monthCollectedRevenue", monthCollected);
+        result.put("monthDebtRevenue", monthDebt);
 
         return ResponseEntity.ok(result);
     }
@@ -115,6 +133,10 @@ public class ReportController {
         BigDecimal totalRevenue = bookings.stream()
                 .map(this::getEffectiveRevenue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCollected = bookings.stream()
+                .map(this::getBookingPaidAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalDebt = totalRevenue.subtract(totalCollected).max(BigDecimal.ZERO);
         int bookingCount = bookings.size();
 
         // Tạo rows chi tiết theo ngày hoặc tháng
@@ -130,10 +152,16 @@ public class ReportController {
                         BigDecimal rev = e.getValue().stream()
                                 .map(this::getEffectiveRevenue)
                                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        BigDecimal collected = e.getValue().stream()
+                                .map(this::getBookingPaidAmount)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
                         Map<String, Object> row = new LinkedHashMap<>();
                         row.put("period", e.getKey());
                         row.put("bookings", e.getValue().size());
                         row.put("revenue", rev);
+                        row.put("collectedRevenue", collected);
+                        row.put("debtRevenue", debt);
                         return row;
                     })
                     .collect(Collectors.toList());
@@ -147,16 +175,22 @@ public class ReportController {
                         BigDecimal rev = e.getValue().stream()
                                 .map(this::getEffectiveRevenue)
                                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        BigDecimal collected = e.getValue().stream()
+                                .map(this::getBookingPaidAmount)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
                         Map<String, Object> row = new LinkedHashMap<>();
                         row.put("period", e.getKey().toString());
                         row.put("bookings", e.getValue().size());
                         row.put("revenue", rev);
+                        row.put("collectedRevenue", collected);
+                        row.put("debtRevenue", debt);
                         return row;
                     })
                     .collect(Collectors.toList());
         }
 
-        // Tính phí hủy/cọ phạt trong kỳ (FORFEITED và PARTIALLY_REFUNDED)
+        // Tính phí hủy/cọc phạt trong kỳ (FORFEITED và PARTIALLY_REFUNDED)
         java.util.List<plant.stay.model.DepositStatus> penaltyStatuses =
                 java.util.List.of(DepositStatus.FORFEITED, DepositStatus.PARTIALLY_REFUNDED);
         java.util.List<plant.stay.model.Deposit> penaltyDeposits =
@@ -171,6 +205,8 @@ public class ReportController {
         result.put("to", to.toString());
         result.put("groupBy", groupBy);
         result.put("totalRevenue", totalRevenue);
+        result.put("collectedRevenue", totalCollected);
+        result.put("debtRevenue", totalDebt);
         result.put("penaltyRevenue", penaltyRevenue);
         result.put("grandTotal", grandTotal);
         result.put("bookingCount", bookingCount);

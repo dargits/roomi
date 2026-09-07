@@ -9,6 +9,14 @@ import LoadingScreen from '../components/common/LoadingScreen';
  * - Chưa đăng nhập: redirect về /login
  * - Đã đăng nhập: render children (Outlet)
  */
+const ROLE_LABELS = {
+  OWNER: 'Chủ sở hữu',
+  ADMIN: 'Quản trị viên',
+  RECEPTIONIST: 'Lễ tân',
+  HOUSEKEEPER: 'Buồng phòng',
+  ACCOUNTANT: 'Kế toán'
+};
+
 const ProtectedRoute = ({ allowedRoles }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -26,6 +34,11 @@ const ProtectedRoute = ({ allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Bắt buộc đổi mật khẩu tạm trước khi vào bất kỳ màn hình nghiệp vụ nào (NCL-01-CN-005)
+  if (user?.mustChangePassword) {
+    return <Navigate to="/login" replace />;
+  }
+
   // Nếu có giới hạn role, kiểm tra quyền
   if (allowedRoles && allowedRoles.length > 0) {
     if (!allowedRoles.includes(user?.role)) {
@@ -37,7 +50,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
             </div>
             <h2 className="font-headline-md text-on-surface mb-2">Không có quyền truy cập</h2>
             <p className="font-body-md text-on-surface-variant">
-              Tài khoản của bạn ({user?.role}) không có quyền truy cập trang này.
+              Tài khoản của bạn ({ROLE_LABELS[user?.role] || user?.role}) không có quyền truy cập trang này.
             </p>
           </div>
         </div>

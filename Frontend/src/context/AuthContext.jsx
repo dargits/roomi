@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
         }
         setUser(data.user);
         setIsAuthenticated(true);
-        return { success: true };
+        return { success: true, user: data.user };
       } else {
         return { success: false, message: 'Phản hồi không chứa token' };
       }
@@ -46,6 +46,16 @@ export const AuthProvider = ({ children }) => {
       console.error('Login error:', error);
       const message = error.response?.data?.message || error.message || 'Lỗi kết nối đến máy chủ';
       return { success: false, message };
+    }
+  };
+
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+    if (localStorage.getItem('staygo_user')) {
+      localStorage.setItem('staygo_user', JSON.stringify(updatedUser));
+    }
+    if (sessionStorage.getItem('staygo_user')) {
+      sessionStorage.setItem('staygo_user', JSON.stringify(updatedUser));
     }
   };
 
@@ -59,7 +69,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
