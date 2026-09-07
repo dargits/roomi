@@ -32,11 +32,11 @@ public interface GroupBookingService {
     GroupCancelPreviewResponse previewCancelPartial(Long groupBookingId, List<Long> bookingIds);
 
     /**
-     * Trả phòng hàng loạt cho đoàn: checkout tất cả phòng CHECKED_IN trong đoàn.
-     * Chỉ thực hiện được khi tất cả phòng đã CHECKED_IN và hóa đơn đoàn đã được thanh toán.
-     * Trả về danh sách kết quả checkout từng phòng.
+     * Trả phòng hàng loạt cho đoàn (NCL-13-CN-006):
+     * Liệt kê chi tiết từng phòng, phụ thu, thanh toán và cho phép bỏ chọn phòng ở thêm.
      */
-    List<BookingResponse> bulkCheckOut(Long groupBookingId, User actor);
+    plant.stay.dto.response.BulkCheckOutSummaryResponse getBulkCheckOutSummary(Long groupBookingId);
+    plant.stay.dto.response.BulkCheckOutResultResponse bulkCheckOut(Long groupBookingId, plant.stay.dto.request.BulkCheckOutRequest req, User actor);
 
     /**
      * P0: Ghi nhận thu tiền đặt cọc cho đoàn.

@@ -21,8 +21,11 @@ import {
   IoShieldCheckmarkOutline,
   IoCloudDownloadOutline,
   IoLockClosedOutline,
-  IoTimeOutline
+  IoTimeOutline,
+  IoKeyOutline
 } from 'react-icons/io5';
+import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
+import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
 
 /**
  * Cấu hình nhóm menu theo role.
@@ -92,7 +95,7 @@ const NAV_GROUPS = [
 ];
 
 const ROLE_LABEL = {
-  OWNER:        'Chủ cơ sở',
+  OWNER:        'Chủ sở hữu',
   RECEPTIONIST: 'Lễ tân',
   HOUSEKEEPER:  'Buồng phòng',
   ACCOUNTANT:   'Kế toán',
@@ -102,7 +105,7 @@ const ROLE_LABEL = {
 /**
  * Dropdown menu item cho một nhóm.
  */
-const NavGroup = ({ group, role, location }) => {
+const NavGroup = ({ group, role, location, pendingResetCount }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -159,6 +162,11 @@ const NavGroup = ({ group, role, location }) => {
       >
         <GroupIcon size={16} className={isActive ? 'text-primary' : 'text-on-surface-variant'} />
         <span>{group.label}</span>
+        {group.id === 'system' && pendingResetCount > 0 && (
+          <span className="px-1.5 py-0.2 text-[10px] font-extrabold bg-red-600 text-white rounded-full animate-pulse" title={`Có ${pendingResetCount} yêu cầu cấp lại mật khẩu`}>
+            {pendingResetCount}
+          </span>
+        )}
         <IoChevronDownOutline
           size={13}
           className={`transition-transform duration-200 ml-0.5 ${open ? 'rotate-180 text-primary' : 'opacity-60'}`}
@@ -177,6 +185,7 @@ const NavGroup = ({ group, role, location }) => {
             {visibleItems.map(item => {
               const active = location.pathname === item.path;
               const ItemIcon = item.icon;
+              const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
               return (
                 <Link
                   key={item.path}
@@ -194,7 +203,12 @@ const NavGroup = ({ group, role, location }) => {
                     )}
                     <span className="truncate">{item.label}</span>
                   </div>
-                  {active && <span className="w-1.5 h-1.5 bg-white ml-2 flex-shrink-0" />}
+                  {isStaffReset && (
+                    <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 rounded-full border border-red-200 shrink-0">
+                      {pendingResetCount} chờ cấp
+                    </span>
+                  )}
+                  {active && !isStaffReset && <span className="w-1.5 h-1.5 bg-white ml-2 flex-shrink-0" />}
                 </Link>
               );
             })}
@@ -210,6 +224,8 @@ const DashboardLayout = () => {
   const { hotelSetting } = useAppConfig();
   const navigate         = useNavigate();
   const location         = useLocation();
+  const { pendingCount: pendingResetCount } = usePasswordResetNotification();
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -253,13 +269,30 @@ const DashboardLayout = () => {
                   group={group}
                   role={user?.role}
                   location={location}
+                  pendingResetCount={pendingResetCount}
                 />
               ))}
             </div>
           </div>
 
-          {/* Right: User profile + Logout */}
+          {/* Right: Notification + User profile + Logout */}
           <div className="flex items-center gap-2">
+            {/* Quick Password Reset Alert Button for Admin/Owner */}
+            {pendingResetCount > 0 && (user?.role === 'ADMIN' || user?.role === 'OWNER') && (
+              <button
+                type="button"
+                onClick={() => setShowPasswordResetModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-all text-xs font-semibold cursor-pointer shadow-xs animate-fade-in"
+                title={`Có ${pendingResetCount} yêu cầu cấp lại mật khẩu từ nhân viên đang chờ duyệt (Tại: Hệ thống → Nhân sự)`}
+              >
+                <IoKeyOutline size={16} className="text-amber-700 animate-bounce shrink-0" />
+                <span className="hidden sm:inline">Cấp lại MK:</span>
+                <span className="px-1.5 py-0.2 bg-red-600 text-white rounded-full text-[10px] font-bold">
+                  {pendingResetCount}
+                </span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => navigate('/manage/profile')}
@@ -294,6 +327,12 @@ const DashboardLayout = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Modal Quản trị viên cấp lại mật khẩu tạm */}
+      <PasswordResetManagementModal
+        isOpen={showPasswordResetModal}
+        onClose={() => setShowPasswordResetModal(false)}
+      />
     </div>
   );
 };

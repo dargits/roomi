@@ -79,7 +79,7 @@ describe('BookingList Component', () => {
 
     // Check Vietnamese status badges
     expect(screen.getByText('Đang ở')).toBeInTheDocument();
-    expect(screen.getByText('Đã xác nhận')).toBeInTheDocument();
+    expect(screen.getAllByText('Đã xác nhận').length).toBeGreaterThanOrEqual(1);
 
     // Check room numbers and unassigned tags
     expect(screen.getByText('Phòng 401')).toBeInTheDocument();

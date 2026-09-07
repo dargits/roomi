@@ -21,5 +21,8 @@ public class BookingRequest {
     @NotNull(message = "Ngày trả phòng không được để trống")
     private LocalDate checkOutDate;
 
+    private Integer guestCount;
+    private Integer childCount;
+
     private String note;
 }

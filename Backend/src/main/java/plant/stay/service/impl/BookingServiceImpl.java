@@ -43,11 +43,56 @@ public class BookingServiceImpl implements BookingService {
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final DepositPolicyRepository depositPolicyRepository;
+    private final plant.stay.service.PricingService pricingService;
 
     @Override
     public List<BookingResponse> getAll() {
         return bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id"))
                 .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<BookingResponse> search(String query, BookingStatus status, LocalDate fromDate, LocalDate toDate) {
+        if (query != null && !query.trim().isEmpty() && query.trim().length() < 3) {
+            throw new IllegalArgumentException("Từ khóa tìm kiếm phải có ít nhất 3 ký tự");
+        }
+
+        List<Booking> all = bookingRepository.findAll();
+        LocalDate today = LocalDate.now();
+
+        return all.stream()
+                .filter(b -> {
+                    if (query != null && !query.trim().isEmpty()) {
+                        String q = query.trim().toLowerCase();
+                        boolean matchId = String.valueOf(b.getId()).contains(q);
+                        boolean matchName = b.getGuest() != null && b.getGuest().getName() != null 
+                                && b.getGuest().getName().toLowerCase().contains(q);
+                        boolean matchPhone = b.getGuest() != null && b.getGuest().getPhone() != null 
+                                && b.getGuest().getPhone().contains(q);
+                        if (!matchId && !matchName && !matchPhone) {
+                            return false;
+                        }
+                    }
+                    if (status != null && b.getStatus() != status) {
+                        return false;
+                    }
+                    if (fromDate != null && b.getCheckInDate() != null && b.getCheckInDate().isBefore(fromDate)) {
+                        return false;
+                    }
+                    if (toDate != null && b.getCheckInDate() != null && b.getCheckInDate().isAfter(toDate)) {
+                        return false;
+                    }
+                    return true;
+                })
+                .sorted((b1, b2) -> {
+                    long d1 = b1.getCheckInDate() != null ? Math.abs(ChronoUnit.DAYS.between(b1.getCheckInDate(), today)) : Long.MAX_VALUE;
+                    long d2 = b2.getCheckInDate() != null ? Math.abs(ChronoUnit.DAYS.between(b2.getCheckInDate(), today)) : Long.MAX_VALUE;
+                    int diff = Long.compare(d1, d2);
+                    if (diff != 0) return diff;
+                    return Long.compare(b2.getId() != null ? b2.getId() : 0L, b1.getId() != null ? b1.getId() : 0L);
+                })
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -90,7 +135,20 @@ public class BookingServiceImpl implements BookingService {
             checkRoomConflict(room.getId(), request.getCheckInDate(), request.getCheckOutDate(), -1L);
         }
 
-        BigDecimal expectedPrice = calculatePrice(roomType, request.getCheckInDate(), request.getCheckOutDate());
+        int guestCount = request.getGuestCount() != null ? request.getGuestCount() : (roomType.getStandardCapacity() != null ? roomType.getStandardCapacity() : 2);
+        int maxCap = roomType.getMaxCapacity() != null ? roomType.getMaxCapacity() : 2;
+        if (guestCount > maxCap) {
+            throw new IllegalArgumentException("Số khách (" + guestCount + ") vượt quá sức chứa tối đa của phòng (" + maxCap + " người). Vui lòng chọn loại phòng lớn hơn.");
+        }
+
+        var breakdown = pricingService.calculateBreakdown(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate(), guestCount, request.getChildCount());
+        BigDecimal expectedPrice = breakdown.getGrandTotal();
+
+        String finalNote = request.getNote();
+        if (breakdown.getExtraGuests() > 0) {
+            String surchargeNote = "[Phụ thu thêm " + breakdown.getExtraGuests() + " người: " + breakdown.getTotalExtraCharge().toPlainString() + " đ]";
+            finalNote = (finalNote != null && !finalNote.isBlank()) ? (finalNote + " " + surchargeNote) : surchargeNote;
+        }
 
         Booking booking = Booking.builder()
                 .guest(guest)
@@ -101,7 +159,7 @@ public class BookingServiceImpl implements BookingService {
                 .status(BookingStatus.NEW)
                 .expectedPrice(expectedPrice)
                 .actualPrice(expectedPrice)
-                .note(request.getNote())
+                .note(finalNote)
                 .createdBy(actor)
                 .build();
         booking = bookingRepository.save(booking);
@@ -287,6 +345,12 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getRoom() == null) {
             throw new IllegalArgumentException("Phải gán phòng trước khi nhận phòng");
         }
+        if (booking.getRoom().getStatus() != RoomStatus.AVAILABLE) {
+            String stDesc = booking.getRoom().getStatus() == RoomStatus.DIRTY ? "Cần dọn dẹp" :
+                    (booking.getRoom().getStatus() == RoomStatus.INSPECTING ? "Chờ kiểm tra" :
+                    (booking.getRoom().getStatus() == RoomStatus.MAINTENANCE ? "Đang bảo trì" : "Đang có khách"));
+            throw new IllegalArgumentException("Phòng " + booking.getRoom().getRoomNumber() + " đang ở trạng thái '" + stDesc + "', chưa sẵn sàng đón khách.");
+        }
 
         List<Guest> stayingGuests = new java.util.ArrayList<>();
         if (req != null && req.getGuests() != null) {
@@ -408,14 +472,70 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
-    public List<BookingResponse> bulkCheckIn(plant.stay.dto.request.BulkCheckInRequest req, User actor) {
-        List<BookingResponse> responses = new java.util.ArrayList<>();
-        for (plant.stay.dto.request.BulkCheckInRoomRequest roomReq : req.getRooms()) {
-            plant.stay.dto.request.CheckInRequest checkInReq = new plant.stay.dto.request.CheckInRequest();
-            checkInReq.setGuests(roomReq.getGuests());
-            responses.add(checkIn(roomReq.getBookingId(), checkInReq, actor));
+    public plant.stay.dto.response.BulkCheckInResultResponse bulkCheckIn(plant.stay.dto.request.BulkCheckInRequest req, User actor) {
+        plant.stay.dto.response.BulkCheckInResultResponse result = new plant.stay.dto.response.BulkCheckInResultResponse();
+        if (req == null || req.getRooms() == null || req.getRooms().isEmpty()) {
+            return result;
         }
-        return responses;
+
+        result.setTotalRequested(req.getRooms().size());
+
+        for (plant.stay.dto.request.BulkCheckInRoomRequest roomReq : req.getRooms()) {
+            Long bId = roomReq.getBookingId();
+            try {
+                Booking booking = bookingRepository.findById(bId).orElse(null);
+                if (booking == null) {
+                    result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(bId, "N/A", "Không tìm thấy đặt phòng #" + bId));
+                    continue;
+                }
+                String roomNum = booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "Chưa gán";
+                if (booking.getStatus() != BookingStatus.CONFIRMED) {
+                    result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(bId, roomNum, "Đặt phòng không ở trạng thái CONFIRMED (hiện tại: " + booking.getStatus() + ")"));
+                    continue;
+                }
+                if (booking.getRoom() == null) {
+                    result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(bId, "Chưa gán", "Đặt phòng chưa được gán số phòng"));
+                    continue;
+                }
+                if (booking.getRoom().getStatus() != RoomStatus.AVAILABLE) {
+                    String stDesc = booking.getRoom().getStatus() == RoomStatus.DIRTY ? "Cần dọn dẹp" :
+                            (booking.getRoom().getStatus() == RoomStatus.INSPECTING ? "Chờ kiểm tra" :
+                            (booking.getRoom().getStatus() == RoomStatus.MAINTENANCE ? "Đang bảo trì" : "Đang có khách"));
+                    result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(bId, roomNum, "Phòng " + roomNum + " đang ở trạng thái '" + stDesc + "', chưa sẵn sàng đón khách. Hãy giục buồng phòng."));
+                    continue;
+                }
+
+                plant.stay.dto.request.CheckInRequest checkInReq = new plant.stay.dto.request.CheckInRequest();
+                checkInReq.setGuests(roomReq.getGuests());
+                BookingResponse res = checkIn(bId, checkInReq, actor);
+                result.getSuccessfulRooms().add(res);
+
+                // Kiểm tra giấy tờ tùy thân CCCD
+                boolean hasIdDoc = false;
+                if (roomReq.getGuests() != null) {
+                    for (var g : roomReq.getGuests()) {
+                        if (g.getIdNumber() != null && !g.getIdNumber().trim().isEmpty()) {
+                            hasIdDoc = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasIdDoc && booking.getGuest() != null && booking.getGuest().getIdNumber() != null && !booking.getGuest().getIdNumber().trim().isEmpty()) {
+                    hasIdDoc = true;
+                }
+                if (!hasIdDoc) {
+                    result.setMissingDocumentRoomCount(result.getMissingDocumentRoomCount() + 1);
+                }
+            } catch (Exception e) {
+                result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(bId, "Lỗi", e.getMessage()));
+            }
+        }
+
+        auditLogService.log("Booking", 0L, "BULK_CHECK_IN", actor,
+                "Nhận phòng hàng loạt cho đoàn: Thành công " + result.getSuccessfulRooms().size() + "/" + result.getTotalRequested() + " phòng" +
+                (result.getMissingDocumentRoomCount() > 0 ? " (" + result.getMissingDocumentRoomCount() + " phòng chưa đủ CCCD)" : ""));
+
+        return result;
     }
 
     @Override
@@ -1068,26 +1188,12 @@ public class BookingServiceImpl implements BookingService {
         }
     }
 
-    // Tính giá dự kiến: ưu tiên giá theo mùa, fallback về giá cơ bản
+    // Tính giá dự kiến theo thứ tự ưu tiên: Lễ > Cuối tuần > Mùa > Cơ bản (NCL-02-CN-006)
     private BigDecimal calculatePrice(RoomType roomType, LocalDate checkIn, LocalDate checkOut) {
         if (roomType == null || checkIn == null || checkOut == null) {
             return BigDecimal.ZERO;
         }
-        long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
-        if (nights <= 0) {
-            nights = 1;
-        }
-        BigDecimal total = BigDecimal.ZERO;
-        for (long i = 0; i < nights; i++) {
-            LocalDate night = checkIn.plusDays(i);
-            List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(roomType.getId(), night);
-            if (!seasonal.isEmpty()) {
-                total = total.add(((plant.stay.model.SeasonalPrice) seasonal.get(0)).getPricePerNight());
-            } else if (roomType.getBasePrice() != null) {
-                total = total.add(roomType.getBasePrice());
-            }
-        }
-        return total;
+        return pricingService.calculateTotalPrice(roomType, checkIn, checkOut);
     }
 
     private Booking findById(Long id) {
@@ -1096,6 +1202,14 @@ public class BookingServiceImpl implements BookingService {
     }
 
     public BookingResponse toResponse(Booking b) {
+        String paymentStatus = "UNPAID";
+        try {
+            Invoice inv = invoiceRepository.findInvoicesCoveringBooking(b.getId()).stream().findFirst().orElse(null);
+            if (inv != null && inv.getStatus() != null) {
+                paymentStatus = inv.getStatus().name();
+            }
+        } catch (Exception ignored) {}
+
         return BookingResponse.builder()
                 .id(b.getId())
                 .guestId(b.getGuest().getId())
@@ -1118,6 +1232,8 @@ public class BookingServiceImpl implements BookingService {
                 .guestIdNumber(b.getGuest().getIdNumber())
                 .createdAt(b.getCreatedAt())
                 .groupBookingId(b.getGroupBooking() != null ? b.getGroupBooking().getId() : null)
+                .paymentStatus(paymentStatus)
+                .roomStatus(b.getRoom() != null && b.getRoom().getStatus() != null ? b.getRoom().getStatus().name() : null)
                 .build();
     }
 }

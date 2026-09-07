@@ -13,6 +13,7 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import BulkCheckInModal from './BulkCheckInModal';
+import BulkCheckOutModal from './BulkCheckOutModal';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import GroupRoomAssignmentGrid from './GroupRoomAssignmentGrid';
 import GroupDepositModal from './GroupDepositModal';
@@ -1275,94 +1276,15 @@ const GroupBookingList = ({ refreshKey }) => {
         />
       )}
 
-      {/* === MODAL 4: XÁC NHẬN TRẢ PHÒNG ĐOÀN (BULK CHECK-OUT) === */}
-      <Modal
+      {/* === MODAL 4: TRẢ PHÒNG HÀNG LOẠT VÀ CHỐT HÓA ĐƠN ĐOÀN (NCL-13-CN-006) === */}
+      <BulkCheckOutModal
         isOpen={Boolean(bulkCheckOutGroup)}
-        onClose={() => {
-          if (!bulkCheckOutLoading) {
-            setBulkCheckOutGroup(null);
-            setBulkCheckOutError('');
-          }
+        onClose={() => setBulkCheckOutGroup(null)}
+        group={bulkCheckOutGroup}
+        onSuccess={() => {
+          loadGroups();
         }}
-        title={bulkCheckOutGroup ? `Trả phòng — ĐOÀN-${String(bulkCheckOutGroup.id).padStart(5, '0')} (${bulkCheckOutGroup.representativeName})` : ''}
-        maxWidth="max-w-xl"
-      >
-        <div className="space-y-4">
-          {bulkCheckOutError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs space-y-2">
-              <div className="font-semibold flex items-center gap-1">
-                <IoWarningOutline size={16} /> Không thể trả phòng:
-              </div>
-              <div>{bulkCheckOutError}</div>
-              {bulkCheckOutError.includes('hóa đơn') && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  icon={IoDocumentOutline}
-                  className="mt-1 border-emerald-400 text-emerald-800 bg-white"
-                  onClick={() => {
-                    const g = bulkCheckOutGroup;
-                    setBulkCheckOutGroup(null);
-                    openInvoices(g);
-                  }}
-                >
-                  Mở Gộp hóa đơn để thanh toán ngay
-                </Button>
-              )}
-            </div>
-          )}
-
-          <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-xl text-xs text-purple-950 space-y-2">
-            <div className="font-bold text-sm text-purple-900 flex items-center gap-1.5">
-              <IoLogOutOutline size={18} /> Trả phòng nhanh toàn bộ đoàn
-            </div>
-            <div>
-              Hệ thống sẽ thực hiện trả phòng cho tất cả các phòng đang ở trong đoàn và chuyển trạng thái phòng sang cần dọn dẹp.
-            </div>
-            <div className="font-semibold text-purple-800">
-              Yêu cầu: Hóa đơn gộp của đoàn đã được tạo và thanh toán đầy đủ.
-            </div>
-          </div>
-
-          {bulkCheckOutGroup && (
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                Danh sách phòng sẽ trả ({bulkCheckOutGroup.bookings?.filter(b => b.status === 'CHECKED_IN').length || 0} phòng)
-              </div>
-              <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-border-grey p-2 bg-surface">
-                {bulkCheckOutGroup.bookings?.filter(b => b.status === 'CHECKED_IN').map(b => (
-                  <div key={b.id} className="flex items-center justify-between p-2 rounded bg-surface-container-low text-xs">
-                    <span className="font-bold text-primary">Phòng {b.roomNumber || `#${b.id}`} ({b.roomTypeName})</span>
-                    <span className="text-on-surface-variant">{b.guestName || bulkCheckOutGroup.representativeName}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-            <Button
-              variant="ghost"
-              disabled={bulkCheckOutLoading}
-              onClick={() => {
-                setBulkCheckOutGroup(null);
-                setBulkCheckOutError('');
-              }}
-            >
-              Hủy
-            </Button>
-            <Button
-              variant="primary"
-              icon={IoLogOutOutline}
-              isLoading={bulkCheckOutLoading}
-              className="bg-purple-700 hover:bg-purple-800 text-white font-semibold"
-              onClick={handleBulkCheckOut}
-            >
-              Xác nhận trả phòng tất cả
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      />
     </>
   );
 };
