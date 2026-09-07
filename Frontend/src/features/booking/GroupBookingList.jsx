@@ -22,8 +22,9 @@ import { formatDate } from '../../utils/formatDate';
 import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
 import DiscountFormModal from '../invoice/DiscountFormModal';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
 
-
+const ITEMS_PER_PAGE = 10;
 
 const STATUS_STYLES = {
   NEW: 'bg-amber-100 text-amber-800',
@@ -45,6 +46,7 @@ const GroupBookingList = ({ refreshKey }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (paramGroupId) {
@@ -393,11 +395,23 @@ const GroupBookingList = ({ refreshKey }) => {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(groups.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedGroups = groups.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   if (loading) return <LoadingScreen message="Đang tải hồ sơ đoàn..." />;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
+    <>
+      <div className="flex flex-col min-h-[580px] justify-between">
+        <div className="overflow-x-auto flex-1">
+          <table className="w-full text-left border-collapse">
         <thead><tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
           <th className="p-4 font-semibold">Mã đoàn</th>
           <th className="p-4 font-semibold">Người đại diện</th>
@@ -411,7 +425,7 @@ const GroupBookingList = ({ refreshKey }) => {
         <tbody>
           {groups.length === 0 ? (
             <tr><td colSpan="8" className="p-10 text-center text-on-surface-variant">Chưa có hồ sơ đặt phòng đoàn.</td></tr>
-          ) : groups.map((group) => {
+          ) : paginatedGroups.map((group) => {
             const isExpanded = expandedGroupIds.has(group.id);
             return (
               <React.Fragment key={group.id}>
@@ -730,6 +744,19 @@ const GroupBookingList = ({ refreshKey }) => {
           })}
         </tbody>
       </table>
+    </div>
+
+    {groups.length > ITEMS_PER_PAGE && (
+      <div className="mt-auto">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </div>
+    )}
+  </div>
+
       {/* === MODAL 1: GÁN PHÒNG (Sơ đồ trực quan & Gợi ý hệ thống) === */}
       <Modal
         isOpen={Boolean(assignmentState.group)}
@@ -1336,7 +1363,7 @@ const GroupBookingList = ({ refreshKey }) => {
           </div>
         </div>
       </Modal>
-    </div>
+    </>
   );
 };
 
