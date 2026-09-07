@@ -501,6 +501,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CHECKED_OUT);
+    booking.setCheckedOutAt(LocalDateTime.now());
         if (invoice != null && invoice.getMode() == InvoiceMode.COMBINED) {
             BigDecimal serviceAmount = bookingServiceUsageRepository.findByBookingId(bookingId).stream()
                     .map(usage -> usage.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(usage.getQuantity())))
