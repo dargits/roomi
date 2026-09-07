@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { 
   IoArrowForwardOutline, 
   IoCallOutline, 
@@ -18,6 +18,9 @@ import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import PublicGroupBookingRequestList from './PublicGroupBookingRequestList';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 10;
 
 const BookingRequestList = () => {
   const { success: toastSuccess } = useToast();
@@ -25,6 +28,7 @@ const BookingRequestList = () => {
   const activeTab = searchParams.get('sub') || 'ROOM';
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (!searchParams.get('sub')) {
@@ -65,6 +69,16 @@ const BookingRequestList = () => {
       setLoading(false);
     }
   };
+
+  const totalPages = Math.max(1, Math.ceil(requests.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedRequests = requests.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const openApproveModal = (req) => {
     setErrorMsg('');
@@ -142,7 +156,8 @@ const BookingRequestList = () => {
 
       {activeTab === 'ROOM' && (
         <>
-          <div className="overflow-x-auto p-0">
+          <div className="flex flex-col min-h-[580px] justify-between">
+          <div className="overflow-x-auto p-0 flex-1">
             <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
@@ -163,7 +178,7 @@ const BookingRequestList = () => {
           ) : requests.length === 0 ? (
             <tr><td colSpan="5" className="p-8 text-center text-on-surface-variant">Chưa có yêu cầu đặt phòng nào từ Web.</td></tr>
           ) : (
-            requests.map(req => (
+            paginatedRequests.map(req => (
               <tr key={req.id} className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
                 <td className="p-4">
                   <div className="font-title-sm text-on-surface flex items-center gap-2 font-medium">
@@ -230,9 +245,13 @@ const BookingRequestList = () => {
                       </>
                     )}
                     {req.convertedBookingId && (
-                      <span className="text-xs font-medium text-primary">
+                      <Link
+                        to={`/manage/bookings/${req.convertedBookingId}?tab=info`}
+                        className="text-xs font-semibold text-primary hover:underline"
+                        title="Xem trang chi tiết đặt phòng"
+                      >
                         Phòng #{req.convertedBookingId}
-                      </span>
+                      </Link>
                     )}
                   </div>
                 </td>
@@ -242,6 +261,17 @@ const BookingRequestList = () => {
         </tbody>
       </table>
     </div>
+
+    {requests.length > ITEMS_PER_PAGE && (
+      <div className="mt-auto">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </div>
+    )}
+  </div>
 
       {/* Modal xác nhận Duyệt / Từ chối */}
       <Modal

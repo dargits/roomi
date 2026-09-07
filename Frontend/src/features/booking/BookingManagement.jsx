@@ -133,7 +133,7 @@ const BookingManagement = () => {
       </div>
 
       {/* Content Area */}
-      <div className="p-0">
+      <div className="p-0 min-h-[580px] flex flex-col">
         {activeTab === 'list' && <BookingList key={`list-${refreshKey}`} />}
         {activeTab === 'calendar' && <BookingCalendar />}
         {activeTab === 'groups' && <GroupBookingList refreshKey={refreshKey} autoOpenAssignGroup={autoAssignGroup} />}
