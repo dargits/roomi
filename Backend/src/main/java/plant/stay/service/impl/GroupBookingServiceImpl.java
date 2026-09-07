@@ -45,6 +45,7 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     private final BookingService bookingService;
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
+    private final plant.stay.repository.BookingServiceUsageRepository usageRepository;
 
 
     @Override
@@ -199,40 +200,186 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public plant.stay.dto.response.BulkCheckOutSummaryResponse getBulkCheckOutSummary(Long groupBookingId) {
+        GroupBooking groupBooking = findGroupBooking(groupBookingId);
+        List<Booking> checkedInBookings = bookingRepository.findByGroupBookingId(groupBookingId).stream()
+                .filter(b -> b.getStatus() == BookingStatus.CHECKED_IN)
+                .toList();
+
+        List<Invoice> groupInvoices = checkedInBookings.isEmpty() ? Collections.emptyList() :
+                invoiceRepository.findInvoicesCoveringBooking(checkedInBookings.get(0).getId()).stream()
+                        .filter(inv -> inv.getStatus() != InvoiceStatus.ADJUSTED).toList();
+
+        String invoiceMode = "NONE";
+        Invoice combinedInvoice = null;
+        if (!groupInvoices.isEmpty()) {
+            invoiceMode = groupInvoices.get(0).getMode() != null ? groupInvoices.get(0).getMode().name() : "NONE";
+            if ("COMBINED".equals(invoiceMode)) {
+                combinedInvoice = groupInvoices.get(0);
+            }
+        }
+
+        BigDecimal totalRoomAmount = BigDecimal.ZERO;
+        BigDecimal totalServiceAmount = BigDecimal.ZERO;
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        BigDecimal totalPaid = BigDecimal.ZERO;
+
+        List<plant.stay.dto.response.BulkCheckOutRoomDetailDto> roomDtos = new ArrayList<>();
+
+        for (Booking b : checkedInBookings) {
+            BigDecimal rAmt = b.getActualPrice() != null ? b.getActualPrice()
+                    : (b.getExpectedPrice() != null ? b.getExpectedPrice() : BigDecimal.ZERO);
+            BigDecimal sAmt = usageRepository.findByBookingId(b.getId()).stream()
+                    .map(u -> u.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(u.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal bTotal = rAmt.add(sAmt);
+
+            totalRoomAmount = totalRoomAmount.add(rAmt);
+            totalServiceAmount = totalServiceAmount.add(sAmt);
+            grandTotal = grandTotal.add(bTotal);
+
+            Invoice bInvoice = null;
+            if ("COMBINED".equals(invoiceMode)) {
+                bInvoice = combinedInvoice;
+            } else {
+                bInvoice = invoiceRepository.findInvoicesCoveringBooking(b.getId()).stream()
+                        .filter(inv -> inv.getStatus() != InvoiceStatus.ADJUSTED)
+                        .findFirst().orElse(null);
+            }
+
+            BigDecimal pAmt = BigDecimal.ZERO;
+            boolean isInvoicePaid = false;
+            boolean hasUnsettledServices = false;
+            String blockerReason = null;
+            boolean canCheckOut = true;
+
+            if (bInvoice == null) {
+                canCheckOut = false;
+                hasUnsettledServices = true;
+                blockerReason = "Chưa lập hóa đơn cho phòng/đoàn";
+            } else {
+                List<Payment> payments = paymentRepository.findByInvoiceId(bInvoice.getId());
+                BigDecimal invPaid = payments.stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                pAmt = invPaid;
+                isInvoicePaid = bInvoice.getStatus() == InvoiceStatus.PAID || invPaid.compareTo(bInvoice.getTotalAmount()) >= 0;
+
+                if (bInvoice.getServiceAmount() == null || sAmt.compareTo(bInvoice.getServiceAmount()) > 0) {
+                    hasUnsettledServices = true;
+                    canCheckOut = false;
+                    blockerReason = "Có dịch vụ phụ thu phát sinh chưa chốt vào hóa đơn (" + sAmt.toPlainString() + " đ)";
+                } else if (!isInvoicePaid) {
+                    canCheckOut = false;
+                    blockerReason = "Hóa đơn chưa thanh toán đủ (còn nợ " + bInvoice.getTotalAmount().subtract(invPaid).max(BigDecimal.ZERO).toPlainString() + " đ)";
+                }
+            }
+
+            roomDtos.add(plant.stay.dto.response.BulkCheckOutRoomDetailDto.builder()
+                    .bookingId(b.getId())
+                    .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán")
+                    .roomTypeName(b.getRoomType() != null ? b.getRoomType().getName() : "")
+                    .guestName(b.getGuest() != null ? b.getGuest().getName() : "")
+                    .roomAmount(rAmt)
+                    .serviceAmount(sAmt)
+                    .totalAmount(bTotal)
+                    .paidAmount(pAmt)
+                    .remainingAmount(bTotal.subtract(pAmt).max(BigDecimal.ZERO))
+                    .hasUnsettledServices(hasUnsettledServices)
+                    .canCheckOut(canCheckOut)
+                    .blockerReason(blockerReason)
+                    .build());
+        }
+
+        if ("COMBINED".equals(invoiceMode) && combinedInvoice != null) {
+            totalPaid = paymentRepository.findByInvoiceId(combinedInvoice.getId()).stream()
+                    .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        } else {
+            for (var r : roomDtos) {
+                totalPaid = totalPaid.add(r.getPaidAmount());
+            }
+        }
+
+        BigDecimal totalRemaining = grandTotal.subtract(totalPaid).max(BigDecimal.ZERO);
+        boolean isGroupInvoicePaid = totalRemaining.compareTo(BigDecimal.ZERO) <= 0;
+
+        return plant.stay.dto.response.BulkCheckOutSummaryResponse.builder()
+                .groupBookingId(groupBookingId)
+                .representativeName(groupBooking.getRepresentativeGuest() != null ? groupBooking.getRepresentativeGuest().getName() : "")
+                .invoiceMode(invoiceMode)
+                .totalRoomAmount(totalRoomAmount)
+                .totalServiceAmount(totalServiceAmount)
+                .grandTotal(grandTotal)
+                .totalPaid(totalPaid)
+                .totalRemaining(totalRemaining)
+                .isGroupInvoicePaid(isGroupInvoicePaid)
+                .rooms(roomDtos)
+                .build();
+    }
+
+    @Override
     @Transactional
-    public List<BookingResponse> bulkCheckOut(Long groupBookingId, User actor) {
+    public plant.stay.dto.response.BulkCheckOutResultResponse bulkCheckOut(Long groupBookingId, plant.stay.dto.request.BulkCheckOutRequest req, User actor) {
         GroupBooking groupBooking = findGroupBooking(groupBookingId);
         List<Booking> allBookings = bookingRepository.findByGroupBookingId(groupBookingId);
 
         List<Booking> checkedInBookings = allBookings.stream()
-            .filter(b -> b.getStatus() == BookingStatus.CHECKED_IN)
-            .toList();
+                .filter(b -> b.getStatus() == BookingStatus.CHECKED_IN)
+                .toList();
 
         if (checkedInBookings.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Không có phòng nào đang ở trong đoàn (không có phòng nào ở trạng thái CHECKED_IN).");
+            throw new IllegalArgumentException("Không có phòng nào đang ở trong đoàn (không có phòng nào ở trạng thái CHECKED_IN).");
         }
 
-        List<BookingResponse> results = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
-        for (Booking booking : checkedInBookings) {
+        Set<Long> targetBookingIds = (req != null && req.getBookingIds() != null && !req.getBookingIds().isEmpty())
+                ? new HashSet<>(req.getBookingIds())
+                : checkedInBookings.stream().map(Booking::getId).collect(Collectors.toSet());
+
+        List<Booking> toProcess = checkedInBookings.stream()
+                .filter(b -> targetBookingIds.contains(b.getId()))
+                .toList();
+
+        plant.stay.dto.response.BulkCheckOutResultResponse result = new plant.stay.dto.response.BulkCheckOutResultResponse();
+        result.setTotalRequested(toProcess.size());
+
+        for (Booking booking : toProcess) {
+            String roomNum = booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "Phòng #" + booking.getId();
             try {
-                results.add(bookingService.checkOut(booking.getId(), actor));
+                BigDecimal sAmt = usageRepository.findByBookingId(booking.getId()).stream()
+                        .map(u -> u.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(u.getQuantity())))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                Invoice inv = invoiceRepository.findInvoicesCoveringBooking(booking.getId()).stream()
+                        .filter(i -> i.getStatus() != InvoiceStatus.ADJUSTED)
+                        .findFirst().orElse(null);
+
+                if (inv == null) {
+                    result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(booking.getId(), roomNum, "Phòng chưa được lập hóa đơn."));
+                    continue;
+                }
+
+                if (inv.getServiceAmount() == null || sAmt.compareTo(inv.getServiceAmount()) > 0) {
+                    result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(booking.getId(), roomNum, "Phòng còn dịch vụ phụ thu chưa chốt vào hóa đơn."));
+                    continue;
+                }
+
+                BookingResponse res = bookingService.checkOut(booking.getId(), actor);
+                result.getSuccessfulRooms().add(res);
             } catch (Exception e) {
-                errors.add("Phòng #" + booking.getId()
-                    + (booking.getRoom() != null ? " (" + booking.getRoom().getRoomNumber() + ")" : "")
-                    + ": " + e.getMessage());
+                result.getFailedRooms().add(new plant.stay.dto.response.BulkCheckInFailureDto(booking.getId(), roomNum, e.getMessage()));
             }
         }
 
-        if (!errors.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Không thể trả phòng một số phòng trong đoàn:\n" + String.join("\n", errors));
-        }
+        List<Booking> remainingCheckedIn = bookingRepository.findByGroupBookingId(groupBookingId).stream()
+                .filter(b -> b.getStatus() == BookingStatus.CHECKED_IN)
+                .toList();
+
+        result.setGroupCompleted(remainingCheckedIn.isEmpty());
 
         auditLogService.log("GroupBooking", groupBookingId, "BULK_CHECK_OUT", actor,
-            "Trả phòng đoàn: " + results.size() + " phòng");
-        return results;
+                "Trả phòng hàng loạt cho đoàn: Thành công " + result.getSuccessfulRooms().size() + "/" + result.getTotalRequested() + " phòng" +
+                (result.isGroupCompleted() ? " (Đoàn đã hoàn tất kết thúc)" : ""));
+
+        return result;
     }
 
     @Override
@@ -726,6 +873,7 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 .actualPrice(booking.getActualPrice())
                 .note(booking.getNote())
                 .createdAt(booking.getCreatedAt())
+                .roomStatus(booking.getRoom() != null && booking.getRoom().getStatus() != null ? booking.getRoom().getStatus().name() : null)
                 .build();
     }
 }

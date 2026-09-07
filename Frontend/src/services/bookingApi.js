@@ -7,6 +7,12 @@ const bookingApi = {
     return response.data;
   },
 
+  // NCL-03-CN-010: Tra cứu nhanh đặt phòng theo mã, tên khách hoặc SĐT
+  searchBookings: async ({ q, status, from, to } = {}) => {
+    const response = await api.get('/bookings/search', { params: { q, status, from, to } });
+    return response.data;
+  },
+
   // Lấy chi tiết đặt phòng
   getBookingById: async (id) => {
     const response = await api.get(`/bookings/${id}`);

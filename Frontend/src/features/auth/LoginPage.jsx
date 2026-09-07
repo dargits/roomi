@@ -5,10 +5,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { IoEyeOffOutline, IoEyeOutline, IoLockClosedOutline, IoPersonOutline } from 'react-icons/io5';
 import logoUrl from '../../assets/logo.png';
+import ForgotPasswordModal from './ForgotPasswordModal';
+import ForceChangePasswordModal from './ForceChangePasswordModal';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, logout, isAuthenticated, user, updateUser } = useAuth();
   const { hotelSetting } = useAppConfig();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -17,11 +19,21 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Modals state
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [showForceChangeModal, setShowForceChangeModal] = useState(false);
+  const [pendingChangeAccount, setPendingChangeAccount] = useState('');
+
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/manage/dashboard');
+      if (user?.mustChangePassword) {
+        setPendingChangeAccount(user.account);
+        setShowForceChangeModal(true);
+      } else {
+        navigate('/manage/dashboard');
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   const handleRoleSelect = (account) => {
     setUsername(account.username);
@@ -44,10 +56,28 @@ const LoginPage = () => {
     setIsLoading(false);
 
     if (result.success) {
-      navigate('/manage/dashboard');
+      if (result.user?.mustChangePassword) {
+        setPendingChangeAccount(result.user.account);
+        setShowForceChangeModal(true);
+      } else {
+        navigate('/manage/dashboard');
+      }
     } else {
       setErrorMsg(result.message || 'Đăng nhập thất bại.');
     }
+  };
+
+  const handleForceChangeSuccess = () => {
+    setShowForceChangeModal(false);
+    if (user) {
+      updateUser({ ...user, mustChangePassword: false });
+    }
+    navigate('/manage/dashboard');
+  };
+
+  const handleForceChangeCancel = () => {
+    setShowForceChangeModal(false);
+    logout();
   };
 
   return (
@@ -130,10 +160,19 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center">
-              <input className="w-4 h-4 border-border-grey rounded-sm text-primary focus:ring-primary" id="remember" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
-              <label className="ml-2 font-body-md text-body-md text-on-surface-variant cursor-pointer" htmlFor="remember">Ghi nhớ đăng nhập</label>
+            {/* Remember Me & Forgot Password */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input className="w-4 h-4 border-border-grey rounded-sm text-primary focus:ring-primary" id="remember" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+                <label className="ml-2 font-body-md text-body-md text-on-surface-variant cursor-pointer" htmlFor="remember">Ghi nhớ đăng nhập</label>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowForgotPasswordModal(true)}
+                className="text-xs text-agoda-blue hover:underline font-medium"
+              >
+                Quên mật khẩu?
+              </button>
             </div>
 
             {/* Login Button */}
@@ -166,6 +205,20 @@ const LoginPage = () => {
           </button>
         </div>
       </div>
+
+      {/* Forgot Password Request Modal (Story NCL-01-CN-005) */}
+      <ForgotPasswordModal
+        isOpen={showForgotPasswordModal}
+        onClose={() => setShowForgotPasswordModal(false)}
+      />
+
+      {/* Force Change Password Modal (Story NCL-01-CN-005) */}
+      <ForceChangePasswordModal
+        isOpen={showForceChangeModal}
+        account={pendingChangeAccount || user?.account}
+        onSuccess={handleForceChangeSuccess}
+        onCancel={handleForceChangeCancel}
+      />
     </div>
   );
 };
