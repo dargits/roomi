@@ -37,6 +37,7 @@ import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import Tabs from '../../components/ui/Tabs/Tabs';
+import { formatName, formatPhone, formatEmail, formatCCCD } from '../../utils/personalDataMasker';
 
 const VALID_TABS = ['info', 'services', 'invoice', 'deposit'];
 
@@ -49,17 +50,6 @@ const BookingDetailPage = () => {
   const { user } = useAuth();
   
   const tab = searchParams.get('tab') || 'info';
-
-  const formatCCCD = (cccd) => {
-    if (!cccd) return 'Chưa cập nhật';
-    if (['OWNER', 'RECEPTIONIST'].includes(user?.role)) {
-      return cccd;
-    }
-    if (cccd.length > 4) {
-      return '*'.repeat(cccd.length - 4) + cccd.slice(-4);
-    }
-    return cccd;
-  };
 
   const fromUrl = location.state?.from || '/manage/bookings/list';
   const backLabel = fromUrl.includes('calendar') ? 'Lịch phòng' :
@@ -333,10 +323,10 @@ const BookingDetailPage = () => {
                     <IoPersonOutline size={18} className="text-primary"/> Chi tiết Khách hàng
                   </h4>
                   <div className="space-y-3 font-body-sm text-on-surface-variant">
-                    <div className="flex justify-between"><span className="w-1/3">Họ tên:</span><span className="font-medium text-on-surface flex-1">{booking.guestName}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">Số điện thoại:</span><span className="font-medium text-on-surface flex-1">{booking.guestPhone}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail || 'Chưa cập nhật'}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber)}</span></div>
+                    <div className="flex justify-between"><span className="w-1/3">Họ tên:</span><span className="font-medium text-on-surface flex-1">{formatName(booking.guestName, user)}</span></div>
+                    <div className="flex justify-between"><span className="w-1/3">Số điện thoại:</span><span className="font-medium text-on-surface flex-1">{formatPhone(booking.guestPhone, user)}</span></div>
+                    <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}</span></div>
+                    <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber, user)}</span></div>
                   </div>
                 </div>
 

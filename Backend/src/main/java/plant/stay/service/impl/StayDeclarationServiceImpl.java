@@ -248,7 +248,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         auditLogService.log("GuestPersonalData", null, "EXPORT_STAY_DECLARATION", actor,
             "Kết xuất danh sách khai báo lưu trú ngày " + date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
             + " gồm " + report.getTotalGuests() + " khách"
-            + (canViewFull ? "" : " [số giấy tờ đã che theo QTN-24]"));
+            + (canViewFull ? "" : " [thông tin cá nhân đã che theo QTN-24]"));
 
         return data;
     }
@@ -269,7 +269,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
             "Kết xuất lịch sử lưu trú từ " + (fromDate != null ? fromDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "đầu")
             + " đến " + (toDate != null ? toDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "nay")
             + " gồm " + report.getTotalGuests() + " lượt khách"
-            + (canViewFull ? "" : " [số giấy tờ đã che theo QTN-24]"));
+            + (canViewFull ? "" : " [thông tin cá nhân đã che theo QTN-24]"));
 
         return data;
     }
@@ -328,7 +328,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
                 .bookingId(booking.getId())
                 .guestId(guest.getId())
                 .guestName(guest.getName())
-                .phone(guest.getPhone())
+                .phone(canViewFullId ? guest.getPhone() : PersonalDataMasker.maskPhone(guest.getPhone()))
                 .idNumber(displayId)
                 .idNumberMasked(isMasked)
                 .roomNumber(booking.getRoom() != null ? booking.getRoom().getRoomNumber() : null)
@@ -383,7 +383,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
             if (!canViewFull) {
                 Row noteRow = sheet.createRow(1);
                 Cell noteCell = noteRow.createCell(0);
-                noteCell.setCellValue("[QTN-24] So giay to da duoc che theo quyen truy cap - Chi OWNER/LE TAN xem duoc day du");
+                noteCell.setCellValue("[QTN-24] Thong tin ca nhan (Ho ten, CCCD, SDT) da duoc che theo quyen truy cap - Chi OWNER/LE TAN xem duoc day du");
                 noteCell.setCellStyle(warnStyle);
                 sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(1, 1, 0, 11));
             }

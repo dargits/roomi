@@ -29,6 +29,7 @@ import Pagination from '../../components/ui/Pagination';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
+import { formatPhone } from '../../utils/personalDataMasker';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -288,7 +289,7 @@ const BookingList = ({ onEditBooking }) => {
                     {booking.guestName}
                   </Link>
                   <div className="text-sm text-on-surface-variant flex items-center gap-1 mt-1">
-                    <IoCallOutline size={14} /> {booking.guestPhone}
+                    <IoCallOutline size={14} /> {formatPhone(booking.guestPhone, user)}
                   </div>
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     {booking.groupBookingId ? (
