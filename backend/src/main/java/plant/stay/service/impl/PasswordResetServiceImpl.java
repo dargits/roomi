@@ -142,15 +142,30 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         request.setIssuedAt(LocalDateTime.now());
         passwordResetRequestRepository.save(request);
 
-        auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
-                "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount());
-
         // Gửi email chứa mật khẩu tạm thời tới người nhận qua Resend Service
+        boolean emailSent = false;
+        String emailMessage;
         if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
-            emailService.sendTempPasswordEmail(user.getEmail(), user.getName(), user.getAccount(), tempPassword);
+            emailSent = emailService.sendTempPasswordEmail(user.getEmail(), user.getName(), user.getAccount(), tempPassword);
+            if (emailSent) {
+                emailMessage = "Đã gửi mật khẩu tạm thời tới email: " + user.getEmail();
+                auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
+                        "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) và gửi email tới " + user.getEmail() + " cho tài khoản: " + user.getAccount());
+            } else {
+                emailMessage = "Không thể gửi email tới " + user.getEmail() + " (Vui lòng kiểm tra lại cấu hình Resend API).";
+                auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
+                        "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount() + " (Gửi email thất bại)");
+            }
+        } else {
+            emailMessage = "Tài khoản chưa có địa chỉ email. Vui lòng sao chép mật khẩu tạm và gửi trực tiếp cho người dùng.";
+            auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
+                    "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount() + " (Không có email)");
         }
 
-        return toDto(request);
+        PasswordResetItemResponse response = toDto(request);
+        response.setEmailSent(emailSent);
+        response.setEmailMessage(emailMessage);
+        return response;
     }
 
     @Override
@@ -211,6 +226,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 .id(r.getId())
                 .account(r.getAccount())
                 .userName(u != null ? u.getName() : null)
+                .userEmail(u != null ? u.getEmail() : null)
                 .userRole(u != null ? u.getRole() : null)
                 .status(r.getStatus())
                 .plainTempPassword(r.getPlainTempPassword())
