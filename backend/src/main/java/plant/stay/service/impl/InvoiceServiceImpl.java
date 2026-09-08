@@ -258,6 +258,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0 && invoice.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
             invoice.setStatus(InvoiceStatus.PAID);
             invoice = invoiceRepository.save(invoice);
+            triggerAutoInvoiceEmailIfApplicable(invoice);
         }
         auditLogService.log("Invoice", invoice.getId(), "CREATE", actor,
                 "Lập hóa đơn " + (mode == InvoiceMode.COMBINED ? "gộp" : "tách") + " cho đoàn #"
@@ -614,7 +615,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public MessageResponse sendInvoiceEmail(Long invoiceId, String overrideEmail, User actor) {
         Invoice invoice = findById(invoiceId);
         InvoiceEmailData emailData = buildInvoiceEmailData(invoice);
@@ -644,7 +645,10 @@ public class InvoiceServiceImpl implements InvoiceService {
             InvoiceEmailData emailData = buildInvoiceEmailData(invoice);
             String recipientEmail = emailData.getCustomerEmail();
             if (recipientEmail != null && !recipientEmail.trim().isEmpty()) {
+                log.info("[EMAIL] Tự động gửi email hóa đơn #{} tới {} khi thanh toán thành công", invoice.getId(), recipientEmail);
                 emailService.sendInvoiceEmail(recipientEmail.trim(), emailData);
+            } else {
+                log.info("[EMAIL] Bỏ qua gửi email hóa đơn #{}: Khách hàng không có thông tin email", invoice.getId());
             }
         } catch (Exception e) {
             log.warn("[EMAIL] Tự động gửi email hóa đơn #{} thất bại: {}", invoice.getId(), e.getMessage());

@@ -1,26 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { IoCloseOutline, IoPrintOutline, IoMailOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoPrintOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Modal from '../../components/ui/Modal';
 import { numberToWords } from '../../utils/numberToWords';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import bookingApi from '../../services/bookingApi';
 import groupBookingApi from '../../services/groupBookingApi';
 import invoiceApi from '../../services/invoiceApi';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { useToast } from '../../context/ToastContext';
 
 const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
   const { config } = useAppConfig();
-  const { success: toastSuccess, error: toastError } = useToast();
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
-
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [recipientEmail, setRecipientEmail] = useState(booking?.guest?.email || booking?.email || '');
-  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Prevent background scrolling while modal is open
   useEffect(() => {
@@ -148,19 +140,6 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
-            {invoice?.id && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setRecipientEmail(booking?.guest?.email || booking?.email || '');
-                  setShowEmailModal(true);
-                }}
-                icon={IoMailOutline}
-                className="border-blue-600 text-blue-600 hover:bg-blue-50"
-              >
-                Gửi Email
-              </Button>
-            )}
             <Button onClick={handlePrint} icon={IoPrintOutline} className="bg-blue-600 hover:bg-blue-700 text-white">
               In Hóa đơn
             </Button>
@@ -422,61 +401,6 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
 
           </div>
         </div>
-
-        {/* Modal nhập email gửi hóa đơn */}
-        <Modal
-          isOpen={showEmailModal}
-          onClose={() => setShowEmailModal(false)}
-          title="Gửi Email Hóa Đơn Khách Hàng"
-          maxWidth="max-w-md"
-        >
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!recipientEmail || !recipientEmail.trim()) {
-                toastError("Vui lòng nhập địa chỉ email người nhận!");
-                return;
-              }
-              if (!invoice?.id) {
-                toastError("Không tìm thấy thông tin hóa đơn hợp lệ để gửi!");
-                return;
-              }
-              setSendingEmail(true);
-              try {
-                await invoiceApi.sendInvoiceEmail(invoice.id, recipientEmail.trim());
-                toastSuccess(`Đã gửi hóa đơn điện tử tới ${recipientEmail.trim()} thành công!`);
-                setShowEmailModal(false);
-              } catch (err) {
-                toastError(err.response?.data?.message || err.message || "Lỗi khi gửi email hóa đơn");
-              } finally {
-                setSendingEmail(false);
-              }
-            }}
-            className="space-y-4"
-          >
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-xs text-blue-900 leading-relaxed">
-              Hóa đơn điện tử chi tiết bao gồm bảng kê tiền phòng, tiền dịch vụ và trạng thái thanh toán sẽ được gửi trực tiếp tới email khách hàng qua hệ thống Resend.
-            </div>
-
-            <Input
-              label="Địa chỉ email người nhận *"
-              type="email"
-              value={recipientEmail}
-              onChange={(e) => setRecipientEmail(e.target.value)}
-              placeholder="vd: khachhang@gmail.com"
-              required
-            />
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-              <Button variant="ghost" type="button" onClick={() => setShowEmailModal(false)}>
-                Hủy
-              </Button>
-              <Button type="submit" isLoading={sendingEmail} icon={IoMailOutline}>
-                Gửi Hóa Đơn
-              </Button>
-            </div>
-          </form>
-        </Modal>
       </div>
     </div>
   );
