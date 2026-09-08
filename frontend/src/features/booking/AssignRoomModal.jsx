@@ -243,8 +243,8 @@ const AssignRoomModal = ({
 
         {loading ? (
           <div className="flex flex-col items-center justify-center h-[332px] space-y-3">
-            <span className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-on-surface-variant">Đang tải danh sách phòng trống...</p>
+            <span className="w-8 h-8 border-3 border-primary border-t-transparent border-l-transparent animate-square-spin" />
+            <p className="text-xs uppercase font-bold tracking-wider text-on-surface">Đang tải danh sách phòng trống...</p>
           </div>
         ) : rooms.length === 0 ? (
           <div className="h-[332px] flex flex-col items-center justify-center p-5 text-center bg-red-50/70 border border-red-200 rounded-2xl space-y-2">
