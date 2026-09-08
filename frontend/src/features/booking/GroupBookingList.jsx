@@ -22,7 +22,7 @@ import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
 import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
 import DiscountFormModal from '../invoice/DiscountFormModal';
-import LoadingScreen from '../../components/common/LoadingScreen';
+import LoadingScreen, { SquareSpinner } from '../../components/common/LoadingScreen';
 import Pagination from '../../components/ui/Pagination';
 
 const ITEMS_PER_PAGE = 10;
@@ -766,9 +766,9 @@ const GroupBookingList = ({ refreshKey }) => {
         maxWidth="max-w-4xl"
       >
         {assignmentLoading ? (
-          <div className="py-12 text-center text-on-surface-variant">
-            <IoRefreshOutline className="mx-auto mb-2 animate-spin text-primary" size={24} />
-            Đang tìm phòng trống & gợi ý tối ưu...
+          <div className="py-12 text-center text-on-surface-variant flex flex-col items-center justify-center">
+            <SquareSpinner size="lg" className="mb-3" />
+            <p className="text-xs uppercase font-bold tracking-wider text-on-surface">Đang tìm phòng trống & gợi ý tối ưu...</p>
           </div>
         ) : (
           <GroupRoomAssignmentGrid
@@ -793,9 +793,9 @@ const GroupBookingList = ({ refreshKey }) => {
         maxWidth="max-w-3xl"
       >
         {invoiceLoading ? (
-          <div className="py-12 text-center text-on-surface-variant">
-            <IoRefreshOutline className="mx-auto mb-2 animate-spin text-primary" size={24} />
-            Đang tải hóa đơn đoàn...
+          <div className="py-12 text-center text-on-surface-variant flex flex-col items-center justify-center">
+            <SquareSpinner size="lg" className="mb-3" />
+            <p className="text-xs uppercase font-bold tracking-wider text-on-surface">Đang tải hóa đơn đoàn...</p>
           </div>
         ) : (
           <div className="space-y-4">
