@@ -1,0 +1,162 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '../context/AuthContext';
+import { AppConfigProvider } from '../context/AppConfigContext';
+import { ToastProvider } from '../context/ToastContext';
+
+// Public pages
+import LandingPage from '../features/landing/LandingPage';
+import LoginPage from '../features/auth/LoginPage';
+import RoomsPage from '../features/public/RoomsPage';
+import AmenitiesPage from '../features/public/AmenitiesPage';
+import PromotionsPage from '../features/public/PromotionsPage';
+import AboutPage from '../features/public/AboutPage';
+import ContactPage from '../features/public/ContactPage';
+import PublicBookingDetailPage from '../features/public/PublicBookingDetailPage';
+
+// Layout
+import DashboardLayout from '../layouts/DashboardLayout';
+import ProtectedRoute from './ProtectedRoute';
+
+// Dashboard & Admin
+import DashboardPage from '../features/admin/DashboardPage';
+import HotelSettings from '../features/admin/HotelSettings';
+import RoomTypeManagement from '../features/admin/RoomTypeManagement';
+import RoomManagement from '../features/admin/RoomManagement';
+import GuestManagement from '../features/admin/GuestManagement';
+import ProfileSettings from '../features/admin/ProfileSettings';
+import StaffManagement from '../features/admin/StaffManagement';
+import ExtraServiceManagement from '../features/admin/ExtraServiceManagement';
+import ActivityLog from '../features/admin/ActivityLog';
+import InventoryManagement from '../features/admin/InventoryManagement';
+import LoyaltyTierManagement from '../features/admin/LoyaltyTierManagement';
+import DepositPolicyPage from '../features/admin/DepositPolicyPage';
+import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
+
+// Booking
+import BookingManagement from '../features/booking/BookingManagement';
+import BookingDetailPage from '../features/booking/BookingDetailPage';
+import StayDeclarationPage from '../features/booking/StayDeclarationPage';
+
+// Housekeeping
+import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
+
+// Reports & Backup
+import ReportsPage from '../features/reports/ReportsPage';
+import CashierShiftPage from '../features/reports/CashierShiftPage';
+import BackupDataPage from '../features/admin/BackupDataPage';
+import PersonalDataAuditLogPage from '../features/booking/PersonalDataAuditLogPage';
+
+const AppRoutes = () => {
+  return (
+    <AppConfigProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* === Public routes === */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/rooms" element={<RoomsPage />} />
+              <Route path="/amenities" element={<AmenitiesPage />} />
+              <Route path="/promotions" element={<PromotionsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/login" element={<LoginPage />} />
+
+              {/* Public Booking Details & Sharing */}
+              <Route path="/booking-detail/:bookingId" element={<PublicBookingDetailPage />} />
+              <Route path="/booking-detail/:bookingId/:tab" element={<PublicBookingDetailPage />} />
+              <Route path="/share/booking/:bookingId" element={<PublicBookingDetailPage />} />
+              <Route path="/share/booking/:bookingId/:tab" element={<PublicBookingDetailPage />} />
+              <Route path="/p/booking/:bookingId" element={<PublicBookingDetailPage />} />
+              <Route path="/p/booking/:bookingId/:tab" element={<PublicBookingDetailPage />} />
+
+              {/* Redirect old /admin & /dashboard paths */}
+              <Route path="/admin" element={<Navigate to="/manage/dashboard" replace />} />
+              <Route path="/admin/*" element={<Navigate to="/manage/dashboard" replace />} />
+              <Route path="/dashboard" element={<Navigate to="/manage/dashboard" replace />} />
+              <Route path="/bookings" element={<Navigate to="/manage/bookings" replace />} />
+              <Route path="/housekeeping" element={<Navigate to="/manage/housekeeping" replace />} />
+              <Route path="/reports" element={<Navigate to="/manage/reports" replace />} />
+              <Route path="/manage" element={<Navigate to="/manage/dashboard" replace />} />
+
+              {/* === Protected /manage Routes === */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<DashboardLayout />}>
+                  {/* Tổng quan */}
+                  <Route path="/manage/dashboard" element={<DashboardPage />} />
+
+                  {/* Đặt phòng — OWNER / RECEPTIONIST */}
+                  <Route path="/manage/bookings" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/list" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/calendar" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/requests" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/groups" element={<BookingManagement />} />
+                  <Route path="/manage/bookings/:bookingId" element={<BookingDetailPage />} />
+                  <Route path="/manage/bookings/:bookingId/:tab" element={<BookingDetailPage />} />
+
+                  {/* Khai báo lưu trú — NCL-12 */}
+                  <Route path="/manage/stay-declarations" element={<StayDeclarationPage />} />
+
+                  {/* Phòng */}
+                  <Route path="/manage/rooms" element={<RoomManagement />} />
+
+                  {/* Loại phòng — OWNER */}
+                  <Route path="/manage/room-types" element={<RoomTypeManagement />} />
+
+                  {/* Khách hàng — OWNER / RECEPTIONIST */}
+                  <Route path="/manage/guests" element={<GuestManagement />} />
+
+                  {/* Dịch vụ phụ thu — OWNER */}
+                  <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
+
+                  {/* Buồng phòng — OWNER / HOUSEKEEPER / RECEPTIONIST */}
+                  <Route path="/manage/housekeeping" element={<HousekeepingPage />} />
+
+                  {/* Báo cáo — OWNER / ACCOUNTANT */}
+                  <Route path="/manage/reports" element={<ReportsPage />} />
+                  <Route path="/manage/cashier-shifts" element={<CashierShiftPage />} />
+
+                  {/* Lịch sử hoạt động — OWNER / ADMIN */}
+                  <Route path="/manage/audit-logs" element={<ActivityLog />} />
+
+                  {/* Nhật ký truy cập dữ liệu cá nhân — NCL-12 */}
+                  <Route path="/manage/personal-data-audit" element={<PersonalDataAuditLogPage />} />
+
+                  {/* Nhân sự — OWNER / ADMIN */}
+                  <Route path="/manage/staff" element={<StaffManagement />} />
+
+                  {/* Cài đặt khách sạn — OWNER */}
+                  <Route path="/manage/settings" element={<HotelSettings />} />
+
+                  {/* Sao lưu & CSV — OWNER / ADMIN */}
+                  <Route path="/manage/backup" element={<BackupDataPage />} />
+
+                  {/* Kho đồ dùng — OWNER */}
+                  <Route path="/manage/inventory" element={<InventoryManagement />} />
+
+                  {/* Khách hàng thân thiết — OWNER */}
+                  <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
+
+                  {/* Chính sách đặt cọc — NCL-11 */}
+                  <Route path="/manage/deposit-policies" element={<DepositPolicyPage />} />
+
+                  {/* Kiểm soát đồng thời & Minh chứng — NCL-03 */}
+                  <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />
+
+                  {/* Hồ sơ cá nhân */}
+                  <Route path="/manage/profile" element={<ProfileSettings />} />
+                </Route>
+              </Route>
+
+              {/* Catch-all fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
+    </AppConfigProvider>
+  );
+};
+
+export default AppRoutes;
