@@ -40,10 +40,10 @@ const ACTION_CONFIG = {
 };
 
 const ROLE_LABELS = {
-  OWNER: 'Chủ cơ sở',
+  OWNER: 'Chủ sở hữu',
   RECEPTIONIST: 'Lễ tân',
   ACCOUNTANT: 'Kế toán',
-  HOUSEKEEPER: 'Nhân viên buồng phòng',
+  HOUSEKEEPER: 'Buồng phòng',
   ADMIN: 'Quản trị viên',
 };
 

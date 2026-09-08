@@ -6,6 +6,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import SeasonalPricing from '../rooms/SeasonalPricing';
+import WeekendAndHolidayPricing from '../rooms/WeekendAndHolidayPricing';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
 const RoomTypeManagement = () => {
@@ -19,7 +20,10 @@ const RoomTypeManagement = () => {
   const [formData, setFormData] = useState({
     id: null,
     name: '',
-    maxCapacity: 1,
+    standardCapacity: 2,
+    maxCapacity: 2,
+    extraPersonChargePerNight: 0,
+    maxChildAgeFree: 6,
     basePrice: 0,
     amenitiesDescription: '',
     imageUrls: [],
@@ -29,6 +33,7 @@ const RoomTypeManagement = () => {
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [expandedRoomTypeId, setExpandedRoomTypeId] = useState(null);
+  const [expandedPricingTab, setExpandedPricingTab] = useState('weekend_holiday'); // 'season' | 'weekend_holiday'
 
   // Delete confirm state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -65,7 +70,18 @@ const RoomTypeManagement = () => {
   };
 
   const openAddModal = () => {
-    setFormData({ id: null, name: '', maxCapacity: 1, basePrice: 0, amenitiesDescription: '', imageUrls: [], active: true });
+    setFormData({
+      id: null,
+      name: '',
+      standardCapacity: 2,
+      maxCapacity: 2,
+      extraPersonChargePerNight: 0,
+      maxChildAgeFree: 6,
+      basePrice: 0,
+      amenitiesDescription: '',
+      imageUrls: [],
+      active: true
+    });
     setIsEditing(false);
     setFormError('');
     setIsModalOpen(true);
@@ -75,7 +91,10 @@ const RoomTypeManagement = () => {
     setFormData({
       id: room.id,
       name: room.name,
+      standardCapacity: room.standardCapacity || 2,
       maxCapacity: room.maxCapacity,
+      extraPersonChargePerNight: room.extraPersonChargePerNight || 0,
+      maxChildAgeFree: room.maxChildAgeFree || 6,
       basePrice: room.basePrice,
       amenitiesDescription: room.amenitiesDescription,
       imageUrls: room.imageUrls || [],
@@ -91,6 +110,14 @@ const RoomTypeManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    if (Number(formData.maxCapacity) < Number(formData.standardCapacity)) {
+      setFormError('Sức chứa tối đa không được nhỏ hơn sức chứa tiêu chuẩn.');
+      return;
+    }
+    if (Number(formData.extraPersonChargePerNight) < 0) {
+      setFormError('Mức phụ thu thêm người không được là số âm.');
+      return;
+    }
     try {
       if (isEditing) {
         await roomTypeApi.updateRoomType(formData.id, formData);
@@ -125,7 +152,7 @@ const RoomTypeManagement = () => {
   };
 
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
   };
 
   return (
@@ -134,7 +161,7 @@ const RoomTypeManagement = () => {
         <div className="flex items-center gap-2">
           <IoBedOutline size={22} className="text-primary" /> 
           <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
-            Quản lý Loại phòng
+            Quản lý Loại phòng & Cấu hình giá
           </h2>
         </div>
         <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
@@ -146,25 +173,26 @@ const RoomTypeManagement = () => {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
-              <th className="p-4 w-16 text-center font-semibold">ID</th>
+              <th className="p-4 w-14 text-center font-semibold">ID</th>
               <th className="p-4 font-semibold">Ảnh</th>
               <th className="p-4 font-semibold">Tên loại phòng</th>
-              <th className="p-4 text-right font-semibold">Sức chứa</th>
+              <th className="p-4 text-center font-semibold">Sức chứa (TC / TĐ)</th>
+              <th className="p-4 text-right font-semibold">Phụ thu thêm khách</th>
               <th className="p-4 text-right font-semibold">Giá cơ bản</th>
               <th className="p-4 text-center font-semibold">Trạng thái</th>
-              <th className="p-4 text-center font-semibold">Giá mùa</th>
-              <th className="p-4 text-center w-32 font-semibold">Thao tác</th>
+              <th className="p-4 text-center font-semibold">Bảng giá</th>
+              <th className="p-4 text-center w-28 font-semibold">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" className="p-8 text-center">
+                <td colSpan="9" className="p-8 text-center">
                   <LoadingScreen message="Đang tải danh sách loại phòng..." />
                 </td>
               </tr>
             ) : roomTypes.length === 0 ? (
-              <tr><td colSpan="7" className="p-8 text-center text-on-surface-variant">Chưa có dữ liệu loại phòng.</td></tr>
+              <tr><td colSpan="9" className="p-8 text-center text-on-surface-variant">Chưa có dữ liệu loại phòng.</td></tr>
             ) : (
               roomTypes.map(room => (
                 <React.Fragment key={room.id}>
@@ -177,8 +205,24 @@ const RoomTypeManagement = () => {
                         <div className="w-16 h-12 bg-surface-container rounded flex items-center justify-center text-outline text-xs">No img</div>
                       )}
                     </td>
-                    <td className="p-4 font-title-sm text-on-surface group-hover:text-primary transition-colors">{room.name}</td>
-                    <td className="p-4 text-right font-body-md">{room.maxCapacity} người</td>
+                    <td className="p-4 font-title-sm text-on-surface group-hover:text-primary transition-colors font-medium">
+                      <div>{room.name}</div>
+                      {room.maxChildAgeFree !== undefined && (
+                        <div className="text-xs text-on-surface-variant mt-0.5">Miễn phụ thu trẻ ≤ {room.maxChildAgeFree} tuổi</div>
+                      )}
+                    </td>
+                    <td className="p-4 text-center font-body-sm">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-surface-container border border-border-grey text-on-surface font-semibold">
+                        {room.standardCapacity || 2} / {room.maxCapacity} người
+                      </span>
+                    </td>
+                    <td className="p-4 text-right font-body-sm text-on-surface">
+                      {room.extraPersonChargePerNight > 0 ? (
+                        <span className="text-amber-700 font-medium">+{formatPrice(room.extraPersonChargePerNight)}/đêm</span>
+                      ) : (
+                        <span className="text-on-surface-variant text-xs">0 ₫</span>
+                      )}
+                    </td>
                     <td className="p-4 text-right font-body-md text-primary font-semibold">{formatPrice(room.basePrice)}</td>
                     <td className="p-4 text-center">
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-label-md ${room.active ? 'bg-surface-container border border-border-grey text-green-600' : 'bg-surface-container-high text-on-surface-variant'}`}>
@@ -188,14 +232,15 @@ const RoomTypeManagement = () => {
                     <td className="p-4 text-center">
                       <button
                         onClick={() => setExpandedRoomTypeId(expandedRoomTypeId === room.id ? null : room.id)}
-                        className={`flex items-center gap-1 mx-auto px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
                           expandedRoomTypeId === room.id
-                            ? 'bg-tertiary/10 text-tertiary'
-                            : 'hover:bg-surface-container text-on-surface-variant'
+                            ? 'bg-primary text-on-primary border-primary'
+                            : 'hover:bg-surface-container border-border-grey text-on-surface'
                         }`}
-                        title="Xem giá theo mùa"
+                        title="Cấu hình giá mùa, cuối tuần & ngày lễ"
                       >
                         <IoCashOutline size={14} />
+                        <span>Giá</span>
                         <IoChevronDownOutline size={12} className={`transition-transform ${expandedRoomTypeId === room.id ? 'rotate-180' : ''}`} />
                       </button>
                     </td>
@@ -206,27 +251,62 @@ const RoomTypeManagement = () => {
                           className="text-primary p-1.5 rounded-md hover:bg-surface-blue-light hover:shadow-sm transition-all"
                           title="Sửa"
                         >
-                          <IoPencilOutline size={20} strokeWidth={1.5} />
+                          <IoPencilOutline size={18} strokeWidth={1.5} />
                         </button>
                         <button 
                           onClick={() => openDeleteModal(room)}
                           className="text-error p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm transition-all"
                           title="Xóa"
                         >
-                          <IoTrashOutline size={20} strokeWidth={1.5} />
+                          <IoTrashOutline size={18} strokeWidth={1.5} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                  {/* Expandable row for SeasonalPricing */}
+                  {/* Expandable row for Pricing Tabs */}
                   {expandedRoomTypeId === room.id && (
-                    <tr className="bg-surface-container-low/40">
-                      <td colSpan="8" className="px-6 pb-4 pt-2">
-                        <SeasonalPricing
-                          roomTypeId={room.id}
-                          roomTypeName={room.name}
-                          basePrice={room.basePrice}
-                        />
+                    <tr className="bg-surface-container-low/40 border-b border-border-grey">
+                      <td colSpan="9" className="px-6 pb-6 pt-3">
+                        <div className="bg-surface rounded-lg border border-border-grey p-4 shadow-sm">
+                          <div className="flex items-center gap-2 border-b border-border-grey pb-3 mb-4">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedPricingTab('weekend_holiday')}
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                                expandedPricingTab === 'weekend_holiday'
+                                  ? 'bg-primary text-on-primary shadow-sm'
+                                  : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
+                              }`}
+                            >
+                              ⭐ Giá Cuối tuần & Ngày lễ (Ưu tiên cao nhất)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedPricingTab('season')}
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                                expandedPricingTab === 'season'
+                                  ? 'bg-primary text-on-primary shadow-sm'
+                                  : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
+                              }`}
+                            >
+                              📅 Giá theo Mùa
+                            </button>
+                          </div>
+
+                          {expandedPricingTab === 'weekend_holiday' ? (
+                            <WeekendAndHolidayPricing
+                              roomTypeId={room.id}
+                              roomTypeName={room.name}
+                              basePrice={room.basePrice}
+                            />
+                          ) : (
+                            <SeasonalPricing
+                              roomTypeId={room.id}
+                              roomTypeName={room.name}
+                              basePrice={room.basePrice}
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -251,11 +331,61 @@ const RoomTypeManagement = () => {
             </div>
             
             <div>
-              <Input label="Sức chứa tối đa (người)" type="number" name="maxCapacity" required min="1" value={formData.maxCapacity} onChange={handleInputChange} />
+              <Input 
+                label="Sức chứa tiêu chuẩn (người)" 
+                type="number" 
+                name="standardCapacity" 
+                required 
+                min="1" 
+                value={formData.standardCapacity} 
+                onChange={handleInputChange} 
+                helperText="Số người chuẩn không tính phụ thu"
+              />
             </div>
             
             <div>
-              <Input label="Giá cơ bản (VNĐ)" type="number" name="basePrice" required min="0" step="1000" value={formData.basePrice} onChange={handleInputChange} />
+              <Input 
+                label="Sức chứa tối đa (người)" 
+                type="number" 
+                name="maxCapacity" 
+                required 
+                min={formData.standardCapacity || 1} 
+                value={formData.maxCapacity} 
+                onChange={handleInputChange} 
+                helperText="Chặn nhận khách nếu vượt mức này"
+              />
+            </div>
+
+            <div>
+              <Input 
+                label="Phụ thu thêm người (VNĐ/đêm)" 
+                type="number" 
+                name="extraPersonChargePerNight" 
+                required 
+                min="0" 
+                step="5000" 
+                value={formData.extraPersonChargePerNight} 
+                onChange={handleInputChange} 
+                helperText="Tính cho mỗi người vượt sức chứa tiêu chuẩn"
+              />
+            </div>
+
+            <div>
+              <Input 
+                label="Tuổi tối đa trẻ em miễn phí" 
+                type="number" 
+                name="maxChildAgeFree" 
+                required 
+                min="0" 
+                max="18" 
+                value={formData.maxChildAgeFree} 
+                onChange={handleInputChange} 
+                helperText="Trẻ em ≤ tuổi này không tính phụ thu"
+              />
+            </div>
+            
+            <div className="col-span-1 md:col-span-2">
+              <Input label="Giá cơ bản (VNĐ/đêm)" type="number" name="basePrice" required min="0" step="1000" value={formData.basePrice} onChange={handleInputChange} />
             </div>
             
             <div className="col-span-1 md:col-span-2">

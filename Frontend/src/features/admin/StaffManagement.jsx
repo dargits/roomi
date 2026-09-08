@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import authApi from '../../services/authApi';
 import userApi from '../../services/userApi';
 import { useAuth } from '../../context/AuthContext';
-import { IoAlertCircleOutline, IoCallOutline, IoCheckmarkCircleOutline, IoInformationCircleOutline, IoKeyOutline, IoLockClosedOutline, IoLockOpenOutline, IoMailOutline, IoPencilOutline, IoPersonAddOutline, IoPersonOutline, IoShieldOutline } from 'react-icons/io5';
+import { IoAlertCircleOutline, IoCallOutline, IoCheckmarkCircleOutline, IoInformationCircleOutline, IoKeyOutline, IoLockClosedOutline, IoLockOpenOutline, IoMailOutline, IoPencilOutline, IoPersonAddOutline, IoPersonOutline, IoShieldOutline, IoShieldCheckmarkOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import { useToast, useConfirm } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import PasswordResetManagementModal from './PasswordResetManagementModal';
+import UserPermissionModal from './UserPermissionModal';
+import usePasswordResetNotification from '../../hooks/usePasswordResetNotification';
 
 const StaffManagement = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { pendingCount: pendingResetCount } = usePasswordResetNotification();
   const [isLoading, setIsLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
 
@@ -20,6 +26,8 @@ const StaffManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [permissionModalUser, setPermissionModalUser] = useState(null);
 
   const [selectedUser, setSelectedUser] = useState(null);
 
@@ -32,12 +40,36 @@ const StaffManagement = () => {
     { value: 'RECEPTIONIST', label: 'Lễ tân' },
     { value: 'HOUSEKEEPER', label: 'Buồng phòng' },
     { value: 'ACCOUNTANT', label: 'Kế toán' },
-    { value: 'ADMIN', label: 'Quản trị viên' }
+    { value: 'ADMIN', label: 'Quản trị viên' },
+    { value: 'OWNER', label: 'Chủ sở hữu' }
   ];
+
+  const ROLE_LABELS = {
+    OWNER: 'Chủ sở hữu',
+    ADMIN: 'Quản trị viên',
+    RECEPTIONIST: 'Lễ tân',
+    HOUSEKEEPER: 'Buồng phòng',
+    ACCOUNTANT: 'Kế toán'
+  };
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('openReset') === 'true') {
+      setShowPasswordResetModal(true);
+    }
+  }, [searchParams]);
+
+  const handleClosePasswordResetModal = () => {
+    setShowPasswordResetModal(false);
+    if (searchParams.get('openReset')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('openReset');
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -211,10 +243,48 @@ const StaffManagement = () => {
             Quản lý Nhân sự
           </h2>
         </div>
-        <Button size="sm" onClick={handleOpenCreateModal} icon={IoPersonAddOutline} className="shrink-0">
-          Thêm nhân viên
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={pendingResetCount > 0 ? "primary" : "outline"}
+            size="sm"
+            onClick={() => setShowPasswordResetModal(true)}
+            icon={IoKeyOutline}
+            className={`shrink-0 relative ${
+              pendingResetCount > 0
+                ? 'bg-amber-600 hover:bg-amber-700 text-white font-bold border-amber-600 shadow-sm'
+                : ''
+            }`}
+          >
+            <span>Cấp lại mật khẩu</span>
+            {pendingResetCount > 0 && (
+              <span className="ml-1.5 px-2 py-0.5 bg-red-600 text-white text-[11px] font-extrabold rounded-full animate-pulse shadow-xs">
+                {pendingResetCount} chờ cấp
+              </span>
+            )}
+          </Button>
+          <Button size="sm" onClick={handleOpenCreateModal} icon={IoPersonAddOutline} className="shrink-0">
+            Thêm nhân viên
+          </Button>
+        </div>
       </div>
+
+      {pendingResetCount > 0 && (
+        <div className="mx-4 mt-3 p-3.5 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <IoKeyOutline size={20} className="text-amber-700 shrink-0 animate-bounce" />
+            <span>
+              Đang có <strong>{pendingResetCount}</strong> yêu cầu cấp lại mật khẩu từ nhân viên đang chờ quản trị viên phê duyệt. Nhấn <strong>"Cấp lại mật khẩu"</strong> để xem chi tiết và cấp mật khẩu tạm.
+            </span>
+          </div>
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold shrink-0 text-xs py-1"
+            onClick={() => setShowPasswordResetModal(true)}
+          >
+            Mở danh sách ({pendingResetCount})
+          </Button>
+        </div>
+      )}
 
       {actionMessage.text && (
         <div className={`p-4 rounded-lg flex items-center gap-3 shadow-sm animate-fade-in ${actionMessage.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-error border border-red-200'}`}>
@@ -248,7 +318,7 @@ const StaffManagement = () => {
                   </td>
                   <td className="p-4">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {roles.find(r => r.value === u.role)?.label || u.role}
+                      {ROLE_LABELS[u.role] || roles.find(r => r.value === u.role)?.label || u.role}
                     </span>
                   </td>
                   <td className="p-4">
@@ -269,9 +339,16 @@ const StaffManagement = () => {
                         onClick={() => handleOpenRoleModal(u)}
                         disabled={u.id === currentUser?.id}
                         className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-blue-light rounded-md transition-colors disabled:opacity-30"
-                        title="Đổi quyền"
+                        title="Đổi quyền vai trò"
                       >
                         <IoShieldOutline size={20} strokeWidth={1.5} />
+                      </button>
+                      <button
+                        onClick={() => setPermissionModalUser(u)}
+                        className="p-1.5 text-on-surface-variant hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                        title="Phân quyền xem bổ sung"
+                      >
+                        <IoShieldCheckmarkOutline size={20} strokeWidth={1.5} />
                       </button>
                       <button
                         onClick={() => handleToggleLock(u)}
@@ -348,6 +425,21 @@ const StaffManagement = () => {
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* Password Reset Requests Modal (Story NCL-01-CN-005) */}
+      <PasswordResetManagementModal
+        isOpen={showPasswordResetModal}
+        onClose={handleClosePasswordResetModal}
+      />
+
+      {/* Extra User Permissions Modal (Story NCL-01-CN-006) */}
+      {permissionModalUser && (
+        <UserPermissionModal
+          isOpen={Boolean(permissionModalUser)}
+          user={permissionModalUser}
+          onClose={() => setPermissionModalUser(null)}
+        />
       )}
     </div>
   );

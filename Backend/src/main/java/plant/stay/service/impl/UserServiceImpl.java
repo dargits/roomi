@@ -26,6 +26,7 @@ public class UserServiceImpl implements plant.stay.service.UserService {
 
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
+    private final plant.stay.repository.UserExtraPermissionRepository userExtraPermissionRepository;
 
     @Override
     public MessageResponse register(RegisterRequest request) {
@@ -84,6 +85,7 @@ public class UserServiceImpl implements plant.stay.service.UserService {
                 .createAt(user.getCreateAt())
                 .avatarImage(user.getAvatarImage())
                 .active(user.isActive())
+                .mustChangePassword(user.isMustChangePassword())
                 .role(user.getRole())
                 .build();
 
@@ -164,10 +166,23 @@ public class UserServiceImpl implements plant.stay.service.UserService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void changeUserRole(Long id, Role role) {
         User user = getUserById(id);
-        user.setRole(role);
-        userRepository.save(user);
+        if (user.getRole() != role) {
+            user.setRole(role);
+            userRepository.save(user);
+
+            // Thu hồi toàn bộ quyền bổ sung cũ khi đổi vai trò (NCL-01-CN-006)
+            java.util.List<plant.stay.model.UserExtraPermission> activePerms = 
+                    userExtraPermissionRepository.findByUserIdAndIsRevokedFalse(id);
+            for (plant.stay.model.UserExtraPermission p : activePerms) {
+                p.setIsRevoked(true);
+                p.setRevokedAt(java.time.LocalDateTime.now());
+                p.setRevokeReason("Tự động thu hồi do thay đổi vai trò tài khoản sang " + role + " để tránh tích tụ quyền");
+                userExtraPermissionRepository.save(p);
+            }
+        }
     }
 
     @Override

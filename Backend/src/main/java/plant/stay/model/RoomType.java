@@ -22,8 +22,20 @@ public class RoomType {
     @Column(name = "name", nullable = false, length = 100)
     private String name; // Tên loại phòng (vd: Deluxe, Standard Single...)
 
+    @Column(name = "standard_capacity", nullable = false)
+    @Builder.Default
+    private Integer standardCapacity = 2; // Sức chứa tiêu chuẩn (số người)
+
     @Column(name = "max_capacity", nullable = false)
     private Integer maxCapacity; // Sức chứa tối đa (số người)
+
+    @Column(name = "extra_person_charge", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal extraPersonChargePerNight = BigDecimal.ZERO; // Mức phụ thu vượt tiêu chuẩn/người/đêm
+
+    @Column(name = "max_child_age_free")
+    @Builder.Default
+    private Integer maxChildAgeFree = 6; // Độ tuổi tối đa được coi là trẻ em miễn phụ thu
 
     @Column(name = "base_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal basePrice; // Giá cơ bản (VNĐ)

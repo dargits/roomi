@@ -71,11 +71,20 @@ const groupBookingApi = {
   },
 
   /**
-   * Trả phòng hàng loạt cho đoàn - checkout tất cả phòng CHECKED_IN.
-   * @param {number} id - ID hồ sơ đoàn
+   * NCL-13-CN-006: Lấy tóm tắt chi tiết các phòng trước khi trả phòng đoàn.
    */
-  bulkCheckOut: async (id) => {
-    const response = await api.post(`/group-bookings/${id}/bulk-checkout`);
+  getBulkCheckOutSummary: async (id) => {
+    const response = await api.get(`/group-bookings/${id}/bulk-checkout-summary`);
+    return response.data;
+  },
+
+  /**
+   * NCL-13-CN-006: Trả phòng hàng loạt cho đoàn - checkout các phòng được chọn.
+   * @param {number} id - ID hồ sơ đoàn
+   * @param {object} [data] - { bookingIds: [...] }
+   */
+  bulkCheckOut: async (id, data) => {
+    const response = await api.post(`/group-bookings/${id}/bulk-checkout`, data || {});
     return response.data;
   },
 };

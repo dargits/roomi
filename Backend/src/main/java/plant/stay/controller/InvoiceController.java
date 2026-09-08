@@ -26,6 +26,7 @@ public class InvoiceController {
 
     private final InvoiceService invoiceService;
     private final BookingServiceUsageService usageService;
+    private final plant.stay.service.AuditLogService auditLogService;
     private final AuthUtil authUtil;
 
     // ===== Booking Service Usage =====
@@ -82,6 +83,19 @@ public class InvoiceController {
                                                           HttpServletRequest request) {
         User actor = checkAccountant(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(invoiceService.adjustInvoice(invoiceId, req, actor));
+    }
+
+    // NCL-05-CN-009: Ghi nhật ký mỗi lần in hoặc kết xuất hóa đơn (QTN-10)
+    @PostMapping("/api/v1/invoices/{invoiceId}/log-print")
+    public ResponseEntity<MessageResponse> logPrint(
+            @PathVariable Long invoiceId,
+            @RequestParam(defaultValue = "PRINT") String actionType,
+            HttpServletRequest request) {
+        User actor = checkFinance(request);
+        auditLogService.log("Invoice", invoiceId, "PRINT_INVOICE", actor,
+                "Người dùng " + actor.getAccount() + " (" + actor.getName() + ") thực hiện " +
+                ("EXPORT".equalsIgnoreCase(actionType) ? "kết xuất" : "in") + " hóa đơn #" + invoiceId);
+        return ResponseEntity.ok(new MessageResponse("Đã ghi nhận nhật ký in hóa đơn"));
     }
 
     // ===== Payment =====

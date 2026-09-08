@@ -79,4 +79,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "AND b.status = 'CONFIRMED' AND b.checkInDate >= :today " +
            "ORDER BY b.checkInDate ASC")
     List<Booking> findUpcomingConfirmedBookingsForRoom(@Param("roomId") Long roomId, @Param("today") LocalDate today);
+
+    // NCL-06-CN-006: Tìm tất cả booking sắp tới hoặc đang tới của phòng bị ảnh hưởng bởi sự cố
+    @Query("SELECT b FROM Booking b JOIN FETCH b.guest WHERE b.room.id = :roomId " +
+           "AND b.status IN ('NEW', 'CONFIRMED') AND b.checkOutDate >= :today " +
+           "ORDER BY b.checkInDate ASC")
+    List<Booking> findUpcomingBookingsForRoom(@Param("roomId") Long roomId, @Param("today") LocalDate today);
 }

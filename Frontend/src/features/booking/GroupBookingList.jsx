@@ -13,6 +13,7 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import BulkCheckInModal from './BulkCheckInModal';
+import BulkCheckOutModal from './BulkCheckOutModal';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import GroupRoomAssignmentGrid from './GroupRoomAssignmentGrid';
 import GroupDepositModal from './GroupDepositModal';
@@ -22,8 +23,9 @@ import { formatDate } from '../../utils/formatDate';
 import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
 import DiscountFormModal from '../invoice/DiscountFormModal';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
 
-
+const ITEMS_PER_PAGE = 10;
 
 const STATUS_STYLES = {
   NEW: 'bg-amber-100 text-amber-800',
@@ -45,6 +47,7 @@ const GroupBookingList = ({ refreshKey }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (paramGroupId) {
@@ -393,11 +396,23 @@ const GroupBookingList = ({ refreshKey }) => {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(groups.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedGroups = groups.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   if (loading) return <LoadingScreen message="Đang tải hồ sơ đoàn..." />;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
+    <>
+      <div className="flex flex-col min-h-[580px] justify-between">
+        <div className="overflow-x-auto flex-1">
+          <table className="w-full text-left border-collapse">
         <thead><tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
           <th className="p-4 font-semibold">Mã đoàn</th>
           <th className="p-4 font-semibold">Người đại diện</th>
@@ -411,7 +426,7 @@ const GroupBookingList = ({ refreshKey }) => {
         <tbody>
           {groups.length === 0 ? (
             <tr><td colSpan="8" className="p-10 text-center text-on-surface-variant">Chưa có hồ sơ đặt phòng đoàn.</td></tr>
-          ) : groups.map((group) => {
+          ) : paginatedGroups.map((group) => {
             const isExpanded = expandedGroupIds.has(group.id);
             return (
               <React.Fragment key={group.id}>
@@ -730,6 +745,19 @@ const GroupBookingList = ({ refreshKey }) => {
           })}
         </tbody>
       </table>
+    </div>
+
+    {groups.length > ITEMS_PER_PAGE && (
+      <div className="mt-auto">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </div>
+    )}
+  </div>
+
       {/* === MODAL 1: GÁN PHÒNG (Sơ đồ trực quan & Gợi ý hệ thống) === */}
       <Modal
         isOpen={Boolean(assignmentState.group)}
@@ -1248,95 +1276,16 @@ const GroupBookingList = ({ refreshKey }) => {
         />
       )}
 
-      {/* === MODAL 4: XÁC NHẬN TRẢ PHÒNG ĐOÀN (BULK CHECK-OUT) === */}
-      <Modal
+      {/* === MODAL 4: TRẢ PHÒNG HÀNG LOẠT VÀ CHỐT HÓA ĐƠN ĐOÀN (NCL-13-CN-006) === */}
+      <BulkCheckOutModal
         isOpen={Boolean(bulkCheckOutGroup)}
-        onClose={() => {
-          if (!bulkCheckOutLoading) {
-            setBulkCheckOutGroup(null);
-            setBulkCheckOutError('');
-          }
+        onClose={() => setBulkCheckOutGroup(null)}
+        group={bulkCheckOutGroup}
+        onSuccess={() => {
+          loadGroups();
         }}
-        title={bulkCheckOutGroup ? `Trả phòng — ĐOÀN-${String(bulkCheckOutGroup.id).padStart(5, '0')} (${bulkCheckOutGroup.representativeName})` : ''}
-        maxWidth="max-w-xl"
-      >
-        <div className="space-y-4">
-          {bulkCheckOutError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs space-y-2">
-              <div className="font-semibold flex items-center gap-1">
-                <IoWarningOutline size={16} /> Không thể trả phòng:
-              </div>
-              <div>{bulkCheckOutError}</div>
-              {bulkCheckOutError.includes('hóa đơn') && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  icon={IoDocumentOutline}
-                  className="mt-1 border-emerald-400 text-emerald-800 bg-white"
-                  onClick={() => {
-                    const g = bulkCheckOutGroup;
-                    setBulkCheckOutGroup(null);
-                    openInvoices(g);
-                  }}
-                >
-                  Mở Gộp hóa đơn để thanh toán ngay
-                </Button>
-              )}
-            </div>
-          )}
-
-          <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-xl text-xs text-purple-950 space-y-2">
-            <div className="font-bold text-sm text-purple-900 flex items-center gap-1.5">
-              <IoLogOutOutline size={18} /> Trả phòng nhanh toàn bộ đoàn
-            </div>
-            <div>
-              Hệ thống sẽ thực hiện trả phòng cho tất cả các phòng đang ở trong đoàn và chuyển trạng thái phòng sang cần dọn dẹp.
-            </div>
-            <div className="font-semibold text-purple-800">
-              Yêu cầu: Hóa đơn gộp của đoàn đã được tạo và thanh toán đầy đủ.
-            </div>
-          </div>
-
-          {bulkCheckOutGroup && (
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                Danh sách phòng sẽ trả ({bulkCheckOutGroup.bookings?.filter(b => b.status === 'CHECKED_IN').length || 0} phòng)
-              </div>
-              <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-border-grey p-2 bg-surface">
-                {bulkCheckOutGroup.bookings?.filter(b => b.status === 'CHECKED_IN').map(b => (
-                  <div key={b.id} className="flex items-center justify-between p-2 rounded bg-surface-container-low text-xs">
-                    <span className="font-bold text-primary">Phòng {b.roomNumber || `#${b.id}`} ({b.roomTypeName})</span>
-                    <span className="text-on-surface-variant">{b.guestName || bulkCheckOutGroup.representativeName}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-            <Button
-              variant="ghost"
-              disabled={bulkCheckOutLoading}
-              onClick={() => {
-                setBulkCheckOutGroup(null);
-                setBulkCheckOutError('');
-              }}
-            >
-              Hủy
-            </Button>
-            <Button
-              variant="primary"
-              icon={IoLogOutOutline}
-              isLoading={bulkCheckOutLoading}
-              className="bg-purple-700 hover:bg-purple-800 text-white font-semibold"
-              onClick={handleBulkCheckOut}
-            >
-              Xác nhận trả phòng tất cả
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+      />
+    </>
   );
 };
 

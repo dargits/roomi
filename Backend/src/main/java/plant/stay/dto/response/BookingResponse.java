@@ -32,4 +32,6 @@ public class BookingResponse {
     private String guestIdNumber;
     private LocalDateTime createdAt;
     private Long groupBookingId;
+    private String paymentStatus;
+    private String roomStatus;
 }

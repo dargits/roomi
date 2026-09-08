@@ -15,7 +15,10 @@ import java.time.LocalDateTime;
 public class RoomTypeResponse {
     private Long id;
     private String name;
+    private Integer standardCapacity;
     private Integer maxCapacity;
+    private BigDecimal extraPersonChargePerNight;
+    private Integer maxChildAgeFree;
     private BigDecimal basePrice;
     private String amenitiesDescription;
     private java.util.List<String> imageUrls;

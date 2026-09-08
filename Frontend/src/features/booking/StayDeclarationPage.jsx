@@ -449,7 +449,7 @@ const StayDeclarationPage = () => {
             <div className="flex items-center gap-2 rounded-xl border border-border-grey bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
               <IoShieldCheckmarkOutline size={16} className="text-primary flex-shrink-0" />
               <span>
-                Số CCCD/hộ chiếu đang được che theo <strong>QTN-24</strong> (Luật Bảo vệ dữ liệu cá nhân số 91/2025) —
+                Thông tin cá nhân (Họ tên, SĐT, CCCD/hộ chiếu) đang được che theo <strong>QTN-24</strong> (Luật Bảo vệ dữ liệu cá nhân số 91/2025) —
                 chỉ Lễ tân và Chủ cơ sở xem được đầy đủ.
               </span>
             </div>

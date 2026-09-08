@@ -116,6 +116,9 @@ const RevenueVisualChart = ({ rows, groupBy, maxRevenue, totalRevenue }) => {
                       <div className="bg-slate-900 text-white text-xs rounded-xl py-2 px-3 shadow-xl whitespace-nowrap text-center border border-slate-700">
                         <p className="font-semibold text-slate-200 border-b border-slate-700 pb-1 mb-1">{dateLabel}</p>
                         <p className="font-bold text-amber-300 text-sm">{fmtCurrency(rev)}</p>
+                        {Number(row.penaltyRevenue || 0) > 0 && (
+                          <p className="text-[11px] text-orange-300 mt-0.5">+ {fmtCurrency(Number(row.penaltyRevenue || 0))} phí hủy/cọc</p>
+                        )}
                         <p className="text-[11px] text-slate-300 mt-0.5">{row.bookings || 0} lượt đặt phòng</p>
                       </div>
                       <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1" />
@@ -222,16 +225,21 @@ const RevenueReport = () => {
   const grandTotal     = Number(data?.grandTotal     ?? (totalRevenue + penaltyRevenue));
   const bookingCount   = Number(data?.bookingCount   ?? 0);
   const rows           = Array.isArray(data?.rows) ? data.rows : [];
-  const avgPerBooking  = bookingCount > 0 ? totalRevenue / bookingCount : 0;
-  const maxRevenue     = rows.length > 0 ? Math.max(...rows.map(r => Number(r.revenue || 0))) : 0;
+  const avgPerBooking  = bookingCount > 0 ? grandTotal / bookingCount : 0;
+  const maxRevenue     = rows.length > 0 ? Math.max(...rows.map(r => Number(r.revenue || 0) + Number(r.penaltyRevenue || 0))) : 0;
 
   // Export CSV
   const exportCSV = () => {
     if (!rows.length) return;
-    const headers = ['Kỳ', 'Doanh thu (đ)', 'Số đặt phòng'];
+    const headers = ['Kỳ', 'Doanh thu phòng (đ)', 'Phí hủy & Cọc phạt (đ)', 'Tổng cộng (đ)', 'Số đặt phòng'];
     const csvContent = [
       headers.join(','),
-      ...rows.map(r => [r.period || r.day || r.month, Number(r.revenue || 0), Number(r.bookingCount || 0)].join(','))
+      ...rows.map(r => {
+        const rev     = Number(r.revenue || 0);
+        const penalty = Number(r.penaltyRevenue || 0);
+        return [r.period || r.day || r.month, rev, penalty, rev + penalty, Number(r.bookings || r.bookingCount || 0)].join(',');
+      }),
+      ['Tổng cộng', totalRevenue, penaltyRevenue, grandTotal, bookingCount].join(',')
     ].join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -345,15 +353,19 @@ const RevenueReport = () => {
                   <thead>
                     <tr className="bg-surface-container-low border-b border-border-grey text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
                       <th className="p-4">Thời gian</th>
-                      <th className="p-4 text-right">Số lượt đặt phòng</th>
-                      <th className="p-4 text-right">Doanh thu</th>
-                      <th className="p-4 w-48">Tỷ trọng</th>
+                      <th className="p-4 text-right">Lượt đặt phòng</th>
+                      <th className="p-4 text-right">Doanh thu phòng</th>
+                      <th className="p-4 text-right">Phí hủy & Cọc phạt</th>
+                      <th className="p-4 text-right">Tổng cộng</th>
+                      <th className="p-4 w-36">Tỷ trọng</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row, idx) => {
-                      const rev = Number(row.revenue || 0);
-                      const pct = maxRevenue > 0 ? (rev / maxRevenue) * 100 : 0;
+                      const rev     = Number(row.revenue || 0);
+                      const penalty = Number(row.penaltyRevenue || 0);
+                      const rowTotal = rev + penalty;
+                      const pct = maxRevenue > 0 ? (rowTotal / maxRevenue) * 100 : 0;
                       return (
                         <tr key={idx} className="border-b border-border-grey hover:bg-surface-container-low/60 transition-colors">
                           <td className="p-4 font-body-md text-on-surface font-medium">
@@ -364,6 +376,16 @@ const RevenueReport = () => {
                           </td>
                           <td className="p-4 text-right font-title-sm text-primary font-bold">
                             {fmtCurrency(rev)}
+                          </td>
+                          <td className="p-4 text-right font-title-sm font-semibold">
+                            {penalty > 0 ? (
+                              <span className="text-amber-700">{fmtCurrency(penalty)}</span>
+                            ) : (
+                              <span className="text-on-surface-variant/50">—</span>
+                            )}
+                          </td>
+                          <td className="p-4 text-right font-title-sm text-on-surface font-bold">
+                            {fmtCurrency(rowTotal)}
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
@@ -386,7 +408,11 @@ const RevenueReport = () => {
                     <tr className="bg-surface-container-low/80 border-t-2 border-border-grey font-bold">
                       <td className="p-4 font-title-sm text-on-surface">Tổng cộng</td>
                       <td className="p-4 text-right font-title-sm text-on-surface">{bookingCount.toLocaleString('vi-VN')}</td>
-                      <td className="p-4 text-right font-title-lg text-primary">{fmtCurrency(totalRevenue)}</td>
+                      <td className="p-4 text-right font-title-sm text-primary">{fmtCurrency(totalRevenue)}</td>
+                      <td className="p-4 text-right font-title-sm text-amber-700">
+                        {penaltyRevenue > 0 ? fmtCurrency(penaltyRevenue) : '—'}
+                      </td>
+                      <td className="p-4 text-right font-title-lg text-primary">{fmtCurrency(grandTotal)}</td>
                       <td className="p-4" />
                     </tr>
                   </tfoot>

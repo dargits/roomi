@@ -6,6 +6,7 @@ import { numberToWords } from '../../utils/numberToWords';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import bookingApi from '../../services/bookingApi';
 import groupBookingApi from '../../services/groupBookingApi';
+import invoiceApi from '../../services/invoiceApi';
 import { useAppConfig } from '../../context/AppConfigContext';
 
 const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
@@ -75,6 +76,11 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
   }, [booking?.id, invoice?.mode, activeGroup?.bookings, isCombined]);
 
   const handlePrint = () => {
+    if (invoice?.id) {
+      invoiceApi.logPrint(invoice.id, 'PRINT').catch(err => {
+        console.error("Lỗi ghi nhận audit log in hóa đơn:", err);
+      });
+    }
     window.print();
   };
 
@@ -198,15 +204,28 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
               </div>
             </div>
 
-            {/* 2. Tiêu đề Hóa Đơn */}
-            <div className="text-center py-2">
-              <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wider">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</h2>
+            {/* 2. Tiêu đề Hóa Đơn & Trạng thái */}
+            <div className="text-center py-2 relative">
+              {invoice?.status !== 'PAID' && (
+                <div className="mb-2 py-1 px-3 bg-amber-100 border border-amber-300 text-amber-900 rounded text-center text-xs font-bold uppercase tracking-wider">
+                  ⚠ BẢN TẠM TÍNH — CHƯA PHẢI CHỨNG TỪ THANH TOÁN CHÍNH THỨC
+                </div>
+              )}
+              {(invoice?.status === 'ADJUSTED' || invoice?.adjustmentOfId) && (
+                <div className="mb-2 py-1.5 px-3 bg-blue-50 border border-blue-300 text-blue-900 rounded text-xs text-left">
+                  <span className="font-bold">HÓA ĐƠN ĐIỀU CHỈNH:</span> Tham chiếu hóa đơn gốc #{invoice?.adjustmentOfId || '—'}
+                  {invoice?.note && <span className="ml-2 italic">— Lý do: {invoice.note}</span>}
+                </div>
+              )}
+              <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wider">
+                {invoice?.status === 'PAID' ? 'HÓA ĐƠN GIÁ TRỊ GIA TĂNG' : 'PHIẾU TẠM TÍNH TIỀN PHÒNG & DỊCH VỤ'}
+              </h2>
               <p className="text-xs text-slate-500 italic mt-1">
                 Ngày {invoiceDay} tháng {invoiceMonth} năm {invoiceYear}
               </p>
             </div>
 
-            {/* 3. Thông tin người mua hàng */}
+            {/* 3. Thông tin người mua hàng (KHÔNG hiển thị CCCD/CMND theo QTN-24 & Story 4) */}
             <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-3.5 text-xs space-y-1.5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="flex">
@@ -221,8 +240,8 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="flex">
-                  <span className="w-36 text-slate-600 font-semibold">Căn cước công dân:</span>
-                  <span className="flex-1 text-slate-800">{booking?.guestIdNumber || '—'}</span>
+                  <span className="w-36 text-slate-600 font-semibold">Mã đặt phòng:</span>
+                  <span className="flex-1 font-bold text-slate-900 font-mono">#{isCombined ? `Đoàn ${activeGroup?.id}` : (booking?.id || '—')}</span>
                 </div>
                 <div className="flex">
                   <span className="w-32 text-slate-600 font-semibold">Mã số thuế:</span>
@@ -233,7 +252,7 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="flex">
                   <span className="w-36 text-slate-600 font-semibold">Địa chỉ:</span>
-                  <span className="flex-1 text-slate-800">Khách lẻ lưu trú</span>
+                  <span className="flex-1 text-slate-800">Khách lưu trú</span>
                 </div>
                 <div className="flex">
                   <span className="w-32 text-slate-600 font-semibold">Hình thức thanh toán:</span>
@@ -377,7 +396,7 @@ const InvoicePrintTemplate = ({ invoice, booking, group, onClose }) => {
 
             {/* 8. Footer */}
             <div className="text-center text-[11px] text-slate-500 border-t border-slate-200 pt-2 pb-4">
-              (Hóa đơn điện tử có giá trị pháp lý theo quy định hiện hành • Hệ thống StayGO PMS)
+              (Chứng từ lưu trú nội bộ • Không phải hóa đơn điện tử có mã của cơ quan thuế • Hệ thống StayGO PMS)
             </div>
 
           </div>

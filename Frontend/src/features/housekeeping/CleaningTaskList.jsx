@@ -23,8 +23,10 @@ import {
   IoPersonRemoveOutline,
   IoSwapHorizontalOutline,
   IoInformationCircleOutline,
-  IoAlertCircleOutline
+  IoAlertCircleOutline,
+  IoWarningOutline
 } from 'react-icons/io5';
+import RoomIncidentModal from './RoomIncidentModal';
 
 /**
  * NCL-06-CN-004: Phân công phòng cần dọn cho nhân viên buồng phòng
@@ -45,6 +47,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
   const [housekeepers, setHousekeepers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState(null);
+  const [incidentRoom, setIncidentRoom] = useState(null);
   
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -876,6 +879,16 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                           )}
                         </div>
                       )}
+
+                      {/* Nút báo sự cố phòng khi dọn (NCL-06-CN-006) */}
+                      <button
+                        type="button"
+                        onClick={() => setIncidentRoom(room)}
+                        className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <IoWarningOutline size={14} className="text-amber-600" />
+                        Báo sự cố phòng
+                      </button>
                     </div>
                   </div>
                 );
@@ -884,6 +897,19 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
           )}
         </div>
       </div>
+
+      {/* Modal Báo sự cố phòng */}
+      {incidentRoom && (
+        <RoomIncidentModal
+          isOpen={!!incidentRoom}
+          onClose={() => setIncidentRoom(null)}
+          initialRoom={incidentRoom}
+          onIncidentReported={() => {
+            fetchRoomsAndStaff();
+            if (onRoomCleaned) onRoomCleaned();
+          }}
+        />
+      )}
     </div>
   );
 };

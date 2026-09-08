@@ -20,5 +20,6 @@ public class UserResponse {
     private LocalDateTime createAt;
     private String avatarImage;
     private boolean active;
+    private boolean mustChangePassword;
     private Role role;
 }
