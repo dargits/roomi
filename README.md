@@ -332,7 +332,7 @@ git push origin main
 | `DB_USER` / `DB_PASS` | Thông tin đăng nhập Database |
 | `CLOUDINARY_CLOUD_NAME` | Cloud Name Cloudinary |
 | `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Khóa xác thực Cloudinary CDN |
-| `VITE_API_BASE_URL_PROD` | URL API backend cho production build (`https://stayaway.io.vn/api/v1`) |
+| `VITE_API_BASE_URL_PROD` | Đường dẫn API backend cho production build (mặc định `/api/v1` - relative path tự động thích ứng domain) |
 
 ---
 
