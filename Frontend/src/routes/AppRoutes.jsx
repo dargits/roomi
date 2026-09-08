@@ -43,6 +43,7 @@ import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
 
 // Reports & Backup
 import ReportsPage from '../features/reports/ReportsPage';
+import CashierShiftPage from '../features/reports/CashierShiftPage';
 import BackupDataPage from '../features/admin/BackupDataPage';
 import PersonalDataAuditLogPage from '../features/booking/PersonalDataAuditLogPage';
 
@@ -114,6 +115,7 @@ const AppRoutes = () => {
 
                   {/* Báo cáo — OWNER / ACCOUNTANT */}
                   <Route path="/manage/reports" element={<ReportsPage />} />
+                  <Route path="/manage/cashier-shifts" element={<CashierShiftPage />} />
 
                   {/* Lịch sử hoạt động — OWNER / ADMIN */}
                   <Route path="/manage/audit-logs" element={<ActivityLog />} />

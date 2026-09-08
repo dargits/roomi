@@ -37,6 +37,18 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getAll());
     }
 
+    // NCL-03-CN-010: Tra cứu nhanh đặt phòng theo mã, tên khách hoặc SĐT
+    @GetMapping("/search")
+    public ResponseEntity<List<BookingResponse>> search(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) plant.stay.model.BookingStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            HttpServletRequest request) {
+        checkReadBooking(request);
+        return ResponseEntity.ok(bookingService.search(q, status, from, to));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<BookingResponse> getById(@PathVariable Long id, HttpServletRequest request) {
         checkReadBooking(request);
@@ -98,7 +110,7 @@ public class BookingController {
     }
 
     @PutMapping("/bulk-check-in")
-    public ResponseEntity<List<BookingResponse>> bulkCheckIn(@Valid @RequestBody plant.stay.dto.request.BulkCheckInRequest req,
+    public ResponseEntity<plant.stay.dto.response.BulkCheckInResultResponse> bulkCheckIn(@Valid @RequestBody plant.stay.dto.request.BulkCheckInRequest req,
                                                              HttpServletRequest request) {
         User actor = checkStaff(request);
         return ResponseEntity.ok(bookingService.bulkCheckIn(req, actor));

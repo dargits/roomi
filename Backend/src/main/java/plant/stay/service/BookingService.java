@@ -13,6 +13,7 @@ import java.util.List;
 
 public interface BookingService {
     List<BookingResponse> getAll();
+    List<BookingResponse> search(String query, plant.stay.model.BookingStatus status, LocalDate fromDate, LocalDate toDate);
     BookingResponse getById(Long id);
     List<?> getCalendar(LocalDate from, LocalDate to);
     BookingResponse create(BookingRequest request, User actor);
@@ -22,7 +23,7 @@ public interface BookingService {
     BookingResponse noShow(Long bookingId, User actor);
     BookingResponse checkIn(Long bookingId, User actor);
     BookingResponse checkIn(Long bookingId, plant.stay.dto.request.CheckInRequest req, User actor);
-    List<BookingResponse> bulkCheckIn(plant.stay.dto.request.BulkCheckInRequest req, User actor);
+    plant.stay.dto.response.BulkCheckInResultResponse bulkCheckIn(plant.stay.dto.request.BulkCheckInRequest req, User actor);
     BookingResponse checkOut(Long bookingId, User actor);
     // NCL-04-CN-007: Gia hạn thêm đêm giữa kỳ lưu trú
     BookingResponse extendStay(Long bookingId, ExtendStayRequest req, User actor);

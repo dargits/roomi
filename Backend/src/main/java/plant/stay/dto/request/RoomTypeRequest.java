@@ -19,9 +19,18 @@ public class RoomTypeRequest {
     @NotBlank(message = "Tên loại phòng không được để trống")
     private String name;
 
+    @Min(value = 1, message = "Sức chứa tiêu chuẩn phải lớn hơn hoặc bằng 1")
+    private Integer standardCapacity;
+
     @NotNull(message = "Sức chứa tối đa không được để trống")
     @Min(value = 1, message = "Sức chứa tối đa phải lớn hơn hoặc bằng 1")
     private Integer maxCapacity;
+
+    @Min(value = 0, message = "Mức phụ thu thêm người không được âm")
+    private BigDecimal extraPersonChargePerNight;
+
+    @Min(value = 0, message = "Độ tuổi trẻ em miễn phí không được âm")
+    private Integer maxChildAgeFree;
 
     @NotNull(message = "Giá cơ bản không được để trống")
     @Min(value = 0, message = "Giá cơ bản không được âm")

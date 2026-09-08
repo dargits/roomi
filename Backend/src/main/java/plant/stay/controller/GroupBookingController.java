@@ -129,13 +129,25 @@ public class GroupBookingController {
     }
 
     /**
-     * Trả phòng hàng loạt cho đoàn: checkout tất cả phòng CHECKED_IN cùng lúc.
-     * Dùng khi đoàn trả phòng đồng loạt. Yêu cầu hóa đơn đoàn đã thanh toán.
+     * NCL-13-CN-006: Lấy tóm tắt chi tiết từng phòng, tiền phòng, phụ thu và tình trạng thanh toán trước khi trả phòng đoàn.
+     */
+    @GetMapping("/{id}/bulk-checkout-summary")
+    public ResponseEntity<plant.stay.dto.response.BulkCheckOutSummaryResponse> getBulkCheckOutSummary(@PathVariable Long id, HttpServletRequest httpRequest) {
+        checkReadAccess(httpRequest);
+        return ResponseEntity.ok(groupBookingService.getBulkCheckOutSummary(id));
+    }
+
+    /**
+     * NCL-13-CN-006: Trả phòng hàng loạt cho đoàn: checkout các phòng được chọn (hoặc tất cả phòng CHECKED_IN).
+     * Cho phép bỏ chọn phòng ở thêm, kiểm tra chốt phụ thu và thanh toán.
      */
     @PostMapping("/{id}/bulk-checkout")
-    public ResponseEntity<?> bulkCheckOut(@PathVariable Long id, HttpServletRequest httpRequest) {
+    public ResponseEntity<plant.stay.dto.response.BulkCheckOutResultResponse> bulkCheckOut(
+            @PathVariable Long id,
+            @RequestBody(required = false) plant.stay.dto.request.BulkCheckOutRequest request,
+            HttpServletRequest httpRequest) {
         User actor = checkWriteAccess(httpRequest);
-        return ResponseEntity.ok(groupBookingService.bulkCheckOut(id, actor));
+        return ResponseEntity.ok(groupBookingService.bulkCheckOut(id, request, actor));
     }
 
 

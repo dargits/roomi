@@ -95,6 +95,8 @@ class StayDeclarationServiceTest {
         assertEquals("COMPLETE", pendingGuest.getDocumentStatus());
         assertEquals("PENDING", pendingGuest.getDeclarationStatus());
         assertEquals("001000000001", pendingGuest.getIdNumber()); // RECEPTIONIST sees full
+        assertEquals("Declaration Guest", pendingGuest.getGuestName());
+        assertEquals("0900000001", pendingGuest.getPhone());
 
         // Test mask for HOUSEKEEPER / ACCOUNTANT (QTN-24)
         StayDeclarationResponseDTO maskedResponse = stayDeclarationService.getTodayDeclarations(Role.HOUSEKEEPER);
@@ -104,6 +106,8 @@ class StayDeclarationServiceTest {
                 .orElseThrow();
         assertEquals("********0001", maskedGuest.getIdNumber());
         assertEquals(true, maskedGuest.isIdNumberMasked());
+        assertEquals("Declaration Guest", maskedGuest.getGuestName());
+        assertEquals("090****001", maskedGuest.getPhone());
 
         stayDeclarationService.completeDeclaration(booking.getId(), receptionist);
 
@@ -116,7 +120,7 @@ class StayDeclarationServiceTest {
         assertNotNull(completedGuest.getDeclarationCompletedAt());
 
         byte[] receptionistReport = stayDeclarationService.exportAndLogDeclarations(LocalDate.now(), receptionist);
-        assertExcelIdentifier(receptionistReport, "001000000001");
+        assertExcelIdentifier(receptionistReport, "001000000001", "Declaration Guest", "0900000001");
 
         User admin = userRepository.save(User.builder()
                 .account("declaration-admin")
@@ -125,23 +129,26 @@ class StayDeclarationServiceTest {
                 .role(Role.ADMIN)
                 .build());
         byte[] adminReport = stayDeclarationService.exportAndLogDeclarations(LocalDate.now(), admin);
-        assertExcelIdentifier(adminReport, "********0001");
+        assertExcelIdentifier(adminReport, "********0001", "Declaration Guest", "090****001");
     }
 
-    private void assertExcelIdentifier(byte[] excelReport, String expectedIdentifier) {
+    private void assertExcelIdentifier(byte[] excelReport, String expectedIdentifier, String expectedName, String expectedPhone) {
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(excelReport))) {
             assertEquals("Khai bao luu tru", workbook.getSheetAt(0).getSheetName());
             assertEquals("DANH SACH KHAI BAO LUU TRU - "
                             + LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue());
-            boolean identifierFound = false;
+            boolean matched = false;
             for (int rowIndex = 5; rowIndex <= workbook.getSheetAt(0).getLastRowNum(); rowIndex++) {
-                if (expectedIdentifier.equals(workbook.getSheetAt(0).getRow(rowIndex).getCell(2).getStringCellValue())) {
-                    identifierFound = true;
+                String name = workbook.getSheetAt(0).getRow(rowIndex).getCell(1).getStringCellValue();
+                String id = workbook.getSheetAt(0).getRow(rowIndex).getCell(2).getStringCellValue();
+                String phone = workbook.getSheetAt(0).getRow(rowIndex).getCell(3).getStringCellValue();
+                if (expectedIdentifier.equals(id) && expectedName.equals(name) && expectedPhone.equals(phone)) {
+                    matched = true;
                     break;
                 }
             }
-            assertEquals(true, identifierFound);
+            assertEquals(true, matched);
         } catch (Exception exception) {
             throw new AssertionError("Excel report must be readable", exception);
         }

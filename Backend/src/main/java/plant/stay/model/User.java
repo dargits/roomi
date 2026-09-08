@@ -43,6 +43,10 @@ public class User {
     @Builder.Default
     private boolean active = true;
 
+    @Builder.Default
+    @Column(name = "must_change_password")
+    private boolean mustChangePassword = false;
+
     @Enumerated(EnumType.STRING)
     private Role role;
 

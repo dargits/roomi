@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { IoBrushOutline, IoListOutline } from 'react-icons/io5';
+import { IoBrushOutline, IoListOutline, IoWarningOutline } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
 import Tabs from '../../components/ui/Tabs/Tabs';
 import CleaningTaskList from './CleaningTaskList';
 import RoomStatusUpdate from './RoomStatusUpdate';
+import RoomIncidentModal from './RoomIncidentModal';
 
 const TABS = [
-  { id: 'tasks',    label: 'Phòng cần dọn',  icon: IoBrushOutline },
-  { id: 'overview', label: 'Tổng quan phòng', icon: IoListOutline  }
+  { id: 'tasks',     label: 'Phòng cần dọn',   icon: IoBrushOutline },
+  { id: 'overview',  label: 'Tổng quan phòng',  icon: IoListOutline  },
+  { id: 'incidents', label: 'Sự cố phòng & Bảo trì', icon: IoWarningOutline }
 ];
 
 const HousekeepingPage = () => {
   const { user }          = useAuth();
-  const [searchParams]    = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'tasks';
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -45,6 +47,13 @@ const HousekeepingPage = () => {
         />
       )}
       {tab === 'overview' && <RoomStatusUpdate key={`overview-${refreshKey}`} />}
+      {tab === 'incidents' && (
+        <RoomIncidentModal
+          isOpen={true}
+          onClose={() => setSearchParams({ tab: 'tasks' })}
+          onIncidentReported={() => setRefreshKey(k => k + 1)}
+        />
+      )}
     </div>
   );
 };
