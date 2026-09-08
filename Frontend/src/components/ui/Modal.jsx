@@ -3,7 +3,15 @@ import { createPortal } from 'react-dom';
 import { IoCloseOutline } from 'react-icons/io5';
 import { stopAllCameraStreams } from '../../utils/qrDecoder';
 
-const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => {
+const Modal = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  children, 
+  maxWidth = 'max-w-2xl',
+  showCloseButton = true,
+  closeOnBackdrop = true
+}) => {
   const [mounted, setMounted] = useState(false);
   const backdropClickRef = useRef(false);
 
@@ -35,7 +43,9 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => 
 
   const handleMouseUp = (e) => {
     if (backdropClickRef.current && e.target === e.currentTarget) {
-      onClose();
+      if (closeOnBackdrop && onClose) {
+        onClose();
+      }
     }
     backdropClickRef.current = false;
   };
@@ -55,14 +65,16 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => 
         {title && (
           <div className="p-6 border-b border-border-grey flex justify-between items-center bg-surface-container-lowest shrink-0 rounded-none">
             <h2 className="font-headline-md text-on-surface">{title}</h2>
-            <button 
-              type="button"
-              onClick={onClose} 
-              className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1.5 transition-colors"
-              title="Đóng"
-            >
-              <IoCloseOutline size={20} strokeWidth={2} />
-            </button>
+            {showCloseButton && onClose && (
+              <button 
+                type="button"
+                onClick={onClose} 
+                className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1.5 transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <IoCloseOutline size={20} strokeWidth={2} />
+              </button>
+            )}
           </div>
         )}
         

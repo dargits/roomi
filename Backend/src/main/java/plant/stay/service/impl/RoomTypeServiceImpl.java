@@ -46,9 +46,13 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     @Override
     @Transactional
     public RoomTypeResponse createRoomType(RoomTypeRequest request) {
+        validateCapacity(request);
         RoomType roomType = RoomType.builder()
                 .name(request.getName())
+                .standardCapacity(request.getStandardCapacity() != null ? request.getStandardCapacity() : 2)
                 .maxCapacity(request.getMaxCapacity())
+                .extraPersonChargePerNight(request.getExtraPersonChargePerNight() != null ? request.getExtraPersonChargePerNight() : java.math.BigDecimal.ZERO)
+                .maxChildAgeFree(request.getMaxChildAgeFree() != null ? request.getMaxChildAgeFree() : 6)
                 .basePrice(request.getBasePrice())
                 .amenitiesDescription(request.getAmenitiesDescription())
                 .imageUrls(request.getImageUrls() != null ? request.getImageUrls() : new java.util.ArrayList<>())
@@ -62,11 +66,21 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     @Override
     @Transactional
     public RoomTypeResponse updateRoomType(Long id, RoomTypeRequest request) {
+        validateCapacity(request);
         RoomType roomType = roomTypeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng với ID: " + id));
                 
         roomType.setName(request.getName());
+        if (request.getStandardCapacity() != null) {
+            roomType.setStandardCapacity(request.getStandardCapacity());
+        }
         roomType.setMaxCapacity(request.getMaxCapacity());
+        if (request.getExtraPersonChargePerNight() != null) {
+            roomType.setExtraPersonChargePerNight(request.getExtraPersonChargePerNight());
+        }
+        if (request.getMaxChildAgeFree() != null) {
+            roomType.setMaxChildAgeFree(request.getMaxChildAgeFree());
+        }
         roomType.setBasePrice(request.getBasePrice());
         roomType.setAmenitiesDescription(request.getAmenitiesDescription());
         if (request.getImageUrls() != null) {
@@ -78,6 +92,20 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         
         RoomType updated = roomTypeRepository.save(roomType);
         return mapToResponse(updated);
+    }
+
+    private void validateCapacity(RoomTypeRequest request) {
+        if (request.getStandardCapacity() != null && request.getMaxCapacity() != null) {
+            if (request.getMaxCapacity() < request.getStandardCapacity()) {
+                throw new IllegalArgumentException("Sức chứa tối đa (" + request.getMaxCapacity() + ") không được nhỏ hơn sức chứa tiêu chuẩn (" + request.getStandardCapacity() + ")");
+            }
+        }
+        if (request.getExtraPersonChargePerNight() != null && request.getExtraPersonChargePerNight().compareTo(java.math.BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Mức phụ thu thêm người không được là số âm");
+        }
+        if (request.getMaxChildAgeFree() != null && request.getMaxChildAgeFree() < 0) {
+            throw new IllegalArgumentException("Độ tuổi trẻ em miễn phí không được là số âm");
+        }
     }
 
     @Override
@@ -93,7 +121,10 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         return RoomTypeResponse.builder()
                 .id(roomType.getId())
                 .name(roomType.getName())
+                .standardCapacity(roomType.getStandardCapacity())
                 .maxCapacity(roomType.getMaxCapacity())
+                .extraPersonChargePerNight(roomType.getExtraPersonChargePerNight())
+                .maxChildAgeFree(roomType.getMaxChildAgeFree())
                 .basePrice(roomType.getBasePrice())
                 .amenitiesDescription(roomType.getAmenitiesDescription())
                 .imageUrls(roomType.getImageUrls())

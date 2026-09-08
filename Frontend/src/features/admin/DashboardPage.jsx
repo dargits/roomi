@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import reportApi from '../../services/reportApi';
 import { roomApi } from '../../services/roomApi';
-import { IoAlertCircleOutline, IoBarChartOutline, IoBrushOutline, IoCalendarOutline, IoCheckmarkCircleOutline, IoConstructOutline, IoHappyOutline, IoLogInOutline, IoLogOutOutline, IoPeopleOutline, IoRefreshOutline, IoTrendingUpOutline } from 'react-icons/io5';
+import { IoAlertCircleOutline, IoBarChartOutline, IoBrushOutline, IoCalendarOutline, IoCheckmarkCircleOutline, IoConstructOutline, IoHappyOutline, IoLogInOutline, IoLogOutOutline, IoPeopleOutline, IoRefreshOutline, IoTrendingUpOutline, IoKeyOutline } from 'react-icons/io5';
 import { formatStayDateTime, formatDate } from '../../utils/formatDate';
+import usePasswordResetNotification from '../../hooks/usePasswordResetNotification';
+import PasswordResetManagementModal from './PasswordResetManagementModal';
 
 const getStatusBadge = (status) => {
   switch(status) {
@@ -40,6 +42,8 @@ const StatCard = ({ icon: Icon, label, value, color, subLabel, onClick }) => (
 
 const DashboardPage = () => {
   const { user } = useAuth();
+  const { pendingCount: pendingResetCount } = usePasswordResetNotification();
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
   const [dashboard, setDashboard] = useState(null);
   const [todayEvents, setTodayEvents] = useState([]);
   const [dirtyRoomsCount, setDirtyRoomsCount] = useState(0);
@@ -175,6 +179,46 @@ const DashboardPage = () => {
           Làm mới
         </button>
       </div>
+
+      {/* ── Thông báo yêu cầu cấp lại mật khẩu cho Quản trị viên (Story NCL-01-CN-005) ── */}
+      {isOwnerOrAdmin && pendingResetCount > 0 && (
+        <div className="p-4 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 rounded-xl shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs shrink-0 mt-0.5 animate-pulse">
+              <IoKeyOutline size={24} />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-base text-amber-950">
+                  Có {pendingResetCount} yêu cầu cấp lại mật khẩu từ nhân viên đang chờ duyệt!
+                </h3>
+                <span className="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 rounded-full border border-red-300 animate-pulse">
+                  {pendingResetCount} yêu cầu mới
+                </span>
+              </div>
+              <p className="text-xs text-amber-900/80 leading-relaxed">
+                Nhân viên quên mật khẩu đã gửi yêu cầu. Quản trị viên cần xác minh danh tính và cấp mật khẩu tạm có hiệu lực 24 giờ.
+              </p>
+              <div className="text-xs font-semibold text-amber-950 pt-0.5 flex items-center gap-1.5 flex-wrap">
+                <span>📍 Vị trí quản lý:</span>
+                <span className="bg-white px-2 py-0.5 rounded border border-amber-300 text-primary font-mono text-[11px]">
+                  Menu Hệ thống ➔ Quản lý Nhân sự ➔ Nút "Cấp lại mật khẩu"
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+            <button
+              type="button"
+              onClick={() => setShowPasswordResetModal(true)}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+            >
+              <IoKeyOutline size={16} />
+              <span>Xử lý ngay ({pendingResetCount})</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Error ── */}
       {error && (
@@ -339,10 +383,16 @@ const DashboardPage = () => {
                     <p className="text-sm text-on-surface-variant mt-1">Đi tới danh sách phòng để cập nhật trạng thái</p>
                   </div>
                </Link>
-            </div>
+             </div>
           )}
         </div>
       )}
+
+      {/* Modal Cấp lại Mật khẩu tạm trực tiếp từ Dashboard */}
+      <PasswordResetManagementModal
+        isOpen={showPasswordResetModal}
+        onClose={() => setShowPasswordResetModal(false)}
+      />
     </div>
   );
 };
