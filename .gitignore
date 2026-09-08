@@ -1,32 +1,167 @@
-# Node / Frontend
-node_modules/
-Frontend/node_modules/
-dist/
-Frontend/dist/
-*.local
-.env
-.env.*
-!.env.example
+# ==============================================================================
+#  STAYAWAY REPOSITORY .GITIGNORE
+#  Ngăn chặn toàn bộ thư viện, build artifacts, cache và file rác làm nặng repo
+# ==============================================================================
 
-# Java / Maven / Backend
+# ==========================================
+# 1. FRONTEND / NODE.JS / VITE / REACT
+# ==========================================
+# Thư viện phụ thuộc (Dependencies)
+node_modules/
+*/node_modules/
+**/node_modules/
+.pnp/
+.pnp.js
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnpm-store/
+
+# Thư mục đóng gói / Build Artifacts
+dist/
+*/dist/
+**/dist/
+build/
+*/build/
+**/build/
+out/
+.vite/
+.turbo/
+.cache/
+
+# Kiểm thử & Coverage
+coverage/
+*/coverage/
+**/coverage/
+.nyc_output/
+*.lcov
+
+# Logs của Node Package Managers
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# 2. BACKEND / JAVA / MAVEN / SPRING BOOT
+# ==========================================
+# Thư mục build của Maven
 target/
 Backend/target/
+*/target/
+**/target/
+
+# Biên dịch bytecode Java & Archives nặng
 *.class
 *.jar
 *.war
-*.nar
 *.ear
+*.nar
 *.zip
+*.tar
 *.tar.gz
 *.rar
+*.7z
+*.iso
+
+# Cho phép maven-wrapper nếu cần thiết
+!.mvn/wrapper/maven-wrapper.jar
+!Backend/.mvn/wrapper/maven-wrapper.jar
+
+# Crash Logs & JVM Dumps
 hs_err_pid*
 replay_pid*
+*.hprof
 
-# IDE & OS
+# Log files của ứng dụng
+logs/
+*/logs/
+**/logs/
+*.log
+
+# ==========================================
+# 3. BIẾN MÔI TRƯỜNG & DỮ LIỆU BẢO MẬT
+# ==========================================
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+
+# Giữ lại tệp mẫu cấu hình (Example templates)
+!.env.example
+!Backend/.env.example
+!Frontend/.env.example
+
+# ==========================================
+# 4. IDE / CODE EDITORS CỦA LẬP TRÌNH VIÊN
+# ==========================================
+# Visual Studio Code
 .vscode/
+*/.vscode/
+**/.vscode/
+*.code-workspace
+.history/
+
+# IntelliJ IDEA / WebStorm / Android Studio
 .idea/
+*/.idea/
+**/.idea/
 *.iml
 *.iws
+*.ipr
+out/
+
+# Eclipse / Spring Tool Suite (STS)
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ==========================================
+# 5. HỆ ĐIỀU HÀNH & FILE TẠM (OS / TEMP)
+# ==========================================
+# macOS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
 Thumbs.db
-.mvn/wrapper/maven-wrapper.jar
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux / Vim / Backup files
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+*.temp
+
+# ==========================================
+# 6. DATABASE LOCALS & LARGE DUMPS
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db-journal
+*.dump
+*.sql.gz
