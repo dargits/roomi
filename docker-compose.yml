@@ -1,11 +1,20 @@
+# ==============================================================================
+#  STAYAWAY (PMS) — DOCKER COMPOSE MULTI-SERVICE ORCHESTRATION
+# ==============================================================================
+#  • Production URL  : https://stayaway.io.vn
+#  • Backend Image   : ghcr.io/dargits/roomi-backend:latest
+#  • Frontend Image  : ghcr.io/dargits/roomi-frontend:latest
+#  • Orchestration   : Managed automatically by .github/workflows/deploy.yml
+# ==============================================================================
+
 services:
-  # ==========================================
-  # DỊCH VỤ 1: BACKEND SPRING BOOT
-  # ==========================================
+  # ────────────────────────────────────────────────────────────────────────────
+  # 1. BACKEND SERVICE (Spring Boot 3 + JDK 17 Alpine)
+  # ────────────────────────────────────────────────────────────────────────────
   backend:
     image: ghcr.io/dargits/roomi-backend:latest
     build:
-      context: ./Backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: stayaway_backend
     restart: always
@@ -13,9 +22,11 @@ services:
       - "8080:8080"
     environment:
       - SERVER_PORT=8080
+      # Thông tin kết nối MySQL Database (Được nạp tự động qua file .env từ VPS)
       - SPRING_DATASOURCE_URL=${DB_URL:-jdbc:mysql://roomi-db:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-root}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASS:-}
+      # Cloudinary CDN lưu trữ ảnh tải lên
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dnyemotdi}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-731499327571147}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-bSZWJxnQvsTeDygipIyYzKYeZ_M}
@@ -23,17 +34,22 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - stayaway_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
 
-  # ==========================================
-  # DỊCH VỤ 2: FRONTEND REACT + VITE + NGINX
-  # ==========================================
+  # ────────────────────────────────────────────────────────────────────────────
+  # 2. FRONTEND SERVICE (React 18 + Vite + Nginx Alpine)
+  # ────────────────────────────────────────────────────────────────────────────
   frontend:
     image: ghcr.io/dargits/roomi-frontend:latest
     build:
-      context: ./Frontend
+      context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL_PROD:-https://roomi.website/api/v1}
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL_PROD:-https://stayaway.io.vn/api/v1}
     container_name: stayaway_frontend
     restart: always
     ports:
@@ -42,7 +58,16 @@ services:
       - backend
     networks:
       - stayaway_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+# ──────────────────────────────────────────────────────────────────────────────
+# NETWORKS CONFIGURATION
+# ──────────────────────────────────────────────────────────────────────────────
 networks:
   stayaway_network:
+    name: stayaway_network
     driver: bridge
