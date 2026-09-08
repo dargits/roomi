@@ -411,8 +411,8 @@ const CameraQrScanner = ({
               {/* Trạng thái đang tải camera */}
               {isCameraStarting && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 text-white z-10 space-y-2">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
-                  <span className="text-xs text-slate-300">Đang khởi động Camera laptop...</span>
+                  <span className="inline-block h-8 w-8 border-2 border-primary border-t-transparent border-l-transparent animate-square-spin" />
+                  <span className="text-xs uppercase font-bold tracking-wider text-slate-300">Đang khởi động Camera...</span>
                 </div>
               )}
 

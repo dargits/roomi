@@ -1,5 +1,5 @@
 import React from 'react';
-import { IoSyncOutline } from 'react-icons/io5';
+import { SquareSpinner } from '../common/LoadingScreen';
 
 const Button = ({
   children,
@@ -42,7 +42,7 @@ const Button = ({
       {...props}
     >
       {isLoading ? (
-        <IoSyncOutline size={size === 'sm' ? 16 : 18} className="animate-spin shrink-0" />
+        <SquareSpinner size={size === 'sm' ? 'xs' : 'sm'} color="text-current" className="shrink-0" />
       ) : Icon ? (
         <Icon size={size === 'sm' ? 16 : 18} strokeWidth={1.5} className="shrink-0" />
       ) : null}
