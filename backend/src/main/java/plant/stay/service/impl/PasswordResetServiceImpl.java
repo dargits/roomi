@@ -32,6 +32,12 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final PasswordResetRequestRepository passwordResetRequestRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private static final String UPPERCASE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // Loại trừ chữ I, O dễ gây nhầm lẫn
+    private static final String LOWERCASE_CHARS = "abcdefghijkmnopqrstuvwxyz"; // Loại trừ chữ l
+    private static final String DIGIT_CHARS = "23456789";                   // Loại trừ số 0, 1
+    private static final String SPECIAL_CHARS = "!@#$%^&*";
+    private static final String ALL_COMBINED_CHARS = UPPERCASE_CHARS + LOWERCASE_CHARS + DIGIT_CHARS + SPECIAL_CHARS;
+    private static final int TEMP_PASSWORD_LENGTH = 12;
 
     @Override
     @Transactional(readOnly = true)
@@ -118,10 +124,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             throw new IllegalArgumentException("Tài khoản này không tồn tại trong hệ thống nên không thể cấp mật khẩu tạm.");
         }
 
-        // Sinh mật khẩu tạm ngẫu nhiên 8 ký tự dễ đọc (VD: Roomi@8392)
-        SecureRandom random = new SecureRandom();
-        int digits = 1000 + random.nextInt(9000);
-        String tempPassword = "Roomi@" + digits;
+        // Sinh mật khẩu tạm thời bảo mật cao (12 ký tự, đa dạng chữ hoa, thường, số, ký tự đặc biệt)
+        String tempPassword = generateSecureTempPassword();
 
         // Cập nhật mật khẩu mã hóa cho user và bật cờ bắt buộc đổi mật khẩu
         user.setPassword(HashUtil.hashPassword(tempPassword));
@@ -210,5 +214,41 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 .issuedAt(r.getIssuedAt())
                 .usedAt(r.getUsedAt())
                 .build();
+    }
+
+    /**
+     * Sinh mật khẩu tạm thời ngẫu nhiên có độ entropy cao, chống tấn công Brute-Force:
+     * - Độ dài: 12 ký tự
+     * - Bộ sinh số ngẫu nhiên mật mã học (CSPRNG - SecureRandom)
+     * - Bắt buộc bao gồm: Chữ hoa, Chữ thường, Chữ số, Ký tự đặc biệt
+     * - Không gian mẫu: ~ 68^12 > 5.2 x 10^21 tổ hợp
+     */
+    private String generateSecureTempPassword() {
+        SecureRandom random = new SecureRandom();
+        List<Character> characters = new java.util.ArrayList<>(TEMP_PASSWORD_LENGTH);
+
+        // Đảm bảo có tối thiểu mỗi nhóm ký tự: 2 hoa, 2 thường, 2 số, 2 đặc biệt
+        characters.add(UPPERCASE_CHARS.charAt(random.nextInt(UPPERCASE_CHARS.length())));
+        characters.add(UPPERCASE_CHARS.charAt(random.nextInt(UPPERCASE_CHARS.length())));
+        characters.add(LOWERCASE_CHARS.charAt(random.nextInt(LOWERCASE_CHARS.length())));
+        characters.add(LOWERCASE_CHARS.charAt(random.nextInt(LOWERCASE_CHARS.length())));
+        characters.add(DIGIT_CHARS.charAt(random.nextInt(DIGIT_CHARS.length())));
+        characters.add(DIGIT_CHARS.charAt(random.nextInt(DIGIT_CHARS.length())));
+        characters.add(SPECIAL_CHARS.charAt(random.nextInt(SPECIAL_CHARS.length())));
+        characters.add(SPECIAL_CHARS.charAt(random.nextInt(SPECIAL_CHARS.length())));
+
+        // Điền các vị trí còn lại từ toàn bộ bảng ký tự kết hợp
+        for (int i = characters.size(); i < TEMP_PASSWORD_LENGTH; i++) {
+            characters.add(ALL_COMBINED_CHARS.charAt(random.nextInt(ALL_COMBINED_CHARS.length())));
+        }
+
+        // Xáo trộn ngẫu nhiên toàn bộ vị trí ký tự (Fisher-Yates Shuffle)
+        java.util.Collections.shuffle(characters, random);
+
+        StringBuilder passwordBuilder = new StringBuilder(TEMP_PASSWORD_LENGTH);
+        for (char ch : characters) {
+            passwordBuilder.append(ch);
+        }
+        return passwordBuilder.toString();
     }
 }
