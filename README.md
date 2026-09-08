@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white" />
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white" />
-  <img src="https://img.shields.io/badge/Live-roomi.website-6C63FF?style=flat-square" />
+  <img src="https://img.shields.io/badge/Live-stayaway.io.vn-6C63FF?style=flat-square" />
 </p>
 
 > **StayAway** là phần mềm quản lý khách sạn (Property Management System) toàn diện dành cho khách sạn, nhà nghỉ và homestay. Từ đặt phòng, check-in/out, đặt cọc, hóa đơn đến phân công buồng phòng — tất cả trên một nền tảng duy nhất với giao diện hiện đại, phân quyền chi tiết theo vai trò.
@@ -301,20 +301,20 @@ npm test
 ### Luồng Tự Động
 
 ```
-Push lên feature/* hoặc develop
-    └─► GitHub Actions CI (.github/workflows/ci.yml)
+Push nhánh phụ / PR (develop, feature/*, fix/*)
+    └─► GitHub Actions Pipeline (.github/workflows/deploy.yml)
         ├─► Build + Test Backend (Spring Boot + H2)
         ├─► Build + Test Frontend (Vite + Vitest)
         └─► ❌ Không deploy (chỉ kiểm tra)
 
-Merge vào main
-    └─► GitHub Actions CD (.github/workflows/cd.yml)
-        ├─► Chạy lại toàn bộ CI gate
-        └─► SSH vào VPS → docker compose up -d --build
-            └─► ✅ Live tại roomi.website
-```
+Merge vào main / manual dispatch
+    └─► GitHub Actions Pipeline (.github/workflows/deploy.yml)
+        ├─► Chạy toàn bộ Test BE & FE
+        ├─► Build & Push Docker Images lên GHCR
+        └─► SSH vào VPS → docker compose pull && up -d
+            └─► ✅ Live tại https://stayaway.io.vn
 
-### Deploy Thủ Công Lên VPS
+### Deploy Tự Động Lên VPS
 
 ```bash
 git add . && git commit -m "feat: your feature"
@@ -330,13 +330,13 @@ git push origin main
 | `DB_USER` / `DB_PASS` | Thông tin đăng nhập DB |
 | `CLOUDINARY_CLOUD_NAME` | Tên cloud Cloudinary |
 | `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Xác thực Cloudinary |
-| `VITE_API_BASE_URL_PROD` | URL API backend cho production build |
+| `VITE_API_BASE_URL_PROD` | URL API backend cho production build (`https://stayaway.io.vn/api/v1`) |
 
 ---
 
 ## 🌐 Live Demo
 
-🔗 **[roomi.website](http://roomi.website)** — Production trên AWS EC2, deploy qua GitHub Actions + Docker Compose
+🔗 **[stayaway.io.vn](https://stayaway.io.vn)** — Production trên VPS AWS EC2, tự động deploy qua GitHub Actions + Docker Compose
 
 ---
 
@@ -344,8 +344,7 @@ git push origin main
 
 | Tài liệu | Mô tả |
 |----------|-------|
-| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Hướng dẫn chi tiết CI/CD, Docker, VPS |
-| [`CICD_DOCUMENTATION.md`](CICD_DOCUMENTATION.md) | Tài liệu đầy đủ pipeline tự động |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Tài liệu hướng dẫn CI/CD toàn diện, kiến trúc Docker và triển khai VPS tự động |
 | [`docs/`](docs/) | ERD, SQL demo, tài liệu nghiệp vụ |
 | [`Lưu Trú Số - Product Backlog.csv`](Lưu%20Trú%20Số%20-%20Product%20Backlog%20(User%20Stories).csv) | User Stories đầy đủ của dự án |
 
