@@ -16,70 +16,74 @@
 
 ## 📋 Mục Lục
 
-- [Tính Năng](#-tính-năng)
-- [Kiến Trúc Hệ Thống](#️-kiến-trúc-hệ-thống)
-- [Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
-- [Cài Đặt & Chạy](#-cài-đặt--chạy)
-- [Dữ Liệu Demo](#-dữ-liệu-demo)
-- [Tài Khoản Mặc Định](#-tài-khoản-mặc-định)
-- [Vai Trò & Phân Quyền](#-vai-trò--phân-quyền)
-- [API](#-api)
-- [Kiểm Thử](#-kiểm-thử)
-- [CI/CD & Triển Khai](#-cicd--triển-khai)
+- [✨ Tính Năng](#-tính-năng)
+- [🏗️ Kiến Trúc Hệ Thống](#️-kiến-trúc-hệ-thống)
+- [💻 Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
+- [🚀 Cài Đặt & Chạy](#-cài-đặt--chạy)
+- [🗄️ Dữ Liệu Demo](#️-dữ-liệu-demo)
+- [🔑 Tài Khoản Mặc Định](#-tài-khoản-mặc-định)
+- [👤 Vai Trò & Phân Quyền](#-vai-trò--phân-quyền)
+- [🔌 API](#-api)
+- [🧪 Kiểm Thử](#-kiểm-thử)
+- [🐳 CI/CD & Triển Khai](#-cicd--triển-khai)
+- [🌐 Live Demo](#-live-demo)
+- [📁 Tài Liệu Bổ Sung](#-tài-liệu-bổ-sung)
 
 ---
 
 ## ✨ Tính Năng
 
 ### 🏨 Quản lý đặt phòng
-- Đặt phòng đơn lẻ và đặt theo **đoàn/nhóm** (Group Booking)
-- Tích hợp **kiểm tra xung đột lịch** tự động, không cho phép đặt trùng phòng
-- Quy trình đầy đủ: Đặt phòng → Xác nhận → **Check-in** → **Check-out** → Hoàn tiền cọc
-- Hỗ trợ **gia hạn lưu trú**, **tạm nghỉ**, chuyển đổi trạng thái linh hoạt
-- **Cổng đặt phòng công khai** cho phép khách tự gửi yêu cầu đặt phòng online
+- Đặt phòng đơn lẻ và đặt theo **đoàn/nhóm** (Group Booking).
+- Tích hợp **kiểm tra xung đột lịch** tự động, không cho phép đặt trùng phòng.
+- Quy trình đầy đủ: Đặt phòng → Xác nhận → **Check-in** → **Check-out** → Hoàn tiền cọc.
+- Hỗ trợ **gia hạn lưu trú**, **tạm nghỉ**, chuyển đổi trạng thái linh hoạt.
+- **Cổng đặt phòng công khai** cho phép khách tự gửi yêu cầu đặt phòng online.
 
 ### 💰 Đặt Cọc & Thanh Toán
-- Chính sách cọc **linh hoạt theo hạng phòng** (mặc định 30%, tùy chỉnh từng loại)
-- Quản lý vòng đời cọc: Chờ cọc → Đã cọc → Hoàn cọc / Giữ cọc / Hủy
-- Hỗ trợ nhiều **phương thức thanh toán**: Tiền mặt, Chuyển khoản, QR Code
-- **Đặt cọc theo đoàn**: áp dụng chính sách riêng cho từng nhóm phòng
+- Chính sách cọc **linh hoạt theo hạng phòng** (mặc định 30%, tùy chỉnh từng loại).
+- Quản lý vòng đời cọc: Chờ cọc → Đã cọc → Hoàn cọc / Giữ cọc / Hủy.
+- Hỗ trợ nhiều **phương thức thanh toán**: Tiền mặt, Chuyển khoản, QR Code.
+- **Đặt cọc theo đoàn**: áp dụng chính sách riêng cho từng nhóm phòng.
 
 ### 🧾 Hóa Đơn & Chiết Khấu
-- Xuất hóa đơn tự động khi check-out, tính đủ dịch vụ phụ thu
-- Quản lý **chiết khấu** theo phần trăm hoặc số tiền cố định
-- Tích hợp **dịch vụ phụ thu** (ăn sáng, giặt là, đưa đón sân bay, spa,...)
-- Lịch sử thanh toán chi tiết, xuất báo cáo doanh thu
+- Xuất hóa đơn tự động khi check-out, tính đủ dịch vụ phụ thu.
+- Quản lý **chiết khấu** theo phần trăm hoặc số tiền cố định.
+- Tích hợp **dịch vụ phụ thu** (ăn sáng, giặt là, đưa đón sân bay, spa,...).
+- Lịch sử thanh toán chi tiết, xuất báo cáo doanh thu.
 
 ### 🛏️ Quản Lý Buồng Phòng (Housekeeping)
-- **Sơ đồ phòng trực quan** theo tầng, màu trạng thái (Sẵn sàng / Có khách / Cần dọn / Chờ duyệt / Bảo trì)
-- **Phân công nhân viên** dọn phòng với quy tắc không gán chồng
-- **Mức độ ưu tiên** gợi ý theo giờ nhận phòng của khách kế tiếp (Khẩn cấp / Cao / Bình thường)
-- Luồng 2 bước: Nhân viên **gửi duyệt** → Quản lý **nghiệm thu**
-- Nhân viên buồng phòng chỉ thấy phòng được giao và phòng chưa ai nhận
-- Thanh **phân bổ khối lượng** hiển thị số phòng đang giao cho từng người
+- **Sơ đồ phòng trực quan** theo tầng, màu trạng thái (Sẵn sàng / Có khách / Cần dọn / Chờ duyệt / Bảo trì).
+- **Phân công nhân viên** dọn phòng với quy tắc không gán chồng.
+- **Mức độ ưu tiên** gợi ý theo giờ nhận phòng của khách kế tiếp (Khẩn cấp / Cao / Bình thường).
+- Luồng 2 bước: Nhân viên **gửi duyệt** → Quản lý **nghiệm thu**.
+- Nhân viên buồng phòng chỉ thấy phòng được giao và phòng chưa ai nhận.
+- Thanh **phân bổ khối lượng** hiển thị số phòng đang giao cho từng người.
 
-### 📋 Khai Báo Lưu Trú
-- Lưu thông tin giấy tờ tùy thân (CMND/CCCD/Hộ chiếu) của từng khách
-- Hỗ trợ khai báo nhiều khách trong cùng một booking
+### 📋 Khai Báo Lưu Trú & Quét CCCD
+- Hỗ trợ quét mã QR trên **CCCD gắn chip** để tự động điền nhanh hồ sơ khách.
+- Lưu thông tin giấy tờ tùy thân (CMND/CCCD/Hộ chiếu) của từng khách.
+- Hỗ trợ khai báo nhiều khách trong cùng một booking.
+- Cơ chế che mờ thông tin cá nhân nhạy cảm (**Data Masking**) theo phân quyền.
 
 ### 📊 Báo Cáo & Thống Kê
-- Doanh thu theo ngày / tuần / tháng
-- Công suất phòng, tỷ lệ lấp đầy
-- **Nhật ký kiểm toán (Audit Log)**: ghi lại mọi thao tác kèm người thực hiện và thời gian
-- Nhật ký **xử lý xung đột** đặt phòng (Concurrency Log)
+- Doanh thu theo ngày / tuần / tháng.
+- Báo cáo công suất phòng, tỷ lệ lấp đầy, ca làm việc thu ngân.
+- **Nhật ký kiểm toán (Audit Log)**: ghi lại mọi thao tác kèm người thực hiện và thời gian.
+- Nhật ký **xử lý xung đột** đặt phòng (Concurrency Log).
 
 ### 🏅 Khách Hàng Thân Thiết
-- 4 hạng thành viên: **Đồng → Bạc → Vàng → Kim Cương**
-- Ưu đãi theo hạng: giảm giá, ưu tiên nhận phòng sớm, nâng hạng phòng
-- Quản lý hồ sơ khách hàng và lịch sử lưu trú
+- 4 hạng thành viên: **Đồng → Bạc → Vàng → Kim Cương**.
+- Ưu đãi theo hạng: giảm giá, ưu tiên nhận phòng sớm, nâng hạng phòng.
+- Quản lý hồ sơ khách hàng và lịch sử lưu trú.
 
 ### 📦 Kho Đồ Dùng
-- Theo dõi số lượng đồ dùng khách sạn (khăn, đồ vệ sinh cá nhân,...)
-- Cảnh báo khi tồn kho thấp hơn ngưỡng cài đặt
+- Theo dõi số lượng đồ dùng khách sạn (khăn, đồ vệ sinh cá nhân,...).
+- Cảnh báo khi tồn kho thấp hơn ngưỡng cài đặt.
 
 ### ⚙️ Cấu Hình Cơ Sở
-- Tên cơ sở, địa chỉ, giờ check-in/out mặc định, logo, ảnh đại diện
-- Giá theo mùa (Seasonal Pricing), chính sách hủy phòng
+- Tên cơ sở, địa chỉ, giờ check-in/out mặc định, logo, ảnh đại diện.
+- Giá theo mùa (Seasonal Pricing), chính sách phụ thu lễ tết & cuối tuần.
 
 ---
 
@@ -98,7 +102,7 @@ roomi/
 │   │   ├── exception/                # Global exception handling
 │   │   ├── config/                   # DataSeeder, CORS, Cloudinary
 │   │   └── util/                     # AuthUtil, HashUtil, Masker
-│   └── src/test/                     # 58 Unit Tests (JUnit 5 + Mockito)
+│   └── src/test/                     # 62 Unit Tests (JUnit 5 + Mockito)
 │
 ├── frontend/                         # React 18 · Vite 6
 │   └── src/
@@ -115,35 +119,34 @@ roomi/
 │       ├── layouts/                  # DashboardLayout, AuthLayout
 │       └── components/               # UI components dùng chung
 │
-├── docker-compose.yml                # One-command deploy
+├── docker-compose.yml                # Cấu hình đa container Production
 ├── .github/workflows/
-│   ├── ci.yml                        # Test tự động khi push
-│   └── cd.yml                        # Auto deploy lên VPS khi merge main
-└── docs/                             # Tài liệu, ERD, SQL demo
+│   └── deploy.yml                    # Automated CI/CD Pipeline (GitHub Actions)
+└── docs/                             # Tài liệu, ERD, SQL demo, quy trình
 ```
 
 ### Stack Công Nghệ
 
 | Tầng | Công nghệ |
 |------|-----------|
-| **Backend** | Java 17, Spring Boot 3, Spring Data JPA, Hibernate |
+| **Backend** | Java 17, Spring Boot 3, Spring Data JPA, Hibernate, JUnit 5, Mockito |
 | **Database** | MySQL 8 (production), H2 in-memory (test) |
 | **Authentication** | Session-based auth, SHA-256 password hashing |
-| **File Storage** | Cloudinary (upload ảnh phòng, avatar) |
-| **Frontend** | React 18, Vite 6, Vanilla CSS, React Icons, Axios |
+| **File Storage** | Cloudinary CDN (upload ảnh phòng, avatar) |
+| **Frontend** | React 18, Vite 6, Vanilla CSS, React Icons, Axios, Vitest |
 | **DevOps** | Docker, Docker Compose, Nginx (SPA routing + Gzip) |
-| **CI/CD** | GitHub Actions (CI: test on PR, CD: auto-deploy on main) |
-| **Hosting** | AWS EC2 VPS |
+| **CI/CD** | GitHub Actions & GitHub Container Registry (GHCR) |
+| **Hosting** | AWS EC2 VPS (Ubuntu Server) |
 
 ---
 
 ## 💻 Yêu Cầu Hệ Thống
 
-**Chạy bằng Docker (khuyến nghị):**
+**Chạy bằng Docker (Khuyến nghị):**
 - Docker Desktop 24+ & Docker Compose v2
-- MySQL 8 (hoặc dùng MySQL ngoài, cấu hình biến môi trường)
+- MySQL 8 (hoặc cấu hình kết nối DB từ xa qua file `.env`)
 
-**Chạy thủ công (dev):**
+**Chạy thủ công (Dev):**
 - Java 17+ & Maven 3.9+
 - Node.js 20+ & npm 10+
 - MySQL 8 đang chạy tại `localhost:3306`, database tên `stay`
@@ -183,7 +186,7 @@ cd backend
 # API sẵn sàng tại: http://localhost:8080
 
 # ── Terminal 2: Frontend ─────────────────────────────────
-cd Frontend
+cd frontend
 npm install
 npm run dev
 # Truy cập: http://localhost:5173
@@ -260,10 +263,10 @@ Authentication: Header `Authorization: <session-token>` (lấy từ `POST /auth/
 | Đặt phòng | `/bookings` | Đặt phòng, check-in, check-out, gia hạn |
 | Đặt cọc | `/deposits` | Thu cọc, hoàn cọc, báo cáo cọc |
 | Hóa đơn | `/invoices` | Xuất hóa đơn, chiết khấu |
-| Khai báo lưu trú | `/stay-declarations` | CRUD giấy tờ khách |
+| Khai báo lưu trú | `/stay-declarations` | CRUD giấy tờ khách, trích xuất CCCD |
 | Đặt phòng đoàn | `/group-bookings` | Đặt/quản lý booking nhóm |
 | Dịch vụ phụ thu | `/extra-services` | CRUD dịch vụ |
-| Báo cáo | `/reports` | Doanh thu, công suất, nhật ký |
+| Báo cáo | `/reports` | Doanh thu, công suất, ca làm việc, nhật ký |
 | Nhật ký | `/audit-logs` | Lịch sử thao tác hệ thống |
 | Cài đặt khách sạn | `/hotel-settings` | Thông tin cơ sở, giờ check-in/out |
 | Cổng public | `/public/*` | Đặt phòng không cần đăng nhập |
@@ -273,26 +276,23 @@ Authentication: Header `Authorization: <session-token>` (lấy từ `POST /auth/
 ## 🧪 Kiểm Thử
 
 ```bash
-# Backend — 58 unit tests
-cd Backend
+# Backend — 62 unit tests (JUnit 5 + Mockito)
+cd backend
 ./mvnw test
 
-# Xem báo cáo test chi tiết
-# target/surefire-reports/*.txt
-
-# Frontend — Vitest + React Testing Library
-cd Frontend
+# Frontend — 45 tests (Vitest + Testing Library)
+cd frontend
 npm test
 ```
 
 **Phạm vi kiểm thử Backend:**
-- `BookingServiceTest` — 9 cases: đặt phòng, xung đột lịch, check-in/out
-- `GroupBookingServiceTest` — 9 cases: đặt phòng đoàn, phân công phòng
-- `InvoiceServiceTest` — 7 cases: tạo hóa đơn, chiết khấu, thanh toán
-- `GuestServiceTest` — 6 cases: CRUD khách hàng
-- `RoomServiceTest` — 5 cases: quản lý phòng, trạng thái
-- `UserServiceTest` — 4 cases: xác thực, phân quyền
-- `HotelSettingServiceTest`, `StayDeclarationServiceTest`, `ExtraServiceTest` — nghiệp vụ chuyên biệt
+- `BookingServiceTest` — Kiểm thử quy trình đặt phòng, kiểm tra xung đột ngày, check-in/out, đổi ngày và khóa phòng
+- `GroupBookingServiceTest` — Đặt phòng đoàn, tự động phân phối phòng, cọc đoàn
+- `InvoiceServiceTest` — Lập hóa đơn khi nhận/trả phòng, chiết khấu phần trăm/tiền mặt, thanh toán
+- `GuestServiceTest` — Quản lý hồ sơ khách hàng, tìm kiếm đa tiêu chí, bảo vệ dữ liệu cá nhân
+- `RoomServiceTest` — Quản lý phòng, ngăn trùng số phòng, luồng đổi trạng thái dọn phòng
+- `UserServiceTest` — Đăng nhập, phân quyền người dùng, mã hóa mật khẩu
+- `HotelSettingServiceTest`, `StayDeclarationServiceTest`, `ExtraServiceTest` — Cấu hình khách sạn, giấy tờ lưu trú và dịch vụ phụ thu
 
 ---
 
@@ -305,19 +305,21 @@ Push nhánh phụ / PR (develop, feature/*, fix/*)
     └─► GitHub Actions Pipeline (.github/workflows/deploy.yml)
         ├─► Build + Test Backend (Spring Boot + H2)
         ├─► Build + Test Frontend (Vite + Vitest)
-        └─► ❌ Không deploy (chỉ kiểm tra)
+        └─► ❌ Không deploy (chỉ kiểm tra chất lượng)
 
 Merge vào main / manual dispatch
     └─► GitHub Actions Pipeline (.github/workflows/deploy.yml)
         ├─► Chạy toàn bộ Test BE & FE
-        ├─► Build & Push Docker Images lên GHCR
+        ├─► Build & Push Docker Images lên GHCR (ghcr.io/dargits/roomi-*)
         └─► SSH vào VPS → docker compose pull && up -d
             └─► ✅ Live tại https://stayaway.io.vn
+```
 
-### Deploy Tự Động Lên VPS
+### Triển Khai Tự Động Lên VPS
 
 ```bash
-git add . && git commit -m "feat: your feature"
+git add .
+git commit -m "feat: your feature"
 git push origin main
 # Theo dõi pipeline tại tab Actions trên GitHub
 ```
@@ -326,17 +328,17 @@ git push origin main
 
 | Biến | Mô tả |
 |------|-------|
-| `DB_URL` | JDBC URL kết nối MySQL |
-| `DB_USER` / `DB_PASS` | Thông tin đăng nhập DB |
-| `CLOUDINARY_CLOUD_NAME` | Tên cloud Cloudinary |
-| `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Xác thực Cloudinary |
+| `DB_URL` | JDBC URL kết nối MySQL database |
+| `DB_USER` / `DB_PASS` | Thông tin đăng nhập Database |
+| `CLOUDINARY_CLOUD_NAME` | Cloud Name Cloudinary |
+| `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Khóa xác thực Cloudinary CDN |
 | `VITE_API_BASE_URL_PROD` | URL API backend cho production build (`https://stayaway.io.vn/api/v1`) |
 
 ---
 
 ## 🌐 Live Demo
 
-🔗 **[stayaway.io.vn](https://stayaway.io.vn)** — Production trên VPS AWS EC2, tự động deploy qua GitHub Actions + Docker Compose
+🔗 **[stayaway.io.vn](https://stayaway.io.vn)** — Hệ thống thực tế trên AWS EC2 VPS, tự động triển khai Zero-Downtime qua GitHub Actions + Docker Compose.
 
 ---
 
@@ -345,8 +347,8 @@ git push origin main
 | Tài liệu | Mô tả |
 |----------|-------|
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Tài liệu hướng dẫn CI/CD toàn diện, kiến trúc Docker và triển khai VPS tự động |
-| [`docs/`](docs/) | ERD, SQL demo, tài liệu nghiệp vụ |
-| [`Lưu Trú Số - Product Backlog.csv`](Lưu%20Trú%20Số%20-%20Product%20Backlog%20(User%20Stories).csv) | User Stories đầy đủ của dự án |
+| [`docs/`](docs/) | ERD, SQL demo, tài liệu phân tích nghiệp vụ phòng đoàn |
+| [`Lưu Trú Số - Product Backlog.csv`](Lưu%20Trú%20Số%20-%20Product%20Backlog%20(User%20Stories).csv) | User Stories đầy đủ của toàn bộ hệ thống |
 
 ---
 
