@@ -1,6 +1,12 @@
 import api from './api';
 
 export const passwordResetApi = {
+  // Kiểm tra tài khoản có tồn tại trong hệ thống hay không (Public)
+  checkAccount: async (account) => {
+    const response = await api.get('/auth/check-account', { params: { account } });
+    return response.data;
+  },
+
   // Yêu cầu cấp lại mật khẩu khi quên (Public)
   requestReset: async (account) => {
     const response = await api.post('/auth/forgot-password', { account });
