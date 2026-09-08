@@ -14,7 +14,7 @@ services:
   backend:
     image: ghcr.io/dargits/roomi-backend:latest
     build:
-      context: ./Backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: stayaway_backend
     restart: always
@@ -46,7 +46,7 @@ services:
   frontend:
     image: ghcr.io/dargits/roomi-frontend:latest
     build:
-      context: ./Frontend
+      context: ./frontend
       dockerfile: Dockerfile
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL_PROD:-https://stayaway.io.vn/api/v1}

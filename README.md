@@ -87,7 +87,7 @@
 
 ```
 roomi/
-├── Backend/                          # Spring Boot 3 · Java 17
+├── backend/                          # Spring Boot 3 · Java 17
 │   ├── src/main/java/plant/stay/
 │   │   ├── controller/               # 27 REST Controllers
 │   │   ├── service/                  # Business logic layer
@@ -100,7 +100,7 @@ roomi/
 │   │   └── util/                     # AuthUtil, HashUtil, Masker
 │   └── src/test/                     # 58 Unit Tests (JUnit 5 + Mockito)
 │
-├── Frontend/                         # React 18 · Vite 6
+├── frontend/                         # React 18 · Vite 6
 │   └── src/
 │       ├── features/
 │       │   ├── admin/                # Quản lý phòng, loại phòng, nhân sự
@@ -174,7 +174,7 @@ docker compose up -d --build
 
 ```bash
 # ── Terminal 1: Backend ──────────────────────────────────
-cd Backend
+cd backend
 
 # (Windows) Đảm bảo MySQL đang chạy và database "stay" đã tạo
 # Sửa src/main/resources/application.properties nếu cần
