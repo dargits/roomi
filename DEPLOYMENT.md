@@ -107,7 +107,7 @@ Toàn bộ quy trình được đóng gói trong file [`.github/workflows/deploy
 
 ## 🏗️ 4. Chi Tiết Các Giai Đoạn Đóng Gói Docker (Multi-Stage Builds)
 
-### 4.1. Backend (`Backend/Dockerfile`)
+### 4.1. Backend (`backend/Dockerfile`)
 * **Giai đoạn 1 (Builder)**: `maven:3.9.6-eclipse-temurin-17-alpine`
   * Tận dụng Docker layer cache bằng cách copy `pom.xml` và `go-offline` trước khi build code.
   * Đóng gói file `.jar` tối ưu với `./mvnw clean package -DskipTests`.
@@ -115,7 +115,7 @@ Toàn bộ quy trình được đóng gói trong file [`.github/workflows/deploy
   * Chỉ chứa JRE 17 siêu nhẹ (< 180MB), khởi tạo User không đặc quyền `spring:spring` để đảm bảo an toàn bảo mật.
   * Cấu hình JVM Flags: `-Xms256m -Xmx512m -XX:+UseG1GC`.
 
-### 4.2. Frontend (`Frontend/Dockerfile`)
+### 4.2. Frontend (`frontend/Dockerfile`)
 * **Giai đoạn 1 (Builder)**: `node:20-alpine`
   * Cài đặt dependencies sạch `npm ci --legacy-peer-deps`.
   * Nhúng biến `VITE_API_BASE_URL=https://stayaway.io.vn/api/v1` vào quá trình biên dịch Vite.
@@ -213,10 +213,10 @@ docker compose up -d --build
 
 # Hoặc khởi chạy độc lập
 # Terminal 1 (Backend):
-cd Backend && ./mvnw spring-boot:run
+cd backend && ./mvnw spring-boot:run
 
 # Terminal 2 (Frontend):
-cd Frontend && npm install && npm run dev
+cd frontend && npm install && npm run dev
 ```
 
 ---
