@@ -19,6 +19,8 @@ import plant.stay.util.AuthUtil;
 
 import java.util.List;
 
+import plant.stay.dto.response.AccountCheckResponse;
+
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -27,6 +29,13 @@ public class PasswordResetController {
 
     private final PasswordResetService passwordResetService;
     private final AuthUtil authUtil;
+
+    // Kiểm tra tài khoản có tồn tại không trước khi gửi yêu cầu (Public)
+    @GetMapping("/auth/check-account")
+    public ResponseEntity<AccountCheckResponse> checkAccount(
+            @RequestParam("account") String account) {
+        return ResponseEntity.ok(passwordResetService.checkAccount(account));
+    }
 
     // Yêu cầu cấp lại mật khẩu (Public)
     @PostMapping("/auth/forgot-password")
@@ -63,6 +72,15 @@ public class PasswordResetController {
             HttpServletRequest request) {
         User adminActor = checkAdminOrOwner(request);
         return ResponseEntity.ok(passwordResetService.issueTempPassword(id, adminActor));
+    }
+
+    // Quản trị viên từ chối yêu cầu cấp lại mật khẩu
+    @PostMapping("/admin/password-resets/{id}/reject")
+    public ResponseEntity<PasswordResetItemResponse> rejectRequest(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        User adminActor = checkAdminOrOwner(request);
+        return ResponseEntity.ok(passwordResetService.rejectRequest(id, adminActor));
     }
 
     private User checkAdminOrOwner(HttpServletRequest request) {

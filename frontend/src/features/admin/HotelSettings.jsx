@@ -162,14 +162,14 @@ const HotelSettings = () => {
                 <div className="relative w-full h-64 md:h-72 rounded-xl overflow-hidden border-2 border-dashed border-border-grey bg-surface-container-low group flex flex-col items-center justify-center transition-colors hover:border-primary/50">
                   {isUploading ? (
                     <div className="flex flex-col items-center justify-center w-full h-full gap-3">
-                      <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                      <span className="inline-block w-10 h-10 border-3 border-primary/25 border-t-primary border-r-primary animate-square-spin" />
                       <div className="w-48">
-                        <div className="w-full bg-surface-container rounded-full h-2">
-                          <div className="bg-primary h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                        <div className="w-full bg-surface-container h-2 border border-border-grey">
+                          <div className="bg-primary h-2 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
                         </div>
-                        <p className="text-xs text-center text-on-surface-variant mt-1">{uploadProgress}%</p>
+                        <p className="text-xs text-center text-on-surface-variant mt-1 font-bold">{uploadProgress}%</p>
                       </div>
-                      <span className="font-label-md text-on-surface-variant">Đang tải lên Cloudinary...</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Đang tải ảnh lên Cloudinary...</span>
                     </div>
                   ) : settings.homeImage ? (
                     <>
