@@ -20,7 +20,7 @@ public class ResendEmailServiceImpl implements EmailService {
     @Value("${resend.api-key:${RESEND_API_KEY:}}")
     private String resendApiKey;
 
-    @Value("${resend.from-email:StayAway PMS <onboarding@resend.dev>}")
+    @Value("${resend.from-email:StayAway PMS <noreply@stayaway.io.vn>}")
     private String fromEmail;
 
     @Value("${app.domain:https://stayaway.io.vn}")
@@ -34,6 +34,11 @@ public class ResendEmailServiceImpl implements EmailService {
     public boolean sendTempPasswordEmail(String toEmail, String recipientName, String account, String tempPassword) {
         if (toEmail == null || toEmail.trim().isEmpty()) {
             log.warn("[EMAIL] Không thể gửi email: Địa chỉ email người dùng trống (Tài khoản: {})", account);
+            return false;
+        }
+
+        if (resendApiKey == null || resendApiKey.trim().isEmpty()) {
+            log.error("[EMAIL] Chưa cấu hình API Key cho Resend (resend.api-key hoặc RESEND_API_KEY).");
             return false;
         }
 
