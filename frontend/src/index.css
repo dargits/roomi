@@ -199,3 +199,48 @@
   animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* 6. Hiệu ứng Loading Hình Vuông Sắc Nét (Geometric Square Loading System) */
+@keyframes squareSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg) scale(0.88);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes squareCounterSpin {
+  0% {
+    transform: rotate(45deg);
+  }
+  100% {
+    transform: rotate(-315deg);
+  }
+}
+
+@keyframes squarePulseGlow {
+  0%, 100% {
+    transform: scale(0.7) rotate(0deg);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(1.05) rotate(45deg);
+    opacity: 0.7;
+  }
+}
+
+.animate-square-spin {
+  animation: squareSpin 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.animate-square-counter {
+  animation: squareCounterSpin 2.2s linear infinite;
+}
+
+.animate-square-pulse {
+  animation: squarePulseGlow 1.8s ease-in-out infinite;
+}
+

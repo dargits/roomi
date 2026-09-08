@@ -142,8 +142,8 @@ const ExtendStayModal = ({ isOpen, onClose, bookingId, booking, onSuccess }) => 
         {/* Kết quả kiểm tra */}
         {checking ? (
           <div className="text-center py-6 text-on-surface-variant text-sm flex items-center justify-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
-            <span>Đang kiểm tra lịch trống phòng trong Database...</span>
+            <span className="inline-block h-4 w-4 border-2 border-primary border-t-transparent border-l-transparent animate-square-spin" />
+            <span className="font-semibold text-xs uppercase tracking-wider text-on-surface">Đang kiểm tra lịch trống phòng...</span>
           </div>
         ) : availability ? (
           <div className="space-y-3">

@@ -193,8 +193,8 @@ const RescheduleDateModal = ({ isOpen, onClose, bookingId, booking, onSuccess })
         {/* Loading */}
         {checking && (
           <div className="text-center py-5 text-on-surface-variant text-sm flex items-center justify-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
-            <span>Đang kiểm tra lịch phòng trong cơ sở dữ liệu...</span>
+            <span className="inline-block h-4 w-4 border-2 border-primary border-t-transparent border-l-transparent animate-square-spin" />
+            <span className="font-semibold text-xs uppercase tracking-wider text-on-surface">Đang kiểm tra lịch phòng...</span>
           </div>
         )}
 
