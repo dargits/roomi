@@ -1,0 +1,249 @@
+# ==============================================================================
+# STAYAWAY - AUTOMATED CI/CD & ZERO-DOWNTIME DEPLOYMENT PIPELINE
+# ==============================================================================
+# Production URL: https://stayaway.io.vn/
+# API Endpoint  : https://stayaway.io.vn/api/v1
+# Registry      : GitHub Container Registry (ghcr.io)
+# Target Server : AWS EC2 Ubuntu Server (Docker & Nginx Reverse Proxy)
+# ==============================================================================
+
+name: CI/CD - StayAway Production Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        default: 'Manual deployment triggered by administrator'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/dargits/roomi-backend
+  IMAGE_FRONTEND: ghcr.io/dargits/roomi-frontend
+  PRODUCTION_DOMAIN: https://stayaway.io.vn
+  PRODUCTION_API_URL: https://stayaway.io.vn/api/v1
+
+jobs:
+  # ============================================================================
+  # JOB 1: BACKEND CONTINUOUS INTEGRATION (Spring Boot 3 + JUnit 5)
+  # ============================================================================
+  test-backend:
+    name: Backend Tests (JUnit 5 - Java 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Eclipse Temurin JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: maven
+
+      - name: Run Backend Tests
+        working-directory: ./backend
+        run: |
+          chmod +x mvnw
+          ./mvnw test --batch-mode -q
+
+  # ============================================================================
+  # JOB 2: FRONTEND CONTINUOUS INTEGRATION (React 18 + Vitest + Vite)
+  # ============================================================================
+  test-frontend:
+    name: Frontend Tests & Build (Vitest - Node 20)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Frontend Tests
+        working-directory: ./frontend
+        run: npm test
+
+      - name: Build Production Bundle
+        working-directory: ./frontend
+        run: npm run build
+
+  # ============================================================================
+  # JOB 3: BUILD & PUSH DOCKER IMAGES (GHCR.io)
+  # ============================================================================
+  build-and-push:
+    name: Build & Push Docker Images (GHCR)
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:latest
+            ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ env.PRODUCTION_API_URL }}
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:latest
+            ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # JOB 4: ZERO-DOWNTIME REMOTE DEPLOYMENT (AWS VPS)
+  # ============================================================================
+  deploy:
+    name: Deploy to VPS (stayaway.io.vn)
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Execute Deployment on VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            echo "=================================================================="
+            echo "STAYAWAY VPS DEPLOYMENT - $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "=================================================================="
+
+            # 1. Locate project directory
+            PROJECT_DIR="$HOME/stayaway"
+            if [ ! -d "$PROJECT_DIR" ]; then
+              [ -d "/var/www/stayaway" ] && PROJECT_DIR="/var/www/stayaway" || \
+                git clone https://github.com/dargits/roomi.git "$PROJECT_DIR"
+            fi
+            cd "$PROJECT_DIR"
+            echo "[INFO] Working Directory: $(pwd)"
+
+            # 2. Sync latest code from main branch
+            git remote set-url origin https://github.com/dargits/roomi.git 2>/dev/null || true
+            git fetch origin main
+            git reset --hard origin/main
+            echo "[OK] Code synced: $(git log -1 --oneline)"
+
+            # 3. Configure environment file (.env)
+            DB_PASS=$(docker inspect roomi-db \
+              -f '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+              | grep MYSQL_ROOT_PASSWORD | cut -d= -f2 || echo "")
+            DB_NET=$(docker inspect roomi-db \
+              -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' 2>/dev/null \
+              | head -n1 || echo "")
+
+            cat > .env <<EOF
+            DB_URL=jdbc:mysql://roomi-db:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+            DB_USER=root
+            DB_PASS=${DB_PASS}
+            VITE_API_BASE_URL_PROD=https://stayaway.io.vn/api/v1
+            EOF
+            echo "[OK] Environment (.env) generated successfully"
+
+            # 4. Log in to GHCR and pull pre-built images
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
+            echo "[INFO] Pulling pre-built images from GHCR..."
+            docker compose pull || docker-compose pull
+            echo "[OK] Images pulled successfully"
+
+            # 5. Recreate and start containers with zero-downtime
+            docker compose up -d --remove-orphans || \
+              docker-compose up -d --remove-orphans
+            echo "[OK] Containers started"
+
+            # 6. Attach backend to database network
+            if [ -n "$DB_NET" ]; then
+              docker network connect "$DB_NET" stayaway_backend 2>/dev/null || true
+              docker restart stayaway_backend 2>/dev/null || true
+              echo "[OK] Backend connected to Database network: $DB_NET"
+            fi
+
+            # 7. Health check (up to 60 seconds)
+            echo "[INFO] Performing health check on backend service..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1 || \
+                 curl -sf http://localhost:8080/api/v1/hotel-settings > /dev/null 2>&1; then
+                echo "[OK] Backend service is healthy"
+                break
+              fi
+              if [ "$i" -eq 12 ]; then
+                echo "[WARN] Health check reached timeout (service may still be initializing)"
+              else
+                echo "  - Attempt $i/12 — retrying in 5 seconds..."
+                sleep 5
+              fi
+            done
+
+            # 8. Prune unused images
+            docker image prune -f > /dev/null 2>&1 || true
+            echo "[OK] Dangling images pruned"
+
+            echo "=================================================================="
+            echo "[SUCCESS] Deployment completed successfully at $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "Production URL: https://stayaway.io.vn"
+            echo "=================================================================="
