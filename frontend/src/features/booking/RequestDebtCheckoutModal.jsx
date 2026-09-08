@@ -3,31 +3,56 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { debtApprovalApi } from '../../services/debtApprovalApi';
+import { invoiceApi } from '../../services/invoiceApi';
 import { useToast } from '../../context/ToastContext';
-import { IoAlertCircleOutline, IoCheckmarkCircleOutline, IoTimeOutline } from 'react-icons/io5';
+import { IoAlertCircleOutline, IoCheckmarkCircleOutline } from 'react-icons/io5';
 
-const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
+const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, invoice: existingInvoice, onSuccess }) => {
   const { success: toastSuccess, error: toastError } = useToast();
   const [debtAmount, setDebtAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [balanceError, setBalanceError] = useState('');
 
   useEffect(() => {
-    if (booking) {
-      // Mặc định dueDate là 7 ngày sau
+    if (!isOpen || !booking) return;
+
+    const loadOutstandingBalance = async () => {
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
       setDueDate(nextWeek.toISOString().split('T')[0]);
       setReason('');
-      setDebtAmount(booking.remainingAmount || '');
-    }
-  }, [booking]);
+      setDebtAmount('');
+      setBalanceError('');
+      setLoadingBalance(true);
+      try {
+        const invoice = existingInvoice?.id
+          ? existingInvoice
+          : await invoiceApi.getInvoiceByBooking(booking.id);
+        if (!invoice?.id) throw new Error('NO_INVOICE');
+        const payments = await invoiceApi.getPayments(invoice.id);
+        const paidAmount = payments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
+        setDebtAmount(Math.max(0, Number(invoice.totalAmount || 0) - paidAmount));
+      } catch (err) {
+        console.error(err);
+        setBalanceError(err.message === 'NO_INVOICE'
+          ? 'Đặt phòng chưa có hóa đơn. Vui lòng lập hóa đơn trước khi đề nghị trả phòng còn nợ.'
+          : 'Không thể tải số dư hóa đơn hiện tại. Vui lòng thử lại.');
+      } finally {
+        setLoadingBalance(false);
+      }
+    };
+
+    loadOutstandingBalance();
+  }, [isOpen, booking, existingInvoice]);
 
   if (!booking) return null;
 
   const guestPhone = booking.guest?.phone || booking.guestPhone;
   const guestName = booking.guest?.name || booking.guestName;
+  const guestIdNumber = booking.guest?.idNumber || booking.guestIdNumber;
   const isWalkInNoProfile = !guestPhone || guestPhone.trim() === '';
 
   const handleSubmit = async (e) => {
@@ -36,8 +61,8 @@ const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
       toastError('Không áp dụng ngoại lệ trả phòng còn nợ cho khách vãng lai chưa có hồ sơ (thiếu số điện thoại)!');
       return;
     }
-    if (!debtAmount || Number(debtAmount) <= 0) {
-      toastError('Vui lòng nhập số tiền còn nợ hợp lệ (> 0 VNĐ)');
+    if (loadingBalance || balanceError || Number(debtAmount) <= 0) {
+      toastError('Số dư hóa đơn chưa sẵn sàng hoặc không còn khoản nợ để đề nghị.');
       return;
     }
     if (!dueDate) {
@@ -81,14 +106,7 @@ const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
               Khách hàng này chưa có số điện thoại hoặc hồ sơ khách lưu trong hệ thống. Quy tắc ngoại lệ công nợ chỉ áp dụng cho khách đã có thông tin liên hệ xác thực để thu hồi nợ.
             </div>
           </div>
-        ) : (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
-            <IoTimeOutline size={18} className="text-amber-600 shrink-0" />
-            <span>
-              Quy tắc QTN-04: Đặt phòng chỉ được chuyển sang <strong>Đã trả phòng</strong> và phòng chuyển sang <strong>Cần dọn</strong> sau khi Chủ cơ sở phê duyệt yêu cầu này.
-            </span>
-          </div>
-        )}
+        ) : null}
 
         <div className="bg-surface-container-low p-3.5 rounded-lg border border-border-grey space-y-2 text-sm">
           <div className="flex justify-between">
@@ -103,6 +121,12 @@ const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
             <span className="text-on-surface-variant">Số điện thoại:</span>
             <span className={guestPhone ? 'font-medium text-on-surface' : 'text-red-600 italic'}>
               {guestPhone || 'Chưa cập nhật'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-on-surface-variant">CCCD:</span>
+            <span className={guestIdNumber ? 'font-medium text-on-surface' : 'text-on-surface-variant italic'}>
+              {guestIdNumber || 'Chưa cập nhật'}
             </span>
           </div>
           {booking.roomNumber && (
@@ -121,11 +145,11 @@ const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
             min="1000"
             step="1000"
             value={debtAmount}
-            onChange={(e) => setDebtAmount(e.target.value)}
-            disabled={isWalkInNoProfile || loading}
-            placeholder="Ví dụ: 500000"
-            helperText="Số tiền khách chưa thanh toán cần theo dõi công nợ"
+            readOnly
+            disabled={isWalkInNoProfile || loading || loadingBalance}
+            helperText={loadingBalance ? 'Đang tải số dư từ hóa đơn...' : 'Số dư được tính tự động từ hóa đơn và các khoản đã thanh toán'}
           />
+          {balanceError && <p className="mt-1 text-xs text-red-600">{balanceError}</p>}
         </div>
 
         <div>
@@ -135,7 +159,7 @@ const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
             required
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            disabled={isWalkInNoProfile || loading}
+            disabled={isWalkInNoProfile || loading || loadingBalance}
             min={new Date().toISOString().split('T')[0]}
             helperText="Thời hạn cam kết thu hồi công nợ từ khách"
           />
@@ -150,7 +174,7 @@ const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
             required
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            disabled={isWalkInNoProfile || loading}
+            disabled={isWalkInNoProfile || loading || loadingBalance}
             placeholder="Ví dụ: Khách công ty chuyển khoản chậm theo hợp đồng, Khách quen xin thanh toán sau 3 ngày..."
             className="w-full px-3 py-2 border border-border-grey rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
           />
@@ -162,7 +186,7 @@ const RequestDebtCheckoutModal = ({ isOpen, onClose, booking, onSuccess }) => {
           </Button>
           <Button
             type="submit"
-            disabled={isWalkInNoProfile || loading}
+            disabled={isWalkInNoProfile || loading || loadingBalance || !!balanceError || Number(debtAmount) <= 0}
             icon={IoCheckmarkCircleOutline}
           >
             {loading ? 'Đang gửi...' : 'Gửi Chủ cơ sở duyệt'}
