@@ -41,11 +41,19 @@ public class User {
     private String avatarImage;
 
     @Builder.Default
-    private boolean active = true;
+    private Boolean active = true;
 
     @Builder.Default
     @Column(name = "must_change_password")
-    private boolean mustChangePassword = false;
+    private Boolean mustChangePassword = false;
+
+    public boolean isMustChangePassword() {
+        return Boolean.TRUE.equals(mustChangePassword);
+    }
+
+    public boolean isActive() {
+        return Boolean.TRUE.equals(active);
+    }
 
     @Enumerated(EnumType.STRING)
     private Role role;

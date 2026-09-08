@@ -3,6 +3,8 @@ package plant.stay.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import plant.stay.dto.response.AccountCheckResponse;
+import plant.stay.exception.BusinessException;
 import plant.stay.dto.request.ForceChangePasswordRequest;
 import plant.stay.dto.request.ForgotPasswordRequest;
 import plant.stay.dto.response.MessageResponse;
@@ -30,30 +32,84 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final PasswordResetRequestRepository passwordResetRequestRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final plant.stay.service.EmailService emailService;
+    private static final String UPPERCASE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // Loại trừ chữ I, O dễ gây nhầm lẫn
+    private static final String LOWERCASE_CHARS = "abcdefghijkmnopqrstuvwxyz"; // Loại trừ chữ l
+    private static final String DIGIT_CHARS = "23456789";                   // Loại trừ số 0, 1
+    private static final String SPECIAL_CHARS = "!@#$%^&*";
+    private static final String ALL_COMBINED_CHARS = UPPERCASE_CHARS + LOWERCASE_CHARS + DIGIT_CHARS + SPECIAL_CHARS;
+    private static final int TEMP_PASSWORD_LENGTH = 12;
+
+    @Override
+    @Transactional(readOnly = true)
+    public AccountCheckResponse checkAccount(String account) {
+        if (account == null || account.trim().isEmpty()) {
+            return AccountCheckResponse.builder()
+                    .exists(false)
+                    .build();
+        }
+
+        String cleanAccount = account.trim();
+        Optional<User> userOpt = userRepository.findByAccount(cleanAccount);
+        if (userOpt.isEmpty()) {
+            return AccountCheckResponse.builder()
+                    .exists(false)
+                    .account(cleanAccount)
+                    .build();
+        }
+
+        User user = userOpt.get();
+        return AccountCheckResponse.builder()
+                .exists(true)
+                .account(user.getAccount())
+                .name(user.getName())
+                .role(user.getRole() != null ? user.getRole().name() : null)
+                .active(user.isActive())
+                .build();
+    }
 
     @Override
     @Transactional
     public MessageResponse requestPasswordReset(ForgotPasswordRequest req) {
         String account = req.getAccount() != null ? req.getAccount().trim() : "";
-        Optional<User> userOpt = userRepository.findByAccount(account);
+        if (account.isEmpty()) {
+            throw new BusinessException("Vui lòng nhập tên tài khoản đăng nhập!");
+        }
 
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (user.isActive()) {
-                PasswordResetRequest request = PasswordResetRequest.builder()
-                        .account(account)
-                        .user(user)
-                        .status(PasswordResetStatus.PENDING)
-                        .build();
-                passwordResetRequestRepository.save(request);
+        User user = userRepository.findByAccount(account)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản '" + account + "' không tồn tại trong hệ thống. Vui lòng kiểm tra lại!"));
 
-                auditLogService.log("User", user.getId(), "REQUEST_PASSWORD_RESET", user,
-                        "Yêu cầu cấp lại mật khẩu cho tài khoản: " + account);
+        if (!user.isActive()) {
+            throw new BusinessException("Tài khoản '" + account + "' đang bị vô hiệu hóa hoặc khóa. Vui lòng liên hệ trực tiếp Quản trị viên cơ sở!");
+        }
+
+        // Kiểm tra xem tài khoản đã có yêu cầu đang chờ xử lý hay chưa (chống spam / trùng lặp)
+        boolean hasPending = passwordResetRequestRepository.existsByUserIdAndStatus(user.getId(), PasswordResetStatus.PENDING);
+        if (hasPending) {
+            throw new BusinessException("Tài khoản '" + account + "' đang có 1 yêu cầu cấp lại mật khẩu đang chờ Quản trị viên xử lý. Vui lòng không gửi thêm yêu cầu!");
+        }
+
+        // Kiểm tra nếu tài khoản đang có mật khẩu tạm thời còn hiệu lực 24h
+        Optional<PasswordResetRequest> activeIssuedOpt = passwordResetRequestRepository
+                .findFirstByUserIdAndStatusOrderByRequestedAtDesc(user.getId(), PasswordResetStatus.ISSUED);
+        if (activeIssuedOpt.isPresent()) {
+            PasswordResetRequest issuedReq = activeIssuedOpt.get();
+            if (issuedReq.getExpiresAt() != null && issuedReq.getExpiresAt().isAfter(LocalDateTime.now()) && user.isMustChangePassword()) {
+                throw new BusinessException("Tài khoản '" + account + "' đã được cấp mật khẩu tạm thời (hiệu lực 24 giờ). Vui lòng kiểm tra email hoặc liên hệ Quản trị viên để nhận lại mật khẩu!");
             }
         }
 
-        // Quy tắc an toàn: Luôn trả về thông báo chung, không tiết lộ tên đăng nhập có tồn tại hay không
-        return new MessageResponse("Yêu cầu cấp lại mật khẩu đã được ghi nhận. Vui lòng liên hệ Quản trị viên cơ sở để được xác minh và nhận mật khẩu tạm!");
+        PasswordResetRequest request = PasswordResetRequest.builder()
+                .account(account)
+                .user(user)
+                .status(PasswordResetStatus.PENDING)
+                .build();
+        passwordResetRequestRepository.save(request);
+
+        auditLogService.log("User", user.getId(), "REQUEST_PASSWORD_RESET", user,
+                "Yêu cầu cấp lại mật khẩu cho tài khoản: " + account + " (" + user.getName() + ")");
+
+        return new MessageResponse("Yêu cầu cấp lại mật khẩu cho tài khoản '" + account + "' (" + user.getName() + ") đã được gửi tới Quản trị viên thành công. Vui lòng chờ phê duyệt!");
     }
 
     @Override
@@ -85,10 +141,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             throw new IllegalArgumentException("Tài khoản này không tồn tại trong hệ thống nên không thể cấp mật khẩu tạm.");
         }
 
-        // Sinh mật khẩu tạm ngẫu nhiên 8 ký tự dễ đọc (VD: Roomi@8392)
-        SecureRandom random = new SecureRandom();
-        int digits = 1000 + random.nextInt(9000);
-        String tempPassword = "Roomi@" + digits;
+        // Sinh mật khẩu tạm thời bảo mật cao (12 ký tự, đa dạng chữ hoa, thường, số, ký tự đặc biệt)
+        String tempPassword = generateSecureTempPassword();
 
         // Cập nhật mật khẩu mã hóa cho user và bật cờ bắt buộc đổi mật khẩu
         user.setPassword(HashUtil.hashPassword(tempPassword));
@@ -104,8 +158,51 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         request.setIssuedAt(LocalDateTime.now());
         passwordResetRequestRepository.save(request);
 
-        auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
-                "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount());
+        // Gửi email chứa mật khẩu tạm thời tới người nhận qua Resend Service
+        boolean emailSent = false;
+        String emailMessage;
+        if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+            emailSent = emailService.sendTempPasswordEmail(user.getEmail(), user.getName(), user.getAccount(), tempPassword);
+            if (emailSent) {
+                emailMessage = "Đã gửi mật khẩu tạm thời tới email: " + user.getEmail();
+                auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
+                        "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) và gửi email tới " + user.getEmail() + " cho tài khoản: " + user.getAccount());
+            } else {
+                emailMessage = "Không thể gửi email tới " + user.getEmail() + " (Vui lòng kiểm tra lại cấu hình Resend API).";
+                auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
+                        "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount() + " (Gửi email thất bại)");
+            }
+        } else {
+            emailMessage = "Tài khoản chưa có địa chỉ email. Vui lòng sao chép mật khẩu tạm và gửi trực tiếp cho người dùng.";
+            auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
+                    "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount() + " (Không có email)");
+        }
+
+        PasswordResetItemResponse response = toDto(request);
+        response.setEmailSent(emailSent);
+        response.setEmailMessage(emailMessage);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public PasswordResetItemResponse rejectRequest(Long requestId, User adminActor) {
+        PasswordResetRequest request = passwordResetRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu cấp lại mật khẩu #" + requestId));
+
+        if (request.getStatus() != PasswordResetStatus.PENDING) {
+            throw new IllegalArgumentException("Chỉ có thể từ chối yêu cầu đang ở trạng thái Chờ cấp (trạng thái hiện tại: " + request.getStatus() + ")");
+        }
+
+        User user = request.getUser();
+
+        request.setStatus(PasswordResetStatus.REJECTED);
+        request.setIssuedBy(adminActor);
+        request.setIssuedAt(LocalDateTime.now());
+        passwordResetRequestRepository.save(request);
+
+        auditLogService.log("PasswordResetRequest", request.getId(), "REJECT_PASSWORD_RESET", adminActor,
+                "Quản trị viên " + adminActor.getName() + " đã từ chối yêu cầu cấp lại mật khẩu cho tài khoản: " + (user != null ? user.getAccount() : request.getAccount()));
 
         return toDto(request);
     }
@@ -168,6 +265,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 .id(r.getId())
                 .account(r.getAccount())
                 .userName(u != null ? u.getName() : null)
+                .userEmail(u != null ? u.getEmail() : null)
                 .userRole(u != null ? u.getRole() : null)
                 .status(r.getStatus())
                 .plainTempPassword(r.getPlainTempPassword())
@@ -177,5 +275,41 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 .issuedAt(r.getIssuedAt())
                 .usedAt(r.getUsedAt())
                 .build();
+    }
+
+    /**
+     * Sinh mật khẩu tạm thời ngẫu nhiên có độ entropy cao, chống tấn công Brute-Force:
+     * - Độ dài: 12 ký tự
+     * - Bộ sinh số ngẫu nhiên mật mã học (CSPRNG - SecureRandom)
+     * - Bắt buộc bao gồm: Chữ hoa, Chữ thường, Chữ số, Ký tự đặc biệt
+     * - Không gian mẫu: ~ 68^12 > 5.2 x 10^21 tổ hợp
+     */
+    private String generateSecureTempPassword() {
+        SecureRandom random = new SecureRandom();
+        List<Character> characters = new java.util.ArrayList<>(TEMP_PASSWORD_LENGTH);
+
+        // Đảm bảo có tối thiểu mỗi nhóm ký tự: 2 hoa, 2 thường, 2 số, 2 đặc biệt
+        characters.add(UPPERCASE_CHARS.charAt(random.nextInt(UPPERCASE_CHARS.length())));
+        characters.add(UPPERCASE_CHARS.charAt(random.nextInt(UPPERCASE_CHARS.length())));
+        characters.add(LOWERCASE_CHARS.charAt(random.nextInt(LOWERCASE_CHARS.length())));
+        characters.add(LOWERCASE_CHARS.charAt(random.nextInt(LOWERCASE_CHARS.length())));
+        characters.add(DIGIT_CHARS.charAt(random.nextInt(DIGIT_CHARS.length())));
+        characters.add(DIGIT_CHARS.charAt(random.nextInt(DIGIT_CHARS.length())));
+        characters.add(SPECIAL_CHARS.charAt(random.nextInt(SPECIAL_CHARS.length())));
+        characters.add(SPECIAL_CHARS.charAt(random.nextInt(SPECIAL_CHARS.length())));
+
+        // Điền các vị trí còn lại từ toàn bộ bảng ký tự kết hợp
+        for (int i = characters.size(); i < TEMP_PASSWORD_LENGTH; i++) {
+            characters.add(ALL_COMBINED_CHARS.charAt(random.nextInt(ALL_COMBINED_CHARS.length())));
+        }
+
+        // Xáo trộn ngẫu nhiên toàn bộ vị trí ký tự (Fisher-Yates Shuffle)
+        java.util.Collections.shuffle(characters, random);
+
+        StringBuilder passwordBuilder = new StringBuilder(TEMP_PASSWORD_LENGTH);
+        for (char ch : characters) {
+            passwordBuilder.append(ch);
+        }
+        return passwordBuilder.toString();
     }
 }

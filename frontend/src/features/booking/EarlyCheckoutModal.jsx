@@ -73,8 +73,8 @@ const EarlyCheckoutModal = ({ isOpen, onClose, bookingId, guestName, onSuccess }
 
         {loadingPreview ? (
           <div className="py-8 text-center text-on-surface-variant">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-            Đang tính toán số đêm thực tế và điều chỉnh tiền phòng...
+            <span className="inline-block w-8 h-8 border-3 border-primary border-t-transparent border-l-transparent animate-square-spin mx-auto mb-2" />
+            <p className="text-xs uppercase font-bold tracking-wider text-on-surface">Đang tính toán số đêm thực tế...</p>
           </div>
         ) : previewData ? (
           <div className="space-y-4 text-sm">

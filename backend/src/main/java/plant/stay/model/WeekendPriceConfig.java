@@ -36,9 +36,13 @@ public class WeekendPriceConfig {
     @Column(name = "price_per_night", nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerNight;
 
-    @Column(name = "active", nullable = false)
+    @Column(name = "active")
     @Builder.Default
-    private boolean active = true;
+    private Boolean active = true;
+
+    public boolean isActive() {
+        return Boolean.TRUE.equals(active);
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
