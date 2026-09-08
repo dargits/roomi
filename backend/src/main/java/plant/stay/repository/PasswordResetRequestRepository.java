@@ -13,5 +13,6 @@ public interface PasswordResetRequestRepository extends JpaRepository<PasswordRe
     List<PasswordResetRequest> findByStatusOrderByRequestedAtDesc(PasswordResetStatus status);
     List<PasswordResetRequest> findAllByOrderByRequestedAtDesc();
     Optional<PasswordResetRequest> findFirstByUserIdAndStatusOrderByRequestedAtDesc(Long userId, PasswordResetStatus status);
+    boolean existsByUserIdAndStatus(Long userId, PasswordResetStatus status);
     long countByStatus(PasswordResetStatus status);
 }

@@ -11,7 +11,8 @@ import {
   IoAlertCircleOutline,
   IoTimeOutline,
   IoMailOutline,
-  IoInformationCircleOutline
+  IoInformationCircleOutline,
+  IoCloseCircleOutline
 } from 'react-icons/io5';
 
 const ROLE_LABELS = {
@@ -79,6 +80,30 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleReject = async (item) => {
+    const isConfirmed = await confirm({
+      title: 'Từ chối yêu cầu cấp lại mật khẩu',
+      message: `Bạn có chắc chắn muốn TỪ CHỐI yêu cầu cấp lại mật khẩu cho tài khoản "${item.account}" (${item.userName})?`,
+      confirmText: 'Từ chối yêu cầu',
+      cancelText: 'Hủy',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+
+    setActionLoading(true);
+    try {
+      await passwordResetApi.rejectRequest(item.id);
+      toastSuccess(`Đã từ chối yêu cầu của tài khoản ${item.account}!`);
+      notifyPasswordResetUpdated();
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+      toastError(err.response?.data?.message || 'Lỗi khi từ chối yêu cầu.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
     toastSuccess('Đã sao chép mật khẩu tạm vào khay nhớ tạm!');
@@ -94,6 +119,8 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Đã hoàn tất đổi</span>;
       case 'EXPIRED':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Hết hạn 24h</span>;
+      case 'REJECTED':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">Đã từ chối</span>;
       default:
         return status;
     }
@@ -123,7 +150,7 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                   <th className="p-3">Vai trò</th>
                   <th className="p-3">Thời gian yêu cầu</th>
                   <th className="p-3 text-center">Trạng thái</th>
-                  <th className="p-3 text-center w-40">Thao tác</th>
+                  <th className="p-3 text-center w-52">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -160,14 +187,26 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                       </td>
                       <td className="p-3 text-center">
                         {item.status === 'PENDING' ? (
-                          <Button
-                            size="sm"
-                            icon={IoKeyOutline}
-                            disabled={actionLoading}
-                            onClick={() => handleIssue(item)}
-                          >
-                            Cấp mật khẩu tạm
-                          </Button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              size="sm"
+                              icon={IoKeyOutline}
+                              disabled={actionLoading}
+                              onClick={() => handleIssue(item)}
+                            >
+                              Cấp mật khẩu
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="!text-red-600 hover:!bg-red-50 !border-red-200"
+                              icon={IoCloseCircleOutline}
+                              disabled={actionLoading}
+                              onClick={() => handleReject(item)}
+                            >
+                              Từ chối
+                            </Button>
+                          </div>
                         ) : item.status === 'ISSUED' && item.plainTempPassword ? (
                           <button
                             type="button"

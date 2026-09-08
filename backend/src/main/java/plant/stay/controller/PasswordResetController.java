@@ -74,6 +74,15 @@ public class PasswordResetController {
         return ResponseEntity.ok(passwordResetService.issueTempPassword(id, adminActor));
     }
 
+    // Quản trị viên từ chối yêu cầu cấp lại mật khẩu
+    @PostMapping("/admin/password-resets/{id}/reject")
+    public ResponseEntity<PasswordResetItemResponse> rejectRequest(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        User adminActor = checkAdminOrOwner(request);
+        return ResponseEntity.ok(passwordResetService.rejectRequest(id, adminActor));
+    }
+
     private User checkAdminOrOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null) throw new UnauthorizedException("Vui lòng đăng nhập");

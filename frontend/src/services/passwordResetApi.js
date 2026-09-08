@@ -31,6 +31,12 @@ export const passwordResetApi = {
     return response.data;
   },
 
+  // Quản trị viên từ chối yêu cầu cấp lại mật khẩu
+  rejectRequest: async (id) => {
+    const response = await api.post(`/admin/password-resets/${id}/reject`);
+    return response.data;
+  },
+
   // Quản trị viên lấy số lượng yêu cầu đang chờ cấp (PENDING)
   getPendingCount: async () => {
     const response = await api.get('/admin/password-resets/pending-count');
