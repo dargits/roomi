@@ -104,7 +104,7 @@ jobs:
   build-and-push:
     name: Build & Push Docker Images (GHCR)
     needs: [test-backend, test-frontend]
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -152,7 +152,7 @@ jobs:
   deploy:
     name: Deploy to VPS (stayaway.io.vn)
     needs: [build-and-push]
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 15
