@@ -12,7 +12,8 @@ import {
   IoCardOutline,
   IoWalletOutline,
   IoCheckmarkOutline,
-  IoTicketOutline
+  IoTicketOutline,
+  IoMailOutline
 } from 'react-icons/io5';
 import { invoiceApi } from '../../services/invoiceApi';
 import { depositApi } from '../../services/depositApi';
@@ -50,7 +51,35 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const [adjustData, setAdjustData] = useState({ discountAmount: '', note: '' });
   const [adjustError, setAdjustError] = useState('');
 
+  // Modal gửi email hóa đơn
+  const [showSendEmailModal, setShowSendEmailModal] = useState(false);
+  const [emailToSend, setEmailToSend] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
   const canAdjust = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
+
+  const openSendEmailModal = () => {
+    setEmailToSend(booking?.guest?.email || '');
+    setShowSendEmailModal(true);
+  };
+
+  const handleSendInvoiceEmail = async (e) => {
+    e.preventDefault();
+    if (!emailToSend || !emailToSend.trim()) {
+      toastError("Vui lòng nhập địa chỉ email người nhận!");
+      return;
+    }
+    setIsSendingEmail(true);
+    try {
+      await invoiceApi.sendInvoiceEmail(invoice.id, emailToSend.trim());
+      toastSuccess(`Đã gửi hóa đơn điện tử tới ${emailToSend.trim()} thành công!`);
+      setShowSendEmailModal(false);
+    } catch (err) {
+      toastError(err.response?.data?.message || err.message || "Lỗi khi gửi email hóa đơn");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   useEffect(() => {
     fetchInvoiceData();
@@ -531,6 +560,14 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
               <Button onClick={() => onPrintInvoice(invoice)} icon={IoDocumentOutline} className="w-full">
                 In Hóa Đơn
               </Button>
+              <Button
+                variant="outline"
+                onClick={openSendEmailModal}
+                icon={IoMailOutline}
+                className="w-full border border-primary text-primary hover:bg-primary/5"
+              >
+                Gửi Email Hóa Đơn
+              </Button>
               {canAdjust && isPaid && (
                 <Button
                   variant="ghost"
@@ -540,7 +577,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
                     setShowAdjustModal(true);
                   }}
                   icon={IoDocumentTextOutline}
-                  className="w-full border border-border-grey text-on-surface hover:bg-surface-container-low"
+                  className="w-full border border-border-grey text-on-surface hover:bg-surface-container-low sm:col-span-2"
                 >
                   Điều chỉnh Hóa đơn
                 </Button>
@@ -989,6 +1026,38 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
             </Button>
             <Button type="submit" isLoading={processing}>
               Xác nhận Điều chỉnh
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Gửi Email Hóa Đơn */}
+      <Modal
+        isOpen={showSendEmailModal}
+        onClose={() => setShowSendEmailModal(false)}
+        title="Gửi Email Hóa Đơn Cho Khách Hàng"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSendInvoiceEmail} className="space-y-4">
+          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-xs text-blue-900 leading-relaxed">
+            Hóa đơn điện tử chi tiết bao gồm thông tin lưu trú, dịch vụ và trạng thái thanh toán sẽ được gửi trực tiếp đến địa chỉ email của khách hàng.
+          </div>
+
+          <Input
+            label="Địa chỉ email người nhận *"
+            type="email"
+            value={emailToSend}
+            onChange={(e) => setEmailToSend(e.target.value)}
+            placeholder="vd: khachhang@gmail.com"
+            required
+          />
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
+            <Button variant="ghost" type="button" onClick={() => setShowSendEmailModal(false)}>
+              Hủy
+            </Button>
+            <Button type="submit" isLoading={isSendingEmail} icon={IoMailOutline}>
+              Gửi Hóa Đơn
             </Button>
           </div>
         </form>
