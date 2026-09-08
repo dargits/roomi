@@ -23,7 +23,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
+import plant.stay.dto.response.InvoiceEmailData;
+import plant.stay.dto.response.MessageResponse;
+import plant.stay.exception.BusinessException;
+import plant.stay.service.EmailService;
+
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class InvoiceServiceImpl implements InvoiceService {
 
@@ -34,6 +41,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
     private final AuditLogService auditLogService;
+    private final EmailService emailService;
+    private final HotelSettingRepository hotelSettingRepository;
 
     @Override
     @Transactional
@@ -118,6 +127,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
             invoice.setStatus(InvoiceStatus.PAID);
             invoice = invoiceRepository.save(invoice);
+            triggerAutoInvoiceEmailIfApplicable(invoice);
         }
 
         auditLogService.log("Invoice", invoice.getId(), "CREATE", actor,
@@ -471,6 +481,7 @@ public class InvoiceServiceImpl implements InvoiceService {
             invoice.setStatus(InvoiceStatus.PAID);
             invoiceRepository.save(invoice);
             auditLogService.log("Invoice", invoiceId, "PAID", actor, "Hóa đơn đã thanh toán đủ");
+            triggerAutoInvoiceEmailIfApplicable(invoice);
         }
         auditLogService.log("Payment", payment.getId(), "ADD_PAYMENT", actor,
                 "Thanh toán " + request.getAmount() + " " + request.getMethod());
@@ -599,6 +610,124 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .paidAt(p.getPaidAt())
                 .collectedByName(p.getCollectedBy() != null ? p.getCollectedBy().getName() : null)
                 .note(p.getNote())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MessageResponse sendInvoiceEmail(Long invoiceId, String overrideEmail, User actor) {
+        Invoice invoice = findById(invoiceId);
+        InvoiceEmailData emailData = buildInvoiceEmailData(invoice);
+
+        String recipientEmail = (overrideEmail != null && !overrideEmail.trim().isEmpty())
+                ? overrideEmail.trim()
+                : emailData.getCustomerEmail();
+
+        if (recipientEmail == null || recipientEmail.trim().isEmpty()) {
+            throw new BusinessException("Khách hàng chưa có địa chỉ email. Vui lòng nhập địa chỉ email người nhận!");
+        }
+
+        boolean success = emailService.sendInvoiceEmail(recipientEmail, emailData);
+        if (!success) {
+            throw new BusinessException("Gửi email hóa đơn qua Resend thất bại. Vui lòng kiểm tra lại cấu hình hệ thống hoặc thử lại!");
+        }
+
+        auditLogService.log("Invoice", invoiceId, "SEND_EMAIL", actor,
+                "Đã gửi email hóa đơn #" + invoiceId + " tới hòm thư: " + recipientEmail);
+
+        return new MessageResponse("Đã gửi email hóa đơn tới " + recipientEmail + " thành công!");
+    }
+
+    private void triggerAutoInvoiceEmailIfApplicable(Invoice invoice) {
+        if (invoice == null) return;
+        try {
+            InvoiceEmailData emailData = buildInvoiceEmailData(invoice);
+            String recipientEmail = emailData.getCustomerEmail();
+            if (recipientEmail != null && !recipientEmail.trim().isEmpty()) {
+                emailService.sendInvoiceEmail(recipientEmail.trim(), emailData);
+            }
+        } catch (Exception e) {
+            log.warn("[EMAIL] Tự động gửi email hóa đơn #{} thất bại: {}", invoice.getId(), e.getMessage());
+        }
+    }
+
+    private InvoiceEmailData buildInvoiceEmailData(Invoice invoice) {
+        HotelSetting hotelSetting = hotelSettingRepository.findById(1L).orElse(null);
+
+        Booking booking = invoice.getBooking();
+        GroupBooking groupBooking = invoice.getGroupBooking();
+
+        Guest guest = null;
+        if (booking != null) {
+            guest = booking.getGuest();
+        } else if (groupBooking != null) {
+            guest = groupBooking.getRepresentativeGuest();
+        }
+
+        String roomName = (booking != null && booking.getRoom() != null) ? booking.getRoom().getRoomNumber() : "";
+        String roomTypeName = (booking != null && booking.getRoomType() != null) ? booking.getRoomType().getName() : "";
+        java.time.LocalDate checkIn = (booking != null) ? booking.getCheckInDate() : (groupBooking != null ? groupBooking.getCheckInDate() : null);
+        java.time.LocalDate checkOut = (booking != null) ? booking.getCheckOutDate() : (groupBooking != null ? groupBooking.getCheckOutDate() : null);
+        long nights = (checkIn != null && checkOut != null) ? Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut)) : 1;
+
+        List<InvoiceEmailData.ServiceItem> serviceItems = new ArrayList<>();
+        if (booking != null) {
+            List<BookingServiceUsage> usages = usageRepository.findByBookingId(booking.getId());
+            for (BookingServiceUsage u : usages) {
+                BigDecimal unitPrice = u.getUnitPriceSnapshot() != null ? u.getUnitPriceSnapshot() : BigDecimal.ZERO;
+                BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(u.getQuantity()));
+                serviceItems.add(InvoiceEmailData.ServiceItem.builder()
+                        .serviceName(u.getExtraService() != null ? u.getExtraService().getName() : "Dịch vụ phụ thu")
+                        .quantity(u.getQuantity())
+                        .unitPrice(unitPrice)
+                        .totalAmount(total)
+                        .build());
+            }
+        }
+
+        List<Payment> payments = paymentRepository.findByInvoiceId(invoice.getId());
+        String paymentMethods = payments.stream()
+                .map(p -> p.getMethod() != null ? p.getMethod().name() : "")
+                .filter(s -> !s.isBlank())
+                .distinct()
+                .collect(Collectors.joining(", "));
+
+        BigDecimal paidAmount = payments.stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal depositAmount = payments.stream()
+                .filter(p -> p.getNote() != null && (p.getNote().contains("cọc") || p.getNote().contains("Deposit") || p.getNote().contains("Mã cọc")))
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return InvoiceEmailData.builder()
+                .hotelName(hotelSetting != null ? hotelSetting.getPropertyName() : "STAYAWAY HOTEL")
+                .hotelAddress(hotelSetting != null ? hotelSetting.getAddress() : "")
+                .hotelPhone(hotelSetting != null ? hotelSetting.getPhone() : "")
+                .hotelEmail(hotelSetting != null ? hotelSetting.getEmail() : "")
+                .customerName(guest != null ? guest.getName() : "")
+                .customerPhone(guest != null ? guest.getPhone() : "")
+                .customerEmail(guest != null ? guest.getEmail() : "")
+                .bookingId(booking != null ? booking.getId() : null)
+                .roomName(roomName)
+                .roomTypeName(roomTypeName)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .numberOfNights(nights)
+                .invoiceId(invoice.getId())
+                .invoiceNumber("INV-" + String.format("%06d", invoice.getId()))
+                .invoiceStatus(invoice.getStatus() != null ? invoice.getStatus().name() : "PAID")
+                .invoiceCreatedAt(invoice.getCreatedAt())
+                .createdByName(invoice.getCreatedBy() != null ? invoice.getCreatedBy().getName() : null)
+                .roomAmount(invoice.getRoomAmount() != null ? invoice.getRoomAmount() : BigDecimal.ZERO)
+                .serviceAmount(invoice.getServiceAmount() != null ? invoice.getServiceAmount() : BigDecimal.ZERO)
+                .discountAmount(invoice.getDiscountAmount() != null ? invoice.getDiscountAmount() : BigDecimal.ZERO)
+                .depositAmount(depositAmount)
+                .totalAmount(invoice.getTotalAmount() != null ? invoice.getTotalAmount() : BigDecimal.ZERO)
+                .paidAmount(paidAmount)
+                .paymentMethods(paymentMethods)
+                .services(serviceItems)
                 .build();
     }
 }
