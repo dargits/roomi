@@ -1,36 +1,31 @@
 # ==============================================================================
-#  STAYAWAY (STAYGO PMS) — AUTOMATED CI/CD & ZERO-DOWNTIME DEPLOYMENT PIPELINE
+# STAYAWAY - AUTOMATED CI/CD & ZERO-DOWNTIME DEPLOYMENT PIPELINE
 # ==============================================================================
-#  • Production URL  : https://stayaway.io.vn/
-#  • API Endpoint    : https://stayaway.io.vn/api/v1
-#  • Registry        : GitHub Container Registry (ghcr.io)
-#  • Target Server   : AWS EC2 Ubuntu Server (Docker & Nginx Reverse Proxy)
-#  • Automation      : Fast SSH Pull (< 45s), Automated Health Check, Image Prune
+# Production URL: https://stayaway.io.vn/
+# API Endpoint  : https://stayaway.io.vn/api/v1
+# Registry      : GitHub Container Registry (ghcr.io)
+# Target Server : AWS EC2 Ubuntu Server (Docker & Nginx Reverse Proxy)
 # ==============================================================================
 
-name: CI/CD — StayAway Production Pipeline
+name: CI/CD - StayAway Production Pipeline
 
 on:
-  # Kích hoạt trên mọi lượt push để chạy kiểm thử chất lượng code (CI Gate)
   push:
     branches:
       - '**'
 
-  # Kích hoạt khi có Pull Request vào nhánh chính hoặc develop
   pull_request:
     branches:
       - main
       - develop
 
-  # Cho phép kích hoạt thủ công từ tab GitHub Actions UI
   workflow_dispatch:
     inputs:
       reason:
-        description: 'Lý do chạy pipeline thủ công'
+        description: 'Reason for manual deployment'
         required: false
         default: 'Manual deployment triggered by administrator'
 
-# Quản lý concurrency: Tự hủy run cũ trên nhánh phụ/PR, giữ ổn định trên main
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -51,22 +46,22 @@ jobs:
   # JOB 1: BACKEND CONTINUOUS INTEGRATION (Spring Boot 3 + JUnit 5)
   # ============================================================================
   test-backend:
-    name: ☕ Backend — 29 JUnit 5 Tests (Java 17)
+    name: Backend Tests (JUnit 5 - Java 17)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: 📥 Checkout repository source code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: ☕ Set up Eclipse Temurin JDK 17
+      - name: Set up Eclipse Temurin JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: temurin
           cache: maven
 
-      - name: 🧪 Execute Backend Unit & Integration Tests
+      - name: Run Backend Tests
         working-directory: ./Backend
         run: |
           chmod +x mvnw
@@ -76,59 +71,58 @@ jobs:
   # JOB 2: FRONTEND CONTINUOUS INTEGRATION (React 18 + Vitest + Vite)
   # ============================================================================
   test-frontend:
-    name: ⚛️ Frontend — 14 Vitest Tests & Production Build
+    name: Frontend Tests & Build (Vitest - Node 20)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: 📥 Checkout repository source code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: 🟢 Set up Node.js 20 LTS Runtime
+      - name: Set up Node.js 20 LTS
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
           cache-dependency-path: Frontend/package-lock.json
 
-      - name: 📦 Install clean dependencies
+      - name: Install dependencies
         working-directory: ./Frontend
         run: npm ci --legacy-peer-deps
 
-      - name: 🧪 Execute Frontend Vitest Component Tests
+      - name: Run Frontend Tests
         working-directory: ./Frontend
         run: npm test
 
-      - name: 🔨 Validate Production Bundle Build (Vite)
+      - name: Build Production Bundle
         working-directory: ./Frontend
         run: npm run build
 
   # ============================================================================
   # JOB 3: BUILD & PUSH DOCKER IMAGES (GHCR.io)
-  # (Chỉ thực thi khi ở nhánh main sau khi 100% Tests đạt chuẩn PASS)
   # ============================================================================
   build-and-push:
-    name: 🐳 Build & Push Docker Images (GHCR)
+    name: Build & Push Docker Images (GHCR)
     needs: [test-backend, test-frontend]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: 📥 Checkout repository source code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: 🐳 Set up Docker Buildx Builder
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔐 Authenticate with GitHub Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: ☕ Build & Push Backend Container Image
+      - name: Build & Push Backend Image
         uses: docker/build-push-action@v5
         with:
           context: ./Backend
@@ -139,7 +133,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: ⚛️ Build & Push Frontend Container Image
+      - name: Build & Push Frontend Image
         uses: docker/build-push-action@v5
         with:
           context: ./Frontend
@@ -156,7 +150,7 @@ jobs:
   # JOB 4: ZERO-DOWNTIME REMOTE DEPLOYMENT (AWS VPS)
   # ============================================================================
   deploy:
-    name: 🚀 Deploy to VPS (https://stayaway.io.vn)
+    name: Deploy to VPS (stayaway.io.vn)
     needs: [build-and-push]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
@@ -164,10 +158,10 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: 📥 Checkout repository source code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: 🛡️ Execute Remote Deployment Script via Secure SSH
+      - name: Execute Deployment on VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -177,25 +171,25 @@ jobs:
           script: |
             set -e
             echo "=================================================================="
-            echo "🚀 STAYAWAY VPS DEPLOYMENT — $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "STAYAWAY VPS DEPLOYMENT - $(date '+%Y-%m-%d %H:%M:%S')"
             echo "=================================================================="
 
-            # ── 1. Định vị thư mục dự án ──────────────────────────────────────
+            # 1. Locate project directory
             PROJECT_DIR="$HOME/stayaway"
             if [ ! -d "$PROJECT_DIR" ]; then
               [ -d "/var/www/stayaway" ] && PROJECT_DIR="/var/www/stayaway" || \
                 git clone https://github.com/dargits/roomi.git "$PROJECT_DIR"
             fi
             cd "$PROJECT_DIR"
-            echo "📁 Working Directory: $(pwd)"
+            echo "[INFO] Working Directory: $(pwd)"
 
-            # ── 2. Đồng bộ mã nguồn mới nhất từ main ─────────────────────────
+            # 2. Sync latest code from main branch
             git remote set-url origin https://github.com/dargits/roomi.git 2>/dev/null || true
             git fetch origin main
             git reset --hard origin/main
-            echo "✓ Code Synced: $(git log -1 --oneline)"
+            echo "[OK] Code synced: $(git log -1 --oneline)"
 
-            # ── 3. Tự động cấu hình file môi trường (.env) ───────────────────
+            # 3. Configure environment file (.env)
             DB_PASS=$(docker inspect roomi-db \
               -f '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
               | grep MYSQL_ROOT_PASSWORD | cut -d= -f2 || echo "")
@@ -209,47 +203,47 @@ jobs:
             DB_PASS=${DB_PASS}
             VITE_API_BASE_URL_PROD=https://stayaway.io.vn/api/v1
             EOF
-            echo "✓ Environment (.env) Generated Successfully"
+            echo "[OK] Environment (.env) generated successfully"
 
-            # ── 4. Đăng nhập GHCR và kéo Images dựng sẵn siêu tốc ─────────────
+            # 4. Log in to GHCR and pull pre-built images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
-            echo "⬇ Pulling pre-built images from GHCR..."
+            echo "[INFO] Pulling pre-built images from GHCR..."
             docker compose pull || docker-compose pull
-            echo "✓ Images pulled successfully"
+            echo "[OK] Images pulled successfully"
 
-            # ── 5. Khởi chạy và tái tạo Containers với Zero-Downtime ─────────
+            # 5. Recreate and start containers with zero-downtime
             docker compose up -d --remove-orphans || \
               docker-compose up -d --remove-orphans
-            echo "✓ Containers (Backend & Frontend) started"
+            echo "[OK] Containers started"
 
-            # ── 6. Gắn kết mạng nội bộ với Database roomi-db ─────────────────
+            # 6. Attach backend to database network
             if [ -n "$DB_NET" ]; then
               docker network connect "$DB_NET" stayaway_backend 2>/dev/null || true
               docker restart stayaway_backend 2>/dev/null || true
-              echo "✓ Backend attached to Database network: $DB_NET"
+              echo "[OK] Backend connected to Database network: $DB_NET"
             fi
 
-            # ── 7. Kiểm tra trạng thái hoạt động (Health Check 60s) ──────────
-            echo "⏳ Performing health check on backend endpoint..."
+            # 7. Health check (up to 60 seconds)
+            echo "[INFO] Performing health check on backend service..."
             for i in $(seq 1 12); do
               if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1 || \
                  curl -sf http://localhost:8080/api/v1/hotel-settings > /dev/null 2>&1; then
-                echo "✓ Backend service is HEALTHY (Response OK)"
+                echo "[OK] Backend service is healthy"
                 break
               fi
               if [ "$i" -eq 12 ]; then
-                echo "⚠ Health check reached timeout (service is still warming up)"
+                echo "[WARN] Health check reached timeout (service may still be initializing)"
               else
-                echo "  • Attempt $i/12 — retrying in 5 seconds..."
+                echo "  - Attempt $i/12 — retrying in 5 seconds..."
                 sleep 5
               fi
             done
 
-            # ── 8. Dọn dẹp Docker Images không còn sử dụng ────────────────────
+            # 8. Prune unused images
             docker image prune -f > /dev/null 2>&1 || true
-            echo "✓ Dangling images pruned"
+            echo "[OK] Dangling images pruned"
 
             echo "=================================================================="
-            echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY at $(date '+%Y-%m-%d %H:%M:%S')"
-            echo "🌐 Live Production: https://stayaway.io.vn"
+            echo "[SUCCESS] Deployment completed successfully at $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "Production URL: https://stayaway.io.vn"
             echo "=================================================================="

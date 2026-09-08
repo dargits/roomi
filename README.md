@@ -351,5 +351,5 @@ git push origin main
 ---
 
 <p align="center">
-  Made with ❤️ by <strong>Tiger Team</strong> &nbsp;·&nbsp; CodeGym Vietnam 2026
+  Made with ❤️ by <strong>Open Way</strong> &nbsp;·&nbsp; CodeGym Vietnam 2026
 </p>
