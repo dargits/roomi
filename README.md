@@ -27,7 +27,7 @@
 - [🧪 Kiểm Thử](#-kiểm-thử)
 - [🐳 CI/CD & Triển Khai](#-cicd--triển-khai)
 - [🌐 Live Demo](#-live-demo)
-- [📁 Tài Liệu Bổ Sung](#-tài-liệu-bổ-sung)
+- [📁 Tài Liệu Dự Án](#-tài-liệu-dự-án)
 
 ---
 
@@ -122,7 +122,7 @@ roomi/
 ├── docker-compose.yml                # Cấu hình đa container Production
 ├── .github/workflows/
 │   └── deploy.yml                    # Automated CI/CD Pipeline (GitHub Actions)
-└── docs/                             # Tài liệu, ERD, SQL demo, quy trình
+└── docs/                             # Tài liệu nghiệp vụ, hướng dẫn & test cases
 ```
 
 ### Stack Công Nghệ
@@ -208,13 +208,7 @@ npm run dev
 **Dịch vụ phụ thu có sẵn:**  
 Ăn sáng buffet · Đưa đón sân bay · Giặt là · Giường phụ · Thuê xe máy · Spa thư giãn
 
-**Hạng hội viên:**  
-🥉 Đồng (0đ) → 🥈 Bạc (500đ) → 🥇 Vàng (1500đ) → 💎 Kim Cương (3500đ)
-
-**SQL Demo đầy đủ** (booking, cọc, hóa đơn,...):
-```bash
-mysql -u root -p stay < docs/demo-data.sql
-```
+> 💡 **Khởi tạo dữ liệu mẫu tự động:** Khi ứng dụng khởi chạy lần đầu, `DataSeeder` sẽ tự động nạp toàn bộ dữ liệu mẫu (phòng, loại phòng, giá, tiện ích, tài khoản nhân viên, chính sách cọc) vào database mà không cần chạy file SQL thủ công.
 
 ---
 
@@ -342,13 +336,15 @@ git push origin main
 
 ---
 
-## 📁 Tài Liệu Bổ Sung
+## 📁 Tài Liệu Dự Án
 
 | Tài liệu | Mô tả |
 |----------|-------|
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Tài liệu hướng dẫn CI/CD toàn diện, kiến trúc Docker và triển khai VPS tự động |
-| [`docs/`](docs/) | ERD, SQL demo, tài liệu phân tích nghiệp vụ phòng đoàn |
-| [`Lưu Trú Số - Product Backlog.csv`](Lưu%20Trú%20Số%20-%20Product%20Backlog%20(User%20Stories).csv) | User Stories đầy đủ của toàn bộ hệ thống |
+| [`docs/LUONG_DAT_PHONG_DOAN_CHI_TIET.md`](docs/LUONG_DAT_PHONG_DOAN_CHI_TIET.md) | Phân tích chi tiết quy tắc nghiệp vụ & UI/UX đặt phòng theo đoàn |
+| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | Hướng dẫn sử dụng hệ thống chi tiết cho từng vai trò người dùng |
+| [`docs/E2E_TEST_CASES.md`](docs/E2E_TEST_CASES.md) | Kịch bản kiểm thử tích hợp End-to-End toàn hệ thống |
+| [`backend/docs/api-docs.md`](backend/docs/api-docs.md) | Danh mục đặc tả toàn bộ REST API của hệ thống |
 
 ---
 
