@@ -17,6 +17,7 @@ public class PasswordResetItemResponse {
     private Long id;
     private String account;
     private String userName;
+    private String userEmail;
     private Role userRole;
     private PasswordResetStatus status;
     private String plainTempPassword;
@@ -25,4 +26,6 @@ public class PasswordResetItemResponse {
     private String issuedByName;
     private LocalDateTime issuedAt;
     private LocalDateTime usedAt;
+    private Boolean emailSent;
+    private String emailMessage;
 }
