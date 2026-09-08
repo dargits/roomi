@@ -83,6 +83,22 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             throw new BusinessException("Tài khoản '" + account + "' đang bị vô hiệu hóa hoặc khóa. Vui lòng liên hệ trực tiếp Quản trị viên cơ sở!");
         }
 
+        // Kiểm tra xem tài khoản đã có yêu cầu đang chờ xử lý hay chưa (chống spam / trùng lặp)
+        boolean hasPending = passwordResetRequestRepository.existsByUserIdAndStatus(user.getId(), PasswordResetStatus.PENDING);
+        if (hasPending) {
+            throw new BusinessException("Tài khoản '" + account + "' đang có 1 yêu cầu cấp lại mật khẩu đang chờ Quản trị viên xử lý. Vui lòng không gửi thêm yêu cầu!");
+        }
+
+        // Kiểm tra nếu tài khoản đang có mật khẩu tạm thời còn hiệu lực 24h
+        Optional<PasswordResetRequest> activeIssuedOpt = passwordResetRequestRepository
+                .findFirstByUserIdAndStatusOrderByRequestedAtDesc(user.getId(), PasswordResetStatus.ISSUED);
+        if (activeIssuedOpt.isPresent()) {
+            PasswordResetRequest issuedReq = activeIssuedOpt.get();
+            if (issuedReq.getExpiresAt() != null && issuedReq.getExpiresAt().isAfter(LocalDateTime.now()) && user.isMustChangePassword()) {
+                throw new BusinessException("Tài khoản '" + account + "' đã được cấp mật khẩu tạm thời (hiệu lực 24 giờ). Vui lòng kiểm tra email hoặc liên hệ Quản trị viên để nhận lại mật khẩu!");
+            }
+        }
+
         PasswordResetRequest request = PasswordResetRequest.builder()
                 .account(account)
                 .user(user)
@@ -166,6 +182,29 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         response.setEmailSent(emailSent);
         response.setEmailMessage(emailMessage);
         return response;
+    }
+
+    @Override
+    @Transactional
+    public PasswordResetItemResponse rejectRequest(Long requestId, User adminActor) {
+        PasswordResetRequest request = passwordResetRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu cấp lại mật khẩu #" + requestId));
+
+        if (request.getStatus() != PasswordResetStatus.PENDING) {
+            throw new IllegalArgumentException("Chỉ có thể từ chối yêu cầu đang ở trạng thái Chờ cấp (trạng thái hiện tại: " + request.getStatus() + ")");
+        }
+
+        User user = request.getUser();
+
+        request.setStatus(PasswordResetStatus.REJECTED);
+        request.setIssuedBy(adminActor);
+        request.setIssuedAt(LocalDateTime.now());
+        passwordResetRequestRepository.save(request);
+
+        auditLogService.log("PasswordResetRequest", request.getId(), "REJECT_PASSWORD_RESET", adminActor,
+                "Quản trị viên " + adminActor.getName() + " đã từ chối yêu cầu cấp lại mật khẩu cho tài khoản: " + (user != null ? user.getAccount() : request.getAccount()));
+
+        return toDto(request);
     }
 
     @Override

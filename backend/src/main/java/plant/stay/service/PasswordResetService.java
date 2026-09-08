@@ -15,5 +15,6 @@ public interface PasswordResetService {
     List<PasswordResetItemResponse> getAllRequests();
     long getPendingCount();
     PasswordResetItemResponse issueTempPassword(Long requestId, User adminActor);
+    PasswordResetItemResponse rejectRequest(Long requestId, User adminActor);
     MessageResponse forceChangePassword(ForceChangePasswordRequest req);
 }
