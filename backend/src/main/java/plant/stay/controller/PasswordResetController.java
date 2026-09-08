@@ -19,6 +19,8 @@ import plant.stay.util.AuthUtil;
 
 import java.util.List;
 
+import plant.stay.dto.response.AccountCheckResponse;
+
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -27,6 +29,13 @@ public class PasswordResetController {
 
     private final PasswordResetService passwordResetService;
     private final AuthUtil authUtil;
+
+    // Kiểm tra tài khoản có tồn tại không trước khi gửi yêu cầu (Public)
+    @GetMapping("/auth/check-account")
+    public ResponseEntity<AccountCheckResponse> checkAccount(
+            @RequestParam("account") String account) {
+        return ResponseEntity.ok(passwordResetService.checkAccount(account));
+    }
 
     // Yêu cầu cấp lại mật khẩu (Public)
     @PostMapping("/auth/forgot-password")

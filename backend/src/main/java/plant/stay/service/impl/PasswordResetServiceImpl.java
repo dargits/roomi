@@ -3,6 +3,8 @@ package plant.stay.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import plant.stay.dto.response.AccountCheckResponse;
+import plant.stay.exception.BusinessException;
 import plant.stay.dto.request.ForceChangePasswordRequest;
 import plant.stay.dto.request.ForgotPasswordRequest;
 import plant.stay.dto.response.MessageResponse;
@@ -32,28 +34,59 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final AuditLogService auditLogService;
 
     @Override
+    @Transactional(readOnly = true)
+    public AccountCheckResponse checkAccount(String account) {
+        if (account == null || account.trim().isEmpty()) {
+            return AccountCheckResponse.builder()
+                    .exists(false)
+                    .build();
+        }
+
+        String cleanAccount = account.trim();
+        Optional<User> userOpt = userRepository.findByAccount(cleanAccount);
+        if (userOpt.isEmpty()) {
+            return AccountCheckResponse.builder()
+                    .exists(false)
+                    .account(cleanAccount)
+                    .build();
+        }
+
+        User user = userOpt.get();
+        return AccountCheckResponse.builder()
+                .exists(true)
+                .account(user.getAccount())
+                .name(user.getName())
+                .role(user.getRole() != null ? user.getRole().name() : null)
+                .active(user.isActive())
+                .build();
+    }
+
+    @Override
     @Transactional
     public MessageResponse requestPasswordReset(ForgotPasswordRequest req) {
         String account = req.getAccount() != null ? req.getAccount().trim() : "";
-        Optional<User> userOpt = userRepository.findByAccount(account);
-
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (user.isActive()) {
-                PasswordResetRequest request = PasswordResetRequest.builder()
-                        .account(account)
-                        .user(user)
-                        .status(PasswordResetStatus.PENDING)
-                        .build();
-                passwordResetRequestRepository.save(request);
-
-                auditLogService.log("User", user.getId(), "REQUEST_PASSWORD_RESET", user,
-                        "Yêu cầu cấp lại mật khẩu cho tài khoản: " + account);
-            }
+        if (account.isEmpty()) {
+            throw new BusinessException("Vui lòng nhập tên tài khoản đăng nhập!");
         }
 
-        // Quy tắc an toàn: Luôn trả về thông báo chung, không tiết lộ tên đăng nhập có tồn tại hay không
-        return new MessageResponse("Yêu cầu cấp lại mật khẩu đã được ghi nhận. Vui lòng liên hệ Quản trị viên cơ sở để được xác minh và nhận mật khẩu tạm!");
+        User user = userRepository.findByAccount(account)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản '" + account + "' không tồn tại trong hệ thống. Vui lòng kiểm tra lại!"));
+
+        if (!user.isActive()) {
+            throw new BusinessException("Tài khoản '" + account + "' đang bị vô hiệu hóa hoặc khóa. Vui lòng liên hệ trực tiếp Quản trị viên cơ sở!");
+        }
+
+        PasswordResetRequest request = PasswordResetRequest.builder()
+                .account(account)
+                .user(user)
+                .status(PasswordResetStatus.PENDING)
+                .build();
+        passwordResetRequestRepository.save(request);
+
+        auditLogService.log("User", user.getId(), "REQUEST_PASSWORD_RESET", user,
+                "Yêu cầu cấp lại mật khẩu cho tài khoản: " + account + " (" + user.getName() + ")");
+
+        return new MessageResponse("Yêu cầu cấp lại mật khẩu cho tài khoản '" + account + "' (" + user.getName() + ") đã được gửi tới Quản trị viên thành công. Vui lòng chờ phê duyệt!");
     }
 
     @Override
