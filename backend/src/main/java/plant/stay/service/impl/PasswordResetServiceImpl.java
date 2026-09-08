@@ -32,6 +32,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final PasswordResetRequestRepository passwordResetRequestRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final plant.stay.service.EmailService emailService;
     private static final String UPPERCASE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // Loại trừ chữ I, O dễ gây nhầm lẫn
     private static final String LOWERCASE_CHARS = "abcdefghijkmnopqrstuvwxyz"; // Loại trừ chữ l
     private static final String DIGIT_CHARS = "23456789";                   // Loại trừ số 0, 1
@@ -143,6 +144,11 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
                 "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount());
+
+        // Gửi email chứa mật khẩu tạm thời tới người nhận qua Resend Service
+        if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+            emailService.sendTempPasswordEmail(user.getEmail(), user.getName(), user.getAccount(), tempPassword);
+        }
 
         return toDto(request);
     }
