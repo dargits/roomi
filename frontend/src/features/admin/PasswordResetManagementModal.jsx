@@ -9,7 +9,9 @@ import {
   IoCheckmarkCircleOutline, 
   IoRefreshOutline,
   IoAlertCircleOutline,
-  IoTimeOutline
+  IoTimeOutline,
+  IoMailOutline,
+  IoInformationCircleOutline
 } from 'react-icons/io5';
 
 const ROLE_LABELS = {
@@ -62,7 +64,11 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
     try {
       const res = await passwordResetApi.issueTempPassword(item.id);
       setIssuedResult(res);
-      toastSuccess(`Đã cấp mật khẩu tạm cho tài khoản ${item.account}!`);
+      if (res?.emailSent) {
+        toastSuccess(`Đã cấp mật khẩu tạm và gửi email tới ${res.userEmail || item.account}!`);
+      } else {
+        toastSuccess(`Đã cấp mật khẩu tạm cho tài khoản ${item.account}!`);
+      }
       notifyPasswordResetUpdated();
       fetchRequests();
     } catch (err) {
@@ -131,8 +137,15 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                       <td className="p-3 font-semibold text-on-surface font-mono">
                         {item.account}
                       </td>
-                      <td className="p-3 font-medium text-on-surface">
-                        {item.userName || <span className="text-outline italic">Không tồn tại</span>}
+                      <td className="p-3">
+                        <div className="font-medium text-on-surface">
+                          {item.userName || <span className="text-outline italic">Không tồn tại</span>}
+                        </div>
+                        {item.userEmail && (
+                          <div className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5 font-mono">
+                            <IoMailOutline size={12} className="text-primary shrink-0" /> {item.userEmail}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3 text-xs">
                         <span className="px-2 py-0.5 rounded bg-surface-container border border-border-grey font-semibold">
@@ -207,6 +220,29 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                 <IoCopyOutline size={15} /> Sao chép
               </button>
             </div>
+
+            {issuedResult.emailSent ? (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded text-left text-xs text-blue-900 flex items-start gap-2.5">
+                <IoMailOutline size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-blue-950">Đã gửi email thành công:</span> Mật khẩu tạm thời đã được tự động gửi về hòm thư <strong className="font-mono text-blue-800">{issuedResult.userEmail}</strong>.
+                </div>
+              </div>
+            ) : issuedResult.userEmail ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-left text-xs text-amber-900 flex items-start gap-2.5">
+                <IoAlertCircleOutline size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-amber-950">Chưa gửi được email tới {issuedResult.userEmail}:</span> {issuedResult.emailMessage || 'Vui lòng sao chép mật khẩu bên trên để gửi trực tiếp cho nhân viên.'}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-surface-container-low border border-border-grey rounded text-left text-xs text-on-surface-variant flex items-start gap-2.5">
+                <IoInformationCircleOutline size={18} className="text-outline shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-on-surface">Tài khoản chưa có email:</span> Vui lòng sao chép mật khẩu tạm bên trên để cung cấp trực tiếp cho nhân viên.
+                </div>
+              </div>
+            )}
 
             <p className="text-xs text-on-surface-variant text-left leading-relaxed bg-surface-container-low p-3 rounded border border-border-grey">
               ⚠️ <strong>Lưu ý quan trọng:</strong> Mật khẩu này có hiệu lực trong <strong>24 giờ</strong> và chỉ được dùng 1 lần. Khi đăng nhập, nhân viên bắt buộc phải đổi mật khẩu mới ngay trước khi vào được bất kỳ màn hình nào.
