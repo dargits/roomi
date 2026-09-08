@@ -115,6 +115,21 @@ public class InvoiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(invoiceService.addPayment(invoiceId, req, actor));
     }
 
+    // Gửi email hóa đơn thanh toán cho khách hàng
+    @PostMapping("/api/v1/invoices/{invoiceId}/send-email")
+    public ResponseEntity<MessageResponse> sendInvoiceEmail(
+            @PathVariable Long invoiceId,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            @RequestParam(required = false) String email,
+            HttpServletRequest request) {
+        User actor = checkFinance(request);
+        String targetEmail = email;
+        if (targetEmail == null && body != null && body.containsKey("email")) {
+            targetEmail = body.get("email");
+        }
+        return ResponseEntity.ok(invoiceService.sendInvoiceEmail(invoiceId, targetEmail, actor));
+    }
+
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ACCOUNTANT))

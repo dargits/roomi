@@ -11,4 +11,13 @@ public interface EmailService {
      * @return true nếu gửi thành công, false nếu thất bại
      */
     boolean sendTempPasswordEmail(String toEmail, String recipientName, String account, String tempPassword);
+
+    /**
+     * Gửi email hóa đơn thanh toán cho khách hàng
+     *
+     * @param toEmail Email người nhận
+     * @param data    Dữ liệu hóa đơn
+     * @return true nếu gửi thành công, false nếu thất bại
+     */
+    boolean sendInvoiceEmail(String toEmail, plant.stay.dto.response.InvoiceEmailData data);
 }
