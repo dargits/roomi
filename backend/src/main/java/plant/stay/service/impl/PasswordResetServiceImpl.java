@@ -141,6 +141,11 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             throw new IllegalArgumentException("Tài khoản này không tồn tại trong hệ thống nên không thể cấp mật khẩu tạm.");
         }
 
+        // Không cho phép Admin/Chủ cơ sở tự cấp lại mật khẩu cho chính bản thân mình
+        if (adminActor != null && user.getId().equals(adminActor.getId())) {
+            throw new BusinessException("Bạn không thể tự cấp lại mật khẩu cho chính tài khoản của mình. Vui lòng nhờ Quản trị viên/Chủ cơ sở khác thực hiện hoặc đổi mật khẩu trong mục Thông tin cá nhân!");
+        }
+
         // Sinh mật khẩu tạm thời bảo mật cao (12 ký tự, đa dạng chữ hoa, thường, số, ký tự đặc biệt)
         String tempPassword = generateSecureTempPassword();
 
@@ -164,16 +169,16 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
             emailSent = emailService.sendTempPasswordEmail(user.getEmail(), user.getName(), user.getAccount(), tempPassword);
             if (emailSent) {
-                emailMessage = "Đã gửi mật khẩu tạm thời tới email: " + user.getEmail();
+                emailMessage = "Đã gửi mật khẩu tạm thời về hòm thư " + user.getEmail() + " của người dùng.";
                 auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
                         "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) và gửi email tới " + user.getEmail() + " cho tài khoản: " + user.getAccount());
             } else {
-                emailMessage = "Không thể gửi email tới " + user.getEmail() + " (Vui lòng kiểm tra lại cấu hình Resend API).";
+                emailMessage = "Hệ thống tạm thời chưa gửi được email tự động tới " + user.getEmail() + ". Vui lòng sao chép mật khẩu tạm thời bên trên để gửi trực tiếp cho người dùng.";
                 auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
                         "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount() + " (Gửi email thất bại)");
             }
         } else {
-            emailMessage = "Tài khoản chưa có địa chỉ email. Vui lòng sao chép mật khẩu tạm và gửi trực tiếp cho người dùng.";
+            emailMessage = "Tài khoản chưa có địa chỉ email. Vui lòng sao chép mật khẩu tạm thời bên trên để gửi trực tiếp cho người dùng.";
             auditLogService.log("PasswordResetRequest", request.getId(), "ISSUE_TEMP_PASSWORD", adminActor,
                     "Quản trị viên " + adminActor.getName() + " đã cấp mật khẩu tạm thời (hiệu lực 24h) cho tài khoản: " + user.getAccount() + " (Không có email)");
         }
@@ -195,6 +200,9 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         }
 
         User user = request.getUser();
+        if (adminActor != null && user != null && user.getId().equals(adminActor.getId())) {
+            throw new BusinessException("Bạn không thể tự từ chối yêu cầu cấp lại mật khẩu của chính tài khoản mình.");
+        }
 
         request.setStatus(PasswordResetStatus.REJECTED);
         request.setIssuedBy(adminActor);
@@ -263,6 +271,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         User u = r.getUser();
         return PasswordResetItemResponse.builder()
                 .id(r.getId())
+                .userId(u != null ? u.getId() : null)
                 .account(r.getAccount())
                 .userName(u != null ? u.getName() : null)
                 .userEmail(u != null ? u.getEmail() : null)

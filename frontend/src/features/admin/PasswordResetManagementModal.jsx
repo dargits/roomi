@@ -3,6 +3,7 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { passwordResetApi, notifyPasswordResetUpdated } from '../../services/passwordResetApi';
 import { useToast, useConfirm } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   IoKeyOutline, 
   IoCopyOutline, 
@@ -24,6 +25,7 @@ const ROLE_LABELS = {
 };
 
 const PasswordResetManagementModal = ({ isOpen, onClose }) => {
+  const { user: currentUser } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
   const confirm = useConfirm();
   const [requests, setRequests] = useState([]);
@@ -52,6 +54,12 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
   }, [isOpen]);
 
   const handleIssue = async (item) => {
+    const isSelf = currentUser && (item.userId === currentUser.id || item.account === currentUser.account);
+    if (isSelf) {
+      toastError('Bạn không thể tự cấp lại mật khẩu cho chính tài khoản của mình.');
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: 'Cấp mật khẩu tạm thời',
       message: `Cấp mật khẩu tạm thời có hiệu lực 24 giờ cho tài khoản "${item.account}" (${item.userName})?`,
@@ -67,6 +75,8 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
       setIssuedResult(res);
       if (res?.emailSent) {
         toastSuccess(`Đã cấp mật khẩu tạm và gửi email tới ${res.userEmail || item.account}!`);
+      } else if (res?.userEmail) {
+        toastSuccess(`Đã cấp mật khẩu tạm thành công! (Chưa gửi được email, vui lòng sao chép mật khẩu gửi trực tiếp cho nhân viên)`);
       } else {
         toastSuccess(`Đã cấp mật khẩu tạm cho tài khoản ${item.account}!`);
       }
@@ -81,6 +91,12 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
   };
 
   const handleReject = async (item) => {
+    const isSelf = currentUser && (item.userId === currentUser.id || item.account === currentUser.account);
+    if (isSelf) {
+      toastError('Bạn không thể tự thao tác trên yêu cầu của chính tài khoản mình.');
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: 'Từ chối yêu cầu cấp lại mật khẩu',
       message: `Bạn có chắc chắn muốn TỪ CHỐI yêu cầu cấp lại mật khẩu cho tài khoản "${item.account}" (${item.userName})?`,
@@ -159,69 +175,85 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                 ) : requests.length === 0 ? (
                   <tr><td colSpan="6" className="p-6 text-center text-on-surface-variant">Không có yêu cầu cấp lại mật khẩu nào.</td></tr>
                 ) : (
-                  requests.map((item) => (
-                    <tr key={item.id} className="border-b border-border-grey hover:bg-surface-container-low/40">
-                      <td className="p-3 font-semibold text-on-surface font-mono">
-                        {item.account}
-                      </td>
-                      <td className="p-3">
-                        <div className="font-medium text-on-surface">
-                          {item.userName || <span className="text-outline italic">Không tồn tại</span>}
-                        </div>
-                        {item.userEmail && (
-                          <div className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5 font-mono">
-                            <IoMailOutline size={12} className="text-primary shrink-0" /> {item.userEmail}
+                  requests.map((item) => {
+                    const isSelf = currentUser && (item.userId === currentUser.id || item.account === currentUser.account);
+                    return (
+                      <tr key={item.id} className={`border-b border-border-grey hover:bg-surface-container-low/40 ${isSelf ? 'bg-amber-50/40' : ''}`}>
+                        <td className="p-3 font-semibold text-on-surface font-mono">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{item.account}</span>
+                            {isSelf && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold border border-amber-300">
+                                Bạn
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </td>
-                      <td className="p-3 text-xs">
-                        <span className="px-2 py-0.5 rounded bg-surface-container border border-border-grey font-semibold">
-                          {ROLE_LABELS[item.userRole] || item.userRole || '---'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs text-on-surface-variant">
-                        {item.requestedAt?.replace('T', ' ').substring(0, 16)}
-                      </td>
-                      <td className="p-3 text-center">
-                        {getStatusBadge(item.status)}
-                      </td>
-                      <td className="p-3 text-center">
-                        {item.status === 'PENDING' ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <Button
-                              size="sm"
-                              icon={IoKeyOutline}
-                              disabled={actionLoading}
-                              onClick={() => handleIssue(item)}
-                            >
-                              Cấp mật khẩu
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="!text-red-600 hover:!bg-red-50 !border-red-200"
-                              icon={IoCloseCircleOutline}
-                              disabled={actionLoading}
-                              onClick={() => handleReject(item)}
-                            >
-                              Từ chối
-                            </Button>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-medium text-on-surface">
+                            {item.userName || <span className="text-outline italic">Không tồn tại</span>}
                           </div>
-                        ) : item.status === 'ISSUED' && item.plainTempPassword ? (
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(item.plainTempPassword)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                            title="Sao chép mật khẩu"
-                          >
-                            <IoCopyOutline size={14} /> Sao chép
-                          </button>
-                        ) : (
-                          <span className="text-xs text-on-surface-variant">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                          {item.userEmail && (
+                            <div className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5 font-mono">
+                              <IoMailOutline size={12} className="text-primary shrink-0" /> {item.userEmail}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs">
+                          <span className="px-2 py-0.5 rounded bg-surface-container border border-border-grey font-semibold">
+                            {ROLE_LABELS[item.userRole] || item.userRole || '---'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs text-on-surface-variant">
+                          {item.requestedAt?.replace('T', ' ').substring(0, 16)}
+                        </td>
+                        <td className="p-3 text-center">
+                          {getStatusBadge(item.status)}
+                        </td>
+                        <td className="p-3 text-center">
+                          {item.status === 'PENDING' ? (
+                            isSelf ? (
+                              <span className="inline-block text-xs italic text-on-surface-variant px-2.5 py-1 bg-surface-container-low rounded border border-border-grey" title="Bạn không thể tự cấp mật khẩu cho chính tài khoản của mình">
+                                Không thể tự cấp
+                              </span>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  icon={IoKeyOutline}
+                                  disabled={actionLoading}
+                                  onClick={() => handleIssue(item)}
+                                >
+                                  Cấp mật khẩu
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="!text-red-600 hover:!bg-red-50 !border-red-200"
+                                  icon={IoCloseCircleOutline}
+                                  disabled={actionLoading}
+                                  onClick={() => handleReject(item)}
+                                >
+                                  Từ chối
+                                </Button>
+                              </div>
+                            )
+                          ) : item.status === 'ISSUED' && item.plainTempPassword ? (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(item.plainTempPassword)}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                              title="Sao chép mật khẩu"
+                            >
+                              <IoCopyOutline size={14} /> Sao chép
+                            </button>
+                          ) : (
+                            <span className="text-xs text-on-surface-variant">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -271,7 +303,10 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
               <div className="p-3 bg-amber-50 border border-amber-200 rounded text-left text-xs text-amber-900 flex items-start gap-2.5">
                 <IoAlertCircleOutline size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold text-amber-950">Chưa gửi được email tới {issuedResult.userEmail}:</span> {issuedResult.emailMessage || 'Vui lòng sao chép mật khẩu bên trên để gửi trực tiếp cho nhân viên.'}
+                  <span className="font-bold text-amber-950">Chưa gửi được email tới {issuedResult.userEmail}:</span>
+                  <p className="mt-1 text-amber-800 leading-relaxed">
+                    {issuedResult.emailMessage || 'Hệ thống tạm thời chưa gửi được email tự động. Vui lòng sao chép mật khẩu tạm thời ở trên để gửi trực tiếp cho nhân viên.'}
+                  </p>
                 </div>
               </div>
             ) : (
