@@ -19,4 +19,5 @@ public interface InvoiceService {
     InvoiceResponse adjustInvoice(Long invoiceId, InvoiceAdjustRequest request, User actor);
     PaymentResponse addPayment(Long invoiceId, PaymentRequest request, User actor);
     List<PaymentResponse> getPayments(Long invoiceId);
+    plant.stay.dto.response.MessageResponse sendInvoiceEmail(Long invoiceId, String overrideEmail, User actor);
 }
