@@ -4,11 +4,11 @@ const getBaseURL = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
-  // Nếu đang chạy dev cục bộ
+  // Khi chạy local dev (npm run dev)
   if (import.meta.env.DEV) {
     return 'http://localhost:8080/api/v1';
   }
-  // Trên production / mobile: Dùng relative path để tự động trỏ về domain hiện tại
+  // Môi trường production: dùng relative path để tự động theo đúng domain hiện tại
   return '/api/v1';
 };
 

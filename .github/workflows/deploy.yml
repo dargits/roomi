@@ -39,7 +39,7 @@ env:
   IMAGE_BACKEND: ghcr.io/dargits/roomi-backend
   IMAGE_FRONTEND: ghcr.io/dargits/roomi-frontend
   PRODUCTION_DOMAIN: https://stayaway.io.vn
-  PRODUCTION_API_URL: https://stayaway.io.vn/api/v1
+  PRODUCTION_API_URL: /api/v1
 
 jobs:
   # ============================================================================
@@ -201,7 +201,7 @@ jobs:
             DB_URL=jdbc:mysql://roomi-db:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
             DB_USER=root
             DB_PASS=${DB_PASS}
-            VITE_API_BASE_URL_PROD=https://stayaway.io.vn/api/v1
+            VITE_API_BASE_URL_PROD=/api/v1
             EOF
             echo "[OK] Environment (.env) generated successfully"
 
