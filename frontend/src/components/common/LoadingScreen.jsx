@@ -2,13 +2,37 @@ import React from 'react';
 import { IoBedOutline } from 'react-icons/io5';
 
 /**
- * Component Loading đồng bộ toàn hệ thống (đồng nhất với thiết kế ở màn hình ngoài LandingPage)
+ * Mini Square Spinner dùng cho Button, Modal nhỏ hoặc Inline loading
+ */
+export const SquareSpinner = ({ size = 'md', className = '', color = 'text-primary' }) => {
+  const sizeMap = {
+    xs: 'w-3.5 h-3.5 border-[1.5px]',
+    sm: 'w-4 h-4 border-2',
+    md: 'w-6 h-6 border-2',
+    lg: 'w-8 h-8 border-[3px]',
+    xl: 'w-12 h-12 border-4',
+  };
+
+  const selectedSize = sizeMap[size] || sizeMap.md;
+
+  return (
+    <div className={`relative inline-flex items-center justify-center ${className}`}>
+      {/* Khối vuông chính xoay sắc nét */}
+      <span
+        className={`inline-block ${selectedSize} border-current border-t-transparent border-l-transparent animate-square-spin ${color}`}
+      />
+    </div>
+  );
+};
+
+/**
+ * Component Loading đồng bộ toàn hệ thống theo phong cách hình học sắc nét (Sharp Geometric Square Style)
  *
  * @param {boolean} fullScreen - Nếu true: hiển thị phủ toàn màn hình (fixed overlay z-[9999]); nếu false: hiển thị dạng container.
  * @param {string} message - Tiêu đề loading (mặc định: 'Đang tải dữ liệu...')
  * @param {string} submessage - Phụ đề phụ (mặc định: 'Vui lòng chờ trong giây lát')
  * @param {React.ComponentType} icon - Icon biểu tượng trung tâm (mặc định: IoBedOutline)
- * @param {'sm'|'md'|'lg'} size - Kích thước của spinner ('sm' cho tab/khối nhỏ, 'md' mặc định, 'lg' cho trang lớn)
+ * @param {'sm'|'md'|'lg'} size - Kích thước của loader ('sm' cho tab/khối nhỏ, 'md' mặc định, 'lg' cho trang lớn)
  * @param {string} className - Tùy biến class bổ sung
  */
 const LoadingScreen = ({
@@ -22,31 +46,49 @@ const LoadingScreen = ({
   const isSmall = size === 'sm';
   const isLarge = size === 'lg';
 
-  const glowSize = isSmall ? 'w-14 h-14' : isLarge ? 'w-28 h-28' : 'w-24 h-24';
-  const ringSize = isSmall ? 'w-10 h-10 border-3' : isLarge ? 'w-20 h-20 border-4' : 'w-16 h-16 border-4';
-  const iconSize = isSmall ? 'text-lg' : isLarge ? 'text-3xl' : 'text-2xl';
+  const outerFrameSize = isSmall ? 'w-12 h-12' : isLarge ? 'w-24 h-24' : 'w-18 h-18';
+  const innerDiamondSize = isSmall ? 'w-8 h-8' : isLarge ? 'w-16 h-16' : 'w-12 h-12';
+  const pulseCoreSize = isSmall ? 'w-6 h-6' : isLarge ? 'w-12 h-12' : 'w-9 h-9';
+  const iconSize = isSmall ? 'text-base' : isLarge ? 'text-2xl' : 'text-xl';
 
   const content = (
     <div className={`flex flex-col items-center justify-center p-6 text-center select-none ${className}`}>
       <div className="relative flex items-center justify-center">
-        {/* Pulsing glow */}
-        <div className={`absolute rounded-full bg-primary/20 animate-ping opacity-75 ${glowSize}`} />
-        {/* Spinning gradient ring */}
-        <div className={`rounded-full border-primary/20 border-t-primary animate-spin ${ringSize}`} />
-        {/* Center icon / hotel symbol */}
-        <div className="absolute flex items-center justify-center">
-          {Icon && <Icon className={`text-primary animate-pulse ${iconSize}`} />}
-        </div>
+        {/* 1. Lõi phát sáng hình vuông góc cạnh */}
+        <div className={`absolute ${pulseCoreSize} bg-primary/15 animate-square-pulse`} />
+
+        {/* 2. Khung phụ góc 45 độ (Hình quả trám / Geometric Diamond) xoay ngược chiều */}
+        <div
+          className={`absolute ${innerDiamondSize} border border-primary/40 animate-square-counter`}
+        />
+
+        {/* 3. Khung vuông chính góc sắc nét xoay đồng trục */}
+        <div
+          className={`${outerFrameSize} border-2 border-primary/20 border-t-primary border-r-primary animate-square-spin`}
+        />
+
+        {/* 4. Icon biểu tượng trung tâm */}
+        {Icon && (
+          <div className="absolute flex items-center justify-center pointer-events-none">
+            <Icon className={`text-primary animate-pulse ${iconSize}`} />
+          </div>
+        )}
       </div>
+
+      {/* Thông điệp tải dữ liệu phong cách Arimo Corporate */}
       {(message || submessage) && (
-        <div className={`text-center space-y-1 ${isSmall ? 'mt-3' : 'mt-5'}`}>
+        <div className={`text-center space-y-1.5 ${isSmall ? 'mt-3' : 'mt-5'}`}>
           {message && (
-            <p className={`${isSmall ? 'text-xs' : 'text-sm'} font-medium text-on-surface animate-pulse`}>
+            <p
+              className={`${
+                isSmall ? 'text-xs tracking-wider' : 'text-sm tracking-widest'
+              } font-bold uppercase text-on-surface`}
+            >
               {message}
             </p>
           )}
           {submessage && (
-            <p className={`${isSmall ? 'text-[10px]' : 'text-xs'} text-on-surface-variant`}>
+            <p className={`${isSmall ? 'text-[10px]' : 'text-xs'} text-on-surface-variant tracking-normal`}>
               {submessage}
             </p>
           )}
@@ -57,14 +99,14 @@ const LoadingScreen = ({
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-surface transition-opacity duration-300">
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-surface/90 backdrop-blur-sm transition-opacity duration-300">
         {content}
       </div>
     );
   }
 
   return (
-    <div className={`w-full flex items-center justify-center ${isSmall ? 'min-h-[160px]' : 'min-h-[300px]'} py-8`}>
+    <div className={`w-full flex items-center justify-center ${isSmall ? 'min-h-[140px]' : 'min-h-[260px]'} py-8`}>
       {content}
     </div>
   );

@@ -3,13 +3,17 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { passwordResetApi, notifyPasswordResetUpdated } from '../../services/passwordResetApi';
 import { useToast, useConfirm } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   IoKeyOutline, 
   IoCopyOutline, 
   IoCheckmarkCircleOutline, 
   IoRefreshOutline,
   IoAlertCircleOutline,
-  IoTimeOutline
+  IoTimeOutline,
+  IoMailOutline,
+  IoInformationCircleOutline,
+  IoCloseCircleOutline
 } from 'react-icons/io5';
 
 const ROLE_LABELS = {
@@ -21,6 +25,7 @@ const ROLE_LABELS = {
 };
 
 const PasswordResetManagementModal = ({ isOpen, onClose }) => {
+  const { user: currentUser } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
   const confirm = useConfirm();
   const [requests, setRequests] = useState([]);
@@ -49,6 +54,12 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
   }, [isOpen]);
 
   const handleIssue = async (item) => {
+    const isSelf = currentUser && (item.userId === currentUser.id || item.account === currentUser.account);
+    if (isSelf) {
+      toastError('Bạn không thể tự cấp lại mật khẩu cho chính tài khoản của mình.');
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: 'Cấp mật khẩu tạm thời',
       message: `Cấp mật khẩu tạm thời có hiệu lực 24 giờ cho tài khoản "${item.account}" (${item.userName})?`,
@@ -62,12 +73,48 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
     try {
       const res = await passwordResetApi.issueTempPassword(item.id);
       setIssuedResult(res);
-      toastSuccess(`Đã cấp mật khẩu tạm cho tài khoản ${item.account}!`);
+      if (res?.emailSent) {
+        toastSuccess(`Đã cấp mật khẩu tạm và gửi email tới ${res.userEmail || item.account}!`);
+      } else if (res?.userEmail) {
+        toastSuccess(`Đã cấp mật khẩu tạm thành công! (Chưa gửi được email, vui lòng sao chép mật khẩu gửi trực tiếp cho nhân viên)`);
+      } else {
+        toastSuccess(`Đã cấp mật khẩu tạm cho tài khoản ${item.account}!`);
+      }
       notifyPasswordResetUpdated();
       fetchRequests();
     } catch (err) {
       console.error(err);
       toastError(err.response?.data?.message || 'Lỗi khi cấp mật khẩu tạm.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async (item) => {
+    const isSelf = currentUser && (item.userId === currentUser.id || item.account === currentUser.account);
+    if (isSelf) {
+      toastError('Bạn không thể tự thao tác trên yêu cầu của chính tài khoản mình.');
+      return;
+    }
+
+    const isConfirmed = await confirm({
+      title: 'Từ chối yêu cầu cấp lại mật khẩu',
+      message: `Bạn có chắc chắn muốn TỪ CHỐI yêu cầu cấp lại mật khẩu cho tài khoản "${item.account}" (${item.userName})?`,
+      confirmText: 'Từ chối yêu cầu',
+      cancelText: 'Hủy',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+
+    setActionLoading(true);
+    try {
+      await passwordResetApi.rejectRequest(item.id);
+      toastSuccess(`Đã từ chối yêu cầu của tài khoản ${item.account}!`);
+      notifyPasswordResetUpdated();
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+      toastError(err.response?.data?.message || 'Lỗi khi từ chối yêu cầu.');
     } finally {
       setActionLoading(false);
     }
@@ -88,6 +135,8 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Đã hoàn tất đổi</span>;
       case 'EXPIRED':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Hết hạn 24h</span>;
+      case 'REJECTED':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">Đã từ chối</span>;
       default:
         return status;
     }
@@ -117,7 +166,7 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                   <th className="p-3">Vai trò</th>
                   <th className="p-3">Thời gian yêu cầu</th>
                   <th className="p-3 text-center">Trạng thái</th>
-                  <th className="p-3 text-center w-40">Thao tác</th>
+                  <th className="p-3 text-center w-52">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,50 +175,85 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                 ) : requests.length === 0 ? (
                   <tr><td colSpan="6" className="p-6 text-center text-on-surface-variant">Không có yêu cầu cấp lại mật khẩu nào.</td></tr>
                 ) : (
-                  requests.map((item) => (
-                    <tr key={item.id} className="border-b border-border-grey hover:bg-surface-container-low/40">
-                      <td className="p-3 font-semibold text-on-surface font-mono">
-                        {item.account}
-                      </td>
-                      <td className="p-3 font-medium text-on-surface">
-                        {item.userName || <span className="text-outline italic">Không tồn tại</span>}
-                      </td>
-                      <td className="p-3 text-xs">
-                        <span className="px-2 py-0.5 rounded bg-surface-container border border-border-grey font-semibold">
-                          {ROLE_LABELS[item.userRole] || item.userRole || '---'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs text-on-surface-variant">
-                        {item.requestedAt?.replace('T', ' ').substring(0, 16)}
-                      </td>
-                      <td className="p-3 text-center">
-                        {getStatusBadge(item.status)}
-                      </td>
-                      <td className="p-3 text-center">
-                        {item.status === 'PENDING' ? (
-                          <Button
-                            size="sm"
-                            icon={IoKeyOutline}
-                            disabled={actionLoading}
-                            onClick={() => handleIssue(item)}
-                          >
-                            Cấp mật khẩu tạm
-                          </Button>
-                        ) : item.status === 'ISSUED' && item.plainTempPassword ? (
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(item.plainTempPassword)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                            title="Sao chép mật khẩu"
-                          >
-                            <IoCopyOutline size={14} /> Sao chép
-                          </button>
-                        ) : (
-                          <span className="text-xs text-on-surface-variant">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                  requests.map((item) => {
+                    const isSelf = currentUser && (item.userId === currentUser.id || item.account === currentUser.account);
+                    return (
+                      <tr key={item.id} className={`border-b border-border-grey hover:bg-surface-container-low/40 ${isSelf ? 'bg-amber-50/40' : ''}`}>
+                        <td className="p-3 font-semibold text-on-surface font-mono">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{item.account}</span>
+                            {isSelf && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold border border-amber-300">
+                                Bạn
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-medium text-on-surface">
+                            {item.userName || <span className="text-outline italic">Không tồn tại</span>}
+                          </div>
+                          {item.userEmail && (
+                            <div className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5 font-mono">
+                              <IoMailOutline size={12} className="text-primary shrink-0" /> {item.userEmail}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs">
+                          <span className="px-2 py-0.5 rounded bg-surface-container border border-border-grey font-semibold">
+                            {ROLE_LABELS[item.userRole] || item.userRole || '---'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs text-on-surface-variant">
+                          {item.requestedAt?.replace('T', ' ').substring(0, 16)}
+                        </td>
+                        <td className="p-3 text-center">
+                          {getStatusBadge(item.status)}
+                        </td>
+                        <td className="p-3 text-center">
+                          {item.status === 'PENDING' ? (
+                            isSelf ? (
+                              <span className="inline-block text-xs italic text-on-surface-variant px-2.5 py-1 bg-surface-container-low rounded border border-border-grey" title="Bạn không thể tự cấp mật khẩu cho chính tài khoản của mình">
+                                Không thể tự cấp
+                              </span>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  icon={IoKeyOutline}
+                                  disabled={actionLoading}
+                                  onClick={() => handleIssue(item)}
+                                >
+                                  Cấp mật khẩu
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="!text-red-600 hover:!bg-red-50 !border-red-200"
+                                  icon={IoCloseCircleOutline}
+                                  disabled={actionLoading}
+                                  onClick={() => handleReject(item)}
+                                >
+                                  Từ chối
+                                </Button>
+                              </div>
+                            )
+                          ) : item.status === 'ISSUED' && item.plainTempPassword ? (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(item.plainTempPassword)}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                              title="Sao chép mật khẩu"
+                            >
+                              <IoCopyOutline size={14} /> Sao chép
+                            </button>
+                          ) : (
+                            <span className="text-xs text-on-surface-variant">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -207,6 +291,32 @@ const PasswordResetManagementModal = ({ isOpen, onClose }) => {
                 <IoCopyOutline size={15} /> Sao chép
               </button>
             </div>
+
+            {issuedResult.emailSent ? (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded text-left text-xs text-blue-900 flex items-start gap-2.5">
+                <IoMailOutline size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-blue-950">Đã gửi email thành công:</span> Mật khẩu tạm thời đã được tự động gửi về hòm thư <strong className="font-mono text-blue-800">{issuedResult.userEmail}</strong>.
+                </div>
+              </div>
+            ) : issuedResult.userEmail ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-left text-xs text-amber-900 flex items-start gap-2.5">
+                <IoAlertCircleOutline size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-amber-950">Chưa gửi được email tới {issuedResult.userEmail}:</span>
+                  <p className="mt-1 text-amber-800 leading-relaxed">
+                    {issuedResult.emailMessage || 'Hệ thống tạm thời chưa gửi được email tự động. Vui lòng sao chép mật khẩu tạm thời ở trên để gửi trực tiếp cho nhân viên.'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-surface-container-low border border-border-grey rounded text-left text-xs text-on-surface-variant flex items-start gap-2.5">
+                <IoInformationCircleOutline size={18} className="text-outline shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-on-surface">Tài khoản chưa có email:</span> Vui lòng sao chép mật khẩu tạm bên trên để cung cấp trực tiếp cho nhân viên.
+                </div>
+              </div>
+            )}
 
             <p className="text-xs text-on-surface-variant text-left leading-relaxed bg-surface-container-low p-3 rounded border border-border-grey">
               ⚠️ <strong>Lưu ý quan trọng:</strong> Mật khẩu này có hiệu lực trong <strong>24 giờ</strong> và chỉ được dùng 1 lần. Khi đăng nhập, nhân viên bắt buộc phải đổi mật khẩu mới ngay trước khi vào được bất kỳ màn hình nào.

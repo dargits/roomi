@@ -54,6 +54,9 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
         if (invoice.getStatus() == InvoiceStatus.PAID) {
             throw new IllegalArgumentException("Hóa đơn đã được thanh toán đầy đủ, không cần đề nghị trả phòng còn nợ");
         }
+        if (invoice.getStatus() == InvoiceStatus.PENDING_DISCOUNT_APPROVAL) {
+            throw new IllegalArgumentException("Hóa đơn đang chờ phê duyệt giảm giá, không thể đề nghị trả phòng còn nợ");
+        }
 
         // Tính số tiền đã thanh toán hiện tại
         BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
@@ -69,9 +72,8 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
             throw new IllegalArgumentException("Hạn thu dự kiến phải từ ngày hôm nay trở đi");
         }
 
-        BigDecimal debtAmount = req.getDebtAmount();
-        if (debtAmount.compareTo(remainingAmount) > 0) {
-            debtAmount = remainingAmount;
+        if (req.getDebtAmount().compareTo(remainingAmount) != 0) {
+            throw new IllegalArgumentException("Số tiền còn nợ phải khớp với số dư hóa đơn hiện tại");
         }
 
         // Kiểm tra xem đã có yêu cầu PENDING nào chưa
@@ -84,7 +86,7 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 .booking(booking)
                 .invoice(invoice)
                 .guest(guest)
-                .debtAmount(debtAmount)
+                .debtAmount(remainingAmount)
                 .dueDate(req.getDueDate())
                 .reason(req.getReason())
                 .status(DebtApprovalStatus.PENDING)
@@ -96,7 +98,7 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
         auditLogService.log("DebtApprovalRequest", request.getId(), "REQUEST_DEBT_CHECKOUT", actor,
                 "Lễ tân " + actor.getName() + " đề nghị trả phòng còn nợ cho phòng "
                 + (booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "")
-                + " (Booking #" + booking.getId() + "), số tiền nợ: " + debtAmount
+                + " (Booking #" + booking.getId() + "), số tiền nợ: " + remainingAmount
                 + "đ, hạn thu: " + req.getDueDate() + ", lý do: " + req.getReason());
 
         return toDto(request);
@@ -114,6 +116,19 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
 
         Booking booking = request.getBooking();
         Invoice invoice = request.getInvoice();
+
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalArgumentException("Đặt phòng không còn ở trạng thái CHECKED_IN, không thể phê duyệt trả phòng còn nợ");
+        }
+        if (invoice.getStatus() == InvoiceStatus.PENDING_DISCOUNT_APPROVAL) {
+            throw new IllegalArgumentException("Hóa đơn đang chờ phê duyệt giảm giá, không thể phê duyệt trả phòng còn nợ");
+        }
+        BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (invoice.getStatus() == InvoiceStatus.PAID
+                || invoice.getTotalAmount().subtract(totalPaid).compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Hóa đơn không còn dư nợ, không cần phê duyệt trả phòng còn nợ");
+        }
 
         // Cập nhật trạng thái duyệt
         request.setStatus(DebtApprovalStatus.APPROVED);
