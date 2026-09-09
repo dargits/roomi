@@ -182,7 +182,7 @@ const LoginPage = () => {
               disabled={isLoading}
             >
               {isLoading && (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="inline-block w-4.5 h-4.5 border-2 border-white border-t-transparent border-l-transparent animate-square-spin" />
               )}
               {isLoading ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP'}
             </button>

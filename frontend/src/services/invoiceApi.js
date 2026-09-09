@@ -81,6 +81,13 @@ export const invoiceApi = {
     const response = await api.post(`/invoices/${invoiceId}/log-print`, null, { params: { actionType } });
     return response.data;
   },
+
+  /** Gửi email hóa đơn thanh toán cho khách hàng */
+  sendInvoiceEmail: async (invoiceId, email) => {
+    const payload = email ? { email } : {};
+    const response = await api.post(`/invoices/${invoiceId}/send-email`, payload);
+    return response.data;
+  },
 };
 
 export default invoiceApi;

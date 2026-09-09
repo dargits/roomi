@@ -31,7 +31,11 @@ public class ExtraService {
     private String unit;           // "lượt", "phần", "kg"...
     
     @Builder.Default
-    private boolean active = true;        // còn bán hay ngưng
+    private Boolean active = true;        // còn bán hay ngưng
+
+    public boolean isActive() {
+        return Boolean.TRUE.equals(active);
+    }
 
     @CreationTimestamp
     @Column(updatable = false)

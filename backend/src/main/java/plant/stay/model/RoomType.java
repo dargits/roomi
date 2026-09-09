@@ -51,7 +51,11 @@ public class RoomType {
 
     @Builder.Default
     @Column(name = "active")
-    private boolean active = true; // Trạng thái hoạt động
+    private Boolean active = true; // Trạng thái hoạt động
+
+    public boolean isActive() {
+        return Boolean.TRUE.equals(active);
+    }
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

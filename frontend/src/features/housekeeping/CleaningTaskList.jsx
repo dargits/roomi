@@ -822,7 +822,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                               className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-700 hover:bg-purple-800 active:bg-purple-900 disabled:bg-purple-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                             >
                               {processingId === room.id ? (
-                                <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent" />
+                                <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
                               ) : (
                                 <IoSendOutline size={14} />
                               )}
@@ -838,7 +838,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                               className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                             >
                               {processingId === room.id ? (
-                                <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent" />
+                                <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
                               ) : (
                                 <IoCheckmarkDoneOutline size={15} />
                               )}
@@ -857,7 +857,7 @@ const CleaningTaskList = ({ onRoomCleaned }) => {
                                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                               >
                                 {processingId === room.id ? (
-                                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent" />
+                                  <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
                                 ) : (
                                   <IoCheckmarkDoneOutline size={15} />
                                 )}
