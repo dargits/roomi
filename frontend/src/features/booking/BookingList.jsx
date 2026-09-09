@@ -180,12 +180,14 @@ const BookingList = ({ onEditBooking }) => {
     GROUP: bookings.filter(b => Boolean(b.groupBookingId) && b.status !== 'CANCELLED' && b.status !== 'NO_SHOW').length,
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, payLaterCheckout) => {
     switch(status) {
       case 'NEW': return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded font-semibold text-xs">Mới</span>;
       case 'CONFIRMED': return <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold text-xs">Đã xác nhận</span>;
       case 'CHECKED_IN': return <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded font-semibold text-xs">Đang ở</span>;
-      case 'CHECKED_OUT': return <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-semibold text-xs">Đã đi</span>;
+      case 'CHECKED_OUT': return payLaterCheckout
+        ? <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded font-semibold text-xs">Đã đi - Khách trả sau</span>
+        : <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-semibold text-xs">Đã đi</span>;
       case 'CANCELLED': return <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded font-semibold text-xs">Đã hủy</span>;
       case 'NO_SHOW': return <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded font-semibold text-xs">Không đến</span>;
       default: return <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-semibold text-xs">{status}</span>;
@@ -514,8 +516,8 @@ const BookingList = ({ onEditBooking }) => {
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex flex-col items-center gap-1.5">
-                        <div>{getStatusBadge(booking.status)}</div>
-                        <div>{getPaymentBadge(booking.paymentStatus)}</div>
+                        <div>{getStatusBadge(booking.status, booking.payLaterCheckout)}</div>
+                        {!booking.payLaterCheckout && <div>{getPaymentBadge(booking.paymentStatus)}</div>}
                         {(booking.actualPrice != null || booking.expectedPrice != null) && (
                           <span className="text-xs font-bold text-on-surface font-mono mt-0.5">
                             {formatCurrency(booking.actualPrice || booking.expectedPrice)}
