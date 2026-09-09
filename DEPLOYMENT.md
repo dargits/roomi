@@ -147,7 +147,7 @@ Mỗi lần deploy, script tự động sinh file `.env` trên VPS:
 DB_URL=jdbc:mysql://roomi-db:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
 DB_USER=root
 DB_PASS=<Tự_động_trích_xuất_từ_container_roomi-db>
-VITE_API_BASE_URL_PROD=https://stayaway.io.vn/api/v1
+VITE_API_BASE_URL_PROD=/api/v1
 ```
 
 ---

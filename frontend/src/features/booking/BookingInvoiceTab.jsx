@@ -25,6 +25,7 @@ import bookingApi from '../../services/bookingApi';
 import { useToast } from '../../context/ToastContext';
 import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
 import DiscountFormModal from '../invoice/DiscountFormModal';
+import RequestDebtCheckoutModal from './RequestDebtCheckoutModal';
 import LoadingScreen from '../../components/common/LoadingScreen';
 
 const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
@@ -37,6 +38,7 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
   const [loading, setLoading] = useState(true);
 
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showDebtCheckoutModal, setShowDebtCheckoutModal] = useState(false);
   const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'CASH', note: '' });
   const [receivedCash, setReceivedCash] = useState('');
   const [copiedField, setCopiedField] = useState('');
@@ -203,17 +205,32 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
 
   const handleAddPayment = async (e) => {
     e.preventDefault();
+    const enteredAmount = parseFloat(newPayment.amount);
+    const receivedAmount = parseFloat(receivedCash);
+    const paymentAmount = newPayment.paymentMethod === 'CASH'
+      ? Math.min(receivedAmount, remainingAmount)
+      : Math.min(enteredAmount, remainingAmount);
+
+    if (!paymentAmount || paymentAmount <= 0) {
+      toastError('Vui lòng nhập số tiền khách đã thanh toán.');
+      return;
+    }
+
     setProcessing(true);
     try {
       await invoiceApi.recordPayment(invoice.id, {
-        amount: parseFloat(newPayment.amount),
+        amount: paymentAmount,
         method: newPayment.paymentMethod,
         note: newPayment.note
       });
-      toastSuccess("Ghi nhận thanh toán thành công!");
+      const isShortPayment = paymentAmount < remainingAmount;
+      toastSuccess(isShortPayment
+        ? 'Đã ghi nhận khoản tiền khách đưa. Vui lòng gửi đề nghị trả phòng còn nợ.'
+        : 'Ghi nhận thanh toán thành công!');
       setShowPaymentForm(false);
       setNewPayment({ amount: '', paymentMethod: 'CASH', note: '' });
-      fetchInvoiceData();
+      await fetchInvoiceData();
+      if (isShortPayment) setShowDebtCheckoutModal(true);
     } catch (error) {
       toastError(error.response?.data?.message || error.message || "Lỗi ghi nhận thanh toán");
     } finally {
@@ -993,6 +1010,14 @@ const BookingInvoiceTab = ({ bookingId, status, booking, onPrintInvoice }) => {
           </div>
         </form>
       </Modal>
+
+      <RequestDebtCheckoutModal
+        isOpen={showDebtCheckoutModal}
+        onClose={() => setShowDebtCheckoutModal(false)}
+        booking={booking}
+        invoice={invoice}
+        onSuccess={fetchInvoiceData}
+      />
     </div>
   );
 };
