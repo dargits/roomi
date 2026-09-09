@@ -12,6 +12,7 @@ import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.CashierShiftRepository;
 import plant.stay.repository.CashierShiftClosingRepository;
+import plant.stay.repository.DebtApprovalRepository;
 import plant.stay.repository.DepositRepository;
 import plant.stay.repository.InvoiceRepository;
 import plant.stay.repository.PaymentRepository;
@@ -31,6 +32,7 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
     private final InvoiceRepository invoiceRepository;
+    private final DebtApprovalRepository debtApprovalRepository;
     private final AuditLogService auditLogService;
 
     @Override
@@ -166,10 +168,13 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     }
 
     private void assertNoPendingCheckoutInvoices(CashierShift shift) {
+        // Hóa đơn thuộc booking đã được Chủ cơ sở duyệt trả phòng còn nợ (NCL-04-CN-010) không chặn chốt ca.
         List<Long> pending = invoiceRepository.findAll().stream()
                 .filter(invoice -> invoice.getBooking() != null && invoice.getBooking().getStatus() == BookingStatus.CHECKED_OUT)
             .filter(invoice -> inRange(invoice.getBooking().getCheckedOutAt(), shift.getOpenedAt(), LocalDateTime.now()))
                 .filter(invoice -> invoice.getStatus() == InvoiceStatus.PENDING || invoice.getStatus() == InvoiceStatus.PENDING_PAYMENT || invoice.getStatus() == InvoiceStatus.PENDING_DISCOUNT_APPROVAL)
+                .filter(invoice -> invoice.getStatus() == InvoiceStatus.PENDING_DISCOUNT_APPROVAL
+                        || !debtApprovalRepository.existsActiveApprovedDebtByBookingId(invoice.getBooking().getId()))
                 .map(Invoice::getId).toList();
         if (!pending.isEmpty()) throw new BusinessException("Không thể chốt ca: hóa đơn trả phòng chưa tất toán " + pending);
     }
