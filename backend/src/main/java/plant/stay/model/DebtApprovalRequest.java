@@ -66,6 +66,18 @@ public class DebtApprovalRequest {
     @Column(name = "reject_reason", columnDefinition = "TEXT")
     private String rejectReason;
 
+    @Column(name = "document_sent_at")
+    private LocalDateTime documentSentAt;
+
+    @Column(name = "document_sent_to")
+    private String documentSentTo;
+
+    @Column(name = "reminder_sent_for_due_date")
+    private LocalDate reminderSentForDueDate;
+
+    @Column(name = "reminder_sent_at")
+    private LocalDateTime reminderSentAt;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
