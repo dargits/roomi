@@ -3,6 +3,7 @@ package plant.stay.service.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import plant.stay.dto.response.DebtAcknowledgementData;
 import plant.stay.service.EmailService;
 
 import java.net.URI;
@@ -205,6 +206,81 @@ public class ResendEmailServiceImpl implements EmailService {
             log.error("[EMAIL] Ngoại lệ khi gửi email hóa đơn qua Resend API: {}", e.getMessage(), e);
             return false;
         }
+    }
+
+    @Override
+    public boolean sendDebtAcknowledgementEmail(String toEmail, DebtAcknowledgementData data) {
+      return sendDebtEmail(toEmail, data,
+          "Giấy xác nhận công nợ #CN-" + String.format("%06d", data.getDebtRequestId()),
+          "Giấy xác nhận công nợ", false);
+    }
+
+    @Override
+    public boolean sendDebtReminderEmail(String toEmail, DebtAcknowledgementData data) {
+      return sendDebtEmail(toEmail, data,
+          "Nhắc hạn thanh toán công nợ #CN-" + String.format("%06d", data.getDebtRequestId()),
+          "Nhắc thanh toán công nợ", true);
+    }
+
+    private boolean sendDebtEmail(String toEmail, DebtAcknowledgementData data, String subject, String title, boolean reminder) {
+      if (toEmail == null || toEmail.isBlank()) {
+        log.warn("[EMAIL] Không thể gửi {}: khách chưa có email", title);
+        return false;
+      }
+      String effectiveKey = getEffectiveApiKey();
+      if (effectiveKey.isEmpty()) {
+        log.error("[EMAIL] Chưa cấu hình API Key cho Resend.");
+        return false;
+      }
+      try {
+        String html = buildDebtEmailTemplate(data, title, reminder);
+        String requestBody = "{\"from\":\"" + escapeJson(fromEmail) + "\","
+            + "\"to\":[\"" + escapeJson(toEmail.trim()) + "\"],"
+            + "\"subject\":\"" + escapeJson(subject) + "\","
+            + "\"html\":\"" + escapeJson(html) + "\"}";
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(RESEND_API_URL))
+            .header("Authorization", "Bearer " + effectiveKey)
+            .header("Content-Type", "application/json")
+            .timeout(Duration.ofSeconds(15))
+            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+            .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+          log.info("[EMAIL] Đã gửi {} tới {}", title, toEmail);
+          return true;
+        }
+        log.error("[EMAIL] Resend lỗi khi gửi {} [Status: {}]: {}", title, response.statusCode(), response.body());
+      } catch (Exception e) {
+        log.error("[EMAIL] Lỗi gửi {}: {}", title, e.getMessage(), e);
+      }
+      return false;
+    }
+
+    private String buildDebtEmailTemplate(DebtAcknowledgementData data, String title, boolean reminder) {
+      String hotelName = data.getHotelName() == null || data.getHotelName().isBlank() ? "STAYAWAY HOTEL" : data.getHotelName();
+      String guestName = data.getGuestName() == null || data.getGuestName().isBlank() ? "Quý khách" : data.getGuestName();
+      String message = reminder
+          ? "Khoản công nợ của Quý khách sẽ đến hạn vào ngày <strong>" + data.getDueDate() + "</strong>."
+          : "Chủ cơ sở đã phê duyệt việc trả phòng và xác nhận khoản công nợ dưới đây.";
+      return """
+          <!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"></head>
+          <body style="font-family:Arial,sans-serif;background:#f5f7fa;color:#1f2937;padding:24px">
+          <div style="max-width:620px;margin:auto;background:#fff;border:1px solid #d1d5db">
+          <div style="background:#003b95;color:#fff;padding:22px 28px"><strong>%s</strong><div style="margin-top:6px">%s</div></div>
+          <div style="padding:28px"><p>Kính gửi %s,</p><p>%s</p>
+          <table style="width:100%%;border-collapse:collapse"><tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Số giấy xác nhận</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right"><strong>CN-%06d</strong></td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Phòng / đặt phòng</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">Phòng %s / #%d</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Tổng hóa đơn</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">%s</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Đã thanh toán</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">%s</td></tr>
+          <tr><td style="padding:12px 8px;color:#b91c1c;font-weight:bold">Còn phải thanh toán</td><td style="padding:12px 8px;text-align:right;color:#b91c1c;font-weight:bold">%s</td></tr>
+          <tr><td style="padding:8px">Hạn thanh toán</td><td style="padding:8px;text-align:right"><strong>%s</strong></td></tr></table>
+          <p style="margin-top:22px">Lý do: %s</p><p>Vui lòng thanh toán đúng hạn hoặc liên hệ %s để được hỗ trợ.</p></div></div></body></html>
+          """.formatted(hotelName, title, guestName, message, data.getDebtRequestId(),
+          data.getRoomNumber() == null ? "---" : data.getRoomNumber(), data.getBookingId(),
+          formatMoney(data.getInvoiceTotal()), formatMoney(data.getPaidAmount()), formatMoney(data.getDebtAmount()),
+          data.getDueDate(), data.getReason() == null ? "---" : data.getReason(),
+          data.getHotelPhone() == null ? hotelName : data.getHotelPhone());
     }
 
     private String formatMoney(java.math.BigDecimal amount) {

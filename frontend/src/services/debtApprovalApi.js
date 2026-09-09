@@ -36,4 +36,21 @@ export const debtApprovalApi = {
     const response = await api.get('/debt-approvals/all');
     return response.data;
   },
+
+  getAcknowledgement: async (id) => {
+    const response = await api.get(`/debt-approvals/${id}/acknowledgement`);
+    return response.data;
+  },
+
+  sendAcknowledgement: async (id) => {
+    const response = await api.post(`/debt-approvals/${id}/send-acknowledgement`);
+    return response.data;
+  },
+
+  logDocument: async (id, actionType = 'PRINT') => {
+    const response = await api.post(`/debt-approvals/${id}/log-document`, null, {
+      params: { actionType }
+    });
+    return response.data;
+  },
 };
