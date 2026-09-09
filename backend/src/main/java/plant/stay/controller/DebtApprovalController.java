@@ -31,7 +31,7 @@ public class DebtApprovalController {
     public ResponseEntity<DebtItemResponse> requestDebtCheckout(
             @Valid @RequestBody DebtApprovalCreateRequest req,
             HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkReceptionist(request);
         return ResponseEntity.ok(debtApprovalService.requestDebtCheckout(req, actor));
     }
 
@@ -85,6 +85,14 @@ public class DebtApprovalController {
         User user = checkStaff(request);
         if (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN) {
             throw new BusinessException("Chỉ Chủ cơ sở mới có quyền phê duyệt công nợ!", HttpStatus.FORBIDDEN);
+        }
+        return user;
+    }
+
+    private User checkReceptionist(HttpServletRequest request) {
+        User user = checkStaff(request);
+        if (user.getRole() != Role.RECEPTIONIST) {
+            throw new BusinessException("Chỉ Lễ tân mới có quyền đề nghị trả phòng còn nợ!", HttpStatus.FORBIDDEN);
         }
         return user;
     }
