@@ -209,6 +209,78 @@ const DashboardLayout: React.FC = () => {
     }));
   };
 
+  // Sliding active indicator pill state for collapsed sidebar
+  const [pillStyle, setPillStyle] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+    opacity: number;
+  }>({ top: 0, left: 0, width: 0, height: 0, opacity: 0 });
+  const [hasPillMoved, setHasPillMoved] = useState(false);
+  const navContainerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  useEffect(() => {
+    if (!isCollapsed) {
+      setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+
+    const updatePill = () => {
+      const container = navContainerRef.current;
+      if (!container) return;
+
+      const currentGroup = NAV_GROUPS.find((g) =>
+        g.items.some((item) => item.path === location.pathname)
+      );
+
+      if (!currentGroup) {
+        setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+
+      const activeEl = itemRefs.current[currentGroup.id];
+      if (!activeEl) {
+        setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+
+      const top = activeRect.top - containerRect.top + container.scrollTop;
+      const left = activeRect.left - containerRect.left + container.scrollLeft;
+
+      setPillStyle({
+        top,
+        left,
+        width: activeRect.width,
+        height: activeRect.height,
+        opacity: 1
+      });
+      setHasPillMoved(true);
+    };
+
+    const rafId = requestAnimationFrame(updatePill);
+    const timer = setTimeout(updatePill, 80);
+
+    window.addEventListener('resize', updatePill);
+    const container = navContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', updatePill);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+      window.removeEventListener('resize', updatePill);
+      if (container) {
+        container.removeEventListener('scroll', updatePill);
+      }
+    };
+  }, [location.pathname, isCollapsed]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -278,7 +350,28 @@ const DashboardLayout: React.FC = () => {
           </div>
 
           {/* Sidebar Navigation Items */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 sidebar-scroll">
+          <div
+            ref={navContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 sidebar-scroll relative"
+          >
+            {/* Gliding Active Indicator Pill (Collapsed Mode) */}
+            {isCollapsed && pillStyle.opacity > 0 && (
+              <div
+                className="absolute z-0 rounded-xl bg-primary shadow-md shadow-primary/30 pointer-events-none"
+                style={{
+                  top: `${pillStyle.top}px`,
+                  left: `${pillStyle.left}px`,
+                  width: `${pillStyle.width}px`,
+                  height: `${pillStyle.height}px`,
+                  opacity: pillStyle.opacity,
+                  transition: hasPillMoved
+                    ? 'top 0.32s cubic-bezier(0.34, 1.25, 0.64, 1), left 0.32s cubic-bezier(0.34, 1.25, 0.64, 1), opacity 0.2s ease, width 0.2s ease, height 0.2s ease'
+                    : 'opacity 0.2s ease',
+                  transform: 'translateZ(0)'
+                }}
+              />
+            )}
+
             {NAV_GROUPS.map((group) => {
               const visibleItems = group.items.filter((item) =>
                 !item.allowedRoles || (user?.role && item.allowedRoles.includes(user.role))
@@ -301,13 +394,14 @@ const DashboardLayout: React.FC = () => {
                   <div key={group.id} className="relative group/tooltip flex justify-center">
                     <Link
                       to={singleItem.path}
+                      ref={(el) => { itemRefs.current[group.id] = el; }}
                       className={`
-                        flex items-center transition-all duration-200
+                        flex items-center transition-all duration-200 relative z-10
                         ${isCollapsed
                           ? `w-11 h-11 rounded-xl justify-center ${
                               active
-                                ? 'bg-primary text-white shadow-md shadow-primary/30'
-                                : 'text-slate-500 hover:text-primary hover:bg-slate-100'
+                                ? 'text-white font-bold'
+                                : 'text-slate-500 hover:text-primary hover:bg-slate-100/70'
                             }`
                           : `w-full gap-3 px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
                               active
@@ -320,7 +414,9 @@ const DashboardLayout: React.FC = () => {
                     >
                       <ItemIcon
                         size={20}
-                        className={`shrink-0 ${active ? 'text-white' : (isCollapsed ? 'text-slate-600 group-hover/tooltip:text-primary' : 'text-slate-500')}`}
+                        className={`shrink-0 transition-colors duration-200 ${
+                          active ? 'text-white' : (isCollapsed ? 'text-slate-600 group-hover/tooltip:text-primary' : 'text-slate-500')
+                        }`}
                       />
                       {!isCollapsed && <span className="truncate">{singleItem.label}</span>}
                     </Link>
@@ -341,6 +437,7 @@ const DashboardLayout: React.FC = () => {
                   {/* Group Trigger Button */}
                   <button
                     type="button"
+                    ref={(el) => { itemRefs.current[group.id] = el; }}
                     onClick={() => {
                       if (isCollapsed) {
                         // In collapsed mode, navigating to the first sub-item is super fast and clean
@@ -350,12 +447,12 @@ const DashboardLayout: React.FC = () => {
                       }
                     }}
                     className={`
-                      transition-all duration-200 cursor-pointer
+                      transition-all duration-200 cursor-pointer relative z-10
                       ${isCollapsed
-                        ? `w-11 h-11 rounded-xl flex items-center justify-center relative ${
+                        ? `w-11 h-11 rounded-xl flex items-center justify-center ${
                             isGroupActive
-                              ? 'bg-primary/15 text-primary ring-1 ring-primary/30 font-bold shadow-xs'
-                              : 'text-slate-500 hover:text-primary hover:bg-slate-100'
+                              ? 'text-white font-bold'
+                              : 'text-slate-500 hover:text-primary hover:bg-slate-100/70'
                           }`
                         : `w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
                             isGroupActive && !isGroupOpen
@@ -371,7 +468,9 @@ const DashboardLayout: React.FC = () => {
                     <div className={`flex items-center gap-3 min-w-0 ${isCollapsed ? 'justify-center' : ''}`}>
                       <GroupIcon
                         size={20}
-                        className={`shrink-0 ${isGroupActive ? 'text-primary' : 'text-slate-500'}`}
+                        className={`shrink-0 transition-colors duration-200 ${
+                          isCollapsed && isGroupActive ? 'text-white' : (isGroupActive ? 'text-primary' : 'text-slate-500')
+                        }`}
                       />
                       {!isCollapsed && (
                         <span className="truncate font-semibold">{group.label}</span>
