@@ -8,6 +8,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import plant.stay.dto.request.DebtApprovalCreateRequest;
+import plant.stay.exception.BusinessException;
 import plant.stay.model.Booking;
 import plant.stay.model.BookingStatus;
 import plant.stay.model.DebtApprovalRequest;
@@ -23,6 +24,7 @@ import plant.stay.repository.DebtApprovalRepository;
 import plant.stay.repository.InvoiceRepository;
 import plant.stay.repository.PaymentRepository;
 import plant.stay.repository.RoomRepository;
+import plant.stay.repository.HotelSettingRepository;
 import plant.stay.service.impl.DebtApprovalServiceImpl;
 
 import java.math.BigDecimal;
@@ -45,7 +47,9 @@ class DebtApprovalServiceImplTest {
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private PaymentRepository paymentRepository;
     @Mock private RoomRepository roomRepository;
+    @Mock private HotelSettingRepository hotelSettingRepository;
     @Mock private AuditLogService auditLogService;
+    @Mock private EmailService emailService;
 
     private DebtApprovalService debtApprovalService;
     private Booking booking;
@@ -55,7 +59,8 @@ class DebtApprovalServiceImplTest {
     void setUp() {
         debtApprovalService = new DebtApprovalServiceImpl(
                 debtApprovalRepository, bookingRepository, invoiceRepository,
-                paymentRepository, roomRepository, auditLogService);
+            paymentRepository, roomRepository, hotelSettingRepository,
+            auditLogService, emailService);
         Guest guest = Guest.builder().id(1L).name("Khách có hồ sơ").phone("0900000000").build();
         booking = Booking.builder().id(10L).guest(guest).status(BookingStatus.CHECKED_IN).build();
         invoice = Invoice.builder()
@@ -132,6 +137,45 @@ class DebtApprovalServiceImplTest {
         assertEquals(plant.stay.model.DebtApprovalStatus.APPROVED, approvalRequest.getStatus());
         verify(roomRepository).save(room);
     }
+
+        @Test
+        @DisplayName("Tự gửi giấy xác nhận khi phê duyệt và lưu trạng thái gửi")
+        void approveDebtCheckoutSendsAcknowledgementWhenGuestHasEmail() {
+        booking.getGuest().setEmail("guest@example.com");
+        DebtApprovalRequest approvalRequest = DebtApprovalRequest.builder()
+            .id(41L).booking(booking).invoice(invoice).guest(booking.getGuest())
+            .debtAmount(new BigDecimal("750000")).dueDate(LocalDate.now().plusDays(7))
+            .reason("Khách công ty thanh toán sau").status(plant.stay.model.DebtApprovalStatus.PENDING).build();
+        when(debtApprovalRepository.findById(approvalRequest.getId())).thenReturn(Optional.of(approvalRequest));
+        when(paymentRepository.findByInvoiceId(invoice.getId()))
+            .thenReturn(List.of(Payment.builder().amount(new BigDecimal("250000")).build()));
+        when(hotelSettingRepository.findById(1L)).thenReturn(Optional.empty());
+        when(emailService.sendDebtAcknowledgementEmail(any(), any())).thenReturn(true);
+
+        debtApprovalService.approveDebtCheckout(approvalRequest.getId(), User.builder().name("Chủ cơ sở").build());
+
+        assertEquals("guest@example.com", approvalRequest.getDocumentSentTo());
+        org.junit.jupiter.api.Assertions.assertNotNull(approvalRequest.getDocumentSentAt());
+        verify(emailService).sendDebtAcknowledgementEmail(any(), any());
+        }
+
+        @Test
+        @DisplayName("Không gửi giấy xác nhận thủ công khi hồ sơ khách thiếu email")
+        void sendAcknowledgementRejectsGuestWithoutEmail() {
+        DebtApprovalRequest approvalRequest = DebtApprovalRequest.builder()
+            .id(42L).booking(booking).invoice(invoice).guest(booking.getGuest())
+            .debtAmount(new BigDecimal("750000")).dueDate(LocalDate.now().plusDays(7))
+            .reason("Khách công ty thanh toán sau").status(plant.stay.model.DebtApprovalStatus.APPROVED).build();
+        when(debtApprovalRepository.findById(approvalRequest.getId())).thenReturn(Optional.of(approvalRequest));
+        when(paymentRepository.findByInvoiceId(invoice.getId()))
+            .thenReturn(List.of(Payment.builder().amount(new BigDecimal("250000")).build()));
+        when(hotelSettingRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(BusinessException.class,
+            () -> debtApprovalService.sendDebtAcknowledgement(approvalRequest.getId(), User.builder().name("Lễ tân").build()));
+
+        verify(emailService, never()).sendDebtAcknowledgementEmail(any(), any());
+        }
 
     private DebtApprovalCreateRequest requestWithAmount(BigDecimal debtAmount) {
         DebtApprovalCreateRequest request = new DebtApprovalCreateRequest();

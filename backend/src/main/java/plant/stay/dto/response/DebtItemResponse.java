@@ -22,6 +22,7 @@ public class DebtItemResponse {
     private Long guestId;
     private String guestName;
     private String guestPhone;
+    private String guestEmail;
     private String roomNumber;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;
@@ -35,4 +36,8 @@ public class DebtItemResponse {
     private String approvedByName;
     private LocalDateTime approvedAt;
     private String rejectReason;
+    private LocalDateTime documentSentAt;
+    private String documentSentTo;
+    private LocalDate reminderSentForDueDate;
+    private LocalDateTime reminderSentAt;
 }
