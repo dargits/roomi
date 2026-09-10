@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoCashOutline } from 'react-icons/io5';
+import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
@@ -11,7 +11,6 @@ import BookingForm from './BookingForm';
 import BookingRequestList from './BookingRequestList';
 import GroupBookingForm from './GroupBookingForm';
 import GroupBookingList from './GroupBookingList';
-import PendingDepositList from './PendingDepositList';
 
 const BookingManagement: React.FC = () => {
   const { user } = useAuth();
@@ -28,7 +27,7 @@ const BookingManagement: React.FC = () => {
     } else if (location.pathname.endsWith('/groups')) {
       navigate('/manage/bookings?tab=groups', { replace: true });
     } else if (location.pathname.endsWith('/deposits')) {
-      navigate('/manage/bookings?tab=deposits', { replace: true });
+      navigate('/manage/bookings?tab=list', { replace: true });
     }
   }, [location.pathname, navigate]);
 
@@ -100,12 +99,6 @@ const BookingManagement: React.FC = () => {
               >
                 <IoPeopleOutline size={15} /> Đoàn
               </button>
-              <button
-                onClick={() => handleTabChange('deposits')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'deposits' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                <IoCashOutline size={15} /> Cọc chưa quyết toán
-              </button>
               {/* Kế toán không xử lý yêu cầu từ web */}
               {!isAccountant && (
                 <button
@@ -137,7 +130,6 @@ const BookingManagement: React.FC = () => {
         {activeTab === 'list' && <BookingList key={`list-${refreshKey}`} />}
         {activeTab === 'calendar' && <BookingCalendar />}
         {activeTab === 'groups' && <GroupBookingList refreshKey={refreshKey} autoOpenAssignGroup={autoAssignGroup} />}
-        {activeTab === 'deposits' && <PendingDepositList />}
         {activeTab === 'requests' && <BookingRequestList key={`req-${refreshKey}`} />}
       </div>
 
