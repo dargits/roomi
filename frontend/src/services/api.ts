@@ -1,21 +1,11 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ApiErrorResponse } from '../types';
-
-const getBaseURL = (): string => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL as string;
-  }
-  // Khi chạy local dev (npm run dev)
-  if (import.meta.env.DEV) {
-    return 'http://localhost:8080/api/v1';
-  }
-  // Môi trường production: dùng relative path để tự động theo đúng domain hiện tại
-  return '/api/v1';
-};
+import { env } from '../configs/env.config';
+import { STORAGE_KEYS } from '../constants';
 
 // Create an Axios instance
 const api: AxiosInstance = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: env.API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -24,7 +14,7 @@ const api: AxiosInstance = axios.create({
 // Request Interceptor: Attach token to headers
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('staygo_token') || sessionStorage.getItem('staygo_token');
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN) || sessionStorage.getItem(STORAGE_KEYS.TOKEN);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

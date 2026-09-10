@@ -16,6 +16,19 @@ export default defineConfig({
       '@': path.resolve(currentDir, './src'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-icons': ['react-icons'],
+          'vendor-dates': ['date-fns', 'react-date-range'],
+          'vendor-qr': ['@zxing/library', 'html5-qrcode', 'jsqr'],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'happy-dom',

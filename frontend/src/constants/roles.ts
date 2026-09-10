@@ -1,0 +1,16 @@
+export const ROLES = {
+  ADMIN: 'ADMIN',
+  OWNER: 'OWNER',
+  RECEPTIONIST: 'RECEPTIONIST',
+  HOUSEKEEPER: 'HOUSEKEEPER',
+  ACCOUNTANT: 'ACCOUNTANT',
+} as const;
+
+export type UserRole = typeof ROLES[keyof typeof ROLES];
+
+export const MANAGEMENT_ROLES: UserRole[] = [
+  ROLES.OWNER,
+  ROLES.RECEPTIONIST,
+  ROLES.ADMIN,
+  ROLES.ACCOUNTANT,
+];
