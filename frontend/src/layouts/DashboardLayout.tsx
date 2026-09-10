@@ -446,8 +446,6 @@ const DashboardLayout: React.FC = () => {
                 </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-primary/80">PMS</span>
-                  <span className="w-1 h-1 rounded-full bg-slate-300" />
-                  <span className="text-[10px] text-slate-400 font-medium truncate">Quản lý khách sạn</span>
                 </div>
               </div>
             </Link>
