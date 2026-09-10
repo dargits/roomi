@@ -10,8 +10,11 @@ import {
   IoCloseCircleOutline, 
   IoAlertCircleOutline,
   IoRefreshOutline,
-  IoTimeOutline
+  IoTimeOutline,
+  IoMailOutline,
+  IoPrintOutline
 } from 'react-icons/io5';
+import DebtAcknowledgementPrintTemplate from './DebtAcknowledgementPrintTemplate';
 
 const DebtManagementModal = ({ isOpen, onClose, onRefreshData }) => {
   const { user } = useAuth();
@@ -22,6 +25,7 @@ const DebtManagementModal = ({ isOpen, onClose, onRefreshData }) => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [printingAcknowledgement, setPrintingAcknowledgement] = useState(null);
 
   // Reject state
   const [rejectingItem, setRejectingItem] = useState(null);
@@ -93,6 +97,34 @@ const DebtManagementModal = ({ isOpen, onClose, onRefreshData }) => {
     } catch (err) {
       console.error(err);
       toastError(err.response?.data?.message || 'Lỗi khi từ chối yêu cầu.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendAcknowledgement = async (item) => {
+    if (!item.guestEmail) {
+      toastError('Khách chưa có email. Vui lòng cập nhật hồ sơ khách trước khi gửi giấy xác nhận công nợ.');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const response = await debtApprovalApi.sendAcknowledgement(item.id);
+      toastSuccess(response.message || `Đã gửi giấy xác nhận tới ${item.guestEmail}.`);
+      fetchData();
+    } catch (err) {
+      toastError(err.response?.data?.message || 'Không thể gửi giấy xác nhận công nợ.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handlePrintAcknowledgement = async (item) => {
+    setActionLoading(true);
+    try {
+      setPrintingAcknowledgement(await debtApprovalApi.getAcknowledgement(item.id));
+    } catch (err) {
+      toastError(err.response?.data?.message || 'Không thể tải giấy xác nhận công nợ.');
     } finally {
       setActionLoading(false);
     }
@@ -202,6 +234,31 @@ const DebtManagementModal = ({ isOpen, onClose, onRefreshData }) => {
                         <td className="p-3 text-xs text-on-surface-variant">
                           <div className="italic">"{item.reason}"</div>
                           <div className="text-outline mt-0.5">Duyệt bởi: {item.approvedByName || 'Chủ cơ sở'}</div>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handlePrintAcknowledgement(item)}
+                              disabled={actionLoading}
+                              title="In hoặc lưu PDF giấy xác nhận công nợ"
+                              className="inline-flex items-center gap-1 border border-border-grey bg-white px-2 py-1 text-xs font-medium text-on-surface hover:bg-surface-container disabled:opacity-50"
+                            >
+                              <IoPrintOutline size={14} /> In / PDF
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSendAcknowledgement(item)}
+                              disabled={actionLoading || !item.guestEmail}
+                              title={item.guestEmail ? 'Gửi lại giấy xác nhận qua email' : 'Khách chưa có email'}
+                              className="inline-flex items-center gap-1 border border-border-grey bg-white px-2 py-1 text-xs font-medium text-on-surface hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <IoMailOutline size={14} /> {item.documentSentAt ? 'Gửi lại' : 'Gửi email'}
+                            </button>
+                          </div>
+                          <div className="mt-1 text-[11px] text-outline">
+                            {item.documentSentAt
+                              ? `Đã gửi tới ${item.documentSentTo || item.guestEmail} lúc ${new Date(item.documentSentAt).toLocaleString('vi-VN')}`
+                              : item.guestEmail ? `Chưa gửi tới ${item.guestEmail}` : 'Khách chưa có email'}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -283,6 +340,13 @@ const DebtManagementModal = ({ isOpen, onClose, onRefreshData }) => {
           )}
         </div>
       </Modal>
+      {printingAcknowledgement && (
+        <DebtAcknowledgementPrintTemplate
+          data={printingAcknowledgement}
+          onClose={() => setPrintingAcknowledgement(null)}
+          onPrint={() => debtApprovalApi.logDocument(printingAcknowledgement.debtRequestId, 'PRINT')}
+        />
+      )}
 
       {/* Modal Từ chối */}
       {rejectingItem && (
