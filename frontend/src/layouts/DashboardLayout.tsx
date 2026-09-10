@@ -151,6 +151,107 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/profile': { title: 'Hồ Sơ Cá Nhân', group: 'Cá nhân' }
 };
 
+/**
+ * Component hiển thị danh sách menu con (menu bé)
+ * với hiệu ứng khối trượt nền (gliding active pill) khi chuyển đổi giữa các menu con
+ */
+const SubmenuNav: React.FC<{
+  items: NavItem[];
+  currentPath: string;
+  pendingResetCount: number;
+}> = ({ items, currentPath, pendingResetCount }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState<{ top: number; height: number; opacity: number }>({
+    top: 0,
+    height: 0,
+    opacity: 0
+  });
+  const [hasMoved, setHasMoved] = useState(false);
+  const subRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  useEffect(() => {
+    const activeItem = items.find((i) => i.path === currentPath);
+    if (!activeItem) {
+      setPill((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+
+    const container = containerRef.current;
+    const activeEl = subRefs.current[activeItem.path];
+    if (container && activeEl) {
+      const top = activeEl.offsetTop;
+      const height = activeEl.offsetHeight;
+      setPill({ top, height, opacity: 1 });
+      setHasMoved(true);
+    } else {
+      setPill((prev) => ({ ...prev, opacity: 0 }));
+    }
+  }, [currentPath, items]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5 py-1"
+    >
+      {/* Gliding Submenu Pill */}
+      {pill.opacity > 0 && (
+        <div
+          className="absolute left-4 right-1 z-0 rounded-lg bg-primary shadow-xs pointer-events-none"
+          style={{
+            top: `${pill.top}px`,
+            height: `${pill.height}px`,
+            opacity: pill.opacity,
+            transition: hasMoved
+              ? 'top 0.28s cubic-bezier(0.34, 1.25, 0.64, 1), height 0.2s ease, opacity 0.15s ease'
+              : 'opacity 0.15s ease',
+            transform: 'translateZ(0)'
+          }}
+        />
+      )}
+
+      {items.map((item) => {
+        const active = currentPath === item.path;
+        const ItemIcon = item.icon;
+        const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
+
+        return (
+          <Link
+            key={item.path}
+            to={item.path}
+            ref={(el) => { subRefs.current[item.path] = el; }}
+            className={`
+              relative z-10 flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200
+              ${active
+                ? 'text-white font-bold'
+                : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+              }
+            `}
+          >
+            <div className="flex items-center gap-2.5 truncate">
+              {ItemIcon && (
+                <ItemIcon
+                  size={16}
+                  className={`shrink-0 transition-colors duration-200 ${active ? 'text-white' : 'text-slate-400'}`}
+                />
+              )}
+              <span className="truncate">{item.label}</span>
+            </div>
+            {isStaffReset && (
+              <span
+                className={`px-1.5 py-0.2 text-[9px] font-bold rounded-full transition-colors ${
+                  active ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700 border border-red-200'
+                }`}
+              >
+                {pendingResetCount}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+};
+
 const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { hotelSetting } = useAppConfig();
@@ -212,18 +313,16 @@ const DashboardLayout: React.FC = () => {
   // Sliding active indicator pill state for collapsed sidebar
   const [pillStyle, setPillStyle] = useState<{
     top: number;
-    left: number;
-    width: number;
-    height: number;
     opacity: number;
-  }>({ top: 0, left: 0, width: 0, height: 0, opacity: 0 });
+  }>({ top: 0, opacity: 0 });
   const [hasPillMoved, setHasPillMoved] = useState(false);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     if (!isCollapsed) {
-      setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+      setPillStyle({ top: 0, opacity: 0 });
+      setHasPillMoved(false);
       return;
     }
 
@@ -250,20 +349,18 @@ const DashboardLayout: React.FC = () => {
       const activeRect = activeEl.getBoundingClientRect();
 
       const top = activeRect.top - containerRect.top + container.scrollTop;
-      const left = activeRect.left - containerRect.left + container.scrollLeft;
 
       setPillStyle({
         top,
-        left,
-        width: activeRect.width,
-        height: activeRect.height,
         opacity: 1
       });
       setHasPillMoved(true);
     };
 
-    const rafId = requestAnimationFrame(updatePill);
-    const timer = setTimeout(updatePill, 80);
+    // Đợi 320ms để animation thu hẹp sidebar kết thúc hoàn toàn trước khi hiển thị pill
+    setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+    const settleTimer = setTimeout(updatePill, 320);
+    const retryTimer = setTimeout(updatePill, 450);
 
     window.addEventListener('resize', updatePill);
     const container = navContainerRef.current;
@@ -272,8 +369,8 @@ const DashboardLayout: React.FC = () => {
     }
 
     return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timer);
+      clearTimeout(settleTimer);
+      clearTimeout(retryTimer);
       window.removeEventListener('resize', updatePill);
       if (container) {
         container.removeEventListener('scroll', updatePill);
@@ -360,14 +457,14 @@ const DashboardLayout: React.FC = () => {
                 className="absolute z-0 rounded-xl bg-primary shadow-md shadow-primary/30 pointer-events-none"
                 style={{
                   top: `${pillStyle.top}px`,
-                  left: `${pillStyle.left}px`,
-                  width: `${pillStyle.width}px`,
-                  height: `${pillStyle.height}px`,
+                  left: '50%',
+                  width: '44px',
+                  height: '44px',
                   opacity: pillStyle.opacity,
+                  transform: 'translateX(-50%) translateZ(0)',
                   transition: hasPillMoved
-                    ? 'top 0.32s cubic-bezier(0.34, 1.25, 0.64, 1), left 0.32s cubic-bezier(0.34, 1.25, 0.64, 1), opacity 0.2s ease, width 0.2s ease, height 0.2s ease'
-                    : 'opacity 0.2s ease',
-                  transform: 'translateZ(0)'
+                    ? 'top 0.32s cubic-bezier(0.34, 1.25, 0.64, 1), opacity 0.2s ease'
+                    : 'opacity 0.2s ease'
                 }}
               />
             )}
@@ -440,11 +537,15 @@ const DashboardLayout: React.FC = () => {
                     ref={(el) => { itemRefs.current[group.id] = el; }}
                     onClick={() => {
                       if (isCollapsed) {
-                        // In collapsed mode, navigating to the first sub-item is super fast and clean
-                        navigate(visibleItems[0].path);
-                      } else {
-                        toggleGroup(group.id);
+                        // Khi đang thu menu và click vào menu có menu con: Tự động mở to menu ra
+                        setIsCollapsed(false);
+                        try {
+                          localStorage.setItem('staygo_sidebar_collapsed', 'false');
+                        } catch {}
+                        setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
+                        return;
                       }
+                      toggleGroup(group.id);
                     }}
                     className={`
                       transition-all duration-200 cursor-pointer relative z-10
@@ -477,11 +578,6 @@ const DashboardLayout: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Active dot in collapsed mode */}
-                    {isCollapsed && isGroupActive && (
-                      <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary ring-1 ring-white" />
-                    )}
-
                     {/* Badge & Chevron when expanded */}
                     {!isCollapsed && (
                       <div className="flex items-center gap-1.5">
@@ -498,41 +594,13 @@ const DashboardLayout: React.FC = () => {
                     )}
                   </button>
 
-                  {/* Accordion Submenu (when expanded) */}
+                  {/* Accordion Submenu (when expanded) with Gliding Indicator */}
                   {!isCollapsed && isGroupOpen && (
-                    <div className="w-full mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5 py-1">
-                      {visibleItems.map((item) => {
-                        const active = location.pathname === item.path;
-                        const ItemIcon = item.icon;
-                        const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
-
-                        return (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            className={`
-                              flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all
-                              ${active
-                                ? 'bg-primary text-white font-bold shadow-xs'
-                                : 'text-slate-600 hover:bg-slate-100 hover:text-primary'
-                              }
-                            `}
-                          >
-                            <div className="flex items-center gap-2.5 truncate">
-                              {ItemIcon && (
-                                <ItemIcon size={16} className={`shrink-0 ${active ? 'text-white' : 'text-slate-400'}`} />
-                              )}
-                              <span className="truncate">{item.label}</span>
-                            </div>
-                            {isStaffReset && (
-                              <span className="px-1.5 py-0.2 text-[9px] font-bold bg-red-100 text-red-700 rounded-full border border-red-200">
-                                {pendingResetCount}
-                              </span>
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
+                    <SubmenuNav
+                      items={visibleItems}
+                      currentPath={location.pathname}
+                      pendingResetCount={pendingResetCount}
+                    />
                   )}
 
                   {/* Floating Popover when Collapsed on Desktop */}
