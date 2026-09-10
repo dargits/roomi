@@ -231,52 +231,46 @@ const DashboardLayout: React.FC = () => {
         )}
 
         {/* ── Left Sidebar (Desktop + Mobile Drawer) ── */}
+        {/* ── Left Sidebar (Desktop + Mobile Drawer) ── */}
         <aside
           className={`
             fixed lg:static top-0 bottom-0 left-0 z-50
-            flex flex-col bg-surface-container-lowest border-r border-border-grey shadow-xs
+            flex flex-col bg-white border-r border-slate-200/80 shadow-[1px_0_12px_rgba(0,0,0,0.02)]
             transition-all duration-300 ease-in-out select-none
             ${mobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'}
-            ${isCollapsed ? 'lg:w-[76px]' : 'lg:w-64'}
+            ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}
           `}
         >
           {/* Sidebar Header: Brand & Logo */}
-          <div className="h-16 px-4 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
+          <div className="h-16 px-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
             <Link
               to="/"
-              className="flex items-center gap-2.5 overflow-hidden group py-1"
-              title="Về trang chủ"
+              className={`flex items-center gap-3 overflow-hidden group py-1 ${isCollapsed ? 'justify-center w-full' : ''}`}
+              title={isCollapsed ? (hotelSetting?.propertyName || 'StayGo') : 'Về trang chủ'}
             >
-              <div className="flex flex-col">
-                <span className={`font-logo font-bold text-primary leading-none uppercase tracking-wide group-hover:opacity-85 transition-all ${
-                  isCollapsed ? 'lg:hidden text-[20px]' : 'text-[22px]'
-                }`}>
-                  {hotelSetting?.propertyName || 'STAYGO'}
-                </span>
-                <div className={`flex gap-1 mt-1.5 ${isCollapsed ? 'lg:hidden' : ''}`}>
-                  {['bg-[#E53935]', 'bg-[#FDD835]', 'bg-[#43A047]', 'bg-[#8E24AA]', 'bg-[#1E88E5]'].map((c, i) => (
-                    <div
-                      key={i}
-                      className={`w-1.5 h-1.5 rounded-full ${c} animate-bounce`}
-                      style={{ animationDelay: `${i * 120}ms` }}
-                    />
-                  ))}
-                </div>
+              {/* Brand Emblem */}
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary via-primary to-blue-600 text-white shadow-md shadow-primary/20 ring-2 ring-primary/15 flex items-center justify-center font-bold font-logo text-lg shrink-0 transition-transform group-hover:scale-105">
+                {hotelSetting?.propertyName?.[0] || 'S'}
               </div>
 
-              {/* Icon fallback when collapsed */}
-              {isCollapsed && (
-                <div className="hidden lg:flex w-10 h-10 rounded-xl bg-primary/10 items-center justify-center text-primary font-bold font-logo text-xl">
-                  {hotelSetting?.propertyName?.[0] || 'S'}
+              {/* Brand text when expanded */}
+              <div className={`flex flex-col min-w-0 transition-opacity duration-200 ${isCollapsed ? 'lg:hidden' : ''}`}>
+                <span className="font-logo font-extrabold text-[17px] tracking-tight text-slate-800 uppercase truncate leading-tight group-hover:text-primary transition-colors">
+                  {hotelSetting?.propertyName || 'STAYGO'}
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary/80">PMS</span>
+                  <span className="w-1 h-1 rounded-full bg-slate-300" />
+                  <span className="text-[10px] text-slate-400 font-medium truncate">Quản lý khách sạn</span>
                 </div>
-              )}
+              </div>
             </Link>
 
             {/* Mobile close button */}
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg cursor-pointer"
+              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
               title="Đóng menu"
             >
               <IoCloseOutline size={22} />
@@ -284,7 +278,7 @@ const DashboardLayout: React.FC = () => {
           </div>
 
           {/* Sidebar Navigation Items */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1.5 sidebar-scroll">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 sidebar-scroll">
             {NAV_GROUPS.map((group) => {
               const visibleItems = group.items.filter((item) =>
                 !item.allowedRoles || (user?.role && item.allowedRoles.includes(user.role))
@@ -297,33 +291,43 @@ const DashboardLayout: React.FC = () => {
               const GroupIcon = group.icon;
               const hasMultiple = visibleItems.length > 1;
 
-              // Single item direct link
+              // Single item direct link (e.g. Dashboard)
               if (!hasMultiple) {
                 const singleItem = visibleItems[0];
                 const active = location.pathname === singleItem.path;
                 const ItemIcon = singleItem.icon || GroupIcon;
 
                 return (
-                  <div key={group.id} className="relative group/tooltip">
+                  <div key={group.id} className="relative group/tooltip flex justify-center">
                     <Link
                       to={singleItem.path}
                       className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[13.5px] transition-all
-                        ${active
-                          ? 'bg-primary text-white font-bold shadow-sm'
-                          : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary'
+                        flex items-center transition-all duration-200
+                        ${isCollapsed
+                          ? `w-11 h-11 rounded-xl justify-center ${
+                              active
+                                ? 'bg-primary text-white shadow-md shadow-primary/30'
+                                : 'text-slate-500 hover:text-primary hover:bg-slate-100'
+                            }`
+                          : `w-full gap-3 px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
+                              active
+                                ? 'bg-primary text-white font-semibold shadow-sm'
+                                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                            }`
                         }
-                        ${isCollapsed ? 'justify-center px-0' : ''}
                       `}
                       title={isCollapsed ? singleItem.label : undefined}
                     >
-                      <ItemIcon size={20} className={`shrink-0 ${active ? 'text-white' : 'text-primary/80'}`} />
-                      <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{singleItem.label}</span>
+                      <ItemIcon
+                        size={20}
+                        className={`shrink-0 ${active ? 'text-white' : (isCollapsed ? 'text-slate-600 group-hover/tooltip:text-primary' : 'text-slate-500')}`}
+                      />
+                      {!isCollapsed && <span className="truncate">{singleItem.label}</span>}
                     </Link>
 
                     {/* Tooltip on collapsed desktop mode */}
                     {isCollapsed && (
-                      <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity z-50">
+                      <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity z-50">
                         {singleItem.label}
                       </div>
                     )}
@@ -333,47 +337,71 @@ const DashboardLayout: React.FC = () => {
 
               // Multi-item group with Accordion & Collapsed hover popover
               return (
-                <div key={group.id} className="relative group/tooltip">
+                <div key={group.id} className="relative group/tooltip flex flex-col items-center">
                   {/* Group Trigger Button */}
                   <button
                     type="button"
                     onClick={() => {
                       if (isCollapsed) {
-                        setIsCollapsed(false);
+                        // In collapsed mode, navigating to the first sub-item is super fast and clean
+                        navigate(visibleItems[0].path);
+                      } else {
+                        toggleGroup(group.id);
                       }
-                      toggleGroup(group.id);
                     }}
                     className={`
-                      w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-[13.5px] transition-all cursor-pointer
-                      ${isGroupActive && !isGroupOpen
-                        ? 'bg-primary/10 text-primary font-bold'
-                        : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                      transition-all duration-200 cursor-pointer
+                      ${isCollapsed
+                        ? `w-11 h-11 rounded-xl flex items-center justify-center relative ${
+                            isGroupActive
+                              ? 'bg-primary/15 text-primary ring-1 ring-primary/30 font-bold shadow-xs'
+                              : 'text-slate-500 hover:text-primary hover:bg-slate-100'
+                          }`
+                        : `w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
+                            isGroupActive && !isGroupOpen
+                              ? 'bg-primary/10 text-primary font-bold'
+                              : isGroupOpen
+                              ? 'bg-slate-100/80 text-slate-900 font-semibold'
+                              : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                          }`
                       }
-                      ${isCollapsed ? 'justify-center px-0' : ''}
                     `}
                     title={isCollapsed ? group.label : undefined}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <GroupIcon size={20} className={`shrink-0 ${isGroupActive ? 'text-primary' : 'text-on-surface-variant/80'}`} />
-                      <span className={`truncate font-semibold ${isCollapsed ? 'lg:hidden' : ''}`}>{group.label}</span>
+                    <div className={`flex items-center gap-3 min-w-0 ${isCollapsed ? 'justify-center' : ''}`}>
+                      <GroupIcon
+                        size={20}
+                        className={`shrink-0 ${isGroupActive ? 'text-primary' : 'text-slate-500'}`}
+                      />
+                      {!isCollapsed && (
+                        <span className="truncate font-semibold">{group.label}</span>
+                      )}
                     </div>
 
-                    <div className={`flex items-center gap-1.5 ${isCollapsed ? 'lg:hidden' : ''}`}>
-                      {group.id === 'system' && pendingResetCount > 0 && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-red-600 text-white rounded-full animate-pulse">
-                          {pendingResetCount}
-                        </span>
-                      )}
-                      <IoChevronDownOutline
-                        size={14}
-                        className={`transition-transform duration-200 text-on-surface-variant/70 ${isGroupOpen ? 'rotate-180 text-primary' : ''}`}
-                      />
-                    </div>
+                    {/* Active dot in collapsed mode */}
+                    {isCollapsed && isGroupActive && (
+                      <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary ring-1 ring-white" />
+                    )}
+
+                    {/* Badge & Chevron when expanded */}
+                    {!isCollapsed && (
+                      <div className="flex items-center gap-1.5">
+                        {group.id === 'system' && pendingResetCount > 0 && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-red-600 text-white rounded-full animate-pulse">
+                            {pendingResetCount}
+                          </span>
+                        )}
+                        <IoChevronDownOutline
+                          size={14}
+                          className={`transition-transform duration-200 text-slate-400 ${isGroupOpen ? 'rotate-180 text-primary' : ''}`}
+                        />
+                      </div>
+                    )}
                   </button>
 
                   {/* Accordion Submenu (when expanded) */}
                   {!isCollapsed && isGroupOpen && (
-                    <div className="mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5 py-1">
+                    <div className="w-full mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5 py-1">
                       {visibleItems.map((item) => {
                         const active = location.pathname === item.path;
                         const ItemIcon = item.icon;
@@ -387,13 +415,13 @@ const DashboardLayout: React.FC = () => {
                               flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all
                               ${active
                                 ? 'bg-primary text-white font-bold shadow-xs'
-                                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-primary'
                               }
                             `}
                           >
                             <div className="flex items-center gap-2.5 truncate">
                               {ItemIcon && (
-                                <ItemIcon size={16} className={`shrink-0 ${active ? 'text-white' : 'text-on-surface-variant/60'}`} />
+                                <ItemIcon size={16} className={`shrink-0 ${active ? 'text-white' : 'text-slate-400'}`} />
                               )}
                               <span className="truncate">{item.label}</span>
                             </div>
@@ -410,15 +438,23 @@ const DashboardLayout: React.FC = () => {
 
                   {/* Floating Popover when Collapsed on Desktop */}
                   {isCollapsed && (
-                    <div className="hidden lg:block absolute left-full top-0 ml-3 w-56 bg-white border border-border-grey rounded-2xl shadow-xl p-2 opacity-0 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:pointer-events-auto transition-all duration-150 z-50">
-                      <div className="px-3 py-1.5 mb-1.5 border-b border-border-grey/50 font-bold text-xs text-primary flex items-center gap-2">
-                        <GroupIcon size={16} />
-                        <span>{group.label}</span>
+                    <div className="hidden lg:block absolute left-full top-0 ml-3 w-56 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl p-2 opacity-0 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:pointer-events-auto transition-all duration-150 z-50">
+                      <div className="px-3 py-2 mb-1.5 border-b border-slate-100 font-bold text-xs text-primary flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GroupIcon size={16} />
+                          <span>{group.label}</span>
+                        </div>
+                        {group.id === 'system' && pendingResetCount > 0 && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold bg-red-100 text-red-700 rounded-full border border-red-200">
+                            {pendingResetCount}
+                          </span>
+                        )}
                       </div>
                       <div className="space-y-0.5">
                         {visibleItems.map((item) => {
                           const active = location.pathname === item.path;
                           const ItemIcon = item.icon;
+                          const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
                           return (
                             <Link
                               key={item.path}
@@ -426,15 +462,22 @@ const DashboardLayout: React.FC = () => {
                               className={`
                                 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors
                                 ${active
-                                  ? 'bg-primary text-white font-bold'
-                                  : 'text-on-surface hover:bg-surface-container-low hover:text-primary'
+                                  ? 'bg-primary text-white font-bold shadow-xs'
+                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                 }
                               `}
                             >
-                              <div className="flex items-center gap-2 truncate">
-                                {ItemIcon && <ItemIcon size={14} className={active ? 'text-white' : 'text-on-surface-variant/70'} />}
+                              <div className="flex items-center gap-2.5 truncate">
+                                {ItemIcon && <ItemIcon size={15} className={active ? 'text-white' : 'text-slate-400'} />}
                                 <span className="truncate">{item.label}</span>
                               </div>
+                              {isStaffReset && (
+                                <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded-full ${
+                                  active ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {pendingResetCount}
+                                </span>
+                              )}
                             </Link>
                           );
                         })}
@@ -446,52 +489,108 @@ const DashboardLayout: React.FC = () => {
             })}
           </div>
 
-          {/* Sidebar Footer: Collapse Toggle & Profile Info */}
-          <div className="p-3 border-t border-border-grey bg-surface-container-lowest flex flex-col gap-2 shrink-0">
+          {/* ── Sidebar Footer: Profile & Collapse Toggle ── */}
+          {/* Collapsed Mode Footer */}
+          {isCollapsed && (
+            <div className="hidden lg:flex flex-col items-center gap-3 py-3 px-2 border-t border-slate-100 bg-white shrink-0">
+              {/* Toggle expand button */}
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 transition-all cursor-pointer border border-transparent hover:border-slate-200 group/toggle"
+                title="Mở rộng menu"
+              >
+                <IoChevronForwardOutline size={18} className="group-hover/toggle:translate-x-0.5 transition-transform" />
+              </button>
+
+              {/* User Avatar with Green Indicator Dot & Hover Card */}
+              <div className="relative group/user">
+                <button
+                  type="button"
+                  onClick={() => navigate('/manage/profile')}
+                  className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-slate-200 hover:ring-primary shadow-xs hover:scale-105 transition-all cursor-pointer flex items-center justify-center bg-primary/10"
+                  title="Cài đặt hồ sơ cá nhân"
+                >
+                  {user?.avatarImage ? (
+                    <img
+                      src={user.avatarImage}
+                      alt={user?.name || 'Tài khoản'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-bold text-primary text-xs uppercase">
+                      {user?.name?.[0] || 'U'}
+                    </span>
+                  )}
+                </button>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white pointer-events-none" />
+
+                {/* Floating tooltip popover on hover */}
+                <div className="absolute left-full bottom-0 ml-3 w-48 bg-slate-900 text-white text-xs rounded-xl shadow-2xl p-2.5 opacity-0 pointer-events-none group-hover/user:opacity-100 transition-opacity z-50">
+                  <p className="font-bold text-sm truncate">{user?.name || 'Tài khoản'}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{roleLabel}</p>
+                  <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] text-primary-hover font-semibold flex items-center justify-between">
+                    <span>Xem hồ sơ</span>
+                    <span>&rarr;</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Expanded Mode Footer */}
+          <div className={`p-3 border-t border-slate-100 bg-white flex flex-col gap-2 shrink-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
             {/* Desktop Collapse Toggle */}
             <button
               type="button"
               onClick={toggleCollapse}
-              className={`
-                hidden lg:flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors cursor-pointer
-                ${isCollapsed ? 'justify-center px-0' : ''}
-              `}
-              title={isCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
+              className="hidden lg:flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer group/btn"
+              title="Thu gọn menu"
             >
-              {isCollapsed ? (
-                <IoChevronForwardOutline size={18} />
-              ) : (
-                <>
-                  <IoChevronBackOutline size={18} />
-                  <span>Thu gọn thanh menu</span>
-                </>
-              )}
+              <div className="flex items-center gap-2">
+                <IoChevronBackOutline size={16} className="group-hover/btn:-translate-x-0.5 transition-transform" />
+                <span>Thu gọn thanh menu</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">Alt + M</span>
             </button>
 
-            {/* User Profile Mini Badge */}
-            <div className={`flex items-center gap-2.5 p-2 rounded-xl bg-surface-container-low/60 border border-border-grey/50 ${
-              isCollapsed ? 'justify-center p-1.5' : ''
-            }`}>
-              {user?.avatarImage ? (
-                <img
-                  src={user.avatarImage}
-                  alt={user?.name || 'Tài khoản'}
-                  className="w-8 h-8 rounded-full object-cover border border-border-grey shrink-0 shadow-xs"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-xs uppercase shrink-0">
-                  {user?.name?.[0] || 'U'}
+            {/* User Profile Card */}
+            <button
+              type="button"
+              onClick={() => navigate('/manage/profile')}
+              className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 transition-all cursor-pointer text-left border border-slate-200/60 group/profile"
+              title="Cài đặt hồ sơ cá nhân"
+            >
+              <div className="relative shrink-0">
+                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-primary/20 shadow-xs flex items-center justify-center bg-primary/10">
+                  {user?.avatarImage ? (
+                    <img
+                      src={user.avatarImage}
+                      alt={user?.name || 'Tài khoản'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-bold text-primary text-xs uppercase">
+                      {user?.name?.[0] || 'U'}
+                    </span>
+                  )}
                 </div>
-              )}
-              <div className={`flex-1 min-w-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
-                <p className="text-xs font-bold text-on-surface truncate leading-tight">
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate group-hover/profile:text-primary transition-colors leading-tight">
                   {user?.name || 'Tài khoản'}
                 </p>
-                <span className={`inline-block mt-0.5 text-[9.5px] font-bold px-1.5 py-0.2 rounded border ${roleBadgeStyle}`}>
-                  {roleLabel}
-                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`inline-block text-[9px] font-bold px-1.5 py-0.2 rounded border ${roleBadgeStyle}`}>
+                    {roleLabel}
+                  </span>
+                </div>
               </div>
-            </div>
+
+              <IoSettingsOutline size={16} className="text-slate-400 group-hover/profile:text-primary group-hover/profile:rotate-45 transition-all shrink-0" />
+            </button>
           </div>
         </aside>
 
