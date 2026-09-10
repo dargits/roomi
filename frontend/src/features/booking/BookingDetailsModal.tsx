@@ -230,6 +230,29 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                       <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}</span></div>
                       <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber, user)}</span></div>
                     </div>
+
+                    {/* Danh sách khách ở cùng phòng (NCL-04-CN-011) */}
+                    {booking.stayingGuests && booking.stayingGuests.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-border-grey">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                            <IoPersonOutline size={14} className="text-primary" />
+                            Khách lưu trú tại phòng ({booking.stayingGuests.length})
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                          {booking.stayingGuests.map((sg, idx) => (
+                            <div key={sg.id || idx} className="flex items-center justify-between p-2 rounded bg-surface-container-low text-xs">
+                              <div>
+                                <span className="font-medium text-on-surface">{formatName(sg.name, user)}</span>
+                                {sg.phone && <span className="text-on-surface-variant ml-2">({formatPhone(sg.phone, user)})</span>}
+                              </div>
+                              <span className="font-mono text-on-surface-variant">{formatCCCD(sg.idNumber, user)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                    <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
