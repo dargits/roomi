@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
 import AuthContext from '../../context/AuthContext';
@@ -22,6 +22,39 @@ const PublicHeader: React.FC = () => {
   const isAuthenticated = !!authContext?.isAuthenticated;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Gliding active indicator state cho Desktop Header Nav
+  const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number; opacity: number }>({
+    left: 0,
+    width: 0,
+    opacity: 0
+  });
+  const [hasMoved, setHasMoved] = useState(false);
+
+  useEffect(() => {
+    const updateIndicator = () => {
+      const el = linkRefs.current[location.pathname];
+      if (el) {
+        setIndicatorStyle({
+          left: el.offsetLeft,
+          width: el.offsetWidth,
+          opacity: 1
+        });
+        setHasMoved(true);
+      } else {
+        setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      }
+    };
+
+    const rafId = requestAnimationFrame(updateIndicator);
+    window.addEventListener('resize', updateIndicator);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', updateIndicator);
+    };
+  }, [location.pathname]);
+
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-border-grey shadow-xs">
       <div className="flex justify-between items-center px-4 md:px-margin-desktop h-16 max-w-container-max-width mx-auto">
@@ -41,24 +74,38 @@ const PublicHeader: React.FC = () => {
           </div>
         </Link>
 
-        {/* Desktop Navigation Links - giữa */}
-        <div className="hidden lg:flex items-center gap-6">
+        {/* Desktop Navigation Links - giữa có thanh trượt gliding indicator */}
+        <div className="hidden lg:flex items-center gap-6 relative py-1">
+          {/* Gliding Active Indicator Bar */}
+          {indicatorStyle.opacity > 0 && (
+            <span
+              className="absolute bottom-0 h-[2.5px] bg-primary rounded-full pointer-events-none"
+              style={{
+                left: `${indicatorStyle.left}px`,
+                width: `${indicatorStyle.width}px`,
+                opacity: indicatorStyle.opacity,
+                transition: hasMoved
+                  ? 'left 0.28s cubic-bezier(0.22, 1, 0.36, 1), width 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease'
+                  : 'opacity 0.15s ease',
+                transform: 'translateZ(0)'
+              }}
+            />
+          )}
+
           {NAV_LINKS.map((link) => {
             const isActive = location.pathname === link.path;
             return (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`font-body-md text-[14px] transition-all py-1 px-0.5 relative group ${
+                ref={(el) => { linkRefs.current[link.path] = el; }}
+                className={`font-body-md text-[14px] transition-colors duration-200 py-1 px-1 relative ${
                   isActive 
                     ? 'text-primary font-bold' 
                     : 'text-on-surface-variant hover:text-primary'
                 }`}
               >
                 {link.label}
-                <span className={`absolute bottom-0 left-0 h-[2.5px] bg-primary transition-all duration-300 ease-out ${
-                  isActive ? 'w-full' : 'w-0 group-hover:w-full'
-                }`} />
               </Link>
             );
           })}
