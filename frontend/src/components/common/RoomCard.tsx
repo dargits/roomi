@@ -28,13 +28,15 @@ export interface RoomCardProps {
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => {
   return (
-    <div className="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-outline-variant transition-colors group">
+    <div className="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group">
       {/* Image Gallery */}
       <div className="w-full md:w-1/3 p-2 flex flex-col gap-1">
-        <div
-          className="bg-cover bg-center w-full h-40 rounded bg-surface-container"
-          style={{ backgroundImage: `url('${room.imageUrls?.[0] || 'https://placehold.co/600x400?text=No+Image'}')` }}
-        />
+        <div className="overflow-hidden rounded h-40 bg-surface-container">
+          <div
+            className="bg-cover bg-center w-full h-full rounded transition-transform duration-500 ease-out group-hover:scale-105"
+            style={{ backgroundImage: `url('${room.imageUrls?.[0] || 'https://placehold.co/600x400?text=No+Image'}')` }}
+          />
+        </div>
         {room.imageUrls && room.imageUrls.length > 1 && (
           <div className="flex gap-1 h-16">
             <div
@@ -133,8 +135,8 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
                 onClick={onBookNow}
                 className={
                   room.primaryButton
-                    ? 'bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-colors cursor-pointer'
-                    : 'bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light transition-colors cursor-pointer'
+                    ? 'btn-shimmer bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container hover:shadow-md active:scale-95 transition-all cursor-pointer'
+                    : 'btn-shimmer bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light hover:shadow-sm active:scale-95 transition-all cursor-pointer'
                 }
               >
                 Đặt phòng ngay

@@ -312,7 +312,20 @@ const StaffManagement: React.FC = () => {
               {users.map(u => (
                 <tr key={u.id} className="border-b border-border-grey hover:bg-surface-container-low/30 transition-colors group">
                   <td className="p-4">
-                    <span className="font-title-sm text-on-surface">{u.name}</span>
+                    <div className="flex items-center gap-3">
+                      {u.avatarImage ? (
+                        <img
+                          src={u.avatarImage}
+                          alt={u.name}
+                          className="w-9 h-9 rounded-full object-cover border border-border-grey shadow-xs shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                          {u.name?.[0] || 'U'}
+                        </div>
+                      )}
+                      <span className="font-title-sm text-on-surface font-semibold">{u.name}</span>
+                    </div>
                   </td>
                   <td className="p-4 font-body-md text-on-surface-variant">{(u as any).account || '—'}</td>
                   <td className="p-4">
