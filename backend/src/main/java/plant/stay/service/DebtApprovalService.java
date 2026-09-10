@@ -3,6 +3,8 @@ package plant.stay.service;
 import plant.stay.dto.request.DebtApprovalCreateRequest;
 import plant.stay.dto.request.DebtApprovalRejectRequest;
 import plant.stay.dto.response.DebtItemResponse;
+import plant.stay.dto.response.DebtAcknowledgementData;
+import plant.stay.dto.response.MessageResponse;
 import plant.stay.model.User;
 
 import java.util.List;
@@ -14,4 +16,7 @@ public interface DebtApprovalService {
     List<DebtItemResponse> getActiveDebts();
     List<DebtItemResponse> getPendingRequests();
     List<DebtItemResponse> getAllRequests();
+    DebtAcknowledgementData getDebtAcknowledgement(Long requestId);
+    MessageResponse sendDebtAcknowledgement(Long requestId, User actor);
+    void sendDueTomorrowReminders();
 }

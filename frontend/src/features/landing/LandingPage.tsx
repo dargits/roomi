@@ -1,0 +1,293 @@
+import React, { useState, useEffect } from 'react';
+import PublicHeader from '../../components/layout/PublicHeader';
+import Footer from '../../components/layout/Footer';
+import SearchBar from './SearchBar';
+import FilterSidebar from './FilterSidebar';
+import RoomCard, { RoomCardData } from '../../components/common/RoomCard';
+import { useAppConfig } from '../../context/AppConfigContext';
+import { roomTypeApi } from '../../services/roomTypeApi';
+import { bookingRequestApi } from '../../services/bookingRequestApi';
+import PublicBookingModal from './PublicBookingModal';
+import PublicGroupBookingModal from '../public/PublicGroupBookingModal';
+import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
+
+const LandingPage: React.FC = () => {
+  const { hotelSetting, isAppLoading } = useAppConfig();
+  const { warning: toastWarning } = useToast();
+  const [rooms, setRooms] = useState<RoomCardData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [priceLimit, setPriceLimit] = useState<number>(10000000); // Default max 10M
+
+  const isInitialLoading = isAppLoading || (loading && rooms.length === 0);
+
+  // Booking states
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedRoomToBook, setSelectedRoomToBook] = useState<RoomCardData | null>(null);
+  const [selectedRoomForGroup, setSelectedRoomForGroup] = useState<RoomCardData | null>(null);
+  const [isGroupBookingModalOpen, setIsGroupBookingModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const data = await roomTypeApi.getPublicRoomTypes();
+        // Map backend model to RoomCard props
+        const mappedRooms: RoomCardData[] = data.map(room => ({
+          id: room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          price: new Intl.NumberFormat('vi-VN').format(room.basePrice) + ' ₫',
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        }));
+        setRooms(mappedRooms);
+        
+        // Update max price based on fetched rooms
+        if (mappedRooms.length > 0) {
+          const prices = mappedRooms.map(r => r.basePrice || 0);
+          const highestPrice = Math.max(...prices);
+          setPriceLimit(highestPrice > 0 ? highestPrice : 10000000);
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy danh sách phòng:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRooms();
+  }, []);
+
+  const handleSearch = async (from: Date, to: Date) => {
+    setCheckInDate(from);
+    setCheckOutDate(to);
+    setLoading(true);
+    
+    try {
+      const fromStr = from.toISOString().split('T')[0];
+      const toStr = to.toISOString().split('T')[0];
+      const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
+      
+      const mappedRooms: RoomCardData[] = (data as any[]).map(room => ({
+        id: room.roomTypeId || room.id,
+        name: room.name,
+        maxCapacity: room.maxCapacity,
+        amenitiesDescription: room.amenitiesDescription,
+        basePrice: room.basePrice,
+        price: new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫',
+        imageUrls: room.imageUrls || [],
+        primaryButton: true
+      }));
+      setRooms(mappedRooms);
+    } catch (error) {
+      console.error("Lỗi khi tìm phòng trống:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBookNow = (room: RoomCardData) => {
+    if (!checkInDate || !checkOutDate) {
+      toastWarning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt!");
+      return;
+    }
+    setSelectedRoomToBook(room);
+    setIsBookingModalOpen(true);
+  };
+
+  const handleGroupBook = (room: RoomCardData) => {
+    if (!checkInDate || !checkOutDate) {
+      toastWarning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt đoàn.");
+      return;
+    }
+    setSelectedRoomForGroup(room);
+    setIsGroupBookingModalOpen(true);
+  };
+
+  const handleTypeChange = (typeName: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedTypes(prev => [...prev, typeName]);
+    } else {
+      setSelectedTypes(prev => prev.filter(t => t !== typeName));
+    }
+  };
+
+  const handleAmenityChange = (amenity: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedAmenities(prev => [...prev, amenity]);
+    } else {
+      setSelectedAmenities(prev => prev.filter(a => a !== amenity));
+    }
+  };
+
+  const [sortBy, setSortBy] = useState('default');
+
+  const filteredRooms = rooms.filter(room => {
+    // 1. Filter by Room Type
+    if (selectedTypes.length > 0 && !selectedTypes.includes(room.name)) {
+      return false;
+    }
+    // 2. Filter by Price
+    if ((room.basePrice || 0) > priceLimit) {
+      return false;
+    }
+    // 3. Filter by Amenities (room must have ALL selected amenities)
+    if (selectedAmenities.length > 0) {
+      const roomAmenities = (room.amenitiesDescription || "").toLowerCase();
+      const hasAll = selectedAmenities.every(a => roomAmenities.includes(a.toLowerCase()));
+      if (!hasAll) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    const priceA = a.basePrice || 0;
+    const priceB = b.basePrice || 0;
+    if (sortBy === 'price_asc') return priceA - priceB;
+    if (sortBy === 'price_desc') return priceB - priceA;
+    if (sortBy === 'capacity_desc') return b.maxCapacity - a.maxCapacity;
+    return 0;
+  });
+  
+  return (
+    <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
+      {/* Full Page Initial Loading Overlay */}
+      {isInitialLoading && (
+        <LoadingScreen
+          fullScreen
+          message="Đang tải dữ liệu..."
+          submessage="Vui lòng chờ trong giây lát"
+        />
+      )}
+
+      <PublicHeader />
+
+      {/* Hero Section */}
+      <section className="relative w-full h-[320px] flex flex-col items-center justify-center">
+        <div className="absolute inset-0 z-0">
+          <div 
+            className="bg-cover bg-center w-full h-full bg-neutral-800" 
+            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+          ></div>
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+        <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6">
+          <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">
+            Khách sạn và nơi để ở{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
+          </h1>
+          <p className="font-title-lg text-title-lg text-white drop-shadow-md">Tìm kiếm để so sánh giá cả và khám phá ưu đãi tuyệt vời có miễn phí hủy</p>
+        </div>
+        
+        <SearchBar onSearch={handleSearch} />
+      </section>
+
+      {/* Main Content Area */}
+      <main className="max-w-container-max-width mx-auto px-margin-desktop mt-24 mb-16 grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 w-full">
+        <FilterSidebar 
+          roomTypes={rooms.map(r => r.name)} 
+          selectedTypes={selectedTypes} 
+          onTypeChange={handleTypeChange}
+          selectedAmenities={selectedAmenities}
+          onAmenityChange={handleAmenityChange}
+          maxPriceLimit={Math.max(...rooms.map(r => r.basePrice || 0), 10000000)}
+          priceLimit={priceLimit}
+          onPriceChange={setPriceLimit}
+        />
+        
+        {/* Room List Area */}
+        <section className="md:col-span-9">
+          <div className="flex items-center justify-between mb-6 border-b border-border-grey pb-2">
+            <h2 className="font-headline-lg text-headline-lg text-on-surface">
+              Các loại phòng{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
+            </h2>
+          </div>
+
+          {/* Sorting Tabs */}
+          <div className="flex overflow-x-auto mb-6 border-b border-border-grey">
+            <button 
+              onClick={() => setSortBy('default')}
+              className={`px-4 py-3 font-title-md text-title-md whitespace-nowrap transition-colors border-b-2 ${sortBy === 'default' ? 'text-primary border-primary' : 'text-on-surface hover:text-primary border-transparent'}`}
+            >
+              Tất cả
+            </button>
+            <button 
+              onClick={() => setSortBy('price_asc')}
+              className={`px-4 py-3 font-title-md text-title-md whitespace-nowrap transition-colors border-b-2 ${sortBy === 'price_asc' ? 'text-primary border-primary' : 'text-on-surface hover:text-primary border-transparent'}`}
+            >
+              Giá thấp nhất
+            </button>
+            <button 
+              onClick={() => setSortBy('price_desc')}
+              className={`px-4 py-3 font-title-md text-title-md whitespace-nowrap transition-colors border-b-2 ${sortBy === 'price_desc' ? 'text-primary border-primary' : 'text-on-surface hover:text-primary border-transparent'}`}
+            >
+              Giá cao nhất
+            </button>
+            <button 
+              onClick={() => setSortBy('capacity_desc')}
+              className={`px-4 py-3 font-title-md text-title-md whitespace-nowrap transition-colors border-b-2 ${sortBy === 'capacity_desc' ? 'text-primary border-primary' : 'text-on-surface hover:text-primary border-transparent'}`}
+            >
+              Sức chứa lớn nhất
+            </button>
+          </div>
+
+            {/* Room Cards */}
+          <div className="space-y-4">
+            {loading ? (
+              <div className="space-y-4 animate-pulse">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex flex-col md:flex-row rounded-2xl border border-border-grey bg-surface-container-lowest overflow-hidden shadow-sm">
+                    <div className="md:w-72 h-48 md:h-auto bg-surface-container-high/60 shrink-0" />
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="space-y-2">
+                        <div className="h-6 w-1/3 bg-surface-container-high/80 rounded" />
+                        <div className="h-4 w-1/4 bg-surface-container-high/60 rounded" />
+                        <div className="h-4 w-2/3 bg-surface-container-high/50 rounded" />
+                      </div>
+                      <div className="flex items-center justify-between pt-4 border-t border-border-grey/50">
+                        <div className="h-6 w-28 bg-surface-container-high/80 rounded" />
+                        <div className="flex gap-2">
+                          <div className="h-9 w-24 bg-surface-container-high/60 rounded-lg" />
+                          <div className="h-9 w-28 bg-surface-container-high/80 rounded-lg" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredRooms.length === 0 ? (
+              <div className="text-center py-10 text-on-surface-variant">Hiện chưa có loại phòng nào phù hợp với bộ lọc.</div>
+            ) : (
+              filteredRooms.map(room => (
+                <RoomCard key={room.id} room={room} onBookNow={() => handleBookNow(room)} onGroupBook={() => handleGroupBook(room)} />
+              ))
+            )}
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+
+      {/* Booking Modal */}
+      <PublicBookingModal 
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+        roomType={selectedRoomToBook}
+        checkInDate={checkInDate}
+        checkOutDate={checkOutDate}
+      />
+      <PublicGroupBookingModal
+        isOpen={isGroupBookingModalOpen}
+        onClose={() => setIsGroupBookingModalOpen(false)}
+        roomTypes={rooms}
+        initialRoom={selectedRoomForGroup}
+        checkInDate={checkInDate}
+        checkOutDate={checkOutDate}
+      />
+    </div>
+  );
+};
+
+export default LandingPage;
