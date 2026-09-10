@@ -158,10 +158,12 @@ $RECYCLE.BIN/
 *.temp
 
 # ==========================================
-# 6. DATABASE LOCALS & LARGE DUMPS
+# 6. DATABASE LOCALS & LARGE DUMPS / OFFICE FILES
 # ==========================================
 *.sqlite
 *.sqlite3
 *.db-journal
 *.dump
 *.sql.gz
+*.xlsx
+*.xls
