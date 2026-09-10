@@ -10,6 +10,7 @@ import {
 import pricingApi from '../../services/pricingApi';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import { useToast, useConfirm } from '../../context/ToastContext';
 
 const formatPrice = (amount: number) => {
@@ -170,27 +171,17 @@ const WeekendAndHolidayPricing: React.FC<WeekendAndHolidayPricingProps> = ({ roo
           <span className="text-xs text-on-surface-variant">(Giá cơ bản: {formatPrice(basePrice)})</span>
         </div>
 
-        {/* Tabs */}
-        <div className="flex rounded-lg bg-surface-container p-0.5 border border-border-grey">
-          <button
-            type="button"
-            onClick={() => setActiveTab('weekend')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'weekend' ? 'bg-surface text-primary shadow-xs' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            Giá cuối tuần
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('holiday')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'holiday' ? 'bg-surface text-primary shadow-xs' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            Giá ngày lễ ({holidays.length})
-          </button>
-        </div>
+        {/* Tabs có hiệu ứng khối trượt nền mượt mà */}
+        <Tabs
+          tabs={[
+            { id: 'weekend', label: 'Giá cuối tuần' },
+            { id: 'holiday', label: `Giá ngày lễ (${holidays.length})` }
+          ]}
+          value={activeTab}
+          onChange={(tabId) => setActiveTab(tabId as 'weekend' | 'holiday')}
+          variant="pill"
+          className="mb-0"
+        />
       </div>
 
       {/* Thông báo quy tắc ưu tiên giá */}

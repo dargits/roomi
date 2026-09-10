@@ -12,15 +12,14 @@
     -moz-osx-font-smoothing: auto;
   }
 
-  /* Toàn bộ hệ thống theo phong cách hình học sắc nét, không bo góc */
-  *:not(.rounded-full):not(.logo-dot),
-  *:not(.rounded-full):not(.logo-dot)::before,
-  *:not(.rounded-full):not(.logo-dot)::after {
+  /* Toàn bộ hệ thống theo phong cách hình học sắc nét, nhưng cho phép các component UI dùng class rounded */
+  *:not([class*="rounded"]):not(.logo-dot),
+  *:not([class*="rounded"]):not(.logo-dot)::before,
+  *:not([class*="rounded"]):not(.logo-dot)::after {
     border-radius: 0 !important;
   }
 
-  /* Riêng các chấm nhảy chuyển động dưới Logo giữ hình tròn */
-  .rounded-full,
+  /* Riêng các phần tử có class rounded và các chấm nhảy giữ nguyên bo góc */
   .logo-dot {
     border-radius: 9999px !important;
   }
@@ -242,5 +241,122 @@
 
 .animate-square-pulse {
   animation: squarePulseGlow 1.8s ease-in-out infinite;
+}
+
+/* 7. Hiệu ứng Ken Burns Zoom ảnh bìa điện ảnh (Cinematic Hero Zoom) */
+@keyframes heroKenBurns {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-hero-zoom {
+  animation: heroKenBurns 18s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* 8. Hiệu ứng Fade In Up so le (Staggered Entrance Animation) */
+@keyframes heroFadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: heroFadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animate-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animate-delay-300 {
+  animation-delay: 300ms;
+}
+
+/* 9. Hiệu ứng vệt sáng lướt qua nút bấm (Luxury Button Shimmer) */
+@keyframes btnShimmerSweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.32) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-150%) skewX(-20deg);
+  pointer-events: none;
+}
+
+.btn-shimmer:hover::after {
+  animation: btnShimmerSweep 1s ease-in-out infinite;
+}
+
+/* 10. Hiệu ứng sóng radar tỏa sáng (Pulse Glow Ripple) */
+@keyframes pulseGlowRing {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 94, 164, 0.5);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(0, 94, 164, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 94, 164, 0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlowRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 11. Thanh cuộn tinh gọn cho Sidebar (Custom Thin Scrollbar) */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 9999px !important;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.18);
 }
 

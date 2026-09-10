@@ -35,4 +35,5 @@ public class BookingResponse {
     private String paymentStatus;
     private String roomStatus;
     private boolean payLaterCheckout;
+    private java.util.List<GuestResponse> stayingGuests;
 }
