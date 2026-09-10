@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { roomIncidentApi } from '../../services/roomIncidentApi';
+import { roomApi } from '../../services/roomApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { 
@@ -27,6 +28,7 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [rooms, setRooms] = useState<any[]>([]);
 
   // Form báo sự cố
   const [roomId, setRoomId] = useState<number | string>(initialRoom?.id || '');
@@ -39,6 +41,15 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
   const [resolutionNote, setResolutionNote] = useState('');
 
   const isOwnerOrAdmin = user?.role === 'OWNER' || user?.role === 'ADMIN';
+
+  // Tải danh sách phòng để người dùng chọn thay vì nhập tay
+  useEffect(() => {
+    if (isOpen) {
+      roomApi.getAllRooms()
+        .then((data) => setRooms(data || []))
+        .catch((err) => console.error("Không thể tải danh sách phòng:", err));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialRoom) {
@@ -134,11 +145,26 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
   const getSeverityBadge = (sev: string) => {
     switch (sev) {
       case 'LIGHT':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">Nhẹ (Vẫn đón khách)</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+            <IoWarningOutline size={13} className="text-amber-600" />
+            Nhẹ (Vẫn đón khách)
+          </span>
+        );
       case 'HEAVY':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200">Nặng (Khóa bảo trì)</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200">
+            <IoWarningOutline size={13} className="text-orange-600" />
+            Nặng (Khóa bảo trì)
+          </span>
+        );
       case 'OUT_OF_SERVICE':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 border border-red-200">Không thể phục vụ</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+            <IoWarningOutline size={13} className="text-red-600" />
+            Không thể phục vụ
+          </span>
+        );
       default:
         return sev;
     }
@@ -190,27 +216,47 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
                   <label className="block font-label-md text-on-surface-variant mb-1.5">
                     Phòng bị sự cố <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    readOnly={!!initialRoom}
-                    value={roomNumber ? `Phòng ${roomNumber}` : ''}
-                    placeholder="Ví dụ: 101"
-                    className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm font-semibold"
-                  />
+                  {initialRoom ? (
+                    <input
+                      type="text"
+                      readOnly
+                      value={roomNumber ? `Phòng ${roomNumber}` : ''}
+                      className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm font-semibold"
+                    />
+                  ) : (
+                    <select
+                      value={roomId}
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        setRoomId(selectedId);
+                        const r = rooms.find((x) => String(x.id) === String(selectedId));
+                        setRoomNumber(r ? r.roomNumber : '');
+                      }}
+                      required
+                      className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm font-medium focus:ring-2 focus:ring-primary cursor-pointer"
+                    >
+                      <option value="">-- Chọn phòng cần báo sự cố --</option>
+                      {rooms.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          Phòng {r.roomNumber} ({r.roomTypeName || 'Tiêu chuẩn'})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block font-label-md text-on-surface-variant mb-1.5">
-                    Mức độ nghiêm trọng <span className="text-red-500">*</span>
+                  <label className="block font-label-md text-on-surface-variant mb-1.5 flex items-center gap-1">
+                    <span>Mức độ nghiêm trọng</span> <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={severity}
                     onChange={(e) => setSeverity(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm focus:ring-2 focus:ring-primary cursor-pointer font-medium"
                   >
-                    <option value="LIGHT">🟡 Nhẹ (Vẫn đưa về sẵn sàng, gắn cờ chờ xử lý)</option>
-                    <option value="HEAVY">🟠 Nặng (Khóa phòng bảo trì, cảnh báo booking ảnh hưởng)</option>
-                    <option value="OUT_OF_SERVICE">🔴 Không thể phục vụ (Khóa bảo trì khẩn cấp)</option>
+                    <option value="LIGHT">⚠️ Nhẹ (Vẫn đưa về sẵn sàng, gắn cờ chờ xử lý)</option>
+                    <option value="HEAVY">⚠️ Nặng (Khóa phòng bảo trì, cảnh báo booking ảnh hưởng)</option>
+                    <option value="OUT_OF_SERVICE">⚠️ Không thể phục vụ (Khóa bảo trì khẩn cấp)</option>
                   </select>
                 </div>
               </div>
