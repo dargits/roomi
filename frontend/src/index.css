@@ -12,15 +12,14 @@
     -moz-osx-font-smoothing: auto;
   }
 
-  /* Toàn bộ hệ thống theo phong cách hình học sắc nét, không bo góc */
-  *:not(.rounded-full):not(.logo-dot),
-  *:not(.rounded-full):not(.logo-dot)::before,
-  *:not(.rounded-full):not(.logo-dot)::after {
+  /* Toàn bộ hệ thống theo phong cách hình học sắc nét, nhưng cho phép các component UI dùng class rounded */
+  *:not([class*="rounded"]):not(.logo-dot),
+  *:not([class*="rounded"]):not(.logo-dot)::before,
+  *:not([class*="rounded"]):not(.logo-dot)::after {
     border-radius: 0 !important;
   }
 
-  /* Riêng các chấm nhảy chuyển động dưới Logo giữ hình tròn */
-  .rounded-full,
+  /* Riêng các phần tử có class rounded và các chấm nhảy giữ nguyên bo góc */
   .logo-dot {
     border-radius: 9999px !important;
   }
