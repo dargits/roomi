@@ -88,7 +88,7 @@ const QuickLoginDropdown: React.FC<QuickLoginDropdownProps> = ({ onSelectRole })
               </div>
             </div>
           ))}
-          <p className="text-[10px] text-outline text-center mt-1 pb-1">Nhấn vào tài khoản để tự động điền thông tin</p>
+          <p className="text-[10px] text-primary font-semibold text-center mt-1 pb-1">⚡ Nhấn vào tài khoản để đăng nhập tự động ngay</p>
         </div>
       )}
     </div>
