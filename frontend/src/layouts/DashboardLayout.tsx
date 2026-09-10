@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, useNavigate, Link, useLocation, Location } from 'react-router-dom';
+import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { Role } from '../types';
@@ -23,7 +23,13 @@ import {
   IoCloudDownloadOutline,
   IoLockClosedOutline,
   IoTimeOutline,
-  IoKeyOutline
+  IoKeyOutline,
+  IoMenuOutline,
+  IoCloseOutline,
+  IoGlobeOutline,
+  IoChevronBackOutline,
+  IoChevronForwardOutline,
+  IoOpenOutline
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
@@ -42,7 +48,7 @@ export interface NavGroupConfig {
   items: NavItem[];
 }
 
-const NAV_GROUPS: NavGroupConfig[] = [
+export const NAV_GROUPS: NavGroupConfig[] = [
   {
     id: 'dashboard',
     label: 'Tổng quan',
@@ -106,7 +112,7 @@ const NAV_GROUPS: NavGroupConfig[] = [
   }
 ];
 
-const ROLE_LABEL: Record<string, string> = {
+export const ROLE_LABEL: Record<string, string> = {
   OWNER:        'Chủ sở hữu',
   RECEPTIONIST: 'Lễ tân',
   HOUSEKEEPER:  'Buồng phòng',
@@ -114,119 +120,149 @@ const ROLE_LABEL: Record<string, string> = {
   ADMIN:        'Quản trị viên'
 };
 
-interface NavGroupProps {
-  group: NavGroupConfig;
-  role?: Role;
-  location: Location;
+export const ROLE_BADGE_STYLE: Record<string, string> = {
+  OWNER:        'bg-amber-50 text-amber-700 border-amber-300',
+  ADMIN:        'bg-rose-50 text-rose-700 border-rose-300',
+  RECEPTIONIST: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+  ACCOUNTANT:   'bg-purple-50 text-purple-700 border-purple-300',
+  HOUSEKEEPER:  'bg-cyan-50 text-cyan-700 border-cyan-300'
+};
+
+const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
+  '/manage/dashboard': { title: 'Tổng Quan Hệ Thống', group: 'Tổng quan' },
+  '/manage/bookings': { title: 'Quản Lý Đặt Phòng', group: 'Đặt phòng' },
+  '/manage/stay-declarations': { title: 'Khai Báo Lưu Trú', group: 'Đặt phòng' },
+  '/manage/deposit-policies': { title: 'Chính Sách Đặt Cọc', group: 'Đặt phòng' },
+  '/manage/rooms': { title: 'Sơ Đồ Phòng', group: 'Phòng' },
+  '/manage/room-types': { title: 'Quản Lý Loại Phòng', group: 'Phòng' },
+  '/manage/housekeeping': { title: 'Quản Lý Buồng Phòng', group: 'Phòng' },
+  '/manage/guests': { title: 'Quản Lý Khách Hàng', group: 'Khách & Dịch vụ' },
+  '/manage/extra-services': { title: 'Dịch Vụ Phụ Thu', group: 'Khách & Dịch vụ' },
+  '/manage/loyalty': { title: 'Khách Thân Thiết', group: 'Khách & Dịch vụ' },
+  '/manage/reports': { title: 'Báo Cáo Doanh Thu & Công Suất', group: 'Tài chính' },
+  '/manage/cashier-shifts': { title: 'Chốt Ca & Đối Soát Tiền Mặt', group: 'Tài chính' },
+  '/manage/staff': { title: 'Quản Lý Nhân Sự', group: 'Hệ thống' },
+  '/manage/inventory': { title: 'Kho Đồ Dùng', group: 'Hệ thống' },
+  '/manage/concurrency': { title: 'Kiểm Soát Đồng Thời', group: 'Hệ thống' },
+  '/manage/audit-logs': { title: 'Lịch Sử Hoạt Động', group: 'Hệ thống' },
+  '/manage/personal-data-audit': { title: 'Nhật Ký Dữ Liệu Cá Nhân', group: 'Hệ thống' },
+  '/manage/backup': { title: 'Sao Lưu & Xuất Dữ Liệu', group: 'Hệ thống' },
+  '/manage/settings': { title: 'Cài Đặt Khách Sạn', group: 'Hệ thống' },
+  '/manage/profile': { title: 'Hồ Sơ Cá Nhân', group: 'Cá nhân' }
+};
+
+/**
+ * Component hiển thị danh sách menu con (menu bé)
+ * với hiệu ứng khối trượt nền (gliding active pill) khi chuyển đổi giữa các menu con.
+ * Hỗ trợ cả chế độ expanded accordion lẫn chế độ collapsed floating popover.
+ */
+const SubmenuNav: React.FC<{
+  items: NavItem[];
+  currentPath: string;
   pendingResetCount: number;
-}
-
-const NavGroup: React.FC<NavGroupProps> = ({ group, role, location, pendingResetCount }) => {
-  const [open, setOpen] = useState<boolean>(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const visibleItems = group.items.filter((item) =>
-    !item.allowedRoles || (role && item.allowedRoles.includes(role))
-  );
+  variant?: 'accordion' | 'popover';
+}> = ({ items, currentPath, pendingResetCount, variant = 'accordion' }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState<{ top: number; height: number; opacity: number }>({
+    top: 0,
+    height: 0,
+    opacity: 0
+  });
+  const [hasMoved, setHasMoved] = useState(false);
+  const subRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const updatePill = () => {
+      const activeItem = items.find((i) => i.path === currentPath);
+      if (!activeItem) {
+        setPill((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+
+      const container = containerRef.current;
+      const activeEl = subRefs.current[activeItem.path];
+      if (container && activeEl) {
+        const top = activeEl.offsetTop;
+        const height = activeEl.offsetHeight;
+        setPill({ top, height, opacity: 1 });
+        setHasMoved(true);
+      } else {
+        setPill((prev) => ({ ...prev, opacity: 0 }));
+      }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
-  if (visibleItems.length === 0) return null;
+    const rafId = requestAnimationFrame(updatePill);
+    return () => cancelAnimationFrame(rafId);
+  }, [currentPath, items]);
 
-  const isActive = visibleItems.some((item) => location.pathname === item.path);
-  const GroupIcon = group.icon;
-
-  if (visibleItems.length === 1) {
-    const item = visibleItems[0];
-    const active = location.pathname === item.path;
-    const ItemIcon = item.icon || GroupIcon;
-    return (
-      <Link
-        to={item.path}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-none font-medium text-[13.5px] transition-all select-none ${
-          active
-            ? 'bg-primary/10 text-primary font-bold shadow-xs'
-            : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-        }`}
-      >
-        <ItemIcon size={16} className={active ? 'text-primary' : 'text-on-surface-variant'} />
-        <span>{group.label}</span>
-      </Link>
-    );
-  }
+  const isPopover = variant === 'popover';
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-none font-medium text-[13.5px] transition-all select-none cursor-pointer border border-transparent ${
-          isActive
-            ? 'bg-primary/10 text-primary font-bold shadow-xs border-primary/20'
-            : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-        } ${open ? 'bg-surface-container-low text-on-surface' : ''}`}
-      >
-        <GroupIcon size={16} className={isActive ? 'text-primary' : 'text-on-surface-variant'} />
-        <span>{group.label}</span>
-        {group.id === 'system' && pendingResetCount > 0 && (
-          <span className="px-1.5 py-0.2 text-[10px] font-extrabold bg-red-600 text-white rounded-full animate-pulse" title={`Có ${pendingResetCount} yêu cầu cấp lại mật khẩu`}>
-            {pendingResetCount}
-          </span>
-        )}
-        <IoChevronDownOutline
-          size={13}
-          className={`transition-transform duration-200 ml-0.5 ${open ? 'rotate-180 text-primary' : 'opacity-60'}`}
+    <div
+      ref={containerRef}
+      className={`relative w-full py-1 ${
+        isPopover
+          ? 'space-y-0.5'
+          : 'mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5'
+      }`}
+    >
+      {/* Gliding Submenu Pill */}
+      {pill.opacity > 0 && (
+        <div
+          className={`absolute z-0 rounded-lg bg-primary shadow-xs pointer-events-none ${
+            isPopover ? 'left-0 right-0' : 'left-4 right-1'
+          }`}
+          style={{
+            top: `${pill.top}px`,
+            height: `${pill.height}px`,
+            opacity: pill.opacity,
+            transition: hasMoved
+              ? 'top 0.24s cubic-bezier(0.22, 1, 0.36, 1), height 0.2s ease, opacity 0.15s ease'
+              : 'opacity 0.15s ease',
+            transform: 'translateZ(0)'
+          }}
         />
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-border-grey rounded-none shadow-lg p-1 z-[100] animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="px-3 py-2 border-b border-border-grey/50 mb-1 flex items-center justify-between">
-            <span className="text-[11px] font-bold text-on-surface-variant/70 uppercase tracking-wider flex items-center gap-1.5">
-              <GroupIcon size={14} className="text-primary" /> {group.label}
-            </span>
-            <span className="text-[10px] text-on-surface-variant/50 font-medium">{visibleItems.length} mục</span>
-          </div>
-          <div className="space-y-0.5">
-            {visibleItems.map((item) => {
-              const active = location.pathname === item.path;
-              const ItemIcon = item.icon;
-              const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setOpen(false)}
-                  className={`flex items-center justify-between px-3 py-2 rounded-none font-medium text-[13px] transition-all duration-150 ${
-                    active
-                      ? 'bg-primary text-white font-bold'
-                      : 'text-on-surface hover:bg-surface-container-low hover:text-primary'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {ItemIcon && (
-                      <ItemIcon size={16} className={active ? 'text-white' : 'text-on-surface-variant/70'} />
-                    )}
-                    <span className="truncate">{item.label}</span>
-                  </div>
-                  {isStaffReset && (
-                    <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 rounded-full border border-red-200 shrink-0">
-                      {pendingResetCount} chờ cấp
-                    </span>
-                  )}
-                  {active && !isStaffReset && <span className="w-1.5 h-1.5 bg-white ml-2 flex-shrink-0" />}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
       )}
+
+      {items.map((item) => {
+        const active = currentPath === item.path;
+        const ItemIcon = item.icon;
+        const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
+
+        return (
+          <Link
+            key={item.path}
+            to={item.path}
+            ref={(el) => { subRefs.current[item.path] = el; }}
+            className={`
+              relative z-10 flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-150
+              ${active
+                ? 'text-white font-bold'
+                : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+              }
+            `}
+          >
+            <div className="flex items-center gap-2.5 truncate">
+              {ItemIcon && (
+                <ItemIcon
+                  size={isPopover ? 15 : 16}
+                  className={`shrink-0 transition-colors duration-150 ${active ? 'text-white' : 'text-slate-400'}`}
+                />
+              )}
+              <span className="truncate">{item.label}</span>
+            </div>
+            {isStaffReset && (
+              <span
+                className={`px-1.5 py-0.2 text-[9px] font-bold rounded-full transition-colors ${
+                  active ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700 border border-red-200'
+                }`}
+              >
+                {pendingResetCount}
+              </span>
+            )}
+          </Link>
+        );
+      })}
     </div>
   );
 };
@@ -239,109 +275,595 @@ const DashboardLayout: React.FC = () => {
   const { pendingCount: pendingResetCount } = usePasswordResetNotification();
   const [showPasswordResetModal, setShowPasswordResetModal] = useState<boolean>(false);
 
+  // Responsive mobile drawer state
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
+
+  // Collapsible sidebar state (persisted)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('staygo_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('staygo_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Accordion open/close state for nav groups
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    NAV_GROUPS.forEach((g) => {
+      initial[g.id] = g.items.some((item) => item.path === location.pathname);
+    });
+    return initial;
+  });
+
+  // Auto-expand group containing the active path
+  useEffect(() => {
+    const activeGroup = NAV_GROUPS.find((g) =>
+      g.items.some((item) => item.path === location.pathname)
+    );
+    if (activeGroup) {
+      setOpenGroups((prev) => ({ ...prev, [activeGroup.id]: true }));
+    }
+    // Close mobile drawer on route change
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId]
+    }));
+  };
+
+  // Sliding active indicator pill state for collapsed sidebar
+  const [pillStyle, setPillStyle] = useState<{
+    top: number;
+    opacity: number;
+  }>({ top: 0, opacity: 0 });
+  const [hasPillMoved, setHasPillMoved] = useState(false);
+  const navContainerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  useEffect(() => {
+    if (!isCollapsed) {
+      setPillStyle({ top: 0, opacity: 0 });
+      setHasPillMoved(false);
+      return;
+    }
+
+    const updatePill = () => {
+      const container = navContainerRef.current;
+      if (!container) return;
+
+      const currentGroup = NAV_GROUPS.find((g) =>
+        g.items.some((item) => item.path === location.pathname)
+      );
+
+      if (!currentGroup) {
+        setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+
+      const activeEl = itemRefs.current[currentGroup.id];
+      if (!activeEl) {
+        setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+
+      const top = activeRect.top - containerRect.top + container.scrollTop;
+
+      setPillStyle({
+        top,
+        opacity: 1
+      });
+      setHasPillMoved(true);
+    };
+
+    // Khi đổi đường dẫn route trong chế độ thu gọn: Cập nhật vị trí pill TỨC THÌ (0ms delay)
+    // Để pill lướt ngay lập tức mà không bị chớp hay lag
+    const rafId = requestAnimationFrame(updatePill);
+
+    // Khi thanh sidebar đang animate co giãn: Đặt thêm fallback cập nhật vị trí chính xác
+    const settleTimer = setTimeout(updatePill, 310);
+
+    window.addEventListener('resize', updatePill);
+    const container = navContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', updatePill);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(settleTimer);
+      window.removeEventListener('resize', updatePill);
+      if (container) {
+        container.removeEventListener('scroll', updatePill);
+      }
+    };
+  }, [location.pathname, isCollapsed]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
   const roleLabel = (user?.role && ROLE_LABEL[user.role]) || user?.role || 'Nhân viên';
+  const roleBadgeStyle = (user?.role && ROLE_BADGE_STYLE[user.role]) || 'bg-neutral-100 text-neutral-700 border-neutral-300';
+  const currentRouteMeta = ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col antialiased">
-      {/* ── Top Navbar ── */}
-      <nav className="sticky top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-border-grey shadow-xs">
-        <div className="flex justify-between items-center px-4 md:px-6 h-16 max-w-screen-2xl mx-auto w-full">
-          {/* Left: Brand + Nav groups */}
-          <div className="flex items-center gap-3 md:gap-5">
-            {/* Brand Logo */}
+    <div className="h-screen w-screen overflow-hidden bg-[#f8fafc] text-on-surface flex flex-col antialiased">
+      <div className="flex flex-1 h-full overflow-hidden relative">
+        
+        {/* Mobile Backdrop */}
+        {mobileOpen && (
+          <div
+            onClick={() => setMobileOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+          />
+        )}
+
+        {/* ── Left Sidebar (Desktop + Mobile Drawer) ── */}
+        {/* ── Left Sidebar (Desktop + Mobile Drawer) ── */}
+        <aside
+          className={`
+            fixed lg:static top-0 bottom-0 left-0 z-50
+            flex flex-col bg-white border-r border-slate-200/80 shadow-[1px_0_12px_rgba(0,0,0,0.02)]
+            transition-all duration-300 ease-in-out select-none
+            ${mobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'}
+            ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}
+          `}
+        >
+          {/* Sidebar Header: Brand & Logo */}
+          <div className="h-16 px-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+            <Link
+              to="/"
+              className={`flex items-center gap-3 overflow-hidden group py-1 ${isCollapsed ? 'justify-center w-full' : ''}`}
+              title={isCollapsed ? (hotelSetting?.propertyName || 'StayGo') : 'Về trang chủ'}
+            >
+              {/* Brand Emblem */}
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary via-primary to-blue-600 text-white shadow-md shadow-primary/20 ring-2 ring-primary/15 flex items-center justify-center font-bold font-logo text-lg shrink-0 transition-transform group-hover:scale-105">
+                {hotelSetting?.propertyName?.[0] || 'S'}
+              </div>
+
+              {/* Brand text when expanded */}
+              <div className={`flex flex-col min-w-0 transition-opacity duration-200 ${isCollapsed ? 'lg:hidden' : ''}`}>
+                <span className="font-logo font-extrabold text-[17px] tracking-tight text-slate-800 uppercase truncate leading-tight group-hover:text-primary transition-colors">
+                  {hotelSetting?.propertyName || 'STAYGO'}
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary/80">PMS</span>
+                </div>
+              </div>
+            </Link>
+
+            {/* Mobile close button */}
             <button
               type="button"
-              onClick={() => navigate('/')}
-              className="flex flex-col items-center flex-shrink-0 group bg-transparent border-none p-0 cursor-pointer"
+              onClick={() => setMobileOpen(false)}
+              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              title="Đóng menu"
             >
-              <span className="font-logo font-bold text-[24px] tracking-wide text-primary leading-none uppercase group-hover:opacity-85 transition-opacity">
-                {hotelSetting?.propertyName || 'STAYGO'}
-              </span>
-              <div className="flex gap-1 mt-1">
-                {['bg-red-500', 'bg-yellow-400', 'bg-green-500', 'bg-purple-500', 'bg-blue-500'].map((c, i) => (
-                  <div
-                    key={i}
-                    className={`w-1 h-1 rounded-full ${c} animate-bounce`}
-                    style={{ animationDelay: `${i * 120}ms` }}
-                  />
-                ))}
-              </div>
+              <IoCloseOutline size={22} />
             </button>
-
-            {/* Divider */}
-            <div className="h-6 w-px bg-border-grey hidden sm:block" />
-
-            {/* Nav groups */}
-            <div className="flex items-center gap-1">
-              {NAV_GROUPS.map((group) => (
-                <NavGroup
-                  key={group.id}
-                  group={group}
-                  role={user?.role}
-                  location={location}
-                  pendingResetCount={pendingResetCount}
-                />
-              ))}
-            </div>
           </div>
 
-          {/* Right: Notification + User profile + Logout */}
-          <div className="flex items-center gap-2">
-            {/* Quick Password Reset Alert Button for Admin/Owner */}
-            {pendingResetCount > 0 && (user?.role === 'ADMIN' || user?.role === 'OWNER') && (
-              <button
-                type="button"
-                onClick={() => setShowPasswordResetModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-all text-xs font-semibold cursor-pointer shadow-xs animate-fade-in"
-                title={`Có ${pendingResetCount} yêu cầu cấp lại mật khẩu từ nhân viên đang chờ duyệt (Tại: Hệ thống → Nhân sự)`}
-              >
-                <IoKeyOutline size={16} className="text-amber-700 animate-bounce shrink-0" />
-                <span className="hidden sm:inline">Cấp lại MK:</span>
-                <span className="px-1.5 py-0.2 bg-red-600 text-white rounded-full text-[10px] font-bold">
-                  {pendingResetCount}
-                </span>
-              </button>
+          {/* Sidebar Navigation Items */}
+          <div
+            ref={navContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 sidebar-scroll relative"
+          >
+            {/* Gliding Active Indicator Pill (Collapsed Mode) */}
+            {isCollapsed && pillStyle.opacity > 0 && (
+              <div
+                className="absolute z-0 rounded-xl bg-primary shadow-md shadow-primary/30 pointer-events-none"
+                style={{
+                  top: `${pillStyle.top}px`,
+                  left: '50%',
+                  width: '44px',
+                  height: '44px',
+                  opacity: pillStyle.opacity,
+                  transform: 'translateX(-50%) translateZ(0)',
+                  transition: hasPillMoved
+                    ? 'top 0.32s cubic-bezier(0.34, 1.25, 0.64, 1), opacity 0.2s ease'
+                    : 'opacity 0.2s ease'
+                }}
+              />
             )}
 
+            {NAV_GROUPS.map((group) => {
+              const visibleItems = group.items.filter((item) =>
+                !item.allowedRoles || (user?.role && item.allowedRoles.includes(user.role))
+              );
+
+              if (visibleItems.length === 0) return null;
+
+              const isGroupActive = visibleItems.some((item) => location.pathname === item.path);
+              const isGroupOpen = !!openGroups[group.id];
+              const GroupIcon = group.icon;
+              const hasMultiple = visibleItems.length > 1;
+
+              // Single item direct link (e.g. Dashboard)
+              if (!hasMultiple) {
+                const singleItem = visibleItems[0];
+                const active = location.pathname === singleItem.path;
+                const ItemIcon = singleItem.icon || GroupIcon;
+
+                return (
+                  <div key={group.id} className="relative group/tooltip flex justify-center">
+                    <Link
+                      to={singleItem.path}
+                      ref={(el) => { itemRefs.current[group.id] = el; }}
+                      className={`
+                        flex items-center transition-all duration-200 relative z-10
+                        ${isCollapsed
+                          ? `w-11 h-11 rounded-xl justify-center ${
+                              active
+                                ? 'text-white font-bold'
+                                : 'text-slate-500 hover:text-primary hover:bg-slate-100/70'
+                            }`
+                          : `w-full gap-3 px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
+                              active
+                                ? 'bg-primary text-white font-semibold shadow-sm'
+                                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                            }`
+                        }
+                      `}
+                      title={isCollapsed ? singleItem.label : undefined}
+                    >
+                      <ItemIcon
+                        size={20}
+                        className={`shrink-0 transition-colors duration-200 ${
+                          active ? 'text-white' : (isCollapsed ? 'text-slate-600 group-hover/tooltip:text-primary' : 'text-slate-500')
+                        }`}
+                      />
+                      {!isCollapsed && <span className="truncate">{singleItem.label}</span>}
+                    </Link>
+
+                    {/* Tooltip on collapsed desktop mode */}
+                    {isCollapsed && (
+                      <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity z-50">
+                        {singleItem.label}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Multi-item group with Accordion & Collapsed hover popover
+              return (
+                <div key={group.id} className="relative group/tooltip flex flex-col items-center">
+                  {/* Group Trigger Button */}
+                  <button
+                    type="button"
+                    ref={(el) => { itemRefs.current[group.id] = el; }}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        // Khi đang thu menu và click vào menu có menu con: Tự động mở to menu ra
+                        setIsCollapsed(false);
+                        try {
+                          localStorage.setItem('staygo_sidebar_collapsed', 'false');
+                        } catch {}
+                        setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
+                        return;
+                      }
+                      toggleGroup(group.id);
+                    }}
+                    className={`
+                      transition-all duration-200 cursor-pointer relative z-10
+                      ${isCollapsed
+                        ? `w-11 h-11 rounded-xl flex items-center justify-center ${
+                            isGroupActive
+                              ? 'text-white font-bold'
+                              : 'text-slate-500 hover:text-primary hover:bg-slate-100/70'
+                          }`
+                        : `w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
+                            isGroupActive && !isGroupOpen
+                              ? 'bg-primary/10 text-primary font-bold'
+                              : isGroupOpen
+                              ? 'bg-slate-100/80 text-slate-900 font-semibold'
+                              : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                          }`
+                      }
+                    `}
+                    title={isCollapsed ? group.label : undefined}
+                  >
+                    <div className={`flex items-center gap-3 min-w-0 ${isCollapsed ? 'justify-center' : ''}`}>
+                      <GroupIcon
+                        size={20}
+                        className={`shrink-0 transition-colors duration-200 ${
+                          isCollapsed && isGroupActive ? 'text-white' : (isGroupActive ? 'text-primary' : 'text-slate-500')
+                        }`}
+                      />
+                      {!isCollapsed && (
+                        <span className="truncate font-semibold">{group.label}</span>
+                      )}
+                    </div>
+
+                    {/* Badge & Chevron when expanded */}
+                    {!isCollapsed && (
+                      <div className="flex items-center gap-1.5">
+                        {group.id === 'system' && pendingResetCount > 0 && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-red-600 text-white rounded-full animate-pulse">
+                            {pendingResetCount}
+                          </span>
+                        )}
+                        <IoChevronDownOutline
+                          size={14}
+                          className={`transition-transform duration-200 text-slate-400 ${isGroupOpen ? 'rotate-180 text-primary' : ''}`}
+                        />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Accordion Submenu (when expanded) with Gliding Indicator */}
+                  {!isCollapsed && isGroupOpen && (
+                    <SubmenuNav
+                      items={visibleItems}
+                      currentPath={location.pathname}
+                      pendingResetCount={pendingResetCount}
+                    />
+                  )}
+
+                  {/* Floating Popover when Collapsed on Desktop */}
+                  {isCollapsed && (
+                    <div className="hidden lg:block absolute left-full top-0 ml-3 w-56 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl p-2 opacity-0 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:pointer-events-auto transition-all duration-150 z-50">
+                      <div className="px-3 py-2 mb-1.5 border-b border-slate-100 font-bold text-xs text-primary flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GroupIcon size={16} />
+                          <span>{group.label}</span>
+                        </div>
+                        {group.id === 'system' && pendingResetCount > 0 && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold bg-red-100 text-red-700 rounded-full border border-red-200">
+                            {pendingResetCount}
+                          </span>
+                        )}
+                      </div>
+                      <SubmenuNav
+                        items={visibleItems}
+                        currentPath={location.pathname}
+                        pendingResetCount={pendingResetCount}
+                        variant="popover"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Sidebar Footer: Profile & Collapse Toggle ── */}
+          {/* Collapsed Mode Footer */}
+          {isCollapsed && (
+            <div className="hidden lg:flex flex-col items-center gap-3 py-3 px-2 border-t border-slate-100 bg-white shrink-0">
+              {/* Toggle expand button */}
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 transition-all cursor-pointer border border-transparent hover:border-slate-200 group/toggle"
+                title="Mở rộng menu"
+              >
+                <IoChevronForwardOutline size={18} className="group-hover/toggle:translate-x-0.5 transition-transform" />
+              </button>
+
+              {/* User Avatar with Green Indicator Dot & Hover Card */}
+              <div className="relative group/user">
+                <button
+                  type="button"
+                  onClick={() => navigate('/manage/profile')}
+                  className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-slate-200 hover:ring-primary shadow-xs hover:scale-105 transition-all cursor-pointer flex items-center justify-center bg-primary/10"
+                  title="Cài đặt hồ sơ cá nhân"
+                >
+                  {user?.avatarImage ? (
+                    <img
+                      src={user.avatarImage}
+                      alt={user?.name || 'Tài khoản'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-bold text-primary text-xs uppercase">
+                      {user?.name?.[0] || 'U'}
+                    </span>
+                  )}
+                </button>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white pointer-events-none" />
+
+                {/* Floating tooltip popover on hover */}
+                <div className="absolute left-full bottom-0 ml-3 w-48 bg-slate-900 text-white text-xs rounded-xl shadow-2xl p-2.5 opacity-0 pointer-events-none group-hover/user:opacity-100 transition-opacity z-50">
+                  <p className="font-bold text-sm truncate">{user?.name || 'Tài khoản'}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{roleLabel}</p>
+                  <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] text-primary-hover font-semibold flex items-center justify-between">
+                    <span>Xem hồ sơ</span>
+                    <span>&rarr;</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Expanded Mode Footer */}
+          <div className={`p-3 border-t border-slate-100 bg-white flex flex-col gap-2 shrink-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
+            {/* Desktop Collapse Toggle */}
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="hidden lg:flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer group/btn"
+              title="Thu gọn menu"
+            >
+              <div className="flex items-center gap-2">
+                <IoChevronBackOutline size={16} className="group-hover/btn:-translate-x-0.5 transition-transform" />
+                <span>Thu gọn thanh menu</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">Alt + M</span>
+            </button>
+
+            {/* User Profile Card */}
             <button
               type="button"
               onClick={() => navigate('/manage/profile')}
-              className="hidden sm:flex flex-col items-end cursor-pointer group bg-transparent border-none p-0 text-right"
+              className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 transition-all cursor-pointer text-left border border-slate-200/60 group/profile"
+              title="Cài đặt hồ sơ cá nhân"
             >
-              <span className="font-title-sm text-on-surface group-hover:text-primary transition-colors leading-tight text-sm font-semibold normal-case">
-                {user?.name || 'Người dùng'}
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-                {roleLabel}
-              </span>
-            </button>
+              <div className="relative shrink-0">
+                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-primary/20 shadow-xs flex items-center justify-center bg-primary/10">
+                  {user?.avatarImage ? (
+                    <img
+                      src={user.avatarImage}
+                      alt={user?.name || 'Tài khoản'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-bold text-primary text-xs uppercase">
+                      {user?.name?.[0] || 'U'}
+                    </span>
+                  )}
+                </div>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+              </div>
 
-            <div className="hidden sm:block h-5 w-px bg-border-grey mx-2" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate group-hover/profile:text-primary transition-colors leading-tight">
+                  {user?.name || 'Tài khoản'}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`inline-block text-[9px] font-bold px-1.5 py-0.2 rounded border ${roleBadgeStyle}`}>
+                    {roleLabel}
+                  </span>
+                </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Đăng xuất"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-red-50 border border-transparent hover:border-red-200 transition-all text-sm font-medium normal-case bg-transparent cursor-pointer"
-            >
-              <IoLogOutOutline size={15} />
-              <span className="hidden md:inline">Đăng xuất</span>
+              <IoSettingsOutline size={16} className="text-slate-400 group-hover/profile:text-primary group-hover/profile:rotate-45 transition-all shrink-0" />
             </button>
           </div>
-        </div>
-      </nav>
+        </aside>
 
-      {/* ── Main Content ── */}
-      <main className="flex-1 overflow-auto p-5 md:p-7 w-full max-w-screen-2xl mx-auto">
-        <div key={location.pathname} className="animate-page-enter">
-          <Outlet />
+        {/* ── Main Area Column (Header + Content) ── */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+          
+          {/* Topbar Header */}
+          <header className="h-16 px-4 md:px-6 bg-white border-b border-border-grey flex items-center justify-between shrink-0 shadow-xs z-30">
+            {/* Left: Hamburger & Breadcrumbs */}
+            <div className="flex items-center gap-3 md:gap-4 min-w-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.innerWidth >= 1024) {
+                    toggleCollapse();
+                  } else {
+                    setMobileOpen(true);
+                  }
+                }}
+                className="p-2 rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors cursor-pointer shrink-0"
+                title="Đóng / Mở Menu"
+              >
+                <IoMenuOutline size={24} />
+              </button>
+
+              {/* Breadcrumb Info */}
+              <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-on-surface-variant truncate">
+                <span className="hidden sm:inline text-on-surface-variant/60">{currentRouteMeta.group}</span>
+                <span className="hidden sm:inline text-on-surface-variant/40">/</span>
+                <h1 className="font-title-md font-bold text-on-surface truncate text-sm md:text-base">
+                  {currentRouteMeta.title}
+                </h1>
+              </div>
+            </div>
+
+            {/* Right: Quick Actions + Account */}
+            <div className="flex items-center gap-2 md:gap-3 shrink-0">
+              
+              {/* Quick Password Reset Alert Button for Admin/Owner */}
+              {pendingResetCount > 0 && (user?.role === 'ADMIN' || user?.role === 'OWNER') && (
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordResetModal(true)}
+                  className="btn-shimmer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-all text-xs font-semibold cursor-pointer shadow-xs animate-fade-in"
+                  title={`Có ${pendingResetCount} yêu cầu cấp lại mật khẩu từ nhân viên đang chờ duyệt`}
+                >
+                  <IoKeyOutline size={16} className="text-amber-700 animate-bounce shrink-0" />
+                  <span className="hidden md:inline">Cấp lại MK:</span>
+                  <span className="px-1.5 py-0.2 bg-red-600 text-white rounded-full text-[10px] font-bold">
+                    {pendingResetCount}
+                  </span>
+                </button>
+              )}
+
+              {/* View Public Website */}
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-primary bg-primary/10 hover:bg-primary hover:text-white transition-all cursor-pointer"
+                title="Mở website đặt phòng của khách trong tab mới"
+              >
+                <IoGlobeOutline size={15} />
+                <span>Xem Website</span>
+                <IoOpenOutline size={12} className="opacity-70" />
+              </a>
+
+              <div className="hidden sm:block h-6 w-px bg-border-grey" />
+
+              {/* Profile Link */}
+              <button
+                type="button"
+                onClick={() => navigate('/manage/profile')}
+                className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer text-left"
+                title="Cài đặt hồ sơ cá nhân"
+              >
+                {user?.avatarImage ? (
+                  <img
+                    src={user.avatarImage}
+                    alt={user?.name || 'Tài khoản'}
+                    className="w-8 h-8 rounded-full object-cover border border-primary/20 shadow-xs shrink-0"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                    {user?.name?.[0] || 'U'}
+                  </div>
+                )}
+                <div className="hidden md:flex flex-col">
+                  <span className="text-xs font-bold text-on-surface leading-tight truncate max-w-[120px]">
+                    {user?.name || 'Tài khoản'}
+                  </span>
+                  <span className="text-[10px] text-on-surface-variant font-medium">
+                    {roleLabel}
+                  </span>
+                </div>
+              </button>
+
+              {/* Logout Button */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-2 rounded-xl text-on-surface-variant hover:text-error hover:bg-red-50 transition-colors cursor-pointer"
+                title="Đăng xuất khỏi hệ thống"
+              >
+                <IoLogOutOutline size={20} />
+              </button>
+            </div>
+          </header>
+
+          {/* Main Scrollable Content */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-[#f8fafc] w-full">
+            <div key={location.pathname} className="max-w-screen-2xl mx-auto animate-page-enter">
+              <Outlet />
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
 
       {/* Modal Quản trị viên cấp lại mật khẩu tạm */}
       <PasswordResetManagementModal
