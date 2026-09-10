@@ -153,13 +153,15 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
 
 /**
  * Component hiển thị danh sách menu con (menu bé)
- * với hiệu ứng khối trượt nền (gliding active pill) khi chuyển đổi giữa các menu con
+ * với hiệu ứng khối trượt nền (gliding active pill) khi chuyển đổi giữa các menu con.
+ * Hỗ trợ cả chế độ expanded accordion lẫn chế độ collapsed floating popover.
  */
 const SubmenuNav: React.FC<{
   items: NavItem[];
   currentPath: string;
   pendingResetCount: number;
-}> = ({ items, currentPath, pendingResetCount }) => {
+  variant?: 'accordion' | 'popover';
+}> = ({ items, currentPath, pendingResetCount, variant = 'accordion' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<{ top: number; height: number; opacity: number }>({
     top: 0,
@@ -170,39 +172,52 @@ const SubmenuNav: React.FC<{
   const subRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
-    const activeItem = items.find((i) => i.path === currentPath);
-    if (!activeItem) {
-      setPill((prev) => ({ ...prev, opacity: 0 }));
-      return;
-    }
+    const updatePill = () => {
+      const activeItem = items.find((i) => i.path === currentPath);
+      if (!activeItem) {
+        setPill((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
 
-    const container = containerRef.current;
-    const activeEl = subRefs.current[activeItem.path];
-    if (container && activeEl) {
-      const top = activeEl.offsetTop;
-      const height = activeEl.offsetHeight;
-      setPill({ top, height, opacity: 1 });
-      setHasMoved(true);
-    } else {
-      setPill((prev) => ({ ...prev, opacity: 0 }));
-    }
+      const container = containerRef.current;
+      const activeEl = subRefs.current[activeItem.path];
+      if (container && activeEl) {
+        const top = activeEl.offsetTop;
+        const height = activeEl.offsetHeight;
+        setPill({ top, height, opacity: 1 });
+        setHasMoved(true);
+      } else {
+        setPill((prev) => ({ ...prev, opacity: 0 }));
+      }
+    };
+
+    const rafId = requestAnimationFrame(updatePill);
+    return () => cancelAnimationFrame(rafId);
   }, [currentPath, items]);
+
+  const isPopover = variant === 'popover';
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5 py-1"
+      className={`relative w-full py-1 ${
+        isPopover
+          ? 'space-y-0.5'
+          : 'mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5'
+      }`}
     >
       {/* Gliding Submenu Pill */}
       {pill.opacity > 0 && (
         <div
-          className="absolute left-4 right-1 z-0 rounded-lg bg-primary shadow-xs pointer-events-none"
+          className={`absolute z-0 rounded-lg bg-primary shadow-xs pointer-events-none ${
+            isPopover ? 'left-0 right-0' : 'left-4 right-1'
+          }`}
           style={{
             top: `${pill.top}px`,
             height: `${pill.height}px`,
             opacity: pill.opacity,
             transition: hasMoved
-              ? 'top 0.28s cubic-bezier(0.34, 1.25, 0.64, 1), height 0.2s ease, opacity 0.15s ease'
+              ? 'top 0.24s cubic-bezier(0.22, 1, 0.36, 1), height 0.2s ease, opacity 0.15s ease'
               : 'opacity 0.15s ease',
             transform: 'translateZ(0)'
           }}
@@ -220,7 +235,7 @@ const SubmenuNav: React.FC<{
             to={item.path}
             ref={(el) => { subRefs.current[item.path] = el; }}
             className={`
-              relative z-10 flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200
+              relative z-10 flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-150
               ${active
                 ? 'text-white font-bold'
                 : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
@@ -230,8 +245,8 @@ const SubmenuNav: React.FC<{
             <div className="flex items-center gap-2.5 truncate">
               {ItemIcon && (
                 <ItemIcon
-                  size={16}
-                  className={`shrink-0 transition-colors duration-200 ${active ? 'text-white' : 'text-slate-400'}`}
+                  size={isPopover ? 15 : 16}
+                  className={`shrink-0 transition-colors duration-150 ${active ? 'text-white' : 'text-slate-400'}`}
                 />
               )}
               <span className="truncate">{item.label}</span>
@@ -357,10 +372,12 @@ const DashboardLayout: React.FC = () => {
       setHasPillMoved(true);
     };
 
-    // Đợi 320ms để animation thu hẹp sidebar kết thúc hoàn toàn trước khi hiển thị pill
-    setPillStyle((prev) => ({ ...prev, opacity: 0 }));
-    const settleTimer = setTimeout(updatePill, 320);
-    const retryTimer = setTimeout(updatePill, 450);
+    // Khi đổi đường dẫn route trong chế độ thu gọn: Cập nhật vị trí pill TỨC THÌ (0ms delay)
+    // Để pill lướt ngay lập tức mà không bị chớp hay lag
+    const rafId = requestAnimationFrame(updatePill);
+
+    // Khi thanh sidebar đang animate co giãn: Đặt thêm fallback cập nhật vị trí chính xác
+    const settleTimer = setTimeout(updatePill, 310);
 
     window.addEventListener('resize', updatePill);
     const container = navContainerRef.current;
@@ -369,8 +386,8 @@ const DashboardLayout: React.FC = () => {
     }
 
     return () => {
+      cancelAnimationFrame(rafId);
       clearTimeout(settleTimer);
-      clearTimeout(retryTimer);
       window.removeEventListener('resize', updatePill);
       if (container) {
         container.removeEventListener('scroll', updatePill);
@@ -617,38 +634,12 @@ const DashboardLayout: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      <div className="space-y-0.5">
-                        {visibleItems.map((item) => {
-                          const active = location.pathname === item.path;
-                          const ItemIcon = item.icon;
-                          const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
-                          return (
-                            <Link
-                              key={item.path}
-                              to={item.path}
-                              className={`
-                                flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors
-                                ${active
-                                  ? 'bg-primary text-white font-bold shadow-xs'
-                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                }
-                              `}
-                            >
-                              <div className="flex items-center gap-2.5 truncate">
-                                {ItemIcon && <ItemIcon size={15} className={active ? 'text-white' : 'text-slate-400'} />}
-                                <span className="truncate">{item.label}</span>
-                              </div>
-                              {isStaffReset && (
-                                <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded-full ${
-                                  active ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
-                                }`}>
-                                  {pendingResetCount}
-                                </span>
-                              )}
-                            </Link>
-                          );
-                        })}
-                      </div>
+                      <SubmenuNav
+                        items={visibleItems}
+                        currentPath={location.pathname}
+                        pendingResetCount={pendingResetCount}
+                        variant="popover"
+                      />
                     </div>
                   )}
                 </div>
