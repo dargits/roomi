@@ -1,20 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
+import AuthContext from '../../context/AuthContext';
 import { IoMenu, IoClose } from 'react-icons/io5';
 
-const NAV_LINKS = [
+export const PUBLIC_NAV_LINKS = [
   { path: '/', label: 'Trang chủ' },
   { path: '/rooms', label: 'Phòng & Giá' },
   { path: '/about', label: 'Giới thiệu' },
   { path: '/contact', label: 'Liên hệ' }
 ];
 
+const NAV_LINKS = PUBLIC_NAV_LINKS;
+
 const PublicHeader: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { hotelSetting } = useAppConfig();
+  const authContext = useContext(AuthContext);
+  const user = authContext?.user;
+  const isAuthenticated = !!authContext?.isAuthenticated;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Gliding active indicator state cho Desktop Header Nav
+  const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number; opacity: number }>({
+    left: 0,
+    width: 0,
+    opacity: 0
+  });
+  const [hasMoved, setHasMoved] = useState(false);
+
+  useEffect(() => {
+    const updateIndicator = () => {
+      const el = linkRefs.current[location.pathname];
+      if (el) {
+        setIndicatorStyle({
+          left: el.offsetLeft,
+          width: el.offsetWidth,
+          opacity: 1
+        });
+        setHasMoved(true);
+      } else {
+        setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      }
+    };
+
+    const rafId = requestAnimationFrame(updateIndicator);
+    window.addEventListener('resize', updateIndicator);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', updateIndicator);
+    };
+  }, [location.pathname]);
 
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-border-grey shadow-xs">
@@ -35,17 +74,34 @@ const PublicHeader: React.FC = () => {
           </div>
         </Link>
 
-        {/* Desktop Navigation Links - giữa */}
-        <div className="hidden lg:flex items-center gap-6">
+        {/* Desktop Navigation Links - giữa có thanh trượt gliding indicator */}
+        <div className="hidden lg:flex items-center gap-6 relative py-1">
+          {/* Gliding Active Indicator Bar */}
+          {indicatorStyle.opacity > 0 && (
+            <span
+              className="absolute bottom-0 h-[2.5px] bg-primary rounded-full pointer-events-none"
+              style={{
+                left: `${indicatorStyle.left}px`,
+                width: `${indicatorStyle.width}px`,
+                opacity: indicatorStyle.opacity,
+                transition: hasMoved
+                  ? 'left 0.28s cubic-bezier(0.22, 1, 0.36, 1), width 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease'
+                  : 'opacity 0.15s ease',
+                transform: 'translateZ(0)'
+              }}
+            />
+          )}
+
           {NAV_LINKS.map((link) => {
             const isActive = location.pathname === link.path;
             return (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`font-body-md text-[14px] transition-colors py-1 ${
+                ref={(el) => { linkRefs.current[link.path] = el; }}
+                className={`font-body-md text-[14px] transition-colors duration-200 py-1 px-1 relative ${
                   isActive 
-                    ? 'text-primary font-bold border-b-2 border-primary' 
+                    ? 'text-primary font-bold' 
                     : 'text-on-surface-variant hover:text-primary'
                 }`}
               >
@@ -55,15 +111,43 @@ const PublicHeader: React.FC = () => {
           })}
         </div>
 
-        {/* Right side: Login Button & Mobile Toggle */}
+        {/* Right side: User Profile / Login Button & Mobile Toggle */}
         <div className="flex items-center gap-3">
-          <button 
-            type="button"
-            onClick={() => navigate('/login')}
-            className="border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-white px-5 md:px-7 py-1.5 rounded-lg uppercase tracking-wide font-label-md font-semibold text-xs md:text-sm transition-all whitespace-nowrap cursor-pointer"
-          >
-            Đăng nhập
-          </button>
+          {isAuthenticated && user ? (
+            <Link
+              to="/manage"
+              className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all group"
+              title="Đến trang quản trị"
+            >
+              {user.avatarImage ? (
+                <img
+                  src={user.avatarImage}
+                  alt={user.name}
+                  className="w-7 h-7 rounded-full object-cover border border-primary/30 shadow-xs shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs shrink-0">
+                  {user.name?.[0] || 'U'}
+                </div>
+              )}
+              <div className="hidden sm:flex flex-col text-left">
+                <span className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors leading-tight truncate max-w-[110px]">
+                  {user.name}
+                </span>
+                <span className="text-[10px] text-on-surface-variant font-medium">
+                  Quản trị
+                </span>
+              </div>
+            </Link>
+          ) : (
+            <button 
+              type="button"
+              onClick={() => navigate('/login')}
+              className="btn-shimmer border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-white px-5 md:px-7 py-1.5 rounded-lg uppercase tracking-wide font-label-md font-semibold text-xs md:text-sm transition-all whitespace-nowrap cursor-pointer hover:shadow-md active:scale-95"
+            >
+              Đăng nhập
+            </button>
+          )}
 
           {/* Mobile Menu Toggle Button */}
           <button
@@ -80,6 +164,30 @@ const PublicHeader: React.FC = () => {
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden bg-surface-container-lowest border-b border-border-grey px-6 py-4 space-y-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
+          {isAuthenticated && user && (
+            <Link
+              to="/manage"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 p-2.5 rounded-lg bg-primary/10 text-primary font-semibold mb-2"
+            >
+              {user.avatarImage ? (
+                <img
+                  src={user.avatarImage}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full object-cover border border-primary/30"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs uppercase">
+                  {user.name?.[0] || 'U'}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className="text-sm font-bold">{user.name}</span>
+                <span className="text-xs opacity-80">Trang quản trị &rarr;</span>
+              </div>
+            </Link>
+          )}
+
           {NAV_LINKS.map((link) => {
             const isActive = location.pathname === link.path;
             return (

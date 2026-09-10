@@ -4,13 +4,20 @@ import Footer from '../../components/layout/Footer';
 import SearchBar from './SearchBar';
 import FilterSidebar from './FilterSidebar';
 import RoomCard, { RoomCardData } from '../../components/common/RoomCard';
-import { useAppConfig } from '../../context/AppConfigContext';
+import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import PublicBookingModal from './PublicBookingModal';
 import PublicGroupBookingModal from '../public/PublicGroupBookingModal';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { 
+  IoLocationOutline, 
+  IoCallOutline, 
+  IoMailOutline, 
+  IoTimeOutline, 
+  IoNavigateOutline 
+} from 'react-icons/io5';
 
 const LandingPage: React.FC = () => {
   const { hotelSetting, isAppLoading } = useAppConfig();
@@ -151,6 +158,12 @@ const LandingPage: React.FC = () => {
     if (sortBy === 'capacity_desc') return b.maxCapacity - a.maxCapacity;
     return 0;
   });
+
+  const hotelAddress = hotelSetting?.address?.trim() || 'Z115, Phan Đình Phùng, Tp. Thái Nguyên, Tỉnh Thái Nguyên';
+  const hotelName = hotelSetting?.propertyName?.trim() || 'STAY AWAY';
+  const mapQuery = hotelAddress || `${hotelName}, Việt Nam`;
+  const mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
+  const directMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
   
   return (
     <div className="bg-surface text-on-surface antialiased min-h-screen pt-16 flex flex-col">
@@ -166,22 +179,24 @@ const LandingPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Section */}
-      <section className="relative w-full h-[320px] flex flex-col items-center justify-center">
-        <div className="absolute inset-0 z-0">
+      <section className="relative w-full h-[320px] flex flex-col items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <div 
-            className="bg-cover bg-center w-full h-full bg-neutral-800" 
-            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
-          ></div>
-          <div className="absolute inset-0 bg-black/40"></div>
+            className="bg-cover bg-center w-full h-full bg-neutral-800 animate-hero-zoom" 
+            style={{ backgroundImage: `url('${hotelSetting?.homeImage || DEFAULT_HERO_IMAGE}')` }}
+          />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
-        <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6">
+        <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6 animate-fade-in-up">
           <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">
             Khách sạn và nơi để ở{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
           </h1>
           <p className="font-title-lg text-title-lg text-white drop-shadow-md">Tìm kiếm để so sánh giá cả và khám phá ưu đãi tuyệt vời có miễn phí hủy</p>
         </div>
         
-        <SearchBar onSearch={handleSearch} />
+        <div className="w-full flex justify-center animate-fade-in-up animate-delay-100">
+          <SearchBar onSearch={handleSearch} />
+        </div>
       </section>
 
       {/* Main Content Area */}
@@ -267,6 +282,96 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
       </main>
+
+      {/* Hotel Location & Interactive Map Section */}
+      <section className="w-full bg-surface-container-low/60 border-t border-border-grey py-14 px-4 md:px-margin-desktop">
+        <div className="max-w-container-max-width mx-auto">
+          {/* Section Heading */}
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <span className="text-primary font-bold text-xs uppercase tracking-wider">Vị trí thuận tiện</span>
+            <h2 className="font-headline-md font-bold text-on-surface mt-1">
+              Vị Trí Cơ Sở & Chỉ Đường
+            </h2>
+            <p className="text-xs md:text-sm text-on-surface-variant mt-2">
+              Bản đồ định vị cơ sở {hotelName}. Dễ dàng tra cứu đường đi và khám phá các điểm đến lân cận.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch bg-surface-container-lowest rounded-3xl border border-border-grey overflow-hidden shadow-xs">
+            {/* Left Col: Branch Info & Quick Actions */}
+            <div className="lg:col-span-5 p-6 md:p-8 flex flex-col justify-between space-y-6">
+              <div className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse-glow">
+                    <IoLocationOutline size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-title-md font-bold text-on-surface">
+                      {hotelName}
+                    </h3>
+                    <span className="text-xs text-primary font-medium">Vị trí cơ sở</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface-container-low/70 border border-border-grey/60 space-y-2">
+                  <p className="text-xs md:text-sm text-on-surface font-medium leading-relaxed">
+                    {hotelAddress}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    Ghim vị trí thực tế trên Google Maps
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-xs md:text-sm text-on-surface-variant">
+                  {hotelSetting?.phone && (
+                    <div className="flex items-center gap-3">
+                      <IoCallOutline size={18} className="text-primary shrink-0" />
+                      <span>Hotline hỗ trợ: <strong className="text-on-surface">{hotelSetting.phone}</strong></span>
+                    </div>
+                  )}
+                  {hotelSetting?.email && (
+                    <div className="flex items-center gap-3">
+                      <IoMailOutline size={18} className="text-primary shrink-0" />
+                      <span>Email: <strong className="text-on-surface">{hotelSetting.email}</strong></span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <IoTimeOutline size={18} className="text-primary shrink-0" />
+                    <span>Giờ phục vụ: <strong className="text-on-surface">Nhận {hotelSetting?.defaultCheckinTime?.substring(0,5) || '14:00'} - Trả {hotelSetting?.defaultCheckoutTime?.substring(0,5) || '12:00'}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <a
+                  href={directMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-shimmer w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-label-md font-semibold text-xs md:text-sm hover:bg-primary/90 hover:shadow-md hover:scale-[1.01] active:scale-95 transition-all cursor-pointer"
+                >
+                  <IoNavigateOutline size={18} />
+                  Mở chỉ đường trên Google Maps
+                </a>
+              </div>
+            </div>
+
+            {/* Right Col: Interactive Google Maps Pinned */}
+            <div className="lg:col-span-7 min-h-[350px] md:min-h-[420px] relative bg-surface-container-low">
+              <iframe
+                title={`Bản đồ vị trí cơ sở ${hotelName}`}
+                src={mapEmbedUrl}
+                width="100%"
+                height="100%"
+                className="w-full h-full min-h-[350px] md:min-h-[420px] border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      </section>
 
       <Footer />
 

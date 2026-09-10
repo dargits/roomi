@@ -40,6 +40,13 @@ export interface BookingResponse {
   paymentStatus?: string;
   roomStatus?: string;
   payLaterCheckout?: boolean;
+  stayingGuests?: Array<{
+    id?: number;
+    name?: string;
+    phone?: string;
+    idNumber?: string;
+    email?: string;
+  }>;
 }
 
 export interface BookingRequest {
