@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.DebtApprovalCreateRequest;
 import plant.stay.dto.request.DebtApprovalRejectRequest;
 import plant.stay.dto.response.DebtItemResponse;
+import plant.stay.dto.response.DebtAcknowledgementData;
+import plant.stay.dto.response.MessageResponse;
+import plant.stay.service.AuditLogService;
 import plant.stay.exception.BusinessException;
 import plant.stay.exception.UnauthorizedException;
 import org.springframework.http.HttpStatus;
@@ -25,6 +28,7 @@ public class DebtApprovalController {
 
     private final DebtApprovalService debtApprovalService;
     private final AuthUtil authUtil;
+    private final AuditLogService auditLogService;
 
     // Lễ tân gửi yêu cầu trả phòng còn nợ
     @PostMapping("/request")
@@ -75,6 +79,33 @@ public class DebtApprovalController {
         return ResponseEntity.ok(debtApprovalService.getAllRequests());
     }
 
+    @GetMapping("/{id}/acknowledgement")
+    public ResponseEntity<DebtAcknowledgementData> getDebtAcknowledgement(
+            @PathVariable Long id, HttpServletRequest request) {
+        checkDebtDocumentStaff(request);
+        return ResponseEntity.ok(debtApprovalService.getDebtAcknowledgement(id));
+    }
+
+    @PostMapping("/{id}/send-acknowledgement")
+    public ResponseEntity<MessageResponse> sendDebtAcknowledgement(
+            @PathVariable Long id, HttpServletRequest request) {
+        User actor = checkDebtDocumentStaff(request);
+        return ResponseEntity.ok(debtApprovalService.sendDebtAcknowledgement(id, actor));
+    }
+
+    @PostMapping("/{id}/log-document")
+    public ResponseEntity<MessageResponse> logDebtDocument(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "PRINT") String actionType,
+            HttpServletRequest request) {
+        User actor = checkDebtDocumentStaff(request);
+        String action = "EXPORT".equalsIgnoreCase(actionType)
+                ? "EXPORT_DEBT_ACKNOWLEDGEMENT" : "PRINT_DEBT_ACKNOWLEDGEMENT";
+        auditLogService.log("DebtApprovalRequest", id, action, actor,
+                "Đã " + ("EXPORT".equalsIgnoreCase(actionType) ? "kết xuất" : "in") + " giấy xác nhận công nợ");
+        return ResponseEntity.ok(new MessageResponse("Đã ghi nhận nhật ký chứng từ công nợ"));
+    }
+
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null) throw new UnauthorizedException("Vui lòng đăng nhập");
@@ -93,6 +124,14 @@ public class DebtApprovalController {
         User user = checkStaff(request);
         if (user.getRole() != Role.RECEPTIONIST) {
             throw new BusinessException("Chỉ Lễ tân mới có quyền đề nghị trả phòng còn nợ!", HttpStatus.FORBIDDEN);
+        }
+        return user;
+    }
+
+    private User checkDebtDocumentStaff(HttpServletRequest request) {
+        User user = checkStaff(request);
+        if (user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN) {
+            throw new BusinessException("Bạn không có quyền thao tác giấy xác nhận công nợ!", HttpStatus.FORBIDDEN);
         }
         return user;
     }

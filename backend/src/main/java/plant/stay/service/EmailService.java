@@ -20,4 +20,8 @@ public interface EmailService {
      * @return true nếu gửi thành công, false nếu thất bại
      */
     boolean sendInvoiceEmail(String toEmail, plant.stay.dto.response.InvoiceEmailData data);
+
+    boolean sendDebtAcknowledgementEmail(String toEmail, plant.stay.dto.response.DebtAcknowledgementData data);
+
+    boolean sendDebtReminderEmail(String toEmail, plant.stay.dto.response.DebtAcknowledgementData data);
 }

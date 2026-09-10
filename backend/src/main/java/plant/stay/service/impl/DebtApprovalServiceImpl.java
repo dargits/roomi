@@ -1,16 +1,21 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.DebtApprovalCreateRequest;
 import plant.stay.dto.request.DebtApprovalRejectRequest;
 import plant.stay.dto.response.DebtItemResponse;
+import plant.stay.dto.response.DebtAcknowledgementData;
+import plant.stay.dto.response.MessageResponse;
+import plant.stay.exception.BusinessException;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.DebtApprovalService;
+import plant.stay.service.EmailService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -22,6 +27,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DebtApprovalServiceImpl implements DebtApprovalService {
 
     private final DebtApprovalRepository debtApprovalRepository;
@@ -29,7 +35,9 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final RoomRepository roomRepository;
+    private final HotelSettingRepository hotelSettingRepository;
     private final AuditLogService auditLogService;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -160,6 +168,8 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 "Chủ cơ sở " + actor.getName() + " đã phê duyệt trả phòng còn nợ cho Booking #" + booking.getId()
                 + ", số tiền nợ: " + request.getDebtAmount() + "đ, hạn thu: " + request.getDueDate());
 
+        sendDebtAcknowledgementAutomatically(request, actor);
+
         return toDto(request);
     }
 
@@ -217,6 +227,110 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public DebtAcknowledgementData getDebtAcknowledgement(Long requestId) {
+        DebtApprovalRequest request = debtApprovalRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu duyệt nợ #" + requestId));
+        return buildDebtAcknowledgementData(requireActiveApprovedDebt(request));
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse sendDebtAcknowledgement(Long requestId, User actor) {
+        DebtApprovalRequest request = debtApprovalRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu duyệt nợ #" + requestId));
+        DebtAcknowledgementData data = buildDebtAcknowledgementData(requireActiveApprovedDebt(request));
+        if (data.getGuestEmail() == null || data.getGuestEmail().isBlank()) {
+            throw new BusinessException("Khách hàng chưa có email. Vui lòng cập nhật hồ sơ khách trước khi gửi giấy xác nhận công nợ.");
+        }
+        if (!emailService.sendDebtAcknowledgementEmail(data.getGuestEmail(), data)) {
+            throw new BusinessException("Gửi giấy xác nhận công nợ thất bại. Vui lòng thử lại sau.");
+        }
+        request.setDocumentSentAt(LocalDateTime.now());
+        request.setDocumentSentTo(data.getGuestEmail());
+        debtApprovalRepository.save(request);
+        auditLogService.log("DebtApprovalRequest", request.getId(), "SEND_DEBT_ACKNOWLEDGEMENT", actor,
+                "Đã gửi lại giấy xác nhận công nợ tới " + data.getGuestEmail());
+        return new MessageResponse("Đã gửi giấy xác nhận công nợ tới " + data.getGuestEmail());
+    }
+
+    @Override
+    @Transactional
+    public void sendDueTomorrowReminders() {
+        LocalDate dueDate = LocalDate.now().plusDays(1);
+        for (DebtApprovalRequest request : debtApprovalRepository.findActiveApprovedDebtsDueOn(dueDate)) {
+            try {
+                if (dueDate.equals(request.getReminderSentForDueDate())) continue;
+                DebtAcknowledgementData data = buildDebtAcknowledgementData(request);
+                if (data.getGuestEmail() == null || data.getGuestEmail().isBlank()) continue;
+                if (emailService.sendDebtReminderEmail(data.getGuestEmail(), data)) {
+                    request.setReminderSentForDueDate(dueDate);
+                    request.setReminderSentAt(LocalDateTime.now());
+                    debtApprovalRepository.save(request);
+                    auditLogService.log("DebtApprovalRequest", request.getId(), "SEND_DEBT_REMINDER", null,
+                            "Đã gửi email nhắc thanh toán trước hạn một ngày tới " + data.getGuestEmail());
+                } else {
+                    log.warn("Không thể gửi email nhắc công nợ #{} tới {}", request.getId(), data.getGuestEmail());
+                }
+            } catch (Exception exception) {
+                log.warn("Không thể xử lý email nhắc công nợ #{}: {}", request.getId(), exception.getMessage());
+            }
+        }
+    }
+
+    private void sendDebtAcknowledgementAutomatically(DebtApprovalRequest request, User actor) {
+        try {
+            DebtAcknowledgementData data = buildDebtAcknowledgementData(request);
+            if (data.getGuestEmail() == null || data.getGuestEmail().isBlank()) return;
+            if (emailService.sendDebtAcknowledgementEmail(data.getGuestEmail(), data)) {
+                request.setDocumentSentAt(LocalDateTime.now());
+                request.setDocumentSentTo(data.getGuestEmail());
+                debtApprovalRepository.save(request);
+                auditLogService.log("DebtApprovalRequest", request.getId(), "SEND_DEBT_ACKNOWLEDGEMENT", actor,
+                        "Đã tự động gửi giấy xác nhận công nợ tới " + data.getGuestEmail());
+            }
+        } catch (Exception exception) {
+            log.warn("Không thể tự động gửi giấy xác nhận công nợ #{}: {}", request.getId(), exception.getMessage());
+        }
+    }
+
+    private DebtApprovalRequest requireActiveApprovedDebt(DebtApprovalRequest request) {
+        if (request.getStatus() != DebtApprovalStatus.APPROVED) {
+            throw new BusinessException("Chỉ có thể xuất giấy xác nhận cho yêu cầu công nợ đã được duyệt.");
+        }
+        BigDecimal paidAmount = paymentRepository.findByInvoiceId(request.getInvoice().getId()).stream()
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (request.getInvoice().getStatus() == InvoiceStatus.PAID
+                || request.getInvoice().getTotalAmount().subtract(paidAmount).compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Khoản công nợ đã được thanh toán đầy đủ.");
+        }
+        return request;
+    }
+
+    private DebtAcknowledgementData buildDebtAcknowledgementData(DebtApprovalRequest request) {
+        Invoice invoice = request.getInvoice();
+        Booking booking = request.getBooking();
+        Guest guest = request.getGuest();
+        BigDecimal paidAmount = paymentRepository.findByInvoiceId(invoice.getId()).stream()
+                .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        HotelSetting hotel = hotelSettingRepository.findById(1L).orElse(null);
+        return DebtAcknowledgementData.builder()
+                .debtRequestId(request.getId()).bookingId(booking.getId()).invoiceId(invoice.getId())
+                .hotelName(hotel != null ? hotel.getPropertyName() : "STAYAWAY HOTEL")
+                .hotelAddress(hotel != null ? hotel.getAddress() : "")
+                .hotelPhone(hotel != null ? hotel.getPhone() : "")
+                .hotelEmail(hotel != null ? hotel.getEmail() : "")
+                .guestName(guest.getName()).guestPhone(guest.getPhone()).guestEmail(guest.getEmail()).guestIdNumber(guest.getIdNumber())
+                .roomNumber(booking.getRoom() != null ? booking.getRoom().getRoomNumber() : null)
+                .checkInDate(booking.getCheckInDate()).checkOutDate(booking.getCheckOutDate())
+                .invoiceTotal(invoice.getTotalAmount()).paidAmount(paidAmount)
+                .debtAmount(invoice.getTotalAmount().subtract(paidAmount).max(BigDecimal.ZERO))
+                .dueDate(request.getDueDate()).reason(request.getReason())
+                .approvedByName(request.getApprovedBy() != null ? request.getApprovedBy().getName() : null)
+                .approvedAt(request.getApprovedAt()).build();
+    }
+
     private DebtItemResponse toDto(DebtApprovalRequest r) {
         Invoice inv = r.getInvoice();
         BigDecimal totalAmount = inv != null ? inv.getTotalAmount() : BigDecimal.ZERO;
@@ -244,6 +358,7 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 .guestId(r.getGuest() != null ? r.getGuest().getId() : null)
                 .guestName(r.getGuest() != null ? r.getGuest().getName() : null)
                 .guestPhone(r.getGuest() != null ? r.getGuest().getPhone() : null)
+                .guestEmail(r.getGuest() != null ? r.getGuest().getEmail() : null)
                 .roomNumber(r.getBooking() != null && r.getBooking().getRoom() != null ? r.getBooking().getRoom().getRoomNumber() : null)
                 .totalAmount(totalAmount)
                 .paidAmount(paidAmount)
@@ -257,6 +372,10 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 .approvedByName(r.getApprovedBy() != null ? r.getApprovedBy().getName() : null)
                 .approvedAt(r.getApprovedAt())
                 .rejectReason(r.getRejectReason())
+                .documentSentAt(r.getDocumentSentAt())
+                .documentSentTo(r.getDocumentSentTo())
+                .reminderSentForDueDate(r.getReminderSentForDueDate())
+                .reminderSentAt(r.getReminderSentAt())
                 .build();
     }
 }
