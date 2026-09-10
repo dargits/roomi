@@ -1,0 +1,523 @@
+import React, { useState, useEffect } from 'react';
+import { roomTypeApi } from '../../services/roomTypeApi';
+import { useAuth } from '../../context/AuthContext';
+import { IoAddOutline, IoBedOutline, IoCashOutline, IoChevronDownOutline, IoCloseOutline, IoCloudUploadOutline, IoPencilOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
+import Modal from '../../components/ui/Modal';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import SeasonalPricing from '../rooms/SeasonalPricing';
+import WeekendAndHolidayPricing from '../rooms/WeekendAndHolidayPricing';
+import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
+import { RoomTypeResponse } from '../../types';
+
+interface RoomTypeFormData {
+  id: number | null;
+  name: string;
+  standardCapacity: number;
+  maxCapacity: number;
+  extraPersonChargePerNight: number;
+  maxChildAgeFree: number;
+  basePrice: number;
+  amenitiesDescription: string;
+  imageUrls: string[];
+  active: boolean;
+}
+
+const RoomTypeManagement: React.FC = () => {
+  const { user } = useAuth();
+  const [roomTypes, setRoomTypes] = useState<RoomTypeResponse[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  
+  // Form modal state
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [formData, setFormData] = useState<RoomTypeFormData>({
+    id: null,
+    name: '',
+    standardCapacity: 2,
+    maxCapacity: 2,
+    extraPersonChargePerNight: 0,
+    maxChildAgeFree: 6,
+    basePrice: 0,
+    amenitiesDescription: '',
+    imageUrls: [],
+    active: true
+  });
+  const [formError, setFormError] = useState<string>('');
+  const [isUploadingImages, setIsUploadingImages] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [expandedRoomTypeId, setExpandedRoomTypeId] = useState<number | null>(null);
+  const [expandedPricingTab, setExpandedPricingTab] = useState<'weekend_holiday' | 'season'>('weekend_holiday');
+
+  // Delete confirm state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [itemToDelete, setItemToDelete] = useState<RoomTypeResponse | null>(null);
+
+  const fetchRoomTypes = async () => {
+    setLoading(true);
+    try {
+      const data = await roomTypeApi.getAllRoomTypes();
+      setRoomTypes(data);
+    } catch (error) {
+      console.error("Failed to fetch room types", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
+      fetchRoomTypes();
+    }
+  }, [user]);
+
+  if (user?.role !== 'OWNER') {
+    return <div className="p-6 text-alert-red bg-red-50 rounded-md">Bạn không có quyền truy cập trang này. Chỉ chủ sở hữu mới có quyền quản lý loại phòng.</div>;
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const openAddModal = () => {
+    setFormData({
+      id: null,
+      name: '',
+      standardCapacity: 2,
+      maxCapacity: 2,
+      extraPersonChargePerNight: 0,
+      maxChildAgeFree: 6,
+      basePrice: 0,
+      amenitiesDescription: '',
+      imageUrls: [],
+      active: true
+    });
+    setIsEditing(false);
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (room: RoomTypeResponse) => {
+    setFormData({
+      id: room.id,
+      name: room.name,
+      standardCapacity: room.standardCapacity || 2,
+      maxCapacity: room.maxCapacity,
+      extraPersonChargePerNight: room.extraPersonChargePerNight || 0,
+      maxChildAgeFree: room.maxChildAgeFree || 6,
+      basePrice: room.basePrice,
+      amenitiesDescription: room.amenitiesDescription || '',
+      imageUrls: room.imageUrls || [],
+      active: room.active
+    });
+    setIsEditing(true);
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (Number(formData.maxCapacity) < Number(formData.standardCapacity)) {
+      setFormError('Sức chứa tối đa không được nhỏ hơn sức chứa tiêu chuẩn.');
+      return;
+    }
+    if (Number(formData.extraPersonChargePerNight) < 0) {
+      setFormError('Mức phụ thu thêm người không được là số âm.');
+      return;
+    }
+    try {
+      const payload = {
+        ...formData,
+        standardCapacity: Number(formData.standardCapacity),
+        maxCapacity: Number(formData.maxCapacity),
+        extraPersonChargePerNight: Number(formData.extraPersonChargePerNight),
+        maxChildAgeFree: Number(formData.maxChildAgeFree),
+        basePrice: Number(formData.basePrice)
+      };
+      if (isEditing && formData.id) {
+        await roomTypeApi.updateRoomType(formData.id, payload as any);
+        toastSuccess(`Đã cập nhật loại phòng "${formData.name}" thành công!`);
+      } else {
+        await roomTypeApi.createRoomType(payload as any);
+        toastSuccess(`Đã tạo loại phòng "${formData.name}" thành công!`);
+      }
+      setIsModalOpen(false);
+      fetchRoomTypes();
+    } catch (error: any) {
+      console.error("Form submit error", error);
+      setFormError(error.response?.data?.message || "Có lỗi xảy ra khi lưu dữ liệu.");
+    }
+  };
+
+  const openDeleteModal = (room: RoomTypeResponse) => {
+    setItemToDelete(room);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    try {
+      await roomTypeApi.deleteRoomType(itemToDelete.id);
+      toastSuccess(`Đã xóa loại phòng "${itemToDelete.name}" thành công!`);
+      setIsDeleteModalOpen(false);
+      fetchRoomTypes();
+    } catch (error: any) {
+      console.error("Delete error", error);
+      toastError(error.response?.data?.message || "Lỗi khi xóa loại phòng.");
+    }
+  };
+
+  const formatPrice = (price?: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
+  };
+
+  return (
+    <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-lowest">
+        <div className="flex items-center gap-2">
+          <IoBedOutline size={22} className="text-primary" /> 
+          <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
+            Quản lý Loại phòng & Cấu hình giá
+          </h2>
+        </div>
+        <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
+          Thêm Loại phòng
+        </Button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
+              <th className="p-4 w-14 text-center font-semibold">ID</th>
+              <th className="p-4 font-semibold">Ảnh</th>
+              <th className="p-4 font-semibold">Tên loại phòng</th>
+              <th className="p-4 text-center font-semibold">Sức chứa (TC / TĐ)</th>
+              <th className="p-4 text-right font-semibold">Phụ thu thêm khách</th>
+              <th className="p-4 text-right font-semibold">Giá cơ bản</th>
+              <th className="p-4 text-center font-semibold">Trạng thái</th>
+              <th className="p-4 text-center font-semibold">Bảng giá</th>
+              <th className="p-4 text-center w-28 font-semibold">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={9} className="p-8 text-center">
+                  <LoadingScreen message="Đang tải danh sách loại phòng..." />
+                </td>
+              </tr>
+            ) : roomTypes.length === 0 ? (
+              <tr><td colSpan={9} className="p-8 text-center text-on-surface-variant">Chưa có dữ liệu loại phòng.</td></tr>
+            ) : (
+              roomTypes.map(room => (
+                <React.Fragment key={room.id}>
+                  <tr className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
+                    <td className="p-4 text-center text-on-surface-variant font-body-sm">{room.id}</td>
+                    <td className="p-4">
+                      {room.imageUrls && room.imageUrls.length > 0 ? (
+                        <img src={room.imageUrls[0]} alt={room.name} className="w-16 h-12 object-cover rounded shadow-sm border border-border-grey" />
+                      ) : (
+                        <div className="w-16 h-12 bg-surface-container rounded flex items-center justify-center text-outline text-xs">No img</div>
+                      )}
+                    </td>
+                    <td className="p-4 font-title-sm text-on-surface group-hover:text-primary transition-colors font-medium">
+                      <div>{room.name}</div>
+                      {room.maxChildAgeFree !== undefined && (
+                        <div className="text-xs text-on-surface-variant mt-0.5">Miễn phụ thu trẻ ≤ {room.maxChildAgeFree} tuổi</div>
+                      )}
+                    </td>
+                    <td className="p-4 text-center font-body-sm">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-surface-container border border-border-grey text-on-surface font-semibold">
+                        {room.standardCapacity || 2} / {room.maxCapacity} người
+                      </span>
+                    </td>
+                    <td className="p-4 text-right font-body-sm text-on-surface">
+                      {(room.extraPersonChargePerNight ?? 0) > 0 ? (
+                        <span className="text-amber-700 font-medium">+{formatPrice(room.extraPersonChargePerNight)}/đêm</span>
+                      ) : (
+                        <span className="text-on-surface-variant text-xs">0 ₫</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-right font-body-md text-primary font-semibold">{formatPrice(room.basePrice)}</td>
+                    <td className="p-4 text-center">
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-label-md ${room.active ? 'bg-surface-container border border-border-grey text-green-600' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                        {room.active ? 'Hoạt động' : 'Tạm ẩn'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <button
+                        onClick={() => setExpandedRoomTypeId(expandedRoomTypeId === room.id ? null : room.id)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                          expandedRoomTypeId === room.id
+                            ? 'bg-primary text-on-primary border-primary'
+                            : 'hover:bg-surface-container border-border-grey text-on-surface'
+                        }`}
+                        title="Cấu hình giá mùa, cuối tuần & ngày lễ"
+                      >
+                        <IoCashOutline size={14} />
+                        <span>Giá</span>
+                        <IoChevronDownOutline size={12} className={`transition-transform ${expandedRoomTypeId === room.id ? 'rotate-180' : ''}`} />
+                      </button>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => openEditModal(room)}
+                          className="text-primary p-1.5 rounded-md hover:bg-surface-blue-light hover:shadow-sm transition-all cursor-pointer"
+                          title="Sửa"
+                        >
+                          <IoPencilOutline size={18} />
+                        </button>
+                        <button 
+                          onClick={() => openDeleteModal(room)}
+                          className="text-error p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm transition-all cursor-pointer"
+                          title="Xóa"
+                        >
+                          <IoTrashOutline size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {/* Expandable row for Pricing Tabs */}
+                  {expandedRoomTypeId === room.id && (
+                    <tr className="bg-surface-container-low/40 border-b border-border-grey">
+                      <td colSpan={9} className="px-6 pb-6 pt-3">
+                        <div className="bg-surface rounded-lg border border-border-grey p-4 shadow-sm">
+                          <div className="flex items-center gap-2 border-b border-border-grey pb-3 mb-4">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedPricingTab('weekend_holiday')}
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                                expandedPricingTab === 'weekend_holiday'
+                                  ? 'bg-primary text-on-primary shadow-sm'
+                                  : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
+                              }`}
+                            >
+                              ⭐ Giá Cuối tuần & Ngày lễ (Ưu tiên cao nhất)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedPricingTab('season')}
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                                expandedPricingTab === 'season'
+                                  ? 'bg-primary text-on-primary shadow-sm'
+                                  : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
+                              }`}
+                            >
+                              📅 Giá theo Mùa
+                            </button>
+                          </div>
+
+                          {expandedPricingTab === 'weekend_holiday' ? (
+                            <WeekendAndHolidayPricing
+                              roomTypeId={room.id}
+                              roomTypeName={room.name}
+                              basePrice={room.basePrice}
+                            />
+                          ) : (
+                            <SeasonalPricing
+                              roomTypeId={room.id}
+                              roomTypeName={room.name}
+                              basePrice={room.basePrice}
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add/Edit Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditing ? 'Cập nhật loại phòng' : 'Thêm loại phòng mới'} maxWidth="max-w-2xl">
+        {formError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-error rounded-md text-sm">
+            {formError}
+          </div>
+        )}
+        <form id="roomTypeForm" onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="col-span-1 md:col-span-2">
+              <Input label="Tên loại phòng" name="name" required value={formData.name} onChange={handleInputChange} placeholder="Ví dụ: Phòng Tiêu Chuẩn Giường Đôi" />
+            </div>
+            
+            <div>
+              <Input 
+                label="Sức chứa tiêu chuẩn (người)" 
+                type="number" 
+                name="standardCapacity" 
+                required 
+                min="1" 
+                value={String(formData.standardCapacity)} 
+                onChange={handleInputChange} 
+                helperText="Số người chuẩn không tính phụ thu"
+              />
+            </div>
+            
+            <div>
+              <Input 
+                label="Sức chứa tối đa (người)" 
+                type="number" 
+                name="maxCapacity" 
+                required 
+                min={String(formData.standardCapacity || 1)} 
+                value={String(formData.maxCapacity)} 
+                onChange={handleInputChange} 
+                helperText="Chặn nhận khách nếu vượt mức này"
+              />
+            </div>
+
+            <div>
+              <Input 
+                label="Phụ thu thêm người (VNĐ/đêm)" 
+                type="number" 
+                name="extraPersonChargePerNight" 
+                required 
+                min="0" 
+                step="5000" 
+                value={String(formData.extraPersonChargePerNight)} 
+                onChange={handleInputChange} 
+                helperText="Tính cho mỗi người vượt sức chứa tiêu chuẩn"
+              />
+            </div>
+
+            <div>
+              <Input 
+                label="Tuổi tối đa trẻ em miễn phí" 
+                type="number" 
+                name="maxChildAgeFree" 
+                required 
+                min="0" 
+                max="18" 
+                value={String(formData.maxChildAgeFree)} 
+                onChange={handleInputChange} 
+                helperText="Trẻ em ≤ tuổi này không tính phụ thu"
+              />
+            </div>
+            
+            <div className="col-span-1 md:col-span-2">
+              <Input label="Giá cơ bản (VNĐ/đêm)" type="number" name="basePrice" required min="0" step="1000" value={String(formData.basePrice)} onChange={handleInputChange} />
+            </div>
+            
+            <div className="col-span-1 md:col-span-2">
+              <label className="block font-label-md text-on-surface-variant mb-1.5">Mô tả tiện nghi</label>
+              <textarea name="amenitiesDescription" rows={3} value={formData.amenitiesDescription} onChange={handleInputChange} className="w-full px-3 py-2 border border-border-grey rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm font-body-md text-on-surface" placeholder="Tivi, Máy lạnh, Bồn tắm..."></textarea>
+            </div>
+            
+            <div className="col-span-1 md:col-span-2">
+              <label className="block font-label-md text-on-surface-variant mb-1.5">Đường dẫn hình ảnh (URL)</label>
+              <textarea 
+                name="imageUrls" 
+                rows={3} 
+                value={formData.imageUrls.join('\n')} 
+                onChange={(e) => setFormData(prev => ({...prev, imageUrls: e.target.value.split('\n').filter(url => url.trim() !== '')}))} 
+                className="w-full px-3 py-2 border border-border-grey rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm font-body-md text-on-surface mb-2" 
+                placeholder="Mỗi link ảnh một dòng (https://...)" 
+              />
+              <div className="flex items-center gap-3">
+                <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-border-grey rounded-md transition-colors ${isUploadingImages ? 'opacity-50 pointer-events-none' : 'hover:bg-surface-container'}`}>
+                  <IoCloudUploadOutline size={18} />
+                  <span className="font-label-md text-sm">{isUploadingImages ? 'Đang tải...' : 'Tải ảnh lên'}</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple
+                    className="hidden"
+                    disabled={isUploadingImages}
+                    onChange={async (e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setIsUploadingImages(true);
+                        setUploadProgress(0);
+                        try {
+                          const { fileApi } = await import('../../services/fileApi');
+                          const res = await fileApi.uploadMultipleFiles(Array.from(e.target.files), setUploadProgress);
+                          setFormData(prev => ({...prev, imageUrls: [...prev.imageUrls, ...res.urls]}));
+                        } catch (err) {
+                          console.error('Upload failed', err);
+                          toastError('Lỗi tải ảnh lên. Vui lòng thử lại.');
+                        } finally {
+                          setIsUploadingImages(false);
+                          setUploadProgress(0);
+                        }
+                      }
+                    }} 
+                  />
+                </label>
+                {isUploadingImages && (
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="flex-1 bg-surface-container rounded-full h-2">
+                      <div className="bg-primary h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                    <span className="text-xs text-on-surface-variant whitespace-nowrap">{uploadProgress}%</span>
+                  </div>
+                )}
+              </div>
+              
+              {formData.imageUrls.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {formData.imageUrls.map((url, idx) => (
+                    <div key={idx} className="relative group w-20 h-20 rounded border border-border-grey overflow-hidden bg-surface-container-low shadow-sm">
+                      <img src={url} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=Lỗi'; }} />
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const newUrls = [...formData.imageUrls];
+                          newUrls.splice(idx, 1);
+                          setFormData(prev => ({...prev, imageUrls: newUrls}));
+                        }}
+                        className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 flex items-center justify-center cursor-pointer"
+                        title="Xóa ảnh"
+                      >
+                        <IoCloseOutline size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="col-span-1 md:col-span-2 flex items-center gap-2 mt-2">
+              <input type="checkbox" id="active" name="active" checked={formData.active} onChange={handleInputChange} className="w-4 h-4 text-primary border-border-grey rounded focus:ring-primary cursor-pointer" />
+              <label htmlFor="active" className="font-body-md text-on-surface cursor-pointer">Đang hoạt động (Hiển thị cho khách hàng)</label>
+            </div>
+          </div>
+        </form>
+        <div className="flex justify-end gap-3 pt-6 border-t border-border-grey mt-6">
+          <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+          <Button type="submit" form="roomTypeForm">Lưu dữ liệu</Button>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} maxWidth="max-w-md">
+        <div className="flex flex-col items-center text-center pb-6">
+          <div className="w-14 h-14 rounded-full bg-red-100 text-error flex items-center justify-center mb-5">
+            <IoWarningOutline size={32} />
+          </div>
+          <h3 className="font-title-lg text-on-surface mb-2">Xóa loại phòng này?</h3>
+          <p className="font-body-md text-on-surface-variant">Bạn có chắc chắn muốn xóa loại phòng <strong>{itemToDelete?.name}</strong> không? Hành động này không thể hoàn tác.</p>
+        </div>
+        <div className="flex gap-3 pt-6 border-t border-border-grey">
+          <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)} className="flex-1">Hủy bỏ</Button>
+          <Button variant="danger" onClick={confirmDelete} className="flex-1">Xóa cứng</Button>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+export default RoomTypeManagement;
