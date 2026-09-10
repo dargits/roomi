@@ -1,0 +1,63 @@
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Role } from '../types';
+import LoadingScreen from '../components/common/LoadingScreen';
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: 'Chủ sở hữu',
+  ADMIN: 'Quản trị viên',
+  RECEPTIONIST: 'Lễ tân',
+  HOUSEKEEPER: 'Buồng phòng',
+  ACCOUNTANT: 'Kế toán'
+};
+
+export interface ProtectedRouteProps {
+  allowedRoles?: Role[];
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <LoadingScreen
+        fullScreen
+        message="Đang xác thực tài khoản..."
+        submessage="Vui lòng chờ trong giây lát"
+      />
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Bắt buộc đổi mật khẩu tạm trước khi vào bất kỳ màn hình nghiệp vụ nào (NCL-01-CN-005)
+  if (user?.mustChangePassword) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Nếu có giới hạn role, kiểm tra quyền
+  if (allowedRoles && allowedRoles.length > 0) {
+    if (!user?.role || !allowedRoles.includes(user.role)) {
+      return (
+        <div className="min-h-screen bg-surface flex items-center justify-center">
+          <div className="text-center p-8 bg-surface-container-lowest rounded-lg border border-border-grey max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-error text-3xl">block</span>
+            </div>
+            <h2 className="font-headline-md text-on-surface mb-2">Không có quyền truy cập</h2>
+            <p className="font-body-md text-on-surface-variant">
+              Tài khoản của bạn ({ROLE_LABELS[user?.role || ''] || user?.role}) không có quyền truy cập trang này.
+            </p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  return <Outlet />;
+};
+
+export default ProtectedRoute;

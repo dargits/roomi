@@ -18,7 +18,7 @@ import plant.stay.util.AuthUtil;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/room-types")
+@RequestMapping({"/api/v1/room-types", "/api/v1/room-type"})
 @CrossOrigin("*")
 public class RoomTypeController {
 
@@ -28,13 +28,13 @@ public class RoomTypeController {
     @Autowired
     private AuthUtil authUtil;
 
-    @GetMapping
+    @GetMapping({"", "/"})
     public ResponseEntity<List<RoomTypeResponse>> getAll(HttpServletRequest request) {
         checkStaff(request);
         return ResponseEntity.ok(roomTypeService.getAllRoomTypes());
     }
 
-    @GetMapping("/public")
+    @GetMapping({"/public", "/public/"})
     public ResponseEntity<List<RoomTypeResponse>> getPublicAll() {
         return ResponseEntity.ok(roomTypeService.getActiveRoomTypes());
     }

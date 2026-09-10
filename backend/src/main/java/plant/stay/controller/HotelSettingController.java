@@ -14,7 +14,7 @@ import plant.stay.service.HotelSettingService;
 import plant.stay.util.AuthUtil;
 
 @RestController
-@RequestMapping("/api/v1/hotel-setting")
+@RequestMapping({"/api/v1/hotel-setting", "/api/v1/hotel-settings"})
 @CrossOrigin("*")
 public class HotelSettingController {
     @Autowired
@@ -23,13 +23,13 @@ public class HotelSettingController {
     @Autowired
     private AuthUtil authUtil;
 
-    @GetMapping
+    @GetMapping({"", "/"})
     public ResponseEntity<HotelSettingResponse> getSetting(HttpServletRequest request) {
         checkOwner(request);
         return ResponseEntity.ok(hotelSettingService.getSetting());
     }
 
-    @GetMapping("/public")
+    @GetMapping({"/public", "/public/"})
     public ResponseEntity<HotelSettingResponse> getPublicSetting() {
         return ResponseEntity.ok(hotelSettingService.getSetting());
     }
