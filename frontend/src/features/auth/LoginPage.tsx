@@ -34,15 +34,8 @@ const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, user, navigate]);
 
-  const handleRoleSelect = (account: { username: string; password: string }) => {
-    setUsername(account.username);
-    setPassword(account.password);
-    setErrorMsg('');
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username || !password) {
+  const executeLogin = async (loginUsername: string, loginPassword: string) => {
+    if (!loginUsername || !loginPassword) {
       setErrorMsg('Vui lòng nhập tài khoản và mật khẩu.');
       return;
     }
@@ -50,7 +43,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
     setErrorMsg('');
 
-    const result = await login(username, password, rememberMe);
+    const result = await login(loginUsername, loginPassword, rememberMe);
 
     setIsLoading(false);
 
@@ -64,6 +57,18 @@ const LoginPage: React.FC = () => {
     } else {
       setErrorMsg(result.message || 'Đăng nhập thất bại.');
     }
+  };
+
+  const handleRoleSelect = (account: { username: string; password: string }) => {
+    setUsername(account.username);
+    setPassword(account.password);
+    setErrorMsg('');
+    executeLogin(account.username, account.password);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeLogin(username, password);
   };
 
   const handleForceChangeSuccess = () => {

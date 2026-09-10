@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PublicHeader from '../../components/layout/PublicHeader';
 import Footer from '../../components/layout/Footer';
-import { useAppConfig } from '../../context/AppConfigContext';
+import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { 
   IoCopyOutline, 
   IoCheckmarkOutline, 
@@ -118,20 +118,20 @@ const PromotionsPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Banner with Hotel Background Image */}
-      <section className="relative text-white py-16 px-margin-desktop overflow-hidden bg-neutral-900">
+      <section className="relative w-full h-[320px] flex flex-col items-center justify-center text-white px-4 md:px-margin-desktop overflow-hidden">
         <div className="absolute inset-0 z-0">
           <div 
-            className="bg-cover bg-center w-full h-full" 
-            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+            className="bg-cover bg-center w-full h-full bg-neutral-800" 
+            style={{ backgroundImage: `url('${hotelSetting?.homeImage || DEFAULT_HERO_IMAGE}')` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/75 to-black/85" />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
-        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl">
-          <div className="inline-flex items-center gap-2 bg-amber-400/20 text-amber-300 border border-amber-400/40 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl px-4">
+          <div className="inline-flex items-center gap-2 bg-amber-400/25 text-amber-300 border border-amber-400/40 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-3">
             <IoFlashOutline size={16} /> Ưu Đãi Mới Nhất 2026
           </div>
-          <h1 className="font-display-lg text-white mb-4 drop-shadow-sm">Chương Trình Khuyến Mãi & Ưu Đãi Đặc Biệt</h1>
-          <p className="text-white/80 font-body-lg leading-relaxed">
+          <h1 className="font-display-lg text-white mb-3 drop-shadow-md">Chương Trình Khuyến Mãi & Ưu Đãi Đặc Biệt</h1>
+          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
             Khám phá các gói ưu đãi nghỉ dưỡng hấp dẫn tại {hotelSetting?.propertyName || 'Khách Sạn'}. Tiết kiệm nhiều hơn cho kỳ nghỉ tuyệt vời của bạn và gia đình!
           </p>
         </div>

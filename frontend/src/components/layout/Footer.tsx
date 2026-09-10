@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { IoCallOutline, IoMailOutline, IoLocationOutline } from 'react-icons/io5';
+import { PUBLIC_NAV_LINKS } from './PublicHeader';
 
 const Footer: React.FC = () => {
   const { hotelSetting } = useAppConfig();
@@ -31,12 +32,15 @@ const Footer: React.FC = () => {
         {/* Col 2: Navigation Links */}
         <div className="flex flex-col gap-2.5">
           <h4 className="font-title-md font-bold text-on-surface mb-1">Khám Phá</h4>
-          <Link to="/" className="text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors">Trang chủ</Link>
-          <Link to="/rooms" className="text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors">Phòng & Bảng giá</Link>
-          <Link to="/amenities" className="text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors">Tiện ích & Dịch vụ</Link>
-          <Link to="/promotions" className="text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors">Ưu đãi & Khuyến mãi</Link>
-          <Link to="/about" className="text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors">Giới thiệu & Quy định</Link>
-          <Link to="/contact" className="text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors">Liên hệ & Hỗ trợ</Link>
+          {PUBLIC_NAV_LINKS.map((link) => (
+            <Link
+              key={link.path}
+              to={link.path}
+              className="text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
 
         {/* Col 3: Contact Details */}

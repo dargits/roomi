@@ -10,6 +10,8 @@ export interface AppConfigContextType {
 
 const AppConfigContext = createContext<AppConfigContextType | null>(null);
 
+export const DEFAULT_HERO_IMAGE = 'https://i.ibb.co/TxVT7pQz/images-11-jpg.jpg';
+
 export const AppConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [hotelSetting, setHotelSetting] = useState<HotelSettingResponse | null>(null);
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
@@ -18,18 +20,21 @@ export const AppConfigProvider: React.FC<{ children: ReactNode }> = ({ children 
     const fetchConfig = async () => {
       try {
         const data = await hotelSettingApi.getPublicSetting();
-        setHotelSetting(data);
+        setHotelSetting({
+          ...data,
+          homeImage: data?.homeImage?.trim() ? data.homeImage : DEFAULT_HERO_IMAGE
+        });
       } catch (error) {
         console.error('Failed to fetch public hotel settings:', error);
         // Fallback default settings if backend is down
         setHotelSetting({
-          propertyName: '',
-          address: 'Đang cập nhật',
-          phone: 'Đang cập nhật',
-          email: 'Đang cập nhật',
+          propertyName: 'STAY AWAY',
+          address: 'Z115, Phan Đình Phùng, Tp. Thái Nguyên, Tỉnh Thái Nguyên',
+          phone: '0365224245',
+          email: 'lienhe@stayaway.vn',
           defaultCheckinTime: '14:00',
           defaultCheckoutTime: '12:00',
-          homeImage: ''
+          homeImage: DEFAULT_HERO_IMAGE
         });
       } finally {
         setTimeout(() => {
