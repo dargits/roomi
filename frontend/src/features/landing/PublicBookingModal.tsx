@@ -16,6 +16,7 @@ import Button from '../../components/ui/Button';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import pricingApi from '../../services/pricingApi';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { toLocalDateString } from '../../utils/formatDate';
 
 interface PublicBookingModalProps {
   isOpen: boolean;
@@ -50,8 +51,8 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     if (isOpen && roomType?.id && checkInDate && checkOutDate) {
       const fetchPricing = async () => {
         try {
-          const fromStr = checkInDate.toISOString().split('T')[0];
-          const toStr = checkOutDate.toISOString().split('T')[0];
+          const fromStr = toLocalDateString(checkInDate);
+          const toStr = toLocalDateString(checkOutDate);
           const res = await pricingApi.getPriceBreakdown({
             roomTypeId: roomType.id,
             checkInDate: fromStr,
@@ -91,8 +92,8 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
       const requestData = {
         ...formData,
         roomTypeId: roomType?.id,
-        checkInDate: checkInDate?.toISOString().split('T')[0] || '',
-        checkOutDate: checkOutDate?.toISOString().split('T')[0] || ''
+        checkInDate: toLocalDateString(checkInDate),
+        checkOutDate: toLocalDateString(checkOutDate)
       };
       
       await bookingRequestApi.createBookingRequest(requestData);
@@ -255,6 +256,9 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         </div>
         <div className="text-left md:text-right border-t md:border-t-0 border-border-grey pt-2 md:pt-0">
           {(() => {
+            const hasVaryingPrices = breakdown?.nightlyDetails?.some((d: any, idx: number, arr: any[]) => 
+              idx > 0 && Number(d.appliedPrice) !== Number(arr[0].appliedPrice)
+            );
             const specialDetail = breakdown?.nightlyDetails?.find((d: any) => d.priceSource !== 'BASE');
             const avgPrice = breakdown?.totalRoomPrice && nights > 0
               ? Math.round(breakdown.totalRoomPrice / nights)
@@ -263,13 +267,17 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
               ? new Intl.NumberFormat('vi-VN').format(avgPrice) + ' ₫'
               : (roomType?.price || (roomType?.basePrice ? new Intl.NumberFormat('vi-VN').format(roomType.basePrice) + ' ₫' : '—'));
 
+            const badgeText = hasVaryingPrices
+              ? `Giá TB (${nights} đêm)`
+              : (specialDetail?.sourceName || (specialDetail ? 'Giá ngày áp dụng' : undefined));
+
             return (
               <>
                 <div className="text-xs text-on-surface-variant flex items-center md:justify-end gap-1.5 flex-wrap">
-                  <span>Đơn giá áp dụng</span>
-                  {specialDetail && (
+                  <span>{hasVaryingPrices ? 'Giá trung bình mỗi đêm' : 'Đơn giá áp dụng'}</span>
+                  {badgeText && (
                     <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-alert-red rounded">
-                      {specialDetail.sourceName}
+                      {badgeText}
                     </span>
                   )}
                 </div>
@@ -279,7 +287,7 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                 </div>
                 {breakdown?.grandTotal != null && (
                   <div className="text-xs text-on-surface-variant mt-0.5">
-                    Tổng tạm tính: <strong className="text-on-surface font-semibold">{new Intl.NumberFormat('vi-VN').format(breakdown.grandTotal)} ₫</strong>
+                    Tổng tạm tính ({nights} đêm): <strong className="text-on-surface font-semibold">{new Intl.NumberFormat('vi-VN').format(breakdown.grandTotal)} ₫</strong>
                   </div>
                 )}
               </>
@@ -287,6 +295,35 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
           })()}
         </div>
       </div>
+
+      {/* Chi tiết giá từng đêm nếu có nhiều mức giá hoặc đặt nhiều đêm */}
+      {breakdown?.nightlyDetails && breakdown.nightlyDetails.length > 1 && (
+        <div className="mb-4 p-3.5 bg-surface-container-low border border-border-grey rounded text-xs space-y-2">
+          <div className="flex justify-between items-center font-bold text-on-surface border-b border-border-grey/70 pb-1.5">
+            <span className="flex items-center gap-1.5">
+              <IoCalendarOutline size={14} className="text-primary" />
+              Bảng kê giá chi tiết từng đêm ({breakdown.nightlyDetails.length} đêm)
+            </span>
+            <span className="text-primary font-semibold">
+              TB: {Math.round(breakdown.totalRoomPrice / nights).toLocaleString('vi-VN')} ₫/đêm
+            </span>
+          </div>
+          <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+            {breakdown.nightlyDetails.map((detail: any, idx: number) => (
+              <div key={idx} className="flex justify-between items-center py-0.5 text-on-surface-variant">
+                <span>
+                  {detail.dayOfWeek} ({detail.date}): <span className="text-[11px] text-primary">[{detail.sourceName}]</span>
+                </span>
+                <span className="font-medium text-on-surface">{Number(detail.appliedPrice).toLocaleString('vi-VN')} ₫</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between items-center pt-1.5 border-t border-border-grey/70 font-semibold text-on-surface">
+            <span>Tổng tiền phòng ({nights} đêm):</span>
+            <span className="text-primary font-bold">{Number(breakdown.totalRoomPrice).toLocaleString('vi-VN')} ₫</span>
+          </div>
+        </div>
+      )}
 
       <form id="publicBookingForm" onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
