@@ -12,6 +12,7 @@ export interface RoomCardData {
   name: string;
   maxCapacity: number;
   basePrice?: number;
+  currentPrice?: number;
   price?: string | number;
   originalPrice?: string | number;
   badge?: string;

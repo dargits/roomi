@@ -46,6 +46,7 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final plant.stay.repository.BookingServiceUsageRepository usageRepository;
+    private final plant.stay.service.PricingService pricingService;
 
 
     @Override
@@ -685,6 +686,9 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     }
 
     private BigDecimal calculatePrice(RoomType roomType, LocalDate checkInDate, LocalDate checkOutDate) {
+        if (pricingService != null) {
+            return pricingService.calculateTotalPrice(roomType, checkInDate, checkOutDate);
+        }
         BigDecimal total = BigDecimal.ZERO;
         long nights = ChronoUnit.DAYS.between(checkInDate, checkOutDate);
         for (long index = 0; index < nights; index++) {
