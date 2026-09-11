@@ -18,6 +18,7 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import publicGroupBookingRequestApi from '../../services/publicGroupBookingRequestApi';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { toLocalDateString } from '../../utils/formatDate';
 
 interface RoomLine {
   roomTypeId: string;
@@ -63,8 +64,8 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
       representativeName: '',
       phone: '',
       email: '',
-      checkInDate: checkInDate ? checkInDate.toISOString().slice(0, 10) : '',
-      checkOutDate: checkOutDate ? checkOutDate.toISOString().slice(0, 10) : '',
+      checkInDate: toLocalDateString(checkInDate),
+      checkOutDate: toLocalDateString(checkOutDate),
       note: '',
       rooms: [initialRoom ? { roomTypeId: String(initialRoom.id), quantity: 1 } : emptyRoomLine()],
     });
