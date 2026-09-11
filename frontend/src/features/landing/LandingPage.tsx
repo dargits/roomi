@@ -18,6 +18,7 @@ import {
   IoTimeOutline, 
   IoNavigateOutline 
 } from 'react-icons/io5';
+import { toLocalDateString } from '../../utils/formatDate';
 
 const LandingPage: React.FC = () => {
   const { hotelSetting, isAppLoading } = useAppConfig();
@@ -83,8 +84,8 @@ const LandingPage: React.FC = () => {
     setLoading(true);
     
     try {
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr = to.toISOString().split('T')[0];
+      const fromStr = toLocalDateString(from);
+      const toStr = toLocalDateString(to);
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
       
       const mappedRooms: RoomCardData[] = (data as any[]).map(room => {
