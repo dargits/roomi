@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   IoBedOutline, 
   IoCalendarOutline, 
@@ -14,6 +14,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
+import pricingApi from '../../services/pricingApi';
 import { useAppConfig } from '../../context/AppConfigContext';
 
 interface PublicBookingModalProps {
@@ -42,6 +43,32 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     email: '',
     note: ''
   });
+
+  const [breakdown, setBreakdown] = useState<any>(null);
+
+  useEffect(() => {
+    if (isOpen && roomType?.id && checkInDate && checkOutDate) {
+      const fetchPricing = async () => {
+        try {
+          const fromStr = checkInDate.toISOString().split('T')[0];
+          const toStr = checkOutDate.toISOString().split('T')[0];
+          const res = await pricingApi.getPriceBreakdown({
+            roomTypeId: roomType.id,
+            checkInDate: fromStr,
+            checkOutDate: toStr,
+            guestCount: roomType.standardCapacity || 2,
+            childCount: 0
+          });
+          setBreakdown(res);
+        } catch (err) {
+          console.error("Lỗi lấy chi tiết giá đặt phòng:", err);
+        }
+      };
+      fetchPricing();
+    } else {
+      setBreakdown(null);
+    }
+  }, [isOpen, roomType?.id, checkInDate, checkOutDate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -163,6 +190,12 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                   {formData.phone}
                 </p>
               </div>
+              {breakdown?.grandTotal != null && (
+                <div className="col-span-2 pt-2 border-t border-border-grey/50 flex justify-between items-center text-xs">
+                  <span className="text-on-surface-variant font-medium">Tổng tiền dự kiến ({nights} đêm):</span>
+                  <span className="font-bold text-primary text-sm">{new Intl.NumberFormat('vi-VN').format(breakdown.grandTotal)} ₫</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -221,11 +254,37 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
           </div>
         </div>
         <div className="text-left md:text-right border-t md:border-t-0 border-border-grey pt-2 md:pt-0">
-          <div className="text-xs text-on-surface-variant">Đơn giá tham khảo</div>
-          <div className="font-headline-sm text-primary font-bold text-xl mt-0.5">
-            {roomType?.price || (roomType?.basePrice ? roomType.basePrice.toLocaleString('vi-VN') + ' ₫' : '—')}
-            <span className="text-xs text-on-surface-variant font-normal"> /đêm</span>
-          </div>
+          {(() => {
+            const specialDetail = breakdown?.nightlyDetails?.find((d: any) => d.priceSource !== 'BASE');
+            const avgPrice = breakdown?.totalRoomPrice && nights > 0
+              ? Math.round(breakdown.totalRoomPrice / nights)
+              : null;
+            const priceText = avgPrice != null
+              ? new Intl.NumberFormat('vi-VN').format(avgPrice) + ' ₫'
+              : (roomType?.price || (roomType?.basePrice ? new Intl.NumberFormat('vi-VN').format(roomType.basePrice) + ' ₫' : '—'));
+
+            return (
+              <>
+                <div className="text-xs text-on-surface-variant flex items-center md:justify-end gap-1.5 flex-wrap">
+                  <span>Đơn giá áp dụng</span>
+                  {specialDetail && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-alert-red rounded">
+                      {specialDetail.sourceName}
+                    </span>
+                  )}
+                </div>
+                <div className="font-headline-sm text-primary font-bold text-xl mt-0.5">
+                  {priceText}
+                  <span className="text-xs text-on-surface-variant font-normal"> /đêm</span>
+                </div>
+                {breakdown?.grandTotal != null && (
+                  <div className="text-xs text-on-surface-variant mt-0.5">
+                    Tổng tạm tính: <strong className="text-on-surface font-semibold">{new Intl.NumberFormat('vi-VN').format(breakdown.grandTotal)} ₫</strong>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 
