@@ -25,9 +25,15 @@ public class BookingServiceUsageServiceImpl implements BookingServiceUsageServic
     private final ExtraServiceRepository extraServiceRepository;
     private final AuditLogService auditLogService;
     private final InvoiceRepository invoiceRepository;
+    private final plant.stay.service.RoomStayGuestService roomStayGuestService;
 
     @Override
+    @Transactional
     public List<BookingServiceUsageResponse> getByBooking(Long bookingId) {
+        try {
+            roomStayGuestService.syncBookingSurcharges(bookingId, null);
+        } catch (Exception ignored) {
+        }
         return usageRepository.findByBookingId(bookingId).stream()
                 .map(this::toResponse).collect(Collectors.toList());
     }
@@ -46,6 +52,10 @@ public class BookingServiceUsageServiceImpl implements BookingServiceUsageServic
             throw new IllegalArgumentException("Dịch vụ '" + service.getName() + "' hiện không hoạt động");
         }
         
+        if (service.getName().contains("ở ghép") || service.getName().contains("vượt tiêu chuẩn")) {
+            throw new IllegalArgumentException("Dịch vụ phụ thu người ở ghép được hệ thống tự động ghi nhận khi thêm khách cùng phòng, không thể thêm thủ công!");
+        }
+        
         invoiceRepository.findByBookingId(bookingId).ifPresent(invoice -> {
             if (invoice.getStatus() == InvoiceStatus.PAID) {
                 throw new IllegalArgumentException("Không thể thêm dịch vụ vì hóa đơn đã được thanh toán");
@@ -57,6 +67,8 @@ public class BookingServiceUsageServiceImpl implements BookingServiceUsageServic
                 .extraService(service)
                 .quantity(request.getQuantity())
                 .unitPriceSnapshot(service.getUnitPrice()) // snapshot giá tại thời điểm ghi nhận
+                .note(request.getNote())
+                .isSystemMandatory(false)
                 .build();
         usage = usageRepository.save(usage);
         auditLogService.log("BookingServiceUsage", usage.getId(), "ADD_SERVICE", actor,
@@ -77,6 +89,11 @@ public class BookingServiceUsageServiceImpl implements BookingServiceUsageServic
         }
         if (usage.getBooking().getStatus() != BookingStatus.CHECKED_IN) {
             throw new IllegalArgumentException("Chỉ có thể xóa dịch vụ cho booking đang ở trạng thái CHECKED_IN");
+        }
+
+        if (Boolean.TRUE.equals(usage.getIsSystemMandatory())
+                || (usage.getExtraService() != null && usage.getExtraService().getName().contains("ở ghép"))) {
+            throw new IllegalArgumentException("Không thể xóa phụ thu người ở ghép tại đây. Phụ thu này được tự động tính theo số lượng khách ở thực tế trong tab Khách cùng phòng!");
         }
         
         String serviceName = usage.getExtraService().getName();
@@ -106,6 +123,8 @@ public class BookingServiceUsageServiceImpl implements BookingServiceUsageServic
                 .quantity(u.getQuantity())
                 .unitPriceSnapshot(u.getUnitPriceSnapshot())
                 .total(total)
+                .note(u.getNote())
+                .isSystemMandatory(Boolean.TRUE.equals(u.getIsSystemMandatory()))
                 .createdAt(u.getCreatedAt())
                 .build();
     }
