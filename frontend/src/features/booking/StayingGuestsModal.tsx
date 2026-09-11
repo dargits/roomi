@@ -9,9 +9,11 @@ import {
   IoTrashOutline, 
   IoRefreshOutline,
   IoChevronDownOutline,
-  IoInformationCircleOutline
+  IoInformationCircleOutline,
+  IoCheckmarkCircleOutline
 } from 'react-icons/io5';
-import { BookingResponse, RoomStayGuestResponseDto } from '../../types';
+import roomTypeApi from '../../services/roomTypeApi';
+import { BookingResponse, RoomStayGuestResponseDto, StayingGuestsSummaryDto, RoomTypeResponse } from '../../types';
 
 interface StayingGuestsModalProps {
   isOpen: boolean;
@@ -24,6 +26,8 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
   const { success: toastSuccess, error: toastError } = useToast();
   const confirm = useConfirm();
   const [guests, setGuests] = useState<RoomStayGuestResponseDto[]>([]);
+  const [summary, setSummary] = useState<StayingGuestsSummaryDto | null>(null);
+  const [roomTypeConfig, setRoomTypeConfig] = useState<RoomTypeResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -38,11 +42,30 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
     if (!booking) return;
     setLoading(true);
     try {
-      const data = await stayingGuestsApi.getStayingGuests(booking.id);
-      setGuests(data || []);
+      // Tải cấu hình loại phòng trực tiếp từ API loại phòng để luôn có giá phụ thu mới nhất của chủ cơ sở
+      const targetRoomTypeId = booking.roomTypeId || booking.roomType?.id;
+      if (targetRoomTypeId) {
+        roomTypeApi.getRoomTypeById(targetRoomTypeId)
+          .then(res => { if (res) setRoomTypeConfig(res); })
+          .catch(() => {});
+      } else if (booking.roomTypeName) {
+        roomTypeApi.getAllRoomTypes().then(types => {
+          const matched = types.find(t => t.name === booking.roomTypeName);
+          if (matched) setRoomTypeConfig(matched);
+        }).catch(() => {});
+      }
+
+      const summaryData = await stayingGuestsApi.getStayingGuestsSummary(booking.id);
+      setSummary(summaryData);
+      setGuests(summaryData?.guests || []);
     } catch (err) {
       console.error(err);
-      toastError('Không thể tải danh sách khách cùng phòng.');
+      try {
+        const data = await stayingGuestsApi.getStayingGuests(booking.id);
+        setGuests(data || []);
+      } catch {
+        toastError('Không thể tải danh sách khách cùng phòng.');
+      }
     } finally {
       setLoading(false);
     }
@@ -59,11 +82,66 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
     }
   }, [isOpen, booking]);
 
+  const standardCapacity = summary?.standardCapacity 
+    ?? roomTypeConfig?.standardCapacity 
+    ?? booking?.standardCapacity 
+    ?? booking?.roomType?.standardCapacity 
+    ?? 2;
+
+  const maxCapacity = summary?.maxCapacity 
+    ?? roomTypeConfig?.maxCapacity 
+    ?? booking?.maxCapacity 
+    ?? booking?.roomCapacity 
+    ?? booking?.roomType?.maxCapacity 
+    ?? 4;
+
+  const extraPersonChargePerNight = summary?.extraPersonChargePerNight 
+    ?? (roomTypeConfig?.extraPersonChargePerNight !== undefined ? Number(roomTypeConfig.extraPersonChargePerNight) : undefined)
+    ?? (booking?.extraPersonChargePerNight !== undefined ? Number(booking.extraPersonChargePerNight) : undefined)
+    ?? (booking?.roomType?.extraPersonChargePerNight !== undefined ? Number(booking.roomType.extraPersonChargePerNight) : undefined)
+    ?? 0;
+
+  const maxChildAgeFree = summary?.maxChildAgeFree 
+    ?? roomTypeConfig?.maxChildAgeFree 
+    ?? booking?.maxChildAgeFree 
+    ?? booking?.roomType?.maxChildAgeFree 
+    ?? 6;
+
+  const totalNights = summary?.totalNights ?? (booking?.checkInDate && booking?.checkOutDate 
+    ? Math.max(1, Math.round((new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) / (1000 * 60 * 60 * 24))) 
+    : 1);
+
+  // Tự động nhận diện trẻ em nếu người dùng nhập năm sinh hợp lệ
+  useEffect(() => {
+    if (birthYear) {
+      const year = Number(birthYear);
+      if (!isNaN(year) && year > 1900) {
+        const age = new Date().getFullYear() - year;
+        if (age <= maxChildAgeFree) {
+          setIsChild(true);
+        }
+      }
+    }
+  }, [birthYear, maxChildAgeFree]);
+
   if (!booking) return null;
 
-  const currentStayingCount = guests.filter(g => !g.leftEarlyAt).length;
-  const maxCapacity = booking.roomCapacity || booking.maxCapacity || booking.roomType?.maxCapacity || booking.room?.roomType?.maxCapacity || 4;
+  const currentStayingCount = summary ? summary.totalGuests : guests.filter(g => !g.leftEarlyAt).length;
   const remainingSlots = Math.max(0, maxCapacity - currentStayingCount);
+
+  // Tính toán phụ thu dự phòng ngay cả khi backend chưa reload
+  const fallbackExtraGuests = Math.max(0, currentStayingCount - standardCapacity);
+  const fallbackChildCount = guests.filter(g => !g.leftEarlyAt && g.isChild).length;
+  const fallbackFreeChildren = Math.min(fallbackChildCount, fallbackExtraGuests);
+  const fallbackChargeableExtraGuests = Math.max(0, fallbackExtraGuests - fallbackFreeChildren);
+  const fallbackTotalExtraCharge = extraPersonChargePerNight * fallbackChargeableExtraGuests * totalNights;
+
+  const chargeableExtraGuests = summary?.chargeableExtraGuests ?? fallbackChargeableExtraGuests;
+  const totalExtraCharge = summary?.totalExtraCharge ?? fallbackTotalExtraCharge;
+
+  // Dự toán khách sắp thêm
+  const nextStayingCount = currentStayingCount + 1;
+  const willExceedStandard = nextStayingCount > standardCapacity;
 
   const handleAddGuest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +164,13 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
         documentNumber: documentNumber.trim(),
         isChild
       });
-      toastSuccess(`Đã thêm khách "${fullName.trim()}" vào phòng!`);
+
+      let notice = `Đã thêm khách "${fullName.trim()}" vào phòng!`;
+      if (!isChild && willExceedStandard && extraPersonChargePerNight > 0) {
+        notice += ` (Áp dụng phụ thu vượt chuẩn: +${(extraPersonChargePerNight * totalNights).toLocaleString('vi-VN')} ₫)`;
+      }
+      toastSuccess(notice);
+
       setFullName('');
       setBirthYear('');
       setDocumentNumber('');
@@ -104,7 +188,7 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
   const handleMarkLeftEarly = async (guest: RoomStayGuestResponseDto) => {
     const isConfirmed = await confirm({
       title: 'Xác nhận khách rời sớm',
-      message: `Đánh dấu khách "${guest.fullName}" rời phòng sớm lúc này?`,
+      message: `Đánh dấu khách "${guest.fullName}" rời phòng sớm lúc này? Tiền phụ thu (nếu có) sẽ được tính toán lại tương ứng.`,
       confirmText: 'Xác nhận',
       cancelText: 'Hủy',
       type: 'warning'
@@ -130,7 +214,7 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
 
     const isConfirmed = await confirm({
       title: 'Xác nhận xóa khách',
-      message: `Xác nhận xóa khách "${guest.fullName}" khỏi danh sách phòng?`,
+      message: `Xác nhận xóa khách "${guest.fullName}" khỏi danh sách phòng? Phụ thu sẽ tự động điều chỉnh lại.`,
       confirmText: 'Xóa',
       cancelText: 'Hủy',
       type: 'danger'
@@ -151,32 +235,62 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Danh sách khách cùng phòng & Khai báo lưu trú" maxWidth="max-w-4xl">
       <div className="space-y-5">
-        <div className="p-3.5 bg-surface-container-low rounded-lg border border-border-grey flex flex-wrap justify-between items-center gap-3 text-sm">
-          <div>
-            <span className="font-bold text-on-surface text-base">
-              Phòng {booking.roomNumber || 'Chưa gán'}
-            </span>
-            <span className="text-on-surface-variant ml-2">
-              (Booking #{booking.id} - {booking.roomTypeName})
-            </span>
+        {/* Banner thông tin phòng, sức chứa & phụ thu */}
+        <div className="p-4 bg-surface-container-low rounded-xl border border-border-grey space-y-3">
+          <div className="flex flex-wrap justify-between items-center gap-3">
+            <div>
+              <span className="font-bold text-on-surface text-base">
+                Phòng {booking.roomNumber || 'Chưa gán'}
+              </span>
+              <span className="text-on-surface-variant ml-2 font-medium">
+                (Booking #{booking.id} - {booking.roomTypeName})
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                currentStayingCount >= maxCapacity 
+                  ? 'bg-red-100 text-red-700 border border-red-300' 
+                  : 'bg-green-100 text-green-700 border border-green-300'
+              }`}>
+                {currentStayingCount} / {maxCapacity} người đang ở
+              </span>
+              <span className="text-xs text-on-surface-variant">
+                (Còn thêm được: <strong className={remainingSlots > 0 ? "text-primary font-bold" : "text-error font-bold"}>{remainingSlots}</strong> người)
+              </span>
+              <Button size="sm" variant="ghost" onClick={fetchGuests} icon={IoRefreshOutline} disabled={loading} title="Tải lại danh sách" />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-on-surface-variant">Sức chứa:</span>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-              currentStayingCount >= maxCapacity 
-                ? 'bg-red-100 text-red-700 border border-red-300' 
-                : 'bg-green-100 text-green-700 border border-green-300'
-            }`}>
-              {currentStayingCount} / {maxCapacity} người đang ở
-            </span>
-            <span className="text-xs text-on-surface-variant">
-              (Còn thêm được: <strong className={remainingSlots > 0 ? "text-primary font-bold" : "text-error font-bold"}>{remainingSlots}</strong> người)
-            </span>
-            <Button size="sm" variant="ghost" onClick={fetchGuests} icon={IoRefreshOutline} disabled={loading} title="Tải lại danh sách" />
+          {/* Cấu hình sức chứa tiêu chuẩn & phụ thu vượt ngưỡng do chủ cơ sở cấu hình */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2.5 border-t border-border-grey text-xs text-on-surface-variant">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-on-surface">Tiêu chuẩn:</span>
+              <span className="px-2 py-0.5 rounded bg-surface border border-border-grey font-bold text-on-surface">{standardCapacity} người</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-on-surface">Tối đa:</span>
+              <span className="px-2 py-0.5 rounded bg-surface border border-border-grey font-bold text-on-surface">{maxCapacity} người</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-on-surface">Phụ thu vượt chuẩn:</span>
+              <span className="text-amber-700 font-bold">
+                {extraPersonChargePerNight > 0 ? `+${extraPersonChargePerNight.toLocaleString('vi-VN')} ₫/người/đêm` : '0 ₫/đêm'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-on-surface-variant">
+              <span>(Trẻ em ≤ {maxChildAgeFree} tuổi: Miễn phụ thu)</span>
+            </div>
+
+            {chargeableExtraGuests > 0 && (
+              <div className="sm:ml-auto px-2.5 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 font-semibold flex items-center gap-1">
+                <span>⚡ Phụ thu vượt chuẩn ({chargeableExtraGuests} người): +{totalExtraCharge.toLocaleString('vi-VN')} ₫ / {totalNights} đêm</span>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Danh sách khách đang ở */}
         <div className="overflow-x-auto border border-border-grey rounded-lg">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
@@ -218,11 +332,13 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
                     </td>
                     <td className="p-3 text-center">
                       {guest.isChild ? (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
                           Trẻ em (Miễn phụ thu)
                         </span>
                       ) : (
-                        <span className="text-xs text-on-surface-variant">Người lớn</span>
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                          Người lớn
+                        </span>
                       )}
                     </td>
                     <td className="p-3 text-center">
@@ -269,6 +385,7 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
           </table>
         </div>
 
+        {/* Form thêm người cùng ở */}
         <form onSubmit={handleAddGuest} className="p-4 bg-surface-container-low rounded-lg border border-border-grey space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 text-sm font-bold text-on-surface">
@@ -280,15 +397,44 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
             </div>
           </div>
 
-          {remainingSlots <= 0 && (
-            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs flex items-center gap-2">
-              <IoInformationCircleOutline size={18} className="shrink-0 text-amber-600" />
+          {remainingSlots <= 0 ? (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-xs flex items-center gap-2">
+              <IoInformationCircleOutline size={18} className="shrink-0 text-red-600" />
               <span>
-                Phòng đã đạt sức chứa tối đa ({maxCapacity}/{maxCapacity} người). Số khách có thể thêm là <strong>0</strong>. Vui lòng chuyển sang phòng lớn hơn hoặc đặt thêm phòng nếu có thêm khách!
+                Phòng đã đạt sức chứa tối đa ({maxCapacity}/{maxCapacity} người). Số khách có thể thêm là <strong>0</strong>. Vui lòng nâng hạng sang phòng lớn hơn hoặc đặt thêm phòng nếu có thêm khách!
               </span>
             </div>
+          ) : (
+            <>
+              {/* Dự toán phụ thu tự động theo cấu hình chủ cơ sở */}
+              {isChild ? (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-center gap-2">
+                  <IoCheckmarkCircleOutline size={18} className="shrink-0 text-emerald-600" />
+                  <span>
+                    Khách này là <strong>Trẻ em (≤ {maxChildAgeFree} tuổi)</strong>: Được miễn phí phụ thu thêm người (0 ₫).
+                  </span>
+                </div>
+              ) : willExceedStandard ? (
+                <div className="p-2.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg text-xs flex items-center gap-2">
+                  <IoInformationCircleOutline size={18} className="shrink-0 text-amber-700" />
+                  <span>
+                    ⚡ Khách thứ <strong>{nextStayingCount}</strong> vượt quá sức chứa tiêu chuẩn ({standardCapacity} người) của loại phòng. 
+                    Áp dụng phụ thu vượt ngưỡng: <strong>+{extraPersonChargePerNight.toLocaleString('vi-VN')} ₫/đêm</strong> 
+                    {' '}(Tổng <strong>+{(extraPersonChargePerNight * totalNights).toLocaleString('vi-VN')} ₫</strong> cho {totalNights} đêm lưu trú).
+                  </span>
+                </div>
+              ) : (
+                <div className="p-2.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-xs flex items-center gap-2">
+                  <IoCheckmarkCircleOutline size={18} className="shrink-0 text-blue-600" />
+                  <span>
+                    ✓ Khách thứ {nextStayingCount} nằm trong sức chứa tiêu chuẩn ({standardCapacity} người). Không tính phụ thu (0 ₫).
+                  </span>
+                </div>
+              )}
+            </>
           )}
 
+          {/* Form grid 4 cột đều nhau */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-start">
             <div>
               <Input
@@ -355,7 +501,7 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
                 className="w-4 h-4 text-primary rounded border-border-grey cursor-pointer disabled:cursor-not-allowed"
               />
               <label htmlFor="isChild" className="text-xs font-medium text-on-surface cursor-pointer select-none">
-                Là trẻ em (Dưới độ tuổi quy định sẽ được tự động miễn phụ thu thêm người)
+                Là trẻ em (Dưới ≤ {maxChildAgeFree} tuổi sẽ được tự động miễn phụ thu thêm người)
               </label>
             </div>
 
