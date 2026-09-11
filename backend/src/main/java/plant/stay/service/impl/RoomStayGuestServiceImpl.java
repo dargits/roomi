@@ -26,7 +26,7 @@ public class RoomStayGuestServiceImpl implements RoomStayGuestService {
     private final AuditLogService auditLogService;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RoomStayGuestResponseDto> getStayingGuests(Long bookingId, User actor) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đặt phòng #" + bookingId));
@@ -34,19 +34,39 @@ public class RoomStayGuestServiceImpl implements RoomStayGuestService {
         List<RoomStayGuest> list = roomStayGuestRepository.findByBookingIdOrderByCreatedAtAsc(bookingId);
 
         // Nếu chưa có ai trong room_stay_guests nhưng booking có guest chính, tự khởi tạo người đứng tên
-        if (list.isEmpty() && booking.getGuest() != null) {
-            Guest mainGuest = booking.getGuest();
-            RoomStayGuest primary = RoomStayGuest.builder()
-                    .booking(booking)
-                    .fullName(mainGuest.getName())
-                    .documentType("CCCD")
-                    .documentNumber(mainGuest.getIdNumber())
-                    .isPrimaryGuest(true)
-                    .isChild(false)
-                    .checkInAt(booking.getCheckedInAt() != null ? booking.getCheckedInAt() : LocalDateTime.now())
-                    .build();
-            primary = roomStayGuestRepository.save(primary);
-            list.add(primary);
+        if (list.isEmpty()) {
+            if (booking.getGuest() != null) {
+                Guest mainGuest = booking.getGuest();
+                RoomStayGuest primary = RoomStayGuest.builder()
+                        .booking(booking)
+                        .fullName(mainGuest.getName())
+                        .documentType("CCCD")
+                        .documentNumber(mainGuest.getIdNumber())
+                        .isPrimaryGuest(true)
+                        .isChild(false)
+                        .checkInAt(booking.getCheckedInAt() != null ? booking.getCheckedInAt() : LocalDateTime.now())
+                        .build();
+                primary = roomStayGuestRepository.save(primary);
+                list.add(primary);
+            }
+            if (booking.getStayingGuests() != null) {
+                for (Guest g : booking.getStayingGuests()) {
+                    if (booking.getGuest() != null && g.getId().equals(booking.getGuest().getId())) {
+                        continue;
+                    }
+                    RoomStayGuest extra = RoomStayGuest.builder()
+                            .booking(booking)
+                            .fullName(g.getName())
+                            .documentType("CCCD")
+                            .documentNumber(g.getIdNumber())
+                            .isPrimaryGuest(false)
+                            .isChild(false)
+                            .checkInAt(booking.getCheckedInAt() != null ? booking.getCheckedInAt() : LocalDateTime.now())
+                            .build();
+                    extra = roomStayGuestRepository.save(extra);
+                    list.add(extra);
+                }
+            }
         }
 
         boolean canViewFullDocs = actor.getRole() == Role.OWNER || actor.getRole() == Role.ADMIN || actor.getRole() == Role.RECEPTIONIST;
@@ -64,15 +84,31 @@ public class RoomStayGuestServiceImpl implements RoomStayGuestService {
             throw new IllegalArgumentException("Chỉ có thể thêm khách cùng phòng khi đặt phòng đang ở trạng thái CHECKED_IN!");
         }
 
+        // Đảm bảo khách chính đã được khởi tạo nếu chưa có
+        List<RoomStayGuest> existing = roomStayGuestRepository.findByBookingIdOrderByCreatedAtAsc(bookingId);
+        if (existing.isEmpty() && booking.getGuest() != null) {
+            Guest mainGuest = booking.getGuest();
+            RoomStayGuest primary = RoomStayGuest.builder()
+                    .booking(booking)
+                    .fullName(mainGuest.getName())
+                    .documentType("CCCD")
+                    .documentNumber(mainGuest.getIdNumber())
+                    .isPrimaryGuest(true)
+                    .isChild(false)
+                    .checkInAt(booking.getCheckedInAt() != null ? booking.getCheckedInAt() : LocalDateTime.now())
+                    .build();
+            roomStayGuestRepository.save(primary);
+        }
+
         RoomType roomType = booking.getRoomType();
-        int maxCap = roomType.getMaxCapacity() != null ? roomType.getMaxCapacity() : 2;
+        int maxCap = roomType != null && roomType.getMaxCapacity() != null ? roomType.getMaxCapacity() : 2;
 
         long currentStayingCount = roomStayGuestRepository.countByBookingIdAndLeftEarlyAtIsNull(bookingId);
 
-        if (currentStayingCount + 1 > maxCap) {
-            throw new IllegalArgumentException("Tổng số người ở (" + (currentStayingCount + 1)
-                    + ") vượt quá sức chứa tối đa của phòng (" + maxCap
-                    + " người). Vui lòng chuyển sang phòng lớn hơn hoặc đặt thêm phòng!");
+        if (currentStayingCount >= maxCap) {
+            long remaining = Math.max(0, maxCap - currentStayingCount);
+            throw new IllegalArgumentException("Phòng đã đạt sức chứa tối đa (" + maxCap
+                    + " người). Số khách có thể thêm tối đa là " + remaining + " người!");
         }
 
         // Kiểm tra độ tuổi trẻ em

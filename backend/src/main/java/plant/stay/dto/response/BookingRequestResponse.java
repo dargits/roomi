@@ -22,5 +22,6 @@ public class BookingRequestResponse {
     private BookingRequestStatus status;
     private String rejectReason;
     private Long convertedBookingId;
+    private java.math.BigDecimal expectedPrice;
     private LocalDateTime createdAt;
 }

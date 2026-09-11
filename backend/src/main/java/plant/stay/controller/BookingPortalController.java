@@ -22,6 +22,7 @@ import plant.stay.util.AuthUtil;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -40,6 +41,7 @@ public class BookingPortalController {
     private final BookingServiceUsageService usageService;
     private final InvoiceService invoiceService;
     private final DepositRepository depositRepository;
+    private final plant.stay.service.PricingService pricingService;
 
     // === PUBLIC: Lấy thông tin đặt phòng chi tiết để chia sẻ ===
     @GetMapping("/api/v1/public/bookings/{id}")
@@ -103,19 +105,31 @@ public class BookingPortalController {
     public ResponseEntity<?> availability(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        // Lấy các loại phòng active, rồi kiểm tra xem có phòng nào không bị đặt kín không
         List<RoomType> activeTypes = roomTypeRepository.findByActiveTrue();
+        long nights = java.time.temporal.ChronoUnit.DAYS.between(from, to);
+        if (nights <= 0) nights = 1;
+
+        final long totalNights = nights;
         return ResponseEntity.ok(activeTypes.stream().map(rt -> {
-            long bookedRooms = bookingRepository.findForCalendar(from, to).stream()
-                    .filter(b -> b.getRoom() != null && b.getRoomType().getId().equals(rt.getId())).count();
-            long totalRooms = bookingRepository.findByRoomId(-1L).size(); // Placeholder
-            return java.util.Map.of(
-                    "roomTypeId", rt.getId(),
-                    "name", rt.getName(),
-                    "basePrice", rt.getBasePrice(),
-                    "maxCapacity", rt.getMaxCapacity(),
-                    "imageUrls", rt.getImageUrls()
-            );
+            java.math.BigDecimal totalPrice = pricingService != null
+                    ? pricingService.calculateTotalPrice(rt, from, to)
+                    : (rt.getBasePrice() != null ? rt.getBasePrice().multiply(java.math.BigDecimal.valueOf(totalNights)) : java.math.BigDecimal.ZERO);
+            java.math.BigDecimal pricePerNight = totalPrice.divide(java.math.BigDecimal.valueOf(totalNights), 0, java.math.RoundingMode.HALF_UP);
+            boolean isSpecial = rt.getBasePrice() != null && pricePerNight.compareTo(rt.getBasePrice()) != 0;
+
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("roomTypeId", rt.getId());
+            item.put("name", rt.getName());
+            item.put("basePrice", rt.getBasePrice() != null ? rt.getBasePrice() : java.math.BigDecimal.ZERO);
+            item.put("currentPrice", pricePerNight);
+            item.put("totalPrice", totalPrice);
+            item.put("pricePerNight", pricePerNight);
+            item.put("nights", totalNights);
+            item.put("priceSource", isSpecial ? "SPECIAL" : "BASE");
+            item.put("maxCapacity", rt.getMaxCapacity());
+            item.put("amenitiesDescription", rt.getAmenitiesDescription() != null ? rt.getAmenitiesDescription() : "");
+            item.put("imageUrls", rt.getImageUrls() != null ? rt.getImageUrls() : java.util.List.of());
+            return item;
         }).collect(Collectors.toList()));
     }
 
@@ -174,12 +188,12 @@ public class BookingPortalController {
             }
         }
 
-        // Tính giá dự kiến cơ bản (tạm tính theo basePrice, chưa gồm seasonal price để đơn giản)
-        long nights = java.time.temporal.ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
-        java.math.BigDecimal basePrice = (req.getRoomType() != null && req.getRoomType().getBasePrice() != null)
-                ? req.getRoomType().getBasePrice()
-                : java.math.BigDecimal.ZERO;
-        java.math.BigDecimal expectedPrice = basePrice.multiply(java.math.BigDecimal.valueOf(nights > 0 ? nights : 1));
+        // Tính giá dự kiến chính xác theo cấu hình giá linh hoạt (Holiday > Weekend > Season > Base)
+        java.math.BigDecimal expectedPrice = pricingService != null
+                ? pricingService.calculateTotalPrice(req.getRoomType(), req.getCheckInDate(), req.getCheckOutDate())
+                : (req.getRoomType() != null && req.getRoomType().getBasePrice() != null
+                    ? req.getRoomType().getBasePrice().multiply(java.math.BigDecimal.valueOf(Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate()))))
+                    : java.math.BigDecimal.ZERO);
 
         // Tạo booking từ request
         Booking booking = Booking.builder()
@@ -231,6 +245,14 @@ public class BookingPortalController {
     }
 
     private BookingRequestResponse toResponse(BookingRequest r) {
+        java.math.BigDecimal expectedPrice = null;
+        if (pricingService != null && r.getRoomType() != null && r.getCheckInDate() != null && r.getCheckOutDate() != null) {
+            try {
+                expectedPrice = pricingService.calculateTotalPrice(r.getRoomType(), r.getCheckInDate(), r.getCheckOutDate());
+            } catch (Exception ignored) {
+            }
+        }
+
         return BookingRequestResponse.builder()
                 .id(r.getId()).guestName(r.getGuestName()).phone(r.getPhone()).email(r.getEmail())
                 .roomTypeId(r.getRoomType() != null ? r.getRoomType().getId() : null)
@@ -238,6 +260,7 @@ public class BookingPortalController {
                 .checkInDate(r.getCheckInDate()).checkOutDate(r.getCheckOutDate())
                 .note(r.getNote()).status(r.getStatus()).rejectReason(r.getRejectReason())
                 .convertedBookingId(r.getConvertedBooking() != null ? r.getConvertedBooking().getId() : null)
+                .expectedPrice(expectedPrice)
                 .createdAt(r.getCreatedAt())
                 .build();
     }
