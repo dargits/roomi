@@ -108,10 +108,12 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
     }
   };
 
-  const serviceOptions = availableServices.map((s) => ({
-    value: s.id,
-    label: `${s.name} (${s.unitPrice?.toLocaleString('vi-VN')} đ/${s.unit || 'lượt'})`
-  }));
+  const serviceOptions = availableServices
+    .filter((s) => !s.name?.toLowerCase().includes('ở ghép') && !s.name?.toLowerCase().includes('vượt tiêu chuẩn'))
+    .map((s) => ({
+      value: s.id,
+      label: `${s.name} (${s.unitPrice?.toLocaleString('vi-VN')} đ/${s.unit || 'lượt'})`
+    }));
 
   const totalAmount = services.reduce(
     (sum, item) => sum + (item.total || (item.unitPriceSnapshot * item.quantity)),
@@ -229,13 +231,22 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
                     </td>
                     {canEdit && (
                       <td className="p-3 text-center">
-                        <button 
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-on-surface-variant hover:text-error hover:bg-red-50 rounded transition-colors"
-                          title="Xóa dịch vụ"
-                        >
-                          <IoTrashOutline size={16} />
-                        </button>
+                        {item.isSystemMandatory || item.serviceName?.includes('ở ghép') || item.serviceName?.includes('vượt tiêu chuẩn') ? (
+                          <span 
+                            className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-300 cursor-not-allowed select-none"
+                            title="Phụ thu theo quy định sức chứa phòng, không thể xóa thủ công tại đây. Để bớt phụ thu, vui lòng xóa khách trong tab Khách cùng phòng."
+                          >
+                            Cố định
+                          </span>
+                        ) : (
+                          <button 
+                            onClick={() => handleDelete(item.id)}
+                            className="p-1.5 text-on-surface-variant hover:text-error hover:bg-red-50 rounded transition-colors"
+                            title="Xóa dịch vụ"
+                          >
+                            <IoTrashOutline size={16} />
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>

@@ -19,6 +19,10 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     @Autowired
     private RoomTypeRepository roomTypeRepository;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private plant.stay.service.PricingService pricingService;
+
     @Override
     @Transactional(readOnly = true)
     public List<RoomTypeResponse> getAllRoomTypes() {
@@ -118,6 +122,22 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     }
 
     private RoomTypeResponse mapToResponse(RoomType roomType) {
+        java.math.BigDecimal currentPrice = roomType.getBasePrice();
+        String priceSource = "BASE";
+        String priceSourceName = null;
+
+        if (pricingService != null) {
+            try {
+                var nightDetail = pricingService.calculateNightPrice(roomType, java.time.LocalDate.now());
+                if (nightDetail != null && nightDetail.getAppliedPrice() != null) {
+                    currentPrice = nightDetail.getAppliedPrice();
+                    priceSource = nightDetail.getPriceSource();
+                    priceSourceName = nightDetail.getSourceName();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
         return RoomTypeResponse.builder()
                 .id(roomType.getId())
                 .name(roomType.getName())
@@ -126,6 +146,9 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 .extraPersonChargePerNight(roomType.getExtraPersonChargePerNight())
                 .maxChildAgeFree(roomType.getMaxChildAgeFree())
                 .basePrice(roomType.getBasePrice())
+                .currentPrice(currentPrice)
+                .priceSource(priceSource)
+                .priceSourceName(priceSourceName)
                 .amenitiesDescription(roomType.getAmenitiesDescription())
                 .imageUrls(roomType.getImageUrls())
                 .active(roomType.isActive())

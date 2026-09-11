@@ -7,7 +7,7 @@ import PublicGroupBookingModal from './PublicGroupBookingModal';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import SearchBar from '../landing/SearchBar';
-import { useAppConfig } from '../../context/AppConfigContext';
+import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { useToast } from '../../context/ToastContext';
 import { 
   IoBedOutline, 
@@ -36,16 +36,23 @@ const RoomsPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await roomTypeApi.getPublicRoomTypes();
-      const mapped: RoomCardData[] = (data || []).map(room => ({
-        id: room.id,
-        name: room.name,
-        maxCapacity: room.maxCapacity,
-        amenitiesDescription: room.amenitiesDescription,
-        basePrice: room.basePrice,
-        price: new Intl.NumberFormat('vi-VN').format(room.basePrice) + ' ₫',
-        imageUrls: room.imageUrls || [],
-        primaryButton: true
-      }));
+      const mapped: RoomCardData[] = (data || []).map(room => {
+        const displayPrice = room.currentPrice != null ? room.currentPrice : room.basePrice;
+        const hasSpecialPrice = room.currentPrice != null && Number(room.currentPrice) !== Number(room.basePrice);
+        return {
+          id: room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          currentPrice: room.currentPrice,
+          price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+          originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || 'Giá ưu đãi') : undefined,
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        };
+      });
       setRooms(mapped);
     } catch (error) {
       console.error("Lỗi tải danh sách phòng:", error);
@@ -62,16 +69,23 @@ const RoomsPage: React.FC = () => {
       const fromStr = from.toISOString().split('T')[0];
       const toStr = to.toISOString().split('T')[0];
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
-      const mapped: RoomCardData[] = ((data as any[]) || []).map(room => ({
-        id: room.roomTypeId || room.id,
-        name: room.name,
-        maxCapacity: room.maxCapacity,
-        amenitiesDescription: room.amenitiesDescription,
-        basePrice: room.basePrice,
-        price: new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫',
-        imageUrls: room.imageUrls || [],
-        primaryButton: true
-      }));
+      const mapped: RoomCardData[] = ((data as any[]) || []).map(room => {
+        const displayPrice = room.currentPrice != null ? room.currentPrice : (room.pricePerNight != null ? room.pricePerNight : room.basePrice);
+        const hasSpecialPrice = displayPrice != null && Number(displayPrice) !== Number(room.basePrice);
+        return {
+          id: room.roomTypeId || room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          currentPrice: displayPrice,
+          price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+          originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || (room.priceSource === 'SPECIAL' ? 'Giá ngày áp dụng' : undefined)) : undefined,
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        };
+      });
       setRooms(mapped);
     } catch (error) {
       console.error("Lỗi kiểm tra phòng trống:", error);
@@ -111,15 +125,15 @@ const RoomsPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Section - Synchronized with Landing Page */}
-      <section className="relative w-full h-[320px] flex flex-col items-center justify-center">
-        <div className="absolute inset-0 z-0">
+      <section className="relative z-30 w-full h-[320px] flex flex-col items-center justify-center">
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <div 
-            className="bg-cover bg-center w-full h-full bg-neutral-800" 
-            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+            className="bg-cover bg-center w-full h-full bg-neutral-800 animate-hero-zoom" 
+            style={{ backgroundImage: `url('${hotelSetting?.homeImage || DEFAULT_HERO_IMAGE}')` }}
           />
           <div className="absolute inset-0 bg-black/40" />
         </div>
-        <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6">
+        <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6 animate-fade-in-up">
           <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">
             Danh Sách Phòng & Bảng Giá{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
           </h1>
@@ -128,7 +142,9 @@ const RoomsPage: React.FC = () => {
           </p>
         </div>
         
-        <SearchBar onSearch={handleSearch} />
+        <div className="w-full flex justify-center animate-fade-in-up animate-delay-100">
+          <SearchBar onSearch={handleSearch} />
+        </div>
       </section>
 
       {/* Main Room Grid */}

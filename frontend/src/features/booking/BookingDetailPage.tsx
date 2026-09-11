@@ -17,7 +17,8 @@ import {
   IoSwapVerticalOutline, 
   IoTimeOutline, 
   IoCashOutline,
-  IoCalendarOutline
+  IoCalendarOutline,
+  IoPeopleOutline
 } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -28,6 +29,7 @@ import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
+import StayingGuestsModal from './StayingGuestsModal';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import RescheduleDateModal from './RescheduleDateModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
@@ -85,6 +87,7 @@ const BookingDetailPage: React.FC = () => {
   const [checkOutProcessing, setCheckOutProcessing] = useState(false);
   const [checkOutError, setCheckOutError] = useState('');
   const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
+  const [showStayingGuestsModal, setShowStayingGuestsModal] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -271,6 +274,15 @@ const BookingDetailPage: React.FC = () => {
             )}
             {booking.status === 'CHECKED_IN' && (
               <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={IoPeopleOutline}
+                  onClick={() => setShowStayingGuestsModal(true)}
+                  className="border-primary/40 text-primary hover:bg-primary/5"
+                >
+                  Khách cùng phòng
+                </Button>
                 {booking.checkOutDate > new Date().toISOString().split('T')[0] && (
                   <Button
                     size="sm"
@@ -664,6 +676,18 @@ const BookingDetailPage: React.FC = () => {
         guestName={booking?.guestName}
         onSuccess={fetchBookingDetails}
       />
+
+      {/* Modal Khách cùng phòng */}
+      {showStayingGuestsModal && (
+        <StayingGuestsModal
+          isOpen={showStayingGuestsModal}
+          onClose={() => setShowStayingGuestsModal(false)}
+          booking={booking}
+          onUpdated={() => {
+            fetchBookingDetails();
+          }}
+        />
+      )}
     </div>
   );
 };

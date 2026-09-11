@@ -3,7 +3,7 @@ import PublicHeader from '../../components/layout/PublicHeader';
 import Footer from '../../components/layout/Footer';
 import { extraServiceApi } from '../../services/extraServiceApi';
 import { ExtraServiceResponse } from '../../types';
-import { useAppConfig } from '../../context/AppConfigContext';
+import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { 
   IoRestaurantOutline, 
   IoWaterOutline, 
@@ -94,18 +94,18 @@ const AmenitiesPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Banner with Hotel Background Image */}
-      <section className="relative text-white py-16 px-margin-desktop overflow-hidden bg-neutral-900">
+      <section className="relative w-full h-[320px] flex flex-col items-center justify-center text-white px-4 md:px-margin-desktop overflow-hidden">
         <div className="absolute inset-0 z-0">
           <div 
-            className="bg-cover bg-center w-full h-full" 
-            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+            className="bg-cover bg-center w-full h-full bg-neutral-800" 
+            style={{ backgroundImage: `url('${hotelSetting?.homeImage || DEFAULT_HERO_IMAGE}')` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/75 to-black/85" />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
-        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl">
+        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl px-4">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Dịch vụ & Tiện ích đẳng cấp</span>
-          <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-sm">Trải Nghiệm Hoàn Hảo Tại {hotelSetting?.propertyName || 'Khách Sạn'}</h1>
-          <p className="text-white/80 font-body-lg leading-relaxed">
+          <h1 className="font-display-lg text-white mt-2 mb-3 drop-shadow-md">Trải Nghiệm Hoàn Hảo Tại {hotelSetting?.propertyName || 'Khách Sạn'}</h1>
+          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
             Chúng tôi tự hào mang đến cho quý khách chuỗi tiện ích đa dạng, từ ẩm thực, thư giãn đến hỗ trợ di chuyển và công việc, giúp kỳ nghỉ trọn vẹn nhất.
           </p>
         </div>

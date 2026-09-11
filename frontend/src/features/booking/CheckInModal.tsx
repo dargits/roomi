@@ -197,6 +197,11 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, booking, o
       return;
     }
 
+    if (booking.roomCapacity && validGuests.length > booking.roomCapacity) {
+      setErrorMsg(`Số lượng khách (${validGuests.length} người) vượt quá sức chứa tối đa của phòng (${booking.roomCapacity} người). Vui lòng chuyển sang loại phòng lớn hơn theo quy định.`);
+      return;
+    }
+
     for (let i = 0; i < validGuests.length; i++) {
       const g = validGuests[i];
       if (!g.name.trim()) {

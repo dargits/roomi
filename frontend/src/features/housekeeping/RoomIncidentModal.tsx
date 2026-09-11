@@ -2,15 +2,20 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { roomIncidentApi } from '../../services/roomIncidentApi';
+import { roomApi } from '../../services/roomApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { 
   IoWarningOutline, 
+  IoWarning,
   IoBuildOutline, 
   IoCheckmarkCircleOutline, 
-  IoAlertCircleOutline,
-  IoAddOutline,
-  IoRefreshOutline
+  IoAlertCircleOutline, 
+  IoAddOutline, 
+  IoRefreshOutline,
+  IoSearchOutline,
+  IoCloseOutline,
+  IoBedOutline
 } from 'react-icons/io5';
 
 interface RoomIncidentModalProps {
@@ -27,6 +32,8 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [roomSearch, setRoomSearch] = useState<string>('');
 
   // Form báo sự cố
   const [roomId, setRoomId] = useState<number | string>(initialRoom?.id || '');
@@ -34,11 +41,31 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
   const [severity, setSeverity] = useState<'LIGHT' | 'HEAVY' | 'OUT_OF_SERVICE'>('LIGHT');
   const [description, setDescription] = useState('');
 
+  // Lọc phòng theo từ khóa tìm kiếm
+  const filteredRooms = rooms.filter((r) => {
+    if (!roomSearch.trim()) return true;
+    const q = roomSearch.trim().toLowerCase();
+    return (
+      (r.roomNumber && String(r.roomNumber).toLowerCase().includes(q)) ||
+      (r.roomTypeName && r.roomTypeName.toLowerCase().includes(q)) ||
+      (r.floor && String(r.floor).toLowerCase().includes(q))
+    );
+  });
+
   // Resolve state
   const [resolvingItem, setResolvingItem] = useState<any | null>(null);
   const [resolutionNote, setResolutionNote] = useState('');
 
   const isOwnerOrAdmin = user?.role === 'OWNER' || user?.role === 'ADMIN';
+
+  // Tải danh sách phòng để người dùng chọn thay vì nhập tay
+  useEffect(() => {
+    if (isOpen) {
+      roomApi.getAllRooms()
+        .then((data) => setRooms(data || []))
+        .catch((err) => console.error("Không thể tải danh sách phòng:", err));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialRoom) {
@@ -134,11 +161,26 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
   const getSeverityBadge = (sev: string) => {
     switch (sev) {
       case 'LIGHT':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">Nhẹ (Vẫn đón khách)</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+            <IoWarningOutline size={13} className="text-amber-600" />
+            Nhẹ (Vẫn đón khách)
+          </span>
+        );
       case 'HEAVY':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200">Nặng (Khóa bảo trì)</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200">
+            <IoWarningOutline size={13} className="text-orange-600" />
+            Nặng (Khóa bảo trì)
+          </span>
+        );
       case 'OUT_OF_SERVICE':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 border border-red-200">Không thể phục vụ</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+            <IoWarningOutline size={13} className="text-red-600" />
+            Không thể phục vụ
+          </span>
+        );
       default:
         return sev;
     }
@@ -184,62 +226,192 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
 
           {/* MODE: BÁO SỰ CỐ MỚI */}
           {mode === 'report' && (
-            <form onSubmit={handleReportSubmit} className="space-y-4 bg-surface-container-low p-4 rounded-lg border border-border-grey">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-label-md text-on-surface-variant mb-1.5">
-                    Phòng bị sự cố <span className="text-red-500">*</span>
+            <form onSubmit={handleReportSubmit} className="space-y-4">
+              {/* Bước 1: Chọn phòng để báo cáo (tương tự modal xếp phòng) */}
+              <div className="bg-surface-container-low p-4 rounded-xl border border-border-grey space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="font-label-md text-on-surface font-semibold text-xs flex items-center gap-1.5">
+                    <IoBedOutline size={16} className="text-primary" />
+                    <span>Bước 1: Chọn phòng bị sự cố</span>
+                    <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    readOnly={!!initialRoom}
-                    value={roomNumber ? `Phòng ${roomNumber}` : ''}
-                    placeholder="Ví dụ: 101"
-                    className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm font-semibold"
+                  {roomId && (
+                    <span className="text-[11px] text-primary bg-primary/10 px-2.5 py-0.5 rounded-full font-bold">
+                      Đang chọn: Phòng {roomNumber}
+                    </span>
+                  )}
+                </div>
+
+                {/* Ô tìm kiếm phòng */}
+                {rooms.length > 0 && (
+                  <div className="relative">
+                    <IoSearchOutline 
+                      size={16} 
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 pointer-events-none" 
+                    />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm theo số phòng, tầng, loại phòng..."
+                      value={roomSearch}
+                      onChange={(e) => setRoomSearch(e.target.value)}
+                      className="w-full pl-8 pr-8 py-2 rounded-lg border border-border-grey bg-surface text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                    />
+                    {roomSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setRoomSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/60 hover:text-on-surface p-0.5 rounded-full hover:bg-surface-container-low transition-colors cursor-pointer"
+                        title="Xóa tìm kiếm"
+                      >
+                        <IoCloseOutline size={15} />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Grid danh sách phòng để chọn */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[190px] overflow-y-auto pr-1">
+                  {filteredRooms.length === 0 ? (
+                    <div className="col-span-full py-6 text-center text-xs text-on-surface-variant">
+                      Không tìm thấy phòng nào phù hợp với "{roomSearch}"
+                    </div>
+                  ) : (
+                    filteredRooms.map((r) => {
+                      const isSelected = String(roomId) === String(r.id);
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            setRoomId(r.id);
+                            setRoomNumber(r.roomNumber);
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 ring-2 ring-primary/20 shadow-xs'
+                              : 'border-border-grey bg-surface hover:bg-surface-container-low hover:border-primary/40'
+                          }`}
+                        >
+                          <div className="min-w-0 pr-1">
+                            <div className={`font-bold text-xs ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
+                              Phòng {r.roomNumber}
+                            </div>
+                            <div className="text-[10px] text-on-surface-variant truncate">
+                              {r.roomTypeName || 'Tiêu chuẩn'}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <span className="w-4 h-4 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Bước 2: Chọn mức độ nghiêm trọng & nhập mô tả */}
+              <div className="bg-surface-container-low p-4 rounded-xl border border-border-grey space-y-3">
+                <label className="font-label-md text-on-surface font-semibold text-xs flex items-center gap-1.5">
+                  <IoWarningOutline size={16} className="text-amber-600" />
+                  <span>Bước 2: Mức độ nghiêm trọng & Mô tả chi tiết</span>
+                  <span className="text-red-500">*</span>
+                </label>
+
+                {/* Card Options chọn mức độ có icon tam giác màu sắc tương ứng */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Mức nhẹ */}
+                  <button
+                    type="button"
+                    onClick={() => setSeverity('LIGHT')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                      severity === 'LIGHT'
+                        ? 'border-amber-400 bg-amber-50/70 ring-2 ring-amber-300/40 shadow-xs'
+                        : 'border-border-grey bg-surface hover:border-amber-300/60'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <IoWarning size={17} className="text-amber-500" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-amber-900">Mức Nhẹ</div>
+                      <div className="text-[10.5px] text-amber-800/80 leading-tight mt-0.5">
+                        Vẫn đưa về sẵn sàng, gắn cờ chờ xử lý
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Mức nặng */}
+                  <button
+                    type="button"
+                    onClick={() => setSeverity('HEAVY')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                      severity === 'HEAVY'
+                        ? 'border-orange-500 bg-orange-50/70 ring-2 ring-orange-300/40 shadow-xs'
+                        : 'border-border-grey bg-surface hover:border-orange-300/60'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <IoWarning size={17} className="text-orange-500" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-orange-900">Mức Nặng</div>
+                      <div className="text-[10.5px] text-orange-800/80 leading-tight mt-0.5">
+                        Khóa phòng bảo trì, cảnh báo booking ảnh hưởng
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Mức Không thể phục vụ */}
+                  <button
+                    type="button"
+                    onClick={() => setSeverity('OUT_OF_SERVICE')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                      severity === 'OUT_OF_SERVICE'
+                        ? 'border-red-500 bg-red-50/70 ring-2 ring-red-300/40 shadow-xs'
+                        : 'border-border-grey bg-surface hover:border-red-300/60'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-red-100 text-red-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <IoWarning size={17} className="text-red-600" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-red-900">Không thể phục vụ</div>
+                      <div className="text-[10.5px] text-red-800/80 leading-tight mt-0.5">
+                        Khóa bảo trì khẩn cấp, cần xử lý ngay
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {severity !== 'LIGHT' && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 flex items-start gap-2">
+                    <IoAlertCircleOutline size={18} className="shrink-0 mt-0.5 text-red-600" />
+                    <span>
+                      <strong>Cảnh báo nghiệp vụ (NCL-06-CN-006):</strong> Khi báo mức độ Nặng hoặc Không thể phục vụ, phòng sẽ tự động chuyển sang trạng thái <strong>Khóa bảo trì (MAINTENANCE)</strong>. Hệ thống sẽ kiểm tra và cảnh báo số lượng đặt phòng sắp tới bị ảnh hưởng để lễ tân chủ động đổi phòng cho khách!
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block font-label-md text-on-surface-variant mb-1.5 text-xs font-semibold">
+                    Mô tả sự cố chi tiết <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ví dụ: Máy lạnh chảy nước nhiều, Vỡ bóng đèn phòng tắm, Ổ khóa cửa chính bị kẹt không mở được..."
+                    className="w-full px-3 py-2 border border-border-grey rounded-xl focus:ring-2 focus:ring-primary text-xs bg-surface"
                   />
                 </div>
-
-                <div>
-                  <label className="block font-label-md text-on-surface-variant mb-1.5">
-                    Mức độ nghiêm trọng <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={severity}
-                    onChange={(e) => setSeverity(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="LIGHT">🟡 Nhẹ (Vẫn đưa về sẵn sàng, gắn cờ chờ xử lý)</option>
-                    <option value="HEAVY">🟠 Nặng (Khóa phòng bảo trì, cảnh báo booking ảnh hưởng)</option>
-                    <option value="OUT_OF_SERVICE">🔴 Không thể phục vụ (Khóa bảo trì khẩn cấp)</option>
-                  </select>
-                </div>
               </div>
 
-              {severity !== 'LIGHT' && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 flex items-start gap-2">
-                  <IoAlertCircleOutline size={18} className="shrink-0 mt-0.5 text-red-600" />
-                  <span>
-                    <strong>Cảnh báo nghiệp vụ (NCL-06-CN-006):</strong> Khi báo mức độ Nặng hoặc Không thể phục vụ, phòng sẽ tự động chuyển sang trạng thái <strong>Khóa bảo trì (MAINTENANCE)</strong>. Hệ thống sẽ kiểm tra và cảnh báo số lượng đặt phòng sắp tới bị ảnh hưởng để lễ tân chủ động đổi phòng cho khách!
-                  </span>
-                </div>
-              )}
-
-              <div>
-                <label className="block font-label-md text-on-surface-variant mb-1.5">
-                  Mô tả sự cố chi tiết <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ví dụ: Máy lạnh chảy nước nhiều, Vỡ bóng đèn phòng tắm, Ổ khóa cửa chính bị kẹt không mở được..."
-                  className="w-full px-3 py-2 border border-border-grey rounded-md focus:ring-2 focus:ring-primary text-sm"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button type="submit" disabled={actionLoading} icon={IoWarningOutline}>
+              <div className="flex justify-end gap-3 pt-1">
+                <Button type="submit" disabled={actionLoading || !roomId} icon={IoWarningOutline}>
                   {actionLoading ? 'Đang gửi...' : 'Gửi báo cáo sự cố'}
                 </Button>
               </div>

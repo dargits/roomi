@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import PublicHeader from '../../components/layout/PublicHeader';
 import Footer from '../../components/layout/Footer';
-import { useAppConfig } from '../../context/AppConfigContext';
+import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { 
   IoCallOutline, 
   IoMailOutline, 
   IoLocationOutline, 
   IoTimeOutline, 
-  IoCheckmarkCircleOutline
+  IoCheckmarkCircleOutline,
+  IoNavigateOutline
 } from 'react-icons/io5';
 
 const ContactPage: React.FC = () => {
@@ -43,18 +44,18 @@ const ContactPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Banner with Hotel Background Image */}
-      <section className="relative text-white py-16 px-margin-desktop overflow-hidden bg-neutral-900">
+      <section className="relative w-full h-[320px] flex flex-col items-center justify-center text-white px-4 md:px-margin-desktop overflow-hidden">
         <div className="absolute inset-0 z-0">
           <div 
-            className="bg-cover bg-center w-full h-full" 
-            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+            className="bg-cover bg-center w-full h-full bg-neutral-800 animate-hero-zoom" 
+            style={{ backgroundImage: `url('${hotelSetting?.homeImage || DEFAULT_HERO_IMAGE}')` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/75 to-black/85" />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
-        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl">
+        <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl px-4 animate-fade-in-up">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Hỗ trợ & Giải đáp 24/7</span>
-          <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-sm">Liên Hệ Với Chúng Tôi</h1>
-          <p className="text-white/85 font-body-lg leading-relaxed">
+          <h1 className="font-display-lg text-white mt-2 mb-3 drop-shadow-md">Liên Hệ Với Chúng Tôi</h1>
+          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
             Đội ngũ lễ tân và chăm sóc khách hàng của {hotelSetting?.propertyName || 'Khách sạn'} luôn sẵn sàng hỗ trợ quý khách mọi lúc, mọi nơi.
           </p>
         </div>
@@ -236,12 +237,12 @@ const ContactPage: React.FC = () => {
             <div className="bg-surface-container-lowest p-6 rounded-3xl border border-border-grey shadow-sm">
               <h3 className="font-title-md font-bold text-on-surface mb-3">Chỉ Đường & Vị Trí</h3>
               <p className="text-xs text-on-surface-variant leading-relaxed mb-4">
-                Khách sạn nằm trên trục đường huyết mạch, cách sân bay khoảng 15 phút di chuyển bằng ô tô và rất gần các trung tâm mua sắm, bãi tắm nổi tiếng.
+                {hotelSetting?.propertyName || 'Khách sạn'} tọa lạc tại {hotelSetting?.address || 'vị trí trung tâm thuận tiện'}. Quý khách có thể dễ dàng di chuyển và định vị thông qua bản đồ bên dưới:
               </p>
-              <div className="aspect-video bg-surface-container-low rounded-2xl overflow-hidden border border-border-grey flex items-center justify-center text-xs text-on-surface-variant">
+              <div className="aspect-video bg-surface-container-low rounded-2xl overflow-hidden border border-border-grey flex items-center justify-center text-xs text-on-surface-variant mb-4">
                 <iframe
-                  title="Google Maps"
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.424167419728!2d106.6983407748049!3d10.778784089370258!2m3!1f0!2f0!3f0!3m2!1i1024!2f768!4f13.1!3m3!1m2!1s0x31752f385570472f%3A0x1787491737236375!2zRGluaCDEkOG7mWMgTOG6rXA!5e0!3m2!1svi!2s!4v1700000000000!5m2!1svi!2s"
+                  title={`Google Maps ${hotelSetting?.propertyName || ''}`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(hotelSetting?.address?.trim() || hotelSetting?.propertyName?.trim() || 'Z115, Phan Đình Phùng, Tp. Thái Nguyên')}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
@@ -249,6 +250,15 @@ const ContactPage: React.FC = () => {
                   loading="lazy"
                 ></iframe>
               </div>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotelSetting?.address?.trim() || hotelSetting?.propertyName?.trim() || 'Z115, Phan Đình Phùng, Tp. Thái Nguyên')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-primary font-medium text-xs border border-border-grey transition-colors"
+              >
+                <IoNavigateOutline size={16} />
+                Mở chỉ đường trên Google Maps
+              </a>
             </div>
           </div>
         </div>
