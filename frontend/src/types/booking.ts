@@ -27,6 +27,10 @@ export interface BookingResponse {
   roomId?: number;
   roomNumber?: string;
   roomCapacity?: number;
+  standardCapacity?: number;
+  maxCapacity?: number;
+  extraPersonChargePerNight?: number;
+  maxChildAgeFree?: number;
   checkInDate: string;
   checkOutDate: string;
   status: BookingStatus;

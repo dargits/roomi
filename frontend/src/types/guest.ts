@@ -44,6 +44,23 @@ export interface RoomStayGuestCreateDto {
   isChild?: boolean;
 }
 
+export interface StayingGuestsSummaryDto {
+  guests: RoomStayGuestResponseDto[];
+  standardCapacity: number;
+  maxCapacity: number;
+  extraPersonChargePerNight: number;
+  maxChildAgeFree: number;
+  totalNights: number;
+  totalGuests: number;
+  extraGuests: number;
+  childCount: number;
+  chargeableExtraGuests: number;
+  extraChargePerNight: number;
+  totalExtraCharge: number;
+  baseRoomPrice: number;
+  currentActualPrice: number;
+}
+
 export type StayDeclarationStatus = 'PENDING' | 'SUBMITTED' | 'REJECTED';
 
 export interface StayDeclarationResponseDTO {

@@ -1,10 +1,16 @@
 import api from './api';
-import { RoomStayGuestResponseDto, RoomStayGuestCreateDto, MessageResponse } from '../types';
+import { RoomStayGuestResponseDto, RoomStayGuestCreateDto, StayingGuestsSummaryDto, MessageResponse } from '../types';
 
 export const stayingGuestsApi = {
   // Lấy danh sách khách cùng phòng
   getStayingGuests: async (bookingId: number | string): Promise<RoomStayGuestResponseDto[]> => {
     const response = await api.get<RoomStayGuestResponseDto[]>(`/bookings/${bookingId}/staying-guests`);
+    return response.data;
+  },
+
+  // Lấy tổng hợp danh sách khách & chi tiết phụ thu vượt ngưỡng
+  getStayingGuestsSummary: async (bookingId: number | string): Promise<StayingGuestsSummaryDto> => {
+    const response = await api.get<StayingGuestsSummaryDto>(`/bookings/${bookingId}/staying-guests/summary`);
     return response.data;
   },
 

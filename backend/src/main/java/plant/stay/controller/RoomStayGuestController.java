@@ -31,6 +31,14 @@ public class RoomStayGuestController {
         return ResponseEntity.ok(roomStayGuestService.getStayingGuests(bookingId, actor));
     }
 
+    @GetMapping("/summary")
+    public ResponseEntity<plant.stay.dto.response.StayingGuestsSummaryDto> getStayingGuestsSummary(
+            @PathVariable Long bookingId,
+            HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(roomStayGuestService.getStayingGuestsSummary(bookingId, actor));
+    }
+
     @PostMapping
     public ResponseEntity<RoomStayGuestResponseDto> addStayingGuest(
             @PathVariable Long bookingId,
