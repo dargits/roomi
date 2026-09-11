@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import PublicHeader from '../../components/layout/PublicHeader';
 import Footer from '../../components/layout/Footer';
-import { useAppConfig } from '../../context/AppConfigContext';
+import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { 
   IoHeartOutline, 
   IoLocationOutline, 
@@ -48,18 +48,18 @@ const AboutPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Banner with Hotel Background Image */}
-      <section className="relative w-full h-[360px] flex items-center justify-center text-white px-margin-desktop overflow-hidden bg-neutral-900">
+      <section className="relative w-full h-[320px] flex flex-col items-center justify-center text-white px-4 md:px-margin-desktop overflow-hidden">
         <div className="absolute inset-0 z-0">
           <div 
-            className="bg-cover bg-center w-full h-full" 
-            style={{ backgroundImage: hotelSetting?.homeImage ? `url('${hotelSetting.homeImage}')` : undefined }}
+            className="bg-cover bg-center w-full h-full bg-neutral-800 animate-hero-zoom" 
+            style={{ backgroundImage: `url('${hotelSetting?.homeImage || DEFAULT_HERO_IMAGE}')` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/70 to-black/80" />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
-        <div className="relative z-10 text-center max-w-3xl mx-auto">
+        <div className="relative z-10 text-center max-w-3xl mx-auto px-4 animate-fade-in-up">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Chào mừng quý khách đến với</span>
-          <h1 className="font-display-lg text-white mt-2 mb-4 drop-shadow-md">{hotelSetting?.propertyName || 'Khách Sạn Của Chúng Tôi'}</h1>
-          <p className="text-white/85 font-body-lg leading-relaxed">
+          <h1 className="font-display-lg text-white mt-2 mb-3 drop-shadow-md">{hotelSetting?.propertyName || 'Khách Sạn Của Chúng Tôi'}</h1>
+          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
             Điểm dừng chân lý tưởng kết hợp hoàn hảo giữa không gian nghỉ dưỡng sang trọng, dịch vụ chuyên nghiệp và lòng hiếu khách nồng hậu.
           </p>
         </div>

@@ -355,6 +355,13 @@ public class BookingServiceImpl implements BookingService {
 
         List<Guest> stayingGuests = new java.util.ArrayList<>();
         if (req != null && req.getGuests() != null) {
+            int maxCap = booking.getRoomType() != null && booking.getRoomType().getMaxCapacity() != null
+                    ? booking.getRoomType().getMaxCapacity() : 10;
+            if (req.getGuests().size() > maxCap) {
+                throw new IllegalArgumentException("Số lượng khách nhận phòng (" + req.getGuests().size() + 
+                        ") vượt quá sức chứa tối đa của phòng (" + maxCap + " người). Vui lòng chuyển sang loại phòng lớn hơn.");
+            }
+
             for (plant.stay.dto.request.GuestCheckInDto dto : req.getGuests()) {
                 Guest guest = null;
 
@@ -743,9 +750,8 @@ public class BookingServiceImpl implements BookingService {
         List<Map<String, Object>> nightPrices = new java.util.ArrayList<>();
         for (int i = 0; i < nights; i++) {
             LocalDate night = booking.getCheckOutDate().plusDays(i);
-            List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(booking.getRoomType().getId(), night);
-            BigDecimal price = !seasonal.isEmpty()
-                    ? ((plant.stay.model.SeasonalPrice) seasonal.get(0)).getPricePerNight()
+            BigDecimal price = pricingService != null
+                    ? pricingService.calculateNightPrice(booking.getRoomType(), night).getAppliedPrice()
                     : (booking.getRoomType().getBasePrice() != null ? booking.getRoomType().getBasePrice() : BigDecimal.ZERO);
             Map<String, Object> np = new java.util.HashMap<>();
             np.put("date", night.toString());
@@ -949,9 +955,8 @@ public class BookingServiceImpl implements BookingService {
         List<RescheduleDatePreviewResponse.NightPriceDto> nightPrices = new java.util.ArrayList<>();
         for (long i = 0; i < nights; i++) {
             LocalDate night = newCheckIn.plusDays(i);
-            List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(booking.getRoomType().getId(), night);
-            BigDecimal price = !seasonal.isEmpty()
-                    ? ((SeasonalPrice) seasonal.get(0)).getPricePerNight()
+            BigDecimal price = pricingService != null
+                    ? pricingService.calculateNightPrice(booking.getRoomType(), night).getAppliedPrice()
                     : (booking.getRoomType().getBasePrice() != null ? booking.getRoomType().getBasePrice() : BigDecimal.ZERO);
             nightPrices.add(RescheduleDatePreviewResponse.NightPriceDto.builder()
                     .date(night.toString())
@@ -1215,6 +1220,20 @@ public class BookingServiceImpl implements BookingService {
             payLaterCheckout = debtApprovalRepository.existsActiveApprovedDebtByBookingId(b.getId());
         }
 
+        java.util.List<plant.stay.dto.response.GuestResponse> stayingGuestsDto = null;
+        if (b.getStayingGuests() != null && !b.getStayingGuests().isEmpty()) {
+            stayingGuestsDto = b.getStayingGuests().stream()
+                    .map(g -> plant.stay.dto.response.GuestResponse.builder()
+                            .id(g.getId())
+                            .name(g.getName())
+                            .phone(g.getPhone())
+                            .idNumber(g.getIdNumber())
+                            .email(g.getEmail())
+                            .loyaltyPoints(g.getLoyaltyPoints())
+                            .build())
+                    .collect(java.util.stream.Collectors.toList());
+        }
+
         return BookingResponse.builder()
                 .id(b.getId())
                 .guestId(b.getGuest().getId())
@@ -1225,6 +1244,10 @@ public class BookingServiceImpl implements BookingService {
                 .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
                 .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null)
                 .roomCapacity(b.getRoomType() != null ? b.getRoomType().getMaxCapacity() : null)
+                .standardCapacity(b.getRoomType() != null ? b.getRoomType().getStandardCapacity() : 2)
+                .maxCapacity(b.getRoomType() != null ? b.getRoomType().getMaxCapacity() : 2)
+                .extraPersonChargePerNight(b.getRoomType() != null && b.getRoomType().getExtraPersonChargePerNight() != null ? b.getRoomType().getExtraPersonChargePerNight() : BigDecimal.ZERO)
+                .maxChildAgeFree(b.getRoomType() != null ? b.getRoomType().getMaxChildAgeFree() : 6)
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .status(b.getStatus())
@@ -1240,6 +1263,7 @@ public class BookingServiceImpl implements BookingService {
                 .paymentStatus(paymentStatus)
                 .roomStatus(b.getRoom() != null && b.getRoom().getStatus() != null ? b.getRoom().getStatus().name() : null)
                 .payLaterCheckout(payLaterCheckout)
+                .stayingGuests(stayingGuestsDto)
                 .build();
     }
 }

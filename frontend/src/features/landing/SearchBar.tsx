@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { DateRange, RangeKeyDict, Range } from 'react-date-range';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { IoCalendarClearOutline, IoCalendarOutline } from 'react-icons/io5';
+import { IoCalendarClearOutline, IoCalendarOutline, IoCloseOutline, IoCheckmarkOutline } from 'react-icons/io5';
 import 'react-date-range/dist/styles.css'; 
 import 'react-date-range/dist/theme/default.css'; 
 
@@ -13,6 +13,7 @@ interface SearchBarProps {
 const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [dateRange, setDateRange] = useState<Range[]>([
     {
       startDate: new Date(),
@@ -22,6 +23,15 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   ]);
 
   const datePickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -44,10 +54,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
 
   const startDate = dateRange[0]?.startDate || new Date();
   const endDate = dateRange[0]?.endDate || new Date();
-  const nights = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const nights = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
 
   return (
-    <div className="w-full max-w-4xl px-4 z-20 relative">
+    <div className="w-full max-w-4xl px-4 z-30 relative">
       <div className="bg-surface-container p-2 rounded-lg shadow-md border border-border-grey flex flex-col md:flex-row gap-2">
         
         {/* Combined Date Inputs Wrapper */}
@@ -89,26 +99,72 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
           {/* Date Picker Popover */}
           {showDatePicker && (
             <div 
-              className="absolute top-[110%] left-0 z-50 bg-white shadow-xl rounded-lg border border-border-grey overflow-hidden" 
+              className="absolute top-[110%] left-0 z-50 bg-white shadow-2xl rounded-xl border border-border-grey overflow-hidden max-w-[calc(100vw-2rem)] sm:max-w-none animate-in fade-in zoom-in-95 duration-150" 
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-4 border-b border-border-grey bg-surface-container-lowest">
-                <h3 className="font-title-lg text-title-lg text-on-surface">Xác nhận ngày quý khách đến/đi để xem giá</h3>
-                <p className="font-body-md text-body-md text-on-surface-variant">
-                  Ngày nhận phòng - Ngày trả phòng ({nights} đêm)
-                </p>
+              {/* Popover Header */}
+              <div className="p-4 border-b border-border-grey bg-surface-container-lowest flex items-center justify-between">
+                <div>
+                  <h3 className="font-title-lg text-title-lg text-on-surface font-semibold">Xác nhận ngày quý khách đến/đi để xem giá</h3>
+                  <p className="font-body-md text-body-md text-on-surface-variant">
+                    {isSelected 
+                      ? `${format(startDate, 'dd/MM/yyyy')} - ${format(endDate, 'dd/MM/yyyy')} (${nights} đêm)`
+                      : `Ngày nhận phòng - Ngày trả phòng (${nights} đêm)`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(false)}
+                  className="p-1.5 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors"
+                  aria-label="Đóng"
+                >
+                  <IoCloseOutline size={22} />
+                </button>
               </div>
-              <DateRange
-                editableDateInputs={true}
-                onChange={handleSelect}
-                moveRangeOnFirstSelection={false}
-                ranges={dateRange}
-                months={2}
-                direction="horizontal"
-                locale={vi}
-                minDate={new Date()}
-                rangeColors={['#005ea4']}
-              />
+
+              {/* Calendar Body */}
+              <div className="overflow-x-auto">
+                <DateRange
+                  editableDateInputs={true}
+                  onChange={handleSelect}
+                  moveRangeOnFirstSelection={false}
+                  ranges={dateRange}
+                  months={isMobile ? 1 : 2}
+                  direction={isMobile ? 'vertical' : 'horizontal'}
+                  locale={vi}
+                  minDate={new Date()}
+                  rangeColors={['#005ea4']}
+                />
+              </div>
+
+              {/* Popover Footer */}
+              <div className="p-3 border-t border-border-grey bg-surface-container-lowest flex items-center justify-between">
+                <span className="text-xs text-on-surface-variant">
+                  {nights > 0 ? `Đã chọn ${nights} đêm nghỉ` : 'Vui lòng chọn ngày nhận và trả phòng'}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker(false)}
+                    className="px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 rounded transition-colors"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDatePicker(false);
+                      if (onSearch && dateRange[0]?.startDate && dateRange[0]?.endDate) {
+                        onSearch(dateRange[0].startDate, dateRange[0].endDate);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-4 py-1.5 text-xs font-semibold bg-primary text-white hover:bg-primary/90 rounded transition-colors shadow-sm"
+                  >
+                    <IoCheckmarkOutline size={16} />
+                    Áp dụng
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
