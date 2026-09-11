@@ -117,6 +117,29 @@ public class BookingPortalController {
             java.math.BigDecimal pricePerNight = totalPrice.divide(java.math.BigDecimal.valueOf(totalNights), 0, java.math.RoundingMode.HALF_UP);
             boolean isSpecial = rt.getBasePrice() != null && pricePerNight.compareTo(rt.getBasePrice()) != 0;
 
+            boolean hasDifferentPrices = false;
+            java.math.BigDecimal firstNightPrice = null;
+            String singleSourceName = null;
+            if (pricingService != null) {
+                for (long i = 0; i < totalNights; i++) {
+                    var nd = pricingService.calculateNightPrice(rt, from.plusDays(i));
+                    java.math.BigDecimal p = nd.getAppliedPrice();
+                    if (firstNightPrice == null) {
+                        firstNightPrice = p;
+                        singleSourceName = nd.getSourceName();
+                    } else if (firstNightPrice.compareTo(p) != 0) {
+                        hasDifferentPrices = true;
+                    }
+                }
+            }
+
+            String priceSourceName = null;
+            if (hasDifferentPrices) {
+                priceSourceName = "Giá TB (" + totalNights + " đêm)";
+            } else if (isSpecial) {
+                priceSourceName = singleSourceName != null ? singleSourceName : "Giá ngày áp dụng";
+            }
+
             Map<String, Object> item = new java.util.HashMap<>();
             item.put("roomTypeId", rt.getId());
             item.put("name", rt.getName());
@@ -126,6 +149,8 @@ public class BookingPortalController {
             item.put("pricePerNight", pricePerNight);
             item.put("nights", totalNights);
             item.put("priceSource", isSpecial ? "SPECIAL" : "BASE");
+            item.put("priceSourceName", priceSourceName);
+            item.put("isAveragePrice", hasDifferentPrices);
             item.put("maxCapacity", rt.getMaxCapacity());
             item.put("amenitiesDescription", rt.getAmenitiesDescription() != null ? rt.getAmenitiesDescription() : "");
             item.put("imageUrls", rt.getImageUrls() != null ? rt.getImageUrls() : java.util.List.of());

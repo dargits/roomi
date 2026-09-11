@@ -80,9 +80,12 @@ const RoomsPage: React.FC = () => {
           amenitiesDescription: room.amenitiesDescription,
           basePrice: room.basePrice,
           currentPrice: displayPrice,
+          totalPrice: room.totalPrice,
+          nights: room.nights,
+          isAveragePrice: Boolean(room.isAveragePrice),
           price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
           originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
-          badge: hasSpecialPrice ? (room.priceSourceName || (room.priceSource === 'SPECIAL' ? 'Giá ngày áp dụng' : undefined)) : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || (room.isAveragePrice ? 'Giá trung bình' : 'Giá ngày áp dụng')) : undefined,
           imageUrls: room.imageUrls || [],
           primaryButton: true
         };
