@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import { debtApprovalApi } from '../../services/debtApprovalApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast, useConfirm } from '../../context/ToastContext';
@@ -143,37 +144,16 @@ const DebtManagementModal: React.FC<DebtManagementModalProps> = ({ isOpen, onClo
       <Modal isOpen={isOpen} onClose={onClose} title="Quản lý Công nợ & Phê duyệt trả phòng còn nợ" maxWidth="max-w-5xl">
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border-grey pb-3">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('debts')}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  activeTab === 'debts'
-                    ? 'bg-primary text-white shadow-xs'
-                    : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
-                }`}
-              >
-                Danh sách công nợ đang theo dõi ({debts.length})
-              </button>
-              {isOwnerOrAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('pending')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeTab === 'pending'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
-                  }`}
-                >
-                  <span>Chờ phê duyệt</span>
-                  {pendingRequests.length > 0 && (
-                    <span className="bg-red-500 text-white px-1.5 py-0.2 rounded-full text-[10px] font-bold animate-pulse">
-                      {pendingRequests.length}
-                    </span>
-                  )}
-                </button>
-              )}
-            </div>
+            <Tabs
+              tabs={[
+                { id: 'debts', label: `Danh sách công nợ đang theo dõi (${debts.length})` },
+                ...(isOwnerOrAdmin ? [{ id: 'pending', label: `Chờ phê duyệt${pendingRequests.length > 0 ? ` (${pendingRequests.length})` : ''}` }] : [])
+              ]}
+              value={activeTab}
+              onChange={(tabId) => setActiveTab(tabId as 'debts' | 'pending')}
+              variant="pill"
+              className="mb-0"
+            />
 
             <Button size="sm" variant="ghost" onClick={fetchData} icon={IoRefreshOutline} disabled={loading}>
               Làm mới

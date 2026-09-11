@@ -3,6 +3,7 @@ import { IoAlertCircleOutline, IoBedOutline, IoCheckmarkCircleOutline, IoCloudUp
 import PageHeader from '../../components/ui/PageHeader';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import dataApi from '../../services/dataApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -159,31 +160,17 @@ const BackupDataPage: React.FC = () => {
         subtitle="Quản lý sao lưu an toàn toàn bộ dữ liệu hệ thống dưới định dạng file CSV tiêu chuẩn"
       />
 
-      {/* Tabs */}
-      <div className="flex bg-surface-container-low rounded-xl p-1 border border-border-grey w-fit">
-        <button
-          onClick={() => setActiveTab('export')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-label-md text-sm transition-colors ${
-            activeTab === 'export'
-              ? 'bg-white shadow-xs text-primary font-bold'
-              : 'text-on-surface-variant hover:text-on-surface font-medium'
-          }`}
-        >
-          <IoDownloadOutline size={16} />
-          Xuất Dữ Liệu (CSV)
-        </button>
-        <button
-          onClick={() => setActiveTab('import')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-label-md text-sm transition-colors ${
-            activeTab === 'import'
-              ? 'bg-white shadow-xs text-primary font-bold'
-              : 'text-on-surface-variant hover:text-on-surface font-medium'
-          }`}
-        >
-          <IoCloudUploadOutline size={16} />
-          Nhập Dữ Liệu (CSV)
-        </button>
-      </div>
+      {/* Tabs có hiệu ứng khối trượt nền mượt mà */}
+      <Tabs
+        tabs={[
+          { id: 'export', label: 'Xuất Dữ Liệu (CSV)', icon: IoDownloadOutline },
+          { id: 'import', label: 'Nhập Dữ Liệu (CSV)', icon: IoCloudUploadOutline }
+        ]}
+        value={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as 'export' | 'import')}
+        variant="pill"
+        className="mb-2"
+      />
 
       {/* ── TAB 1: EXPORT CSV ── */}
       {activeTab === 'export' && (

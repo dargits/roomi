@@ -22,6 +22,7 @@ import {
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import Tabs from '../../components/ui/Tabs/Tabs';
 import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
 import BookingServicesTab from './BookingServicesTab';
@@ -198,38 +199,19 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex border-b border-border-grey mb-6 flex-wrap">
-            <button
-              onClick={() => setActiveTab('info')}
-              className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'info' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              <IoInformationCircleOutline size={18} /> Thông tin chung
-              {activeTab === 'info' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-            </button>
-            <button
-              onClick={() => setActiveTab('services')}
-              className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'services' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              <IoCartOutline size={18} /> Dịch vụ phụ thu
-              {activeTab === 'services' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-            </button>
-            <button
-              onClick={() => setActiveTab('invoice')}
-              className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'invoice' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              <IoDocumentOutline size={18} /> Hóa đơn & Thanh toán
-              {activeTab === 'invoice' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-            </button>
-            {/* NCL-11-CN-002 đến NCL-11-CN-006: Tab đặt cọc */}
-            <button
-              onClick={() => setActiveTab('deposit')}
-              className={`px-4 py-3 font-title-sm flex items-center gap-2 transition-colors relative ${activeTab === 'deposit' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              <IoCashOutline size={18} /> Đặt cọc
-              {activeTab === 'deposit' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md"></span>}
-            </button>
-          </div>
+          {/* Navigation Tabs với hiệu ứng trượt mượt mà */}
+          <Tabs
+            tabs={[
+              { id: 'info', label: 'Thông tin chung', icon: IoInformationCircleOutline },
+              { id: 'services', label: 'Dịch vụ phụ thu', icon: IoCartOutline },
+              { id: 'invoice', label: 'Hóa đơn & Thanh toán', icon: IoDocumentOutline },
+              { id: 'deposit', label: 'Đặt cọc', icon: IoCashOutline }
+            ]}
+            value={activeTab}
+            onChange={(tabId) => setActiveTab(tabId)}
+            variant="line"
+            className="mb-6"
+          />
 
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto min-h-[300px] p-1">
@@ -248,6 +230,29 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                       <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}</span></div>
                       <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber, user)}</span></div>
                     </div>
+
+                    {/* Danh sách khách ở cùng phòng (NCL-04-CN-011) */}
+                    {booking.stayingGuests && booking.stayingGuests.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-border-grey">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                            <IoPersonOutline size={14} className="text-primary" />
+                            Khách lưu trú tại phòng ({booking.stayingGuests.length})
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                          {booking.stayingGuests.map((sg, idx) => (
+                            <div key={sg.id || idx} className="flex items-center justify-between p-2 rounded bg-surface-container-low text-xs">
+                              <div>
+                                <span className="font-medium text-on-surface">{formatName(sg.name, user)}</span>
+                                {sg.phone && <span className="text-on-surface-variant ml-2">({formatPhone(sg.phone, user)})</span>}
+                              </div>
+                              <span className="font-mono text-on-surface-variant">{formatCCCD(sg.idNumber, user)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                    <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
