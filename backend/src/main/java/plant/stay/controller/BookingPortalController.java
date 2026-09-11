@@ -117,6 +117,39 @@ public class BookingPortalController {
             java.math.BigDecimal pricePerNight = totalPrice.divide(java.math.BigDecimal.valueOf(totalNights), 0, java.math.RoundingMode.HALF_UP);
             boolean isSpecial = rt.getBasePrice() != null && pricePerNight.compareTo(rt.getBasePrice()) != 0;
 
+            String priceSourceName = null;
+            String priceSource = isSpecial ? "SPECIAL" : "BASE";
+            if (pricingService != null) {
+                List<plant.stay.dto.response.NightlyPriceDetailDto> nightDetails = new java.util.ArrayList<>();
+                for (long i = 0; i < totalNights; i++) {
+                    nightDetails.add(pricingService.calculateNightPrice(rt, from.plusDays(i)));
+                }
+                boolean hasHoliday = nightDetails.stream().anyMatch(d -> "HOLIDAY".equals(d.getPriceSource()));
+                boolean hasWeekend = nightDetails.stream().anyMatch(d -> "WEEKEND".equals(d.getPriceSource()));
+                boolean hasSeasonal = nightDetails.stream().anyMatch(d -> "SEASONAL".equals(d.getPriceSource()));
+
+                if (hasHoliday) {
+                    priceSource = "HOLIDAY";
+                    priceSourceName = nightDetails.stream()
+                            .filter(d -> "HOLIDAY".equals(d.getPriceSource()))
+                            .map(plant.stay.dto.response.NightlyPriceDetailDto::getSourceName)
+                            .filter(java.util.Objects::nonNull)
+                            .findFirst().orElse("Giá ngày lễ");
+                } else if (hasWeekend) {
+                    priceSource = "WEEKEND";
+                    priceSourceName = "Giá cuối tuần";
+                } else if (hasSeasonal) {
+                    priceSource = "SEASONAL";
+                    priceSourceName = nightDetails.stream()
+                            .filter(d -> "SEASONAL".equals(d.getPriceSource()))
+                            .map(plant.stay.dto.response.NightlyPriceDetailDto::getSourceName)
+                            .filter(java.util.Objects::nonNull)
+                            .findFirst().orElse("Giá theo mùa");
+                } else if (isSpecial) {
+                    priceSourceName = "Giá ngày áp dụng";
+                }
+            }
+
             Map<String, Object> item = new java.util.HashMap<>();
             item.put("roomTypeId", rt.getId());
             item.put("name", rt.getName());
@@ -125,7 +158,8 @@ public class BookingPortalController {
             item.put("totalPrice", totalPrice);
             item.put("pricePerNight", pricePerNight);
             item.put("nights", totalNights);
-            item.put("priceSource", isSpecial ? "SPECIAL" : "BASE");
+            item.put("priceSource", priceSource);
+            item.put("priceSourceName", priceSourceName);
             item.put("maxCapacity", rt.getMaxCapacity());
             item.put("amenitiesDescription", rt.getAmenitiesDescription() != null ? rt.getAmenitiesDescription() : "");
             item.put("imageUrls", rt.getImageUrls() != null ? rt.getImageUrls() : java.util.List.of());

@@ -11,6 +11,7 @@ import PublicBookingModal from './PublicBookingModal';
 import PublicGroupBookingModal from '../public/PublicGroupBookingModal';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { toLocalISODate } from '../../utils/formatDate';
 import { 
   IoLocationOutline, 
   IoCallOutline, 
@@ -83,8 +84,8 @@ const LandingPage: React.FC = () => {
     setLoading(true);
     
     try {
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr = to.toISOString().split('T')[0];
+      const fromStr = toLocalISODate(from);
+      const toStr = toLocalISODate(to);
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
       
       const mappedRooms: RoomCardData[] = (data as any[]).map(room => {

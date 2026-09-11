@@ -8,12 +8,18 @@ import { guestApi } from '../../services/guestApi';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
+import pricingApi from '../../services/pricingApi';
+import { IoCalendarOutline, IoInformationCircleOutline, IoPricetagOutline } from 'react-icons/io5';
 
 interface BookingFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
+
+const formatPrice = (amount: number | string) => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount) || 0);
+};
 
 const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess }) => {
   const [guests, setGuests] = useState<any[]>([]);
@@ -22,6 +28,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
   const [error, setError] = useState('');
   const [availableCount, setAvailableCount] = useState<number | null>(null);
   const [checkingAvail, setCheckingAvail] = useState(false);
+
+  // Bảng chi tiết giá từng đêm (NCL-02-CN-006)
+  const [priceBreakdown, setPriceBreakdown] = useState<any | null>(null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
   // Search Guest
   const [searchGuestTerm, setSearchGuestTerm] = useState('');
@@ -57,6 +67,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       setGuests([]);
       setError('');
       setAvailableCount(null);
+      setPriceBreakdown(null);
     }
   }, [isOpen]);
 
@@ -65,6 +76,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     const { roomTypeId, checkInDate, checkOutDate } = formData;
     if (!roomTypeId || !checkInDate || !checkOutDate || checkInDate >= checkOutDate) {
       setAvailableCount(null);
+      setPriceBreakdown(null);
       return;
     }
     let cancelled = false;
@@ -73,6 +85,21 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       .then(data => { if (!cancelled) setAvailableCount(data?.length ?? 0); })
       .catch(() => { if (!cancelled) setAvailableCount(null); })
       .finally(() => { if (!cancelled) setCheckingAvail(false); });
+
+    // Lấy bảng chi tiết giá từng đêm (NCL-02-CN-006)
+    setLoadingBreakdown(true);
+    pricingApi.getPriceBreakdown({
+      roomTypeId,
+      checkInDate,
+      checkOutDate
+    })
+      .then(data => { if (!cancelled) setPriceBreakdown(data); })
+      .catch(err => {
+        console.error('Lỗi tính giá từng đêm:', err);
+        if (!cancelled) setPriceBreakdown(null);
+      })
+      .finally(() => { if (!cancelled) setLoadingBreakdown(false); });
+
     return () => { cancelled = true; };
   }, [formData.roomTypeId, formData.checkInDate, formData.checkOutDate]);
 
@@ -149,7 +176,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     : 'bg-green-100 text-green-700 border border-green-200';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Tạo Đặt phòng mới" maxWidth="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Tạo Đặt phòng mới" maxWidth="max-w-3xl">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-error rounded-md text-sm">
           {error}
@@ -252,6 +279,90 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
             required 
           />
         </div>
+
+        {/* Bảng chi tiết giá từng đêm (NCL-02-CN-006) */}
+        {loadingBreakdown && (
+          <div className="p-4 bg-surface-container-low/50 rounded-lg border border-border-grey text-center text-xs text-on-surface-variant flex items-center justify-center gap-2">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            Đang tính toán chi tiết giá từng đêm theo quy tắc (Lễ &gt; Cuối tuần &gt; Mùa &gt; Cơ bản)...
+          </div>
+        )}
+
+        {!loadingBreakdown && priceBreakdown && priceBreakdown.nightlyDetails && priceBreakdown.nightlyDetails.length > 0 && (
+          <div className="bg-surface-container-lowest p-4 rounded-lg border border-border-grey space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-grey pb-2">
+              <div className="flex items-center gap-2">
+                <IoCalendarOutline size={18} className="text-primary" />
+                <span className="font-title-sm text-on-surface font-bold">
+                  Chi tiết giá từng đêm ({priceBreakdown.totalNights} đêm)
+                </span>
+              </div>
+              <span className="text-xs text-on-surface-variant">
+                Ưu tiên: <strong className="text-red-600">Ngày lễ</strong> &gt; <strong className="text-blue-600">Cuối tuần</strong> &gt; <strong className="text-amber-600">Theo mùa</strong> &gt; Giá cơ bản
+              </span>
+            </div>
+
+            <div className="overflow-x-auto border border-border-grey rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-surface-container-low text-on-surface-variant border-b border-border-grey">
+                    <th className="py-2 px-3 font-semibold">Đêm</th>
+                    <th className="py-2 px-3 font-semibold">Thứ</th>
+                    <th className="py-2 px-3 font-semibold">Loại giá</th>
+                    <th className="py-2 px-3 font-semibold">Tên nguồn áp dụng</th>
+                    <th className="py-2 px-3 font-semibold text-right">Đơn giá đêm</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-grey">
+                  {priceBreakdown.nightlyDetails.map((night: any, idx: number) => {
+                    const d = new Date(night.date);
+                    const formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                    const sourceBadge = 
+                      night.priceSource === 'HOLIDAY' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700 border border-red-200">
+                          Ngày lễ
+                        </span>
+                      ) : night.priceSource === 'WEEKEND' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                          Cuối tuần
+                        </span>
+                      ) : night.priceSource === 'SEASONAL' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                          Theo mùa
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                          Giá cơ bản
+                        </span>
+                      );
+
+                    return (
+                      <tr key={idx} className="hover:bg-surface-container-lowest transition-colors">
+                        <td className="py-2 px-3 font-medium text-on-surface">{formattedDate}</td>
+                        <td className="py-2 px-3 text-on-surface">{night.dayOfWeek}</td>
+                        <td className="py-2 px-3">{sourceBadge}</td>
+                        <td className="py-2 px-3 text-on-surface-variant">{night.sourceName}</td>
+                        <td className="py-2 px-3 text-right font-bold text-on-surface">
+                          {formatPrice(night.appliedPrice)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-surface-container-low font-bold border-t border-border-grey text-on-surface">
+                    <td colSpan={4} className="py-2 px-3 text-right">
+                      Tổng tiền phòng dự kiến ({priceBreakdown.totalNights} đêm):
+                    </td>
+                    <td className="py-2 px-3 text-right text-primary font-bold text-sm">
+                      {formatPrice(priceBreakdown.totalRoomPrice || priceBreakdown.grandTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
 
         <Input 
           label="Ghi chú thêm" 

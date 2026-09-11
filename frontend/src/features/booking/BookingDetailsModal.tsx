@@ -25,6 +25,7 @@ import Button from '../../components/ui/Button';
 import Tabs from '../../components/ui/Tabs/Tabs';
 import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
+import pricingApi from '../../services/pricingApi';
 import BookingServicesTab from './BookingServicesTab';
 import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
@@ -79,13 +80,38 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   // === NCL-04-CN-NEW: Dời lịch đặt phòng chưa nhận phòng ===
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  // === NCL-02-CN-006: Chi tiết giá từng đêm ===
+  const [showNightlyBreakdown, setShowNightlyBreakdown] = useState(false);
+  const [nightlyBreakdown, setNightlyBreakdown] = useState<any | null>(null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
   useEffect(() => {
     if (isOpen && bookingId) {
       fetchBookingDetails();
       setActiveTab('info');
+      setShowNightlyBreakdown(false);
+      setNightlyBreakdown(null);
     }
   }, [isOpen, bookingId]);
+
+  const handleToggleNightlyBreakdown = async () => {
+    if (!showNightlyBreakdown && !nightlyBreakdown && booking?.roomTypeId && booking?.checkInDate && booking?.checkOutDate) {
+      setLoadingBreakdown(true);
+      try {
+        const data = await pricingApi.getPriceBreakdown({
+          roomTypeId: booking.roomTypeId,
+          checkInDate: booking.checkInDate,
+          checkOutDate: booking.checkOutDate
+        });
+        setNightlyBreakdown(data);
+      } catch (err) {
+        console.error('Lỗi tải chi tiết giá từng đêm:', err);
+      } finally {
+        setLoadingBreakdown(false);
+      }
+    }
+    setShowNightlyBreakdown(prev => !prev);
+  };
 
   const fetchBookingDetails = async () => {
     setLoading(true);
@@ -318,6 +344,70 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                       <div className="flex justify-between"><span className="w-1/3">Nhận phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkInDate, 'checkin')}</span></div>
                       <div className="flex justify-between"><span className="w-1/3">Trả phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span></div>
                       <div className="flex justify-between"><span className="w-1/3">Thời gian ở:</span><span className="font-semibold text-primary flex-1">{calculateNights(booking.checkInDate, booking.checkOutDate)} đêm</span></div>
+                    
+                      {/* NCL-02-CN-006: Nút xem chi tiết giá từng đêm */}
+                      <div className="pt-2 border-t border-border-grey/60">
+                        <button
+                          type="button"
+                          onClick={handleToggleNightlyBreakdown}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
+                        >
+                          <IoCalendarOutline size={14} />
+                          {showNightlyBreakdown ? 'Ẩn bảng chi tiết giá từng đêm' : 'Xem chi tiết giá từng đêm (Lễ / Cuối tuần / Mùa)'}
+                        </button>
+
+                        {loadingBreakdown && (
+                          <div className="text-xs text-on-surface-variant mt-2 flex items-center gap-1.5">
+                            <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                            Đang tải chi tiết giá...
+                          </div>
+                        )}
+
+                        {showNightlyBreakdown && nightlyBreakdown && nightlyBreakdown.nightlyDetails && (
+                          <div className="mt-2.5 border border-border-grey rounded-lg overflow-hidden text-xs">
+                            <div className="bg-surface-container-low px-3 py-1.5 font-semibold text-on-surface-variant border-b border-border-grey flex justify-between items-center">
+                              <span>Bảng giá theo từng đêm lưu trú</span>
+                              <span className="text-[11px] font-normal text-on-surface-variant">Lễ &gt; Cuối tuần &gt; Mùa &gt; Cơ bản</span>
+                            </div>
+                            <div className="divide-y divide-border-grey max-h-48 overflow-y-auto">
+                              {nightlyBreakdown.nightlyDetails.map((night: any, idx: number) => {
+                                const d = new Date(night.date);
+                                const formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                                const sourceBadge = 
+                                  night.priceSource === 'HOLIDAY' ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Ngày lễ</span>
+                                  ) : night.priceSource === 'WEEKEND' ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">Cuối tuần</span>
+                                  ) : night.priceSource === 'SEASONAL' ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Theo mùa</span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700">Giá cơ bản</span>
+                                  );
+
+                                return (
+                                  <div key={idx} className="px-3 py-1.5 flex items-center justify-between hover:bg-surface-container-low/50">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-on-surface">{formattedDate} ({night.dayOfWeek})</span>
+                                      {sourceBadge}
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="font-bold text-on-surface">
+                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(night.appliedPrice)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="bg-surface-container-low px-3 py-1.5 border-t border-border-grey flex justify-between items-center font-bold">
+                              <span>Tổng tiền phòng:</span>
+                              <span className="text-primary">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(nightlyBreakdown.totalRoomPrice || nightlyBreakdown.grandTotal)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

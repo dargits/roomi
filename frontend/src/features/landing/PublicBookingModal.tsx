@@ -16,6 +16,7 @@ import Button from '../../components/ui/Button';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import pricingApi from '../../services/pricingApi';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { toLocalISODate } from '../../utils/formatDate';
 
 interface PublicBookingModalProps {
   isOpen: boolean;
@@ -50,8 +51,8 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     if (isOpen && roomType?.id && checkInDate && checkOutDate) {
       const fetchPricing = async () => {
         try {
-          const fromStr = checkInDate.toISOString().split('T')[0];
-          const toStr = checkOutDate.toISOString().split('T')[0];
+          const fromStr = toLocalISODate(checkInDate);
+          const toStr = toLocalISODate(checkOutDate);
           const res = await pricingApi.getPriceBreakdown({
             roomTypeId: roomType.id,
             checkInDate: fromStr,
@@ -91,8 +92,8 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
       const requestData = {
         ...formData,
         roomTypeId: roomType?.id,
-        checkInDate: checkInDate?.toISOString().split('T')[0] || '',
-        checkOutDate: checkOutDate?.toISOString().split('T')[0] || ''
+        checkInDate: toLocalISODate(checkInDate),
+        checkOutDate: toLocalISODate(checkOutDate)
       };
       
       await bookingRequestApi.createBookingRequest(requestData);

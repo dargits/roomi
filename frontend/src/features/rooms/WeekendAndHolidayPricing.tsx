@@ -18,6 +18,10 @@ const formatPrice = (amount: number) => {
 };
 
 const DAY_OPTIONS = [
+  { value: 'MONDAY', label: 'Thứ Hai' },
+  { value: 'TUESDAY', label: 'Thứ Ba' },
+  { value: 'WEDNESDAY', label: 'Thứ Tư' },
+  { value: 'THURSDAY', label: 'Thứ Năm' },
   { value: 'FRIDAY', label: 'Thứ Sáu' },
   { value: 'SATURDAY', label: 'Thứ Bảy' },
   { value: 'SUNDAY', label: 'Chủ Nhật' },

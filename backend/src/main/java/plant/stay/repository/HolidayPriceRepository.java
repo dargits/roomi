@@ -12,6 +12,10 @@ import java.util.Optional;
 public interface HolidayPriceRepository extends JpaRepository<HolidayPrice, Long> {
     List<HolidayPrice> findByRoomTypeId(Long roomTypeId);
 
+    Optional<HolidayPrice> findFirstByRoomTypeIdAndHolidayDate(Long roomTypeId, LocalDate holidayDate);
+
+    Optional<HolidayPrice> findFirstByRoomTypeIdAndHolidayDateAndActiveTrue(Long roomTypeId, LocalDate holidayDate);
+
     @Query("SELECT h FROM HolidayPrice h WHERE h.roomType.id = :roomTypeId AND h.holidayDate = :date AND h.active = true")
     Optional<HolidayPrice> findByRoomTypeAndDate(@Param("roomTypeId") Long roomTypeId, @Param("date") LocalDate date);
 

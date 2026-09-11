@@ -9,11 +9,12 @@ import { bookingRequestApi } from '../../services/bookingRequestApi';
 import SearchBar from '../landing/SearchBar';
 import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../../components/common/LoadingScreen';
+import { toLocalISODate } from '../../utils/formatDate';
 import { 
   IoBedOutline, 
-  IoCheckmarkCircleOutline
+  IoCheckmarkCircleOutline 
 } from 'react-icons/io5';
-import LoadingScreen from '../../components/common/LoadingScreen';
 
 const RoomsPage: React.FC = () => {
   const { hotelSetting } = useAppConfig();
@@ -66,8 +67,8 @@ const RoomsPage: React.FC = () => {
     setCheckOutDate(to);
     setLoading(true);
     try {
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr = to.toISOString().split('T')[0];
+      const fromStr = toLocalISODate(from);
+      const toStr = toLocalISODate(to);
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
       const mapped: RoomCardData[] = ((data as any[]) || []).map(room => {
         const displayPrice = room.currentPrice != null ? room.currentPrice : (room.pricePerNight != null ? room.pricePerNight : room.basePrice);

@@ -96,7 +96,7 @@ public class PricingServiceImpl implements PricingService {
         RoomType roomType = roomTypeRepository.findById(req.getRoomTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng #" + req.getRoomTypeId()));
 
-        HolidayPrice price = holidayPriceRepository.findByRoomTypeAndDate(req.getRoomTypeId(), req.getHolidayDate())
+        HolidayPrice price = holidayPriceRepository.findFirstByRoomTypeIdAndHolidayDate(req.getRoomTypeId(), req.getHolidayDate())
                 .orElse(HolidayPrice.builder().roomType(roomType).holidayDate(req.getHolidayDate()).build());
 
         price.setHolidayName(req.getHolidayName());
@@ -127,8 +127,8 @@ public class PricingServiceImpl implements PricingService {
         String dayName = formatDayOfWeek(night.getDayOfWeek());
 
         // 1. Ưu tiên cao nhất: Giá ngày lễ
-        Optional<HolidayPrice> holidayOpt = holidayPriceRepository.findByRoomTypeAndDate(roomType.getId(), night);
-        if (holidayOpt.isPresent() && holidayOpt.get().isActive()) {
+        Optional<HolidayPrice> holidayOpt = holidayPriceRepository.findFirstByRoomTypeIdAndHolidayDateAndActiveTrue(roomType.getId(), night);
+        if (holidayOpt.isPresent()) {
             HolidayPrice hp = holidayOpt.get();
             return NightlyPriceDetailDto.builder()
                     .date(night)
@@ -143,7 +143,7 @@ public class PricingServiceImpl implements PricingService {
         Optional<WeekendPriceConfig> weekendOpt = weekendPriceConfigRepository.findFirstByRoomTypeIdAndActiveTrue(roomType.getId());
         if (weekendOpt.isPresent()) {
             WeekendPriceConfig wc = weekendOpt.get();
-            if (wc.getWeekendDays() != null && wc.getWeekendDays().contains(night.getDayOfWeek().name())) {
+            if (isWeekendDay(wc.getWeekendDays(), night.getDayOfWeek())) {
                 return NightlyPriceDetailDto.builder()
                         .date(night)
                         .dayOfWeek(dayName)
@@ -247,6 +247,13 @@ public class PricingServiceImpl implements PricingService {
                 .totalExtraCharge(totalExtraCharge)
                 .grandTotal(grandTotal)
                 .build();
+    }
+
+    private boolean isWeekendDay(String weekendDays, DayOfWeek dow) {
+        if (weekendDays == null || weekendDays.isBlank()) return false;
+        return java.util.Arrays.stream(weekendDays.split(","))
+                .map(String::trim)
+                .anyMatch(d -> d.equalsIgnoreCase(dow.name()));
     }
 
     private String formatDayOfWeek(DayOfWeek dow) {
