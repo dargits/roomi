@@ -14,6 +14,7 @@ import {
   IoCheckmarkCircleOutline
 } from 'react-icons/io5';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { toLocalDateString } from '../../utils/formatDate';
 
 const RoomsPage: React.FC = () => {
   const { hotelSetting } = useAppConfig();
@@ -66,8 +67,8 @@ const RoomsPage: React.FC = () => {
     setCheckOutDate(to);
     setLoading(true);
     try {
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr = to.toISOString().split('T')[0];
+      const fromStr = toLocalDateString(from);
+      const toStr = toLocalDateString(to);
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
       const mapped: RoomCardData[] = ((data as any[]) || []).map(room => {
         const displayPrice = room.currentPrice != null ? room.currentPrice : (room.pricePerNight != null ? room.pricePerNight : room.basePrice);
@@ -79,9 +80,12 @@ const RoomsPage: React.FC = () => {
           amenitiesDescription: room.amenitiesDescription,
           basePrice: room.basePrice,
           currentPrice: displayPrice,
+          totalPrice: room.totalPrice,
+          nights: room.nights,
+          isAveragePrice: Boolean(room.isAveragePrice),
           price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
           originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
-          badge: hasSpecialPrice ? (room.priceSourceName || (room.priceSource === 'SPECIAL' ? 'Giá ngày áp dụng' : undefined)) : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || (room.isAveragePrice ? 'Giá trung bình' : 'Giá ngày áp dụng')) : undefined,
           imageUrls: room.imageUrls || [],
           primaryButton: true
         };
