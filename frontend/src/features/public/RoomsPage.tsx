@@ -111,7 +111,7 @@ const RoomsPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Section - Synchronized with Landing Page */}
-      <section className="relative w-full h-[320px] flex flex-col items-center justify-center overflow-hidden">
+      <section className="relative z-30 w-full h-[320px] flex flex-col items-center justify-center">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <div 
             className="bg-cover bg-center w-full h-full bg-neutral-800 animate-hero-zoom" 
