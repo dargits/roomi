@@ -36,16 +36,23 @@ const RoomsPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await roomTypeApi.getPublicRoomTypes();
-      const mapped: RoomCardData[] = (data || []).map(room => ({
-        id: room.id,
-        name: room.name,
-        maxCapacity: room.maxCapacity,
-        amenitiesDescription: room.amenitiesDescription,
-        basePrice: room.basePrice,
-        price: new Intl.NumberFormat('vi-VN').format(room.basePrice) + ' ₫',
-        imageUrls: room.imageUrls || [],
-        primaryButton: true
-      }));
+      const mapped: RoomCardData[] = (data || []).map(room => {
+        const displayPrice = room.currentPrice != null ? room.currentPrice : room.basePrice;
+        const hasSpecialPrice = room.currentPrice != null && Number(room.currentPrice) !== Number(room.basePrice);
+        return {
+          id: room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          currentPrice: room.currentPrice,
+          price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+          originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || 'Giá ưu đãi') : undefined,
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        };
+      });
       setRooms(mapped);
     } catch (error) {
       console.error("Lỗi tải danh sách phòng:", error);
@@ -62,16 +69,23 @@ const RoomsPage: React.FC = () => {
       const fromStr = from.toISOString().split('T')[0];
       const toStr = to.toISOString().split('T')[0];
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
-      const mapped: RoomCardData[] = ((data as any[]) || []).map(room => ({
-        id: room.roomTypeId || room.id,
-        name: room.name,
-        maxCapacity: room.maxCapacity,
-        amenitiesDescription: room.amenitiesDescription,
-        basePrice: room.basePrice,
-        price: new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫',
-        imageUrls: room.imageUrls || [],
-        primaryButton: true
-      }));
+      const mapped: RoomCardData[] = ((data as any[]) || []).map(room => {
+        const displayPrice = room.currentPrice != null ? room.currentPrice : (room.pricePerNight != null ? room.pricePerNight : room.basePrice);
+        const hasSpecialPrice = displayPrice != null && Number(displayPrice) !== Number(room.basePrice);
+        return {
+          id: room.roomTypeId || room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          currentPrice: displayPrice,
+          price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+          originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || (room.priceSource === 'SPECIAL' ? 'Giá ngày áp dụng' : undefined)) : undefined,
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        };
+      });
       setRooms(mapped);
     } catch (error) {
       console.error("Lỗi kiểm tra phòng trống:", error);

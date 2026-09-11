@@ -7,7 +7,9 @@ import { useToast, useConfirm } from '../../context/ToastContext';
 import { 
   IoPersonAddOutline, 
   IoTrashOutline, 
-  IoRefreshOutline
+  IoRefreshOutline,
+  IoChevronDownOutline,
+  IoInformationCircleOutline
 } from 'react-icons/io5';
 import { BookingResponse, RoomStayGuestResponseDto } from '../../types';
 
@@ -60,7 +62,8 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
   if (!booking) return null;
 
   const currentStayingCount = guests.filter(g => !g.leftEarlyAt).length;
-  const maxCapacity = booking.maxCapacity || booking.roomType?.maxCapacity || 4;
+  const maxCapacity = booking.roomCapacity || booking.maxCapacity || booking.roomType?.maxCapacity || booking.room?.roomType?.maxCapacity || 4;
+  const remainingSlots = Math.max(0, maxCapacity - currentStayingCount);
 
   const handleAddGuest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,8 +72,8 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
       return;
     }
 
-    if (currentStayingCount >= maxCapacity) {
-      toastError(`Phòng đã đạt sức chứa tối đa (${maxCapacity} người). Vui lòng chuyển sang phòng lớn hơn hoặc đặt thêm phòng!`);
+    if (remainingSlots <= 0 || currentStayingCount >= maxCapacity) {
+      toastError(`Phòng đã đạt sức chứa tối đa (${maxCapacity} người). Số khách có thể thêm tối đa là 0.`);
       return;
     }
 
@@ -158,16 +161,19 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-on-surface-variant">Sức chứa:</span>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
               currentStayingCount >= maxCapacity 
                 ? 'bg-red-100 text-red-700 border border-red-300' 
                 : 'bg-green-100 text-green-700 border border-green-300'
             }`}>
               {currentStayingCount} / {maxCapacity} người đang ở
             </span>
-            <Button size="sm" variant="ghost" onClick={fetchGuests} icon={IoRefreshOutline} disabled={loading} />
+            <span className="text-xs text-on-surface-variant">
+              (Còn thêm được: <strong className={remainingSlots > 0 ? "text-primary font-bold" : "text-error font-bold"}>{remainingSlots}</strong> người)
+            </span>
+            <Button size="sm" variant="ghost" onClick={fetchGuests} icon={IoRefreshOutline} disabled={loading} title="Tải lại danh sách" />
           </div>
         </div>
 
@@ -264,12 +270,26 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
         </div>
 
         <form onSubmit={handleAddGuest} className="p-4 bg-surface-container-low rounded-lg border border-border-grey space-y-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-on-surface">
-            <IoPersonAddOutline size={18} className="text-primary" />
-            <span>Thêm người cùng ở</span>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-sm font-bold text-on-surface">
+              <IoPersonAddOutline size={18} className="text-primary" />
+              <span>Thêm người cùng ở</span>
+            </div>
+            <div className="text-xs text-on-surface-variant">
+              Số khách có thể thêm tối đa: <strong className={remainingSlots > 0 ? "text-primary font-bold" : "text-error font-bold"}>{remainingSlots}</strong> người
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {remainingSlots <= 0 && (
+            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs flex items-center gap-2">
+              <IoInformationCircleOutline size={18} className="shrink-0 text-amber-600" />
+              <span>
+                Phòng đã đạt sức chứa tối đa ({maxCapacity}/{maxCapacity} người). Số khách có thể thêm là <strong>0</strong>. Vui lòng chuyển sang phòng lớn hơn hoặc đặt thêm phòng nếu có thêm khách!
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-start">
             <div>
               <Input
                 label="Họ và tên"
@@ -277,6 +297,7 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
                 placeholder="Ví dụ: Nguyễn Văn B"
+                disabled={remainingSlots <= 0}
               />
             </div>
 
@@ -289,20 +310,27 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
                 value={birthYear}
                 onChange={e => setBirthYear(e.target.value)}
                 placeholder="Ví dụ: 1995"
+                disabled={remainingSlots <= 0}
               />
             </div>
 
             <div>
-              <label className="block font-label-md text-on-surface-variant mb-1.5 text-xs">Loại giấy tờ</label>
-              <select
-                value={documentType}
-                onChange={e => setDocumentType(e.target.value)}
-                className="w-full px-3 py-2 border border-border-grey rounded-md bg-surface text-sm focus:ring-2 focus:ring-primary"
-              >
-                <option value="CCCD">CCCD / CMND</option>
-                <option value="PASSPORT">Hộ chiếu (Passport)</option>
-                <option value="OTHER">Khác</option>
-              </select>
+              <label className="block font-label-md text-on-surface-variant mb-1.5">Loại giấy tờ</label>
+              <div className="relative">
+                <select
+                  value={documentType}
+                  onChange={e => setDocumentType(e.target.value)}
+                  disabled={remainingSlots <= 0}
+                  className="w-full py-2.5 px-4 bg-surface border border-border-grey rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-body-md text-on-surface appearance-none cursor-pointer pr-10 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="CCCD">CCCD / CMND</option>
+                  <option value="PASSPORT">Hộ chiếu (Passport)</option>
+                  <option value="OTHER">Khác</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-on-surface-variant/70">
+                  <IoChevronDownOutline size={18} />
+                </div>
+              </div>
             </div>
 
             <div>
@@ -311,20 +339,22 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
                 value={documentNumber}
                 onChange={e => setDocumentNumber(e.target.value)}
                 placeholder="Ví dụ: 00120000..."
+                disabled={remainingSlots <= 0}
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 id="isChild"
                 checked={isChild}
                 onChange={e => setIsChild(e.target.checked)}
-                className="w-4 h-4 text-primary rounded border-border-grey cursor-pointer"
+                disabled={remainingSlots <= 0}
+                className="w-4 h-4 text-primary rounded border-border-grey cursor-pointer disabled:cursor-not-allowed"
               />
-              <label htmlFor="isChild" className="text-xs font-medium text-on-surface cursor-pointer">
+              <label htmlFor="isChild" className="text-xs font-medium text-on-surface cursor-pointer select-none">
                 Là trẻ em (Dưới độ tuổi quy định sẽ được tự động miễn phụ thu thêm người)
               </label>
             </div>
@@ -333,9 +363,9 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
               type="submit"
               size="sm"
               icon={IoPersonAddOutline}
-              disabled={submitting || currentStayingCount >= maxCapacity}
+              disabled={submitting || remainingSlots <= 0}
             >
-              {submitting ? 'Đang thêm...' : 'Thêm vào phòng'}
+              {submitting ? 'Đang thêm...' : remainingSlots <= 0 ? 'Đã đủ số người' : 'Thêm vào phòng'}
             </Button>
           </div>
         </form>
