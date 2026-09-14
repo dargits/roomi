@@ -58,8 +58,6 @@ public class HotelSetting {
     @Column(name = "reminder_morning_time")
     private LocalTime reminderMorningTime;
 
-    @Column(name = "reminder_evening_time")
-    private LocalTime reminderEveningTime;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

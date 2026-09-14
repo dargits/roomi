@@ -21,7 +21,7 @@ public class CheckInReminderScheduler {
 
     /**
      * Quét mỗi phút và đối chiếu thời gian theo cấu hình cài đặt cơ sở của chủ khách sạn.
-     * Mặc định: Gửi 2 lần mỗi ngày (Sáng: 10:30, Tối: 19:00).
+     * Mặc định: Gửi 1 lần mỗi ngày vào buổi sáng (mặc định 10:30).
      * Chỉ gửi email nhắc nhở 1 ngày trước ngày nhận phòng và không gửi trùng lặp.
      */
     @Scheduled(cron = "0 * * * * ?", zone = "${app.time-zone:Asia/Ho_Chi_Minh}")
@@ -36,11 +36,8 @@ public class CheckInReminderScheduler {
             LocalTime morningTime = (setting != null && setting.getReminderMorningTime() != null)
                     ? setting.getReminderMorningTime().truncatedTo(ChronoUnit.MINUTES)
                     : LocalTime.of(10, 30);
-            LocalTime eveningTime = (setting != null && setting.getReminderEveningTime() != null)
-                    ? setting.getReminderEveningTime().truncatedTo(ChronoUnit.MINUTES)
-                    : LocalTime.of(19, 0);
 
-            if (now.equals(morningTime) || now.equals(eveningTime)) {
+            if (now.equals(morningTime)) {
                 log.info("[SCHEDULER] Đúng giờ cài đặt ({}): Tự động quét và gửi email nhắc khách hàng trước ngày nhận phòng...", now);
                 bookingService.sendCheckInRemindersForTomorrow();
             }
@@ -49,3 +46,4 @@ public class CheckInReminderScheduler {
         }
     }
 }
+
