@@ -43,4 +43,10 @@ public interface BookingService {
     java.util.Map<String, Object> previewEarlyCheckout(Long bookingId);
     // Confirm: cập nhật giá theo đêm thực tế rồi checkout
     BookingResponse confirmEarlyCheckout(Long bookingId, User actor);
+
+    // Tự động quét và gửi email nhắc nhận phòng cho tất cả các booking ngày mai
+    void sendCheckInRemindersForTomorrow();
+
+    // Gửi email nhắc nhận phòng thủ công cho 1 booking cụ thể
+    plant.stay.dto.response.MessageResponse sendCheckInReminderManually(Long bookingId, User actor);
 }

@@ -33,12 +33,39 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             log.debug("Schema Migration Notice: Could not alter 'invoices.status' (might already be up-to-date or table not created yet): {}", e.getMessage());
         }
 
-        // 2. Đảm bảo cột discount_approval_threshold trong hotel_settings sẵn sàng
+        // 2. Đảm bảo cột discount_approval_threshold & temporary_hold_minutes trong hotel_settings sẵn sàng
         try {
             jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS discount_approval_threshold DECIMAL(12, 2)");
-            log.info("Schema Migration: Successfully ensured 'hotel_settings.discount_approval_threshold' column exists.");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS temporary_hold_minutes INT DEFAULT 60");
+            log.info("Schema Migration: Successfully ensured 'hotel_settings.temporary_hold_minutes' column exists.");
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not add 'discount_approval_threshold' column (might already exist): {}", e.getMessage());
+            log.debug("Schema Migration Notice: Could not add columns to hotel_settings: {}", e.getMessage());
+        }
+
+        // 3. Đảm bảo cột hold_expires_at trong bookings sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS hold_expires_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'bookings.hold_expires_at' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'hold_expires_at' to bookings: {}", e.getMessage());
+        }
+
+        // 4. Đảm bảo cột reminder_sent_at trong bookings sẵn sàng cho tính năng nhắc nhận phòng
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reminder_sent_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'bookings.reminder_sent_at' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'reminder_sent_at' column (might already exist): {}", e.getMessage());
+        }
+
+        // 5. Đảm bảo các cột cấu hình nhắc nhở qua email trong hotel_settings sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_email_enabled BOOLEAN DEFAULT TRUE");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_morning_time TIME DEFAULT '10:30:00'");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_evening_time TIME DEFAULT '19:00:00'");
+            log.info("Schema Migration: Successfully ensured email reminder configuration columns in 'hotel_settings'.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add email reminder columns to 'hotel_settings': {}", e.getMessage());
         }
     }
 }
