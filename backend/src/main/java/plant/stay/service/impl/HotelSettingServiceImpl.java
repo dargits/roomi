@@ -45,6 +45,12 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         setting.setDefaultCheckinTime(request.getDefaultCheckinTime());
         setting.setDefaultCheckoutTime(request.getDefaultCheckoutTime());
         setting.setHomeImage(request.getHomeImage());
+        if (request.getReminderEmailEnabled() != null) {
+            setting.setReminderEmailEnabled(request.getReminderEmailEnabled());
+        }
+        if (request.getReminderMorningTime() != null) {
+            setting.setReminderMorningTime(request.getReminderMorningTime());
+        }
         setting.setUpdatedBy(updatedBy);
 
         // Với @Transactional và Managed Entity, save() sẽ hoạt động đúng và an toàn
@@ -62,6 +68,8 @@ public class HotelSettingServiceImpl implements HotelSettingService {
                 .defaultCheckinTime(setting.getDefaultCheckinTime())
                 .defaultCheckoutTime(setting.getDefaultCheckoutTime())
                 .homeImage(setting.getHomeImage())
+                .reminderEmailEnabled(setting.getReminderEmailEnabled() != null ? setting.getReminderEmailEnabled() : true)
+                .reminderMorningTime(setting.getReminderMorningTime() != null ? setting.getReminderMorningTime() : java.time.LocalTime.of(10, 30))
                 .build();
     }
 }

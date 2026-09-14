@@ -51,6 +51,9 @@ export interface RoomTypeResponse {
   extraPersonChargePerNight?: number;
   maxChildAgeFree?: number;
   basePrice: number;
+  currentPrice?: number;
+  priceSource?: string;
+  priceSourceName?: string;
   amenitiesDescription?: string;
   imageUrls?: string[];
   active: boolean;

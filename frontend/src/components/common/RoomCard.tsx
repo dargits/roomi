@@ -12,12 +12,16 @@ export interface RoomCardData {
   name: string;
   maxCapacity: number;
   basePrice?: number;
+  currentPrice?: number;
   price?: string | number;
   originalPrice?: string | number;
   badge?: string;
   imageUrls?: string[];
   amenitiesDescription?: string;
   primaryButton?: boolean;
+  totalPrice?: number;
+  nights?: number;
+  isAveragePrice?: boolean;
 }
 
 export interface RoomCardProps {
@@ -117,9 +121,16 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
             )}
           </div>
           <div className="text-right">
-            <div className="font-headline-md text-headline-md text-on-surface mb-2">
-              {room.price} <span className="font-body-md text-body-md text-on-surface-variant font-normal">/đêm</span>
+            <div className="font-headline-md text-headline-md text-on-surface">
+              {room.price} <span className="font-body-md text-body-md text-on-surface-variant font-normal">{room.isAveragePrice ? '/đêm (TB)' : '/đêm'}</span>
             </div>
+            {room.nights != null && room.nights > 1 && room.totalPrice != null ? (
+              <div className="text-xs text-on-surface-variant mb-2">
+                Tổng {room.nights} đêm: <strong className="text-on-surface">{new Intl.NumberFormat('vi-VN').format(room.totalPrice)} ₫</strong>
+              </div>
+            ) : (
+              <div className="mb-2" />
+            )}
             <div className="flex flex-wrap justify-end gap-2">
               {onGroupBook && (
                 <button
