@@ -31,4 +31,7 @@ public class HotelSettingRequest {
     private LocalTime defaultCheckoutTime;
     
     private String homeImage;
+
+    private Boolean reminderEmailEnabled;
+    private LocalTime reminderMorningTime;
 }
