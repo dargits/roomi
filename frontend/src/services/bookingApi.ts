@@ -143,6 +143,11 @@ const bookingApi = {
     return response.data;
   },
 
+  confirmEarlyCheckout: async (id: number | string): Promise<BookingResponse> => {
+    const response = await api.put<BookingResponse>(`/bookings/${id}/early-checkout`);
+    return response.data;
+  },
+
   // === Gửi email nhắc nhận phòng ===
   sendCheckInReminder: async (id: number | string): Promise<MessageResponse> => {
     const response = await api.post<MessageResponse>(`/bookings/${id}/send-reminder`);
