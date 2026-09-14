@@ -362,13 +362,6 @@ public class BookingServiceImpl implements BookingService {
 
         List<Guest> stayingGuests = new java.util.ArrayList<>();
         if (req != null && req.getGuests() != null) {
-            int maxCap = booking.getRoomType() != null && booking.getRoomType().getMaxCapacity() != null
-                    ? booking.getRoomType().getMaxCapacity() : 10;
-            if (req.getGuests().size() > maxCap) {
-                throw new IllegalArgumentException("Số lượng khách nhận phòng (" + req.getGuests().size() + 
-                        ") vượt quá sức chứa tối đa của phòng (" + maxCap + " người). Vui lòng chuyển sang loại phòng lớn hơn.");
-            }
-
             for (plant.stay.dto.request.GuestCheckInDto dto : req.getGuests()) {
                 Guest guest = null;
 
@@ -1234,11 +1227,10 @@ public class BookingServiceImpl implements BookingService {
                             .id(g.getId())
                             .name(g.getName())
                             .phone(g.getPhone())
-                            .idNumber(g.getIdNumber())
                             .email(g.getEmail())
-                            .loyaltyPoints(g.getLoyaltyPoints())
+                            .idNumber(g.getIdNumber())
                             .build())
-                    .collect(java.util.stream.Collectors.toList());
+                    .collect(Collectors.toList());
         }
 
         return BookingResponse.builder()
@@ -1268,7 +1260,6 @@ public class BookingServiceImpl implements BookingService {
                 .createdAt(b.getCreatedAt())
                 .groupBookingId(b.getGroupBooking() != null ? b.getGroupBooking().getId() : null)
                 .paymentStatus(paymentStatus)
-                .roomStatus(b.getRoom() != null && b.getRoom().getStatus() != null ? b.getRoom().getStatus().name() : null)
                 .payLaterCheckout(payLaterCheckout)
                 .reminderSentAt(b.getReminderSentAt())
                 .stayingGuests(stayingGuestsDto)
