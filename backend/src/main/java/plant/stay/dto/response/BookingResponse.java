@@ -20,6 +20,10 @@ public class BookingResponse {
     private Long roomId;
     private String roomNumber;
     private Integer roomCapacity;
+    private Integer standardCapacity;
+    private Integer maxCapacity;
+    private BigDecimal extraPersonChargePerNight;
+    private Integer maxChildAgeFree;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private BookingStatus status;
@@ -34,4 +38,7 @@ public class BookingResponse {
     private Long groupBookingId;
     private String paymentStatus;
     private String roomStatus;
+    private boolean payLaterCheckout;
+    private LocalDateTime reminderSentAt;
+    private java.util.List<GuestResponse> stayingGuests;
 }

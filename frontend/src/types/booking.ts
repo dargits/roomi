@@ -27,6 +27,10 @@ export interface BookingResponse {
   roomId?: number;
   roomNumber?: string;
   roomCapacity?: number;
+  standardCapacity?: number;
+  maxCapacity?: number;
+  extraPersonChargePerNight?: number;
+  maxChildAgeFree?: number;
   checkInDate: string;
   checkOutDate: string;
   status: BookingStatus;
@@ -40,6 +44,7 @@ export interface BookingResponse {
   paymentStatus?: string;
   roomStatus?: string;
   payLaterCheckout?: boolean;
+  reminderSentAt?: string;
   stayingGuests?: Array<{
     id?: number;
     name?: string;

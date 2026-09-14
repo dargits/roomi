@@ -1,4 +1,4 @@
-export interface HotelSettingResponse {
+﻿export interface HotelSettingResponse {
   id?: number;
   propertyName: string;
   address: string;
@@ -11,6 +11,8 @@ export interface HotelSettingResponse {
   bankAccount?: string;
   bankCode?: string;
   bankAccountName?: string;
+  reminderEmailEnabled?: boolean;
+  reminderMorningTime?: string;
 }
 
 export interface HotelSettingRequest {
@@ -25,6 +27,8 @@ export interface HotelSettingRequest {
   bankAccount?: string;
   bankCode?: string;
   bankAccountName?: string;
+  reminderEmailEnabled?: boolean;
+  reminderMorningTime?: string;
 }
 
 export interface InventoryItemResponse {
@@ -103,3 +107,4 @@ export interface UserPermissionOverviewResponse {
   role: string;
   extraPermissions: string[];
 }
+
