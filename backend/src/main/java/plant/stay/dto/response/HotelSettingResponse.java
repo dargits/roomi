@@ -22,5 +22,4 @@ public class HotelSettingResponse {
     private String homeImage;
     private Boolean reminderEmailEnabled;
     private LocalTime reminderMorningTime;
-    private LocalTime reminderEveningTime;
 }

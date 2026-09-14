@@ -34,5 +34,4 @@ public class HotelSettingRequest {
 
     private Boolean reminderEmailEnabled;
     private LocalTime reminderMorningTime;
-    private LocalTime reminderEveningTime;
 }
