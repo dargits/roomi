@@ -48,5 +48,15 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: Could not add 'reminder_sent_at' column (might already exist): {}", e.getMessage());
         }
+
+        // 4. Đảm bảo các cột cấu hình nhắc nhở qua email trong hotel_settings sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_email_enabled BOOLEAN DEFAULT TRUE");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_morning_time TIME DEFAULT '10:30:00'");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_evening_time TIME DEFAULT '19:00:00'");
+            log.info("Schema Migration: Successfully ensured email reminder configuration columns in 'hotel_settings'.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add email reminder columns to 'hotel_settings': {}", e.getMessage());
+        }
     }
 }

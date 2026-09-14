@@ -146,6 +146,9 @@ public class DataSeeder implements CommandLineRunner {
                     .defaultCheckinTime(LocalTime.of(14, 0))
                     .defaultCheckoutTime(LocalTime.of(12, 0))
                     .homeImage("https://i.ibb.co/TxVT7pQz/images-11-jpg.jpg")
+                    .reminderEmailEnabled(true)
+                    .reminderMorningTime(LocalTime.of(10, 30))
+                    .reminderEveningTime(LocalTime.of(19, 0))
                     .build();
             hotelSettingRepository.save(hotelSetting);
             log.info("Đã tạo thành công dữ liệu mẫu cho HotelSetting.");
