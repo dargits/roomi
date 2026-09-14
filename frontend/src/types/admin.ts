@@ -11,6 +11,9 @@ export interface HotelSettingResponse {
   bankAccount?: string;
   bankCode?: string;
   bankAccountName?: string;
+  reminderEmailEnabled?: boolean;
+  reminderMorningTime?: string;
+  reminderEveningTime?: string;
 }
 
 export interface HotelSettingRequest {
@@ -25,6 +28,9 @@ export interface HotelSettingRequest {
   bankAccount?: string;
   bankCode?: string;
   bankAccountName?: string;
+  reminderEmailEnabled?: boolean;
+  reminderMorningTime?: string;
+  reminderEveningTime?: string;
 }
 
 export interface InventoryItemResponse {

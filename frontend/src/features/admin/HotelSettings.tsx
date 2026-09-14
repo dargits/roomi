@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import hotelSettingApi from '../../services/hotelSettingApi';
-import { IoAlertCircleOutline, IoBusinessOutline, IoCallOutline, IoCameraOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoImageOutline, IoLocationOutline, IoLogInOutline, IoLogOutOutline, IoMailOutline, IoSaveOutline } from 'react-icons/io5';
+import { IoAlertCircleOutline, IoBusinessOutline, IoCallOutline, IoCameraOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoImageOutline, IoLocationOutline, IoLogInOutline, IoLogOutOutline, IoMailOutline, IoNotificationsOutline, IoSaveOutline, IoTimeOutline } from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -16,7 +16,10 @@ const HotelSettings: React.FC = () => {
     email: '',
     defaultCheckinTime: '14:00',
     defaultCheckoutTime: '12:00',
-    homeImage: ''
+    homeImage: '',
+    reminderEmailEnabled: true,
+    reminderMorningTime: '10:30',
+    reminderEveningTime: '19:00'
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,6 +45,15 @@ const HotelSettings: React.FC = () => {
         if (rest.defaultCheckoutTime && rest.defaultCheckoutTime.length > 5) {
           rest.defaultCheckoutTime = rest.defaultCheckoutTime.substring(0, 5);
         }
+        if (rest.reminderMorningTime && rest.reminderMorningTime.length > 5) {
+          rest.reminderMorningTime = rest.reminderMorningTime.substring(0, 5);
+        }
+        if (rest.reminderEveningTime && rest.reminderEveningTime.length > 5) {
+          rest.reminderEveningTime = rest.reminderEveningTime.substring(0, 5);
+        }
+        rest.reminderEmailEnabled = rest.reminderEmailEnabled !== false;
+        rest.reminderMorningTime = rest.reminderMorningTime || '10:30';
+        rest.reminderEveningTime = rest.reminderEveningTime || '19:00';
         setSettings(rest);
       }
     } catch (error) {
@@ -102,7 +114,9 @@ const HotelSettings: React.FC = () => {
       const payload: HotelSettingRequest = {
         ...settings,
         defaultCheckinTime: settings.defaultCheckinTime && settings.defaultCheckinTime.length === 5 ? `${settings.defaultCheckinTime}:00` : settings.defaultCheckinTime,
-        defaultCheckoutTime: settings.defaultCheckoutTime && settings.defaultCheckoutTime.length === 5 ? `${settings.defaultCheckoutTime}:00` : settings.defaultCheckoutTime
+        defaultCheckoutTime: settings.defaultCheckoutTime && settings.defaultCheckoutTime.length === 5 ? `${settings.defaultCheckoutTime}:00` : settings.defaultCheckoutTime,
+        reminderMorningTime: settings.reminderMorningTime && settings.reminderMorningTime.length === 5 ? `${settings.reminderMorningTime}:00` : settings.reminderMorningTime,
+        reminderEveningTime: settings.reminderEveningTime && settings.reminderEveningTime.length === 5 ? `${settings.reminderEveningTime}:00` : settings.reminderEveningTime,
       };
 
       await hotelSettingApi.updateSetting(payload);
@@ -275,6 +289,71 @@ const HotelSettings: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Cấu hình tự động gửi email nhắc nhận phòng */}
+        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
+          <div className="flex items-center justify-between border-b border-border-grey pb-3">
+            <div className="flex items-center gap-2">
+              <IoMailOutline size={20} className="text-primary" />
+              <div>
+                <h3 className="font-title-md text-on-surface font-semibold">
+                  Tự động gửi Email nhắc nhận phòng (1 ngày trước)
+                </h3>
+                <p className="text-xs text-on-surface-variant">
+                  Gửi email thông báo lịch trình & lưu ý nhận phòng cho khách hàng trước ngày đến.
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={settings.reminderEmailEnabled ?? true} 
+                onChange={(e) => setSettings(prev => ({ ...prev, reminderEmailEnabled: e.target.checked }))}
+                className="sr-only peer" 
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+
+          {settings.reminderEmailEnabled && (
+            <div className="space-y-4 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Giờ gửi nhắc buổi sáng *"
+                  type="time"
+                  name="reminderMorningTime"
+                  value={settings.reminderMorningTime || '10:30'}
+                  onChange={handleChange}
+                  error={errors.reminderMorningTime || undefined}
+                  icon={IoTimeOutline}
+                  helperText="Hệ thống quét và gửi nhắc cho các khách check-in vào ngày hôm sau"
+                  required
+                />
+
+                <Input
+                  label="Giờ gửi nhắc buổi tối *"
+                  type="time"
+                  name="reminderEveningTime"
+                  value={settings.reminderEveningTime || '19:00'}
+                  onChange={handleChange}
+                  error={errors.reminderEveningTime || undefined}
+                  icon={IoTimeOutline}
+                  helperText="Gửi bổ sung cho các đặt phòng mới tạo trong ngày (chưa gửi ở đợt sáng)"
+                  required
+                />
+              </div>
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-800 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <IoNotificationsOutline size={15} /> Cơ chế hoạt động:
+                </div>
+                <div>• Hệ thống tự động gửi 2 lần/ngày theo khung giờ đã đặt ở trên.</div>
+                <div>• Chỉ gửi cho các đặt phòng có ngày nhận phòng là <strong>ngày mai</strong>.</div>
+                <div>• Mỗi đặt phòng chỉ nhận email <strong>1 lần duy nhất</strong>, các ngày lưu trú tiếp theo sẽ không gửi mail lặp lại.</div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="pt-4 border-t border-border-grey flex justify-end">
