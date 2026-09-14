@@ -16,5 +16,7 @@ public class BookingServiceUsageResponse {
     private Integer quantity;
     private BigDecimal unitPriceSnapshot;
     private BigDecimal total;
+    private String note;
+    private Boolean isSystemMandatory;
     private LocalDateTime createdAt;
 }

@@ -20,6 +20,9 @@ public class RoomTypeResponse {
     private BigDecimal extraPersonChargePerNight;
     private Integer maxChildAgeFree;
     private BigDecimal basePrice;
+    private BigDecimal currentPrice;
+    private String priceSource;
+    private String priceSourceName;
     private String amenitiesDescription;
     private java.util.List<String> imageUrls;
     private boolean active;

@@ -31,6 +31,13 @@ public class BookingServiceUsage {
     @Column(name = "unit_price_snapshot", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPriceSnapshot;
 
+    @Column(name = "note")
+    private String note;
+
+    @Column(name = "is_system_mandatory")
+    @Builder.Default
+    private Boolean isSystemMandatory = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

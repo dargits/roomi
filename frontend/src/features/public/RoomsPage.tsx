@@ -14,6 +14,7 @@ import {
   IoCheckmarkCircleOutline
 } from 'react-icons/io5';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { toLocalDateString } from '../../utils/formatDate';
 
 const RoomsPage: React.FC = () => {
   const { hotelSetting } = useAppConfig();
@@ -36,16 +37,23 @@ const RoomsPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await roomTypeApi.getPublicRoomTypes();
-      const mapped: RoomCardData[] = (data || []).map(room => ({
-        id: room.id,
-        name: room.name,
-        maxCapacity: room.maxCapacity,
-        amenitiesDescription: room.amenitiesDescription,
-        basePrice: room.basePrice,
-        price: new Intl.NumberFormat('vi-VN').format(room.basePrice) + ' ₫',
-        imageUrls: room.imageUrls || [],
-        primaryButton: true
-      }));
+      const mapped: RoomCardData[] = (data || []).map(room => {
+        const displayPrice = room.currentPrice != null ? room.currentPrice : room.basePrice;
+        const hasSpecialPrice = room.currentPrice != null && Number(room.currentPrice) !== Number(room.basePrice);
+        return {
+          id: room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          currentPrice: room.currentPrice,
+          price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+          originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || 'Giá ưu đãi') : undefined,
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        };
+      });
       setRooms(mapped);
     } catch (error) {
       console.error("Lỗi tải danh sách phòng:", error);
@@ -59,19 +67,29 @@ const RoomsPage: React.FC = () => {
     setCheckOutDate(to);
     setLoading(true);
     try {
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr = to.toISOString().split('T')[0];
+      const fromStr = toLocalDateString(from);
+      const toStr = toLocalDateString(to);
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
-      const mapped: RoomCardData[] = ((data as any[]) || []).map(room => ({
-        id: room.roomTypeId || room.id,
-        name: room.name,
-        maxCapacity: room.maxCapacity,
-        amenitiesDescription: room.amenitiesDescription,
-        basePrice: room.basePrice,
-        price: new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫',
-        imageUrls: room.imageUrls || [],
-        primaryButton: true
-      }));
+      const mapped: RoomCardData[] = ((data as any[]) || []).map(room => {
+        const displayPrice = room.currentPrice != null ? room.currentPrice : (room.pricePerNight != null ? room.pricePerNight : room.basePrice);
+        const hasSpecialPrice = displayPrice != null && Number(displayPrice) !== Number(room.basePrice);
+        return {
+          id: room.roomTypeId || room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          currentPrice: displayPrice,
+          totalPrice: room.totalPrice,
+          nights: room.nights,
+          isAveragePrice: Boolean(room.isAveragePrice),
+          price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+          originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || (room.isAveragePrice ? 'Giá trung bình' : 'Giá ngày áp dụng')) : undefined,
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        };
+      });
       setRooms(mapped);
     } catch (error) {
       console.error("Lỗi kiểm tra phòng trống:", error);
@@ -111,7 +129,7 @@ const RoomsPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Section - Synchronized with Landing Page */}
-      <section className="relative w-full h-[320px] flex flex-col items-center justify-center overflow-hidden">
+      <section className="relative z-30 w-full h-[320px] flex flex-col items-center justify-center">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <div 
             className="bg-cover bg-center w-full h-full bg-neutral-800 animate-hero-zoom" 

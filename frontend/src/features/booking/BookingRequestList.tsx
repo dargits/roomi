@@ -222,8 +222,15 @@ const BookingRequestList: React.FC = () => {
                     <IoArrowForwardOutline size={14} className="text-red-500 transform rotate-180 shrink-0" /> 
                     <span>Trả: <strong className="font-medium text-on-surface">{formatStayDateTime(req.checkOutDate, 'checkout')}</strong></span>
                   </div>
-                  <div className="text-[11px] text-on-surface-variant font-medium mt-1 inline-block bg-surface-container px-2 py-0.5 rounded">
-                    {calculateNights(req.checkInDate, req.checkOutDate)} đêm
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px] text-on-surface-variant font-medium bg-surface-container px-2 py-0.5 rounded">
+                      {calculateNights(req.checkInDate, req.checkOutDate)} đêm
+                    </span>
+                    {req.expectedPrice != null && (
+                      <span className="text-xs font-bold text-primary">
+                        {new Intl.NumberFormat('vi-VN').format(req.expectedPrice)} ₫
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="p-4 text-center">
@@ -313,6 +320,14 @@ const BookingRequestList: React.FC = () => {
                   {formatStayDateTime(modalState.request.checkInDate, 'checkin')} → {formatStayDateTime(modalState.request.checkOutDate, 'checkout')} ({calculateNights(modalState.request.checkInDate, modalState.request.checkOutDate)} đêm)
                 </span>
               </div>
+              {modalState.request.expectedPrice != null && (
+                <div className="flex justify-between pt-1 border-t border-border-grey/60">
+                  <span className="text-on-surface-variant font-medium">Tổng tiền tính theo chính sách giá:</span>
+                  <span className="font-bold text-primary text-base">
+                    {new Intl.NumberFormat('vi-VN').format(modalState.request.expectedPrice)} ₫
+                  </span>
+                </div>
+              )}
               {modalState.request.note && (
                 <div className="pt-2 border-t border-border-grey text-xs text-on-surface-variant italic">
                   Ghi chú: "{modalState.request.note}"

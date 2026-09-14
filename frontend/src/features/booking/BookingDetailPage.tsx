@@ -17,7 +17,9 @@ import {
   IoSwapVerticalOutline, 
   IoTimeOutline, 
   IoCashOutline,
-  IoCalendarOutline
+  IoCalendarOutline,
+  IoPeopleOutline,
+  IoMailOutline
 } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -28,6 +30,7 @@ import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
+import StayingGuestsModal from './StayingGuestsModal';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import RescheduleDateModal from './RescheduleDateModal';
 import UpgradeRoomModal from './UpgradeRoomModal';
@@ -85,6 +88,8 @@ const BookingDetailPage: React.FC = () => {
   const [checkOutProcessing, setCheckOutProcessing] = useState(false);
   const [checkOutError, setCheckOutError] = useState('');
   const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
+  const [showStayingGuestsModal, setShowStayingGuestsModal] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -271,6 +276,15 @@ const BookingDetailPage: React.FC = () => {
             )}
             {booking.status === 'CHECKED_IN' && (
               <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={IoPeopleOutline}
+                  onClick={() => setShowStayingGuestsModal(true)}
+                  className="border-primary/40 text-primary hover:bg-primary/5"
+                >
+                  Khách cùng phòng
+                </Button>
                 {booking.checkOutDate > new Date().toISOString().split('T')[0] && (
                   <Button
                     size="sm"
@@ -327,6 +341,47 @@ const BookingDetailPage: React.FC = () => {
                     <div className="flex justify-between"><span className="w-1/3">Số điện thoại:</span><span className="font-medium text-on-surface flex-1">{formatPhone(booking.guestPhone, user)}</span></div>
                     <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}</span></div>
                     <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber, user)}</span></div>
+                    <div className="flex justify-between items-center pt-2 border-t border-border-grey/60">
+                      <span className="w-1/3 text-xs text-on-surface-variant">Email nhắc phòng:</span>
+                      <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs">
+                          {booking.reminderSentAt ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              <IoCheckmarkCircleOutline size={13} /> Đã gửi ({new Date(booking.reminderSentAt).toLocaleString('vi-VN')})
+                            </span>
+                          ) : (
+                            <span className="text-on-surface-variant italic">Chưa gửi</span>
+                          )}
+                        </span>
+                        {(booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
+                          <button
+                            type="button"
+                            disabled={sendingReminder || !booking.guestEmail}
+                            onClick={async () => {
+                              if (!booking?.id) return;
+                              if (!booking?.guestEmail) {
+                                toastError('Khách hàng chưa có địa chỉ email để gửi nhắc nhở');
+                                return;
+                              }
+                              setSendingReminder(true);
+                              try {
+                                const res = await bookingApi.sendCheckInReminder(booking.id);
+                                toastSuccess(res.message || 'Đã gửi email nhắc nhận phòng thành công!');
+                                fetchBookingDetails();
+                              } catch (err: any) {
+                                toastError(err.response?.data?.message || err.message || 'Không thể gửi email nhắc nhận phòng');
+                              } finally {
+                                setSendingReminder(false);
+                              }
+                            }}
+                            className="text-xs px-2.5 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                            title={booking.guestEmail ? 'Gửi email nhắc nhận phòng ngay' : 'Khách chưa có email'}
+                          >
+                            <IoMailOutline size={13} /> {sendingReminder ? 'Đang gửi...' : (booking.reminderSentAt ? 'Gửi lại' : 'Gửi email nhắc')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -664,6 +719,18 @@ const BookingDetailPage: React.FC = () => {
         guestName={booking?.guestName}
         onSuccess={fetchBookingDetails}
       />
+
+      {/* Modal Khách cùng phòng */}
+      {showStayingGuestsModal && (
+        <StayingGuestsModal
+          isOpen={showStayingGuestsModal}
+          onClose={() => setShowStayingGuestsModal(false)}
+          booking={booking}
+          onUpdated={() => {
+            fetchBookingDetails();
+          }}
+        />
+      )}
     </div>
   );
 };

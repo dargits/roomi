@@ -43,10 +43,15 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final AuditLogService auditLogService;
     private final EmailService emailService;
     private final HotelSettingRepository hotelSettingRepository;
+    private final plant.stay.service.RoomStayGuestService roomStayGuestService;
 
     @Override
     @Transactional
     public InvoiceResponse getByBooking(Long bookingId) {
+        try {
+            roomStayGuestService.syncBookingSurcharges(bookingId, null);
+        } catch (Exception ignored) {
+        }
         return invoiceRepository.findInvoicesCoveringBooking(bookingId).stream()
             .findFirst()
                 .map(this::syncInvoiceStatus)
@@ -63,6 +68,10 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Override
     @Transactional
     public InvoiceResponse createInvoice(Long bookingId, User actor) {
+        try {
+            roomStayGuestService.syncBookingSurcharges(bookingId, actor);
+        } catch (Exception ignored) {
+        }
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đặt phòng"));
 

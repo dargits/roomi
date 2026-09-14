@@ -3,6 +3,8 @@ package plant.stay.service.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import plant.stay.dto.response.CheckInReminderData;
+import plant.stay.dto.response.DebtAcknowledgementData;
 import plant.stay.service.EmailService;
 
 import java.net.URI;
@@ -207,6 +209,81 @@ public class ResendEmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public boolean sendDebtAcknowledgementEmail(String toEmail, DebtAcknowledgementData data) {
+      return sendDebtEmail(toEmail, data,
+          "Giấy xác nhận công nợ #CN-" + String.format("%06d", data.getDebtRequestId()),
+          "Giấy xác nhận công nợ", false);
+    }
+
+    @Override
+    public boolean sendDebtReminderEmail(String toEmail, DebtAcknowledgementData data) {
+      return sendDebtEmail(toEmail, data,
+          "Nhắc hạn thanh toán công nợ #CN-" + String.format("%06d", data.getDebtRequestId()),
+          "Nhắc thanh toán công nợ", true);
+    }
+
+    private boolean sendDebtEmail(String toEmail, DebtAcknowledgementData data, String subject, String title, boolean reminder) {
+      if (toEmail == null || toEmail.isBlank()) {
+        log.warn("[EMAIL] Không thể gửi {}: khách chưa có email", title);
+        return false;
+      }
+      String effectiveKey = getEffectiveApiKey();
+      if (effectiveKey.isEmpty()) {
+        log.error("[EMAIL] Chưa cấu hình API Key cho Resend.");
+        return false;
+      }
+      try {
+        String html = buildDebtEmailTemplate(data, title, reminder);
+        String requestBody = "{\"from\":\"" + escapeJson(fromEmail) + "\","
+            + "\"to\":[\"" + escapeJson(toEmail.trim()) + "\"],"
+            + "\"subject\":\"" + escapeJson(subject) + "\","
+            + "\"html\":\"" + escapeJson(html) + "\"}";
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(RESEND_API_URL))
+            .header("Authorization", "Bearer " + effectiveKey)
+            .header("Content-Type", "application/json")
+            .timeout(Duration.ofSeconds(15))
+            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+            .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+          log.info("[EMAIL] Đã gửi {} tới {}", title, toEmail);
+          return true;
+        }
+        log.error("[EMAIL] Resend lỗi khi gửi {} [Status: {}]: {}", title, response.statusCode(), response.body());
+      } catch (Exception e) {
+        log.error("[EMAIL] Lỗi gửi {}: {}", title, e.getMessage(), e);
+      }
+      return false;
+    }
+
+    private String buildDebtEmailTemplate(DebtAcknowledgementData data, String title, boolean reminder) {
+      String hotelName = data.getHotelName() == null || data.getHotelName().isBlank() ? "STAYAWAY HOTEL" : data.getHotelName();
+      String guestName = data.getGuestName() == null || data.getGuestName().isBlank() ? "Quý khách" : data.getGuestName();
+      String message = reminder
+          ? "Khoản công nợ của Quý khách sẽ đến hạn vào ngày <strong>" + data.getDueDate() + "</strong>."
+          : "Chủ cơ sở đã phê duyệt việc trả phòng và xác nhận khoản công nợ dưới đây.";
+      return """
+          <!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"></head>
+          <body style="font-family:Arial,sans-serif;background:#f5f7fa;color:#1f2937;padding:24px">
+          <div style="max-width:620px;margin:auto;background:#fff;border:1px solid #d1d5db">
+          <div style="background:#003b95;color:#fff;padding:22px 28px"><strong>%s</strong><div style="margin-top:6px">%s</div></div>
+          <div style="padding:28px"><p>Kính gửi %s,</p><p>%s</p>
+          <table style="width:100%%;border-collapse:collapse"><tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Số giấy xác nhận</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right"><strong>CN-%06d</strong></td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Phòng / đặt phòng</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">Phòng %s / #%d</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Tổng hóa đơn</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">%s</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Đã thanh toán</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">%s</td></tr>
+          <tr><td style="padding:12px 8px;color:#b91c1c;font-weight:bold">Còn phải thanh toán</td><td style="padding:12px 8px;text-align:right;color:#b91c1c;font-weight:bold">%s</td></tr>
+          <tr><td style="padding:8px">Hạn thanh toán</td><td style="padding:8px;text-align:right"><strong>%s</strong></td></tr></table>
+          <p style="margin-top:22px">Lý do: %s</p><p>Vui lòng thanh toán đúng hạn hoặc liên hệ %s để được hỗ trợ.</p></div></div></body></html>
+          """.formatted(hotelName, title, guestName, message, data.getDebtRequestId(),
+          data.getRoomNumber() == null ? "---" : data.getRoomNumber(), data.getBookingId(),
+          formatMoney(data.getInvoiceTotal()), formatMoney(data.getPaidAmount()), formatMoney(data.getDebtAmount()),
+          data.getDueDate(), data.getReason() == null ? "---" : data.getReason(),
+          data.getHotelPhone() == null ? hotelName : data.getHotelPhone());
+    }
+
     private String formatMoney(java.math.BigDecimal amount) {
         if (amount == null) return "0 đ";
         return String.format(java.util.Locale.GERMANY, "%,d đ", amount.longValue());
@@ -406,6 +483,236 @@ public class ResendEmailServiceImpl implements EmailService {
                 discountDepositRows.toString(),
                 formatMoney(d.getTotalAmount()),
                 paymentMethodStr,
+                lookupUrl,
+                hotelName
+            );
+    }
+
+    @Override
+    public boolean sendCheckInReminderEmail(String toEmail, CheckInReminderData data) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            log.warn("[EMAIL] Không thể gửi email nhắc nhận phòng: Địa chỉ email người nhận trống (Đặt phòng #{})", data != null ? data.getBookingId() : "N/A");
+            return false;
+        }
+
+        String effectiveKey = getEffectiveApiKey();
+        if (effectiveKey.isEmpty()) {
+            log.error("[EMAIL] Chưa cấu hình API Key cho Resend (resend.api-key hoặc RESEND_API_KEY).");
+            return false;
+        }
+
+        try {
+            String hotelName = (data.getHotelName() != null && !data.getHotelName().isBlank()) ? data.getHotelName() : "STAYAWAY HOTEL";
+            String subject = "🔔 [Nhắc lịch nhận phòng] Ngày mai Quý khách có lịch nhận phòng tại " + hotelName + " (#" + data.getBookingId() + ")";
+            String htmlContent = buildCheckInReminderEmailTemplate(data);
+
+            String requestBody = "{\"from\":\"" + escapeJson(fromEmail) + "\","
+                    + "\"to\":[\"" + escapeJson(toEmail.trim()) + "\"],"
+                    + "\"subject\":\"" + escapeJson(subject) + "\","
+                    + "\"html\":\"" + escapeJson(htmlContent) + "\"}";
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(RESEND_API_URL))
+                    .header("Authorization", "Bearer " + effectiveKey)
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(15))
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            log.info("[EMAIL] Đang gửi email nhắc nhận phòng #{} tới {}...", data.getBookingId(), toEmail);
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("[EMAIL] Gửi email nhắc nhận phòng thành công qua Resend tới {} (Response: {})", toEmail, response.body());
+                return true;
+            } else {
+                log.error("[EMAIL] Resend API trả về lỗi khi gửi nhắc nhận phòng [Status: {}]: {}", response.statusCode(), response.body());
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.error("[EMAIL] Ngoại lệ khi gửi email nhắc nhận phòng qua Resend API: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    private String buildCheckInReminderEmailTemplate(CheckInReminderData d) {
+        String hotelName = (d.getHotelName() != null && !d.getHotelName().isBlank()) ? d.getHotelName() : "STAYAWAY HOTEL";
+        String hotelAddress = (d.getHotelAddress() != null && !d.getHotelAddress().isBlank()) ? d.getHotelAddress() : "Hệ thống Quản lý Khách sạn StayAway";
+        String hotelPhone = (d.getHotelPhone() != null && !d.getHotelPhone().isBlank()) ? d.getHotelPhone() : "1900 6868";
+        String hotelEmail = (d.getHotelEmail() != null && !d.getHotelEmail().isBlank()) ? d.getHotelEmail() : "support@stayaway.io.vn";
+
+        String guestName = (d.getGuestName() != null && !d.getGuestName().isBlank()) ? d.getGuestName() : "Quý khách";
+        String guestPhone = (d.getGuestPhone() != null && !d.getGuestPhone().isBlank()) ? d.getGuestPhone() : "---";
+        String guestEmail = (d.getGuestEmail() != null && !d.getGuestEmail().isBlank()) ? d.getGuestEmail() : "---";
+
+        String roomTypeName = (d.getRoomTypeName() != null && !d.getRoomTypeName().isBlank()) ? d.getRoomTypeName() : "Phòng tiêu chuẩn";
+        String roomNumberInfo = (d.getRoomNumber() != null && !d.getRoomNumber().isBlank()) ? ("Phòng " + d.getRoomNumber()) : "Sẽ bàn giao khi nhận phòng";
+
+        String checkInStr = d.getCheckInDate() != null ? d.getCheckInDate().toString() : "---";
+        String checkOutStr = d.getCheckOutDate() != null ? d.getCheckOutDate().toString() : "---";
+        String checkInTimeStr = d.getCheckInTime() != null ? d.getCheckInTime().toString() : "14:00";
+        String checkOutTimeStr = d.getCheckOutTime() != null ? d.getCheckOutTime().toString() : "12:00";
+        long nights = d.getNumberOfNights() > 0 ? d.getNumberOfNights() : 1;
+
+        String portalUrl = (appDomain != null && !appDomain.isBlank()) ? appDomain : "https://stayaway.io.vn";
+        String lookupUrl = d.getLookupUrl() != null && !d.getLookupUrl().isBlank() 
+                ? d.getLookupUrl() 
+                : (d.getBookingId() != null ? (portalUrl + "/booking-detail/" + d.getBookingId()) : portalUrl);
+
+        String depositStr = d.getDepositAmount() != null && d.getDepositAmount().compareTo(java.math.BigDecimal.ZERO) > 0 
+                ? formatMoney(d.getDepositAmount()) : "0 đ";
+        String remainingStr = d.getRemainingAmount() != null && d.getRemainingAmount().compareTo(java.math.BigDecimal.ZERO) > 0 
+                ? formatMoney(d.getRemainingAmount()) : formatMoney(d.getTotalPrice());
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Nhắc lịch nhận phòng</title>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px 12px; color: #1e293b; }
+                .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px -2px rgba(0,0,0,0.08); }
+                .header { background: #003b95; color: #ffffff; padding: 28px 32px; }
+                .header-title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+                .header-sub { margin: 4px 0 0; font-size: 12px; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; }
+                .badge-reminder { display: inline-block; background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; margin-top: 10px; letter-spacing: 0.5px; }
+                .content { padding: 28px 32px; }
+                .welcome-banner { background: #eff6ff; border-left: 4px solid #003b95; padding: 14px 18px; border-radius: 0 6px 6px 0; margin-bottom: 24px; font-size: 14px; line-height: 1.5; color: #1e3a8a; }
+                .grid-info { display: table; width: 100%%; margin-bottom: 24px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 20px; }
+                .col-info { display: table-cell; width: 50%%; vertical-align: top; }
+                .info-label { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; margin-bottom: 4px; }
+                .info-val { font-size: 14px; font-weight: 600; color: #0f172a; line-height: 1.4; }
+                .info-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+                .booking-card { background: #f1f5f9; border-radius: 6px; padding: 16px 20px; margin-bottom: 24px; }
+                .booking-card table { width: 100%%; font-size: 13px; border-collapse: collapse; }
+                .booking-card td { padding: 6px 0; }
+                .notice-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 16px 20px; margin-bottom: 24px; }
+                .notice-title { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 8px; text-transform: uppercase; }
+                .notice-item { font-size: 13px; color: #78350f; line-height: 1.5; margin-bottom: 6px; }
+                .notice-item:last-child { margin-bottom: 0; }
+                .btn-container { text-align: center; margin: 26px 0 10px; }
+                .btn { display: inline-block; background: #003b95; color: #ffffff !important; font-size: 13px; font-weight: 700; text-transform: uppercase; text-decoration: none; padding: 12px 30px; border-radius: 4px; letter-spacing: 0.5px; }
+                .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; font-size: 12px; color: #64748b; line-height: 1.6; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <div class="header-title">%s</div>
+                  <div class="header-sub">Thông báo lịch nhận phòng • StayAway PMS</div>
+                  <div class="badge-reminder">🔔 NHẮC LỊCH NHẬN PHÒNG NGÀY MAI</div>
+                </div>
+                
+                <div class="content">
+                  <div class="welcome-banner">
+                    <strong>Kính gửi %s,</strong><br/>
+                    Chuyến nghỉ dưỡng của Quý khách tại <strong>%s</strong> sẽ bắt đầu vào <strong>ngày mai (%s)</strong>. Chúng tôi rất hân hạnh được đón tiếp Quý khách!
+                  </div>
+
+                  <div class="grid-info">
+                    <div class="col-info" style="padding-right: 12px;">
+                      <div class="info-label">Khách hàng</div>
+                      <div class="info-val">%s</div>
+                      <div class="info-sub">SĐT: %s</div>
+                      <div class="info-sub">Email: %s</div>
+                    </div>
+                    <div class="col-info" style="padding-left: 12px;">
+                      <div class="info-label">Cơ sở lưu trú</div>
+                      <div class="info-val">%s</div>
+                      <div class="info-sub">Đ/c: %s</div>
+                      <div class="info-sub">Hotline: %s</div>
+                    </div>
+                  </div>
+
+                  <div class="booking-card">
+                    <table>
+                      <tr>
+                        <td style="color: #64748b; width: 40%%;">Mã đặt phòng:</td>
+                        <td style="font-weight: 700; color: #003b95;">#%d</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Hạng phòng:</td>
+                        <td style="font-weight: 600; color: #1e293b;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Phòng chỉ định:</td>
+                        <td style="font-weight: 600; color: #1e293b;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Nhận phòng (Check-in):</td>
+                        <td style="font-weight: 700; color: #059669;">%s (Từ %s)</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Trả phòng (Check-out):</td>
+                        <td style="font-weight: 600; color: #1e293b;">%s (Trước %s)</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Thời gian lưu trú:</td>
+                        <td style="font-weight: 600; color: #1e293b;">%d đêm</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Tổng tiền phòng dự kiến:</td>
+                        <td style="font-weight: 600; color: #1e293b;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Đã đặt cọc:</td>
+                        <td style="font-weight: 600; color: #059669;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b; font-weight: 600;">Còn lại thanh toán khi check-in:</td>
+                        <td style="font-weight: 700; color: #dc2626;">%s</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <div class="notice-box">
+                    <div class="notice-title">📋 Lưu ý quan trọng cho kỳ nghỉ của bạn:</div>
+                    <div class="notice-item">• <strong>Giấy tờ tùy thân:</strong> Quý khách vui lòng mang theo <strong>CCCD / Hộ chiếu bản gốc</strong> của tất cả thành viên lưu trú để làm thủ tục khai báo tạm trú theo quy định pháp luật.</div>
+                    <div class="notice-item">• <strong>Giờ nhận phòng:</strong> Giờ nhận phòng tiêu chuẩn là từ <strong>%s</strong>. Nếu Quý khách có nhu cầu nhận phòng sớm hoặc đến muộn hơn 18:00, vui lòng gọi trước Hotline <strong>%s</strong> để được hỗ trợ tốt nhất.</div>
+                    <div class="notice-item">• <strong>Hỗ trợ & Hướng dẫn đường đi:</strong> Quý khách có thể liên hệ trực tiếp lễ tân qua số điện thoại <strong>%s</strong> bất kỳ lúc nào.</div>
+                  </div>
+
+                  <div class="btn-container">
+                    <a href="%s" class="btn" target="_blank">XEM CHI TIẾT ĐẶT PHÒNG TRỰC TUYẾN</a>
+                  </div>
+                </div>
+
+                <div class="footer">
+                  Cảm ơn Quý khách đã tin tưởng và lựa chọn <strong>%s</strong>.<br/>
+                  Kính chúc Quý khách một chuyến đi an toàn, thoải mái và nhiều trải nghiệm đáng nhớ!
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(
+                hotelName,
+                guestName,
+                hotelName,
+                checkInStr,
+                guestName,
+                guestPhone,
+                guestEmail,
+                hotelName,
+                hotelAddress,
+                hotelPhone,
+                d.getBookingId(),
+                roomTypeName,
+                roomNumberInfo,
+                checkInStr,
+                checkInTimeStr,
+                checkOutStr,
+                checkOutTimeStr,
+                nights,
+                formatMoney(d.getTotalPrice()),
+                depositStr,
+                remainingStr,
+                checkInTimeStr,
+                hotelPhone,
+                hotelPhone,
                 lookupUrl,
                 hotelName
             );

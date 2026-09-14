@@ -1,6 +1,7 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,12 +10,15 @@ import plant.stay.dto.request.ExtendStayRequest;
 import plant.stay.dto.request.RescheduleDateRequest;
 import plant.stay.dto.request.UpgradeRoomRequest;
 import plant.stay.dto.response.BookingResponse;
+import plant.stay.dto.response.CheckInReminderData;
+import plant.stay.dto.response.MessageResponse;
 import plant.stay.dto.response.RescheduleDatePreviewResponse;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.BookingService;
+import plant.stay.service.EmailService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,6 +30,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class BookingServiceImpl implements BookingService {
 
@@ -43,7 +48,10 @@ public class BookingServiceImpl implements BookingService {
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final DepositPolicyRepository depositPolicyRepository;
+    private final DebtApprovalRepository debtApprovalRepository;
     private final plant.stay.service.PricingService pricingService;
+    private final EmailService emailService;
+    private final HotelSettingRepository hotelSettingRepository;
 
     @Override
     public List<BookingResponse> getAll() {
@@ -742,9 +750,8 @@ public class BookingServiceImpl implements BookingService {
         List<Map<String, Object>> nightPrices = new java.util.ArrayList<>();
         for (int i = 0; i < nights; i++) {
             LocalDate night = booking.getCheckOutDate().plusDays(i);
-            List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(booking.getRoomType().getId(), night);
-            BigDecimal price = !seasonal.isEmpty()
-                    ? ((plant.stay.model.SeasonalPrice) seasonal.get(0)).getPricePerNight()
+            BigDecimal price = pricingService != null
+                    ? pricingService.calculateNightPrice(booking.getRoomType(), night).getAppliedPrice()
                     : (booking.getRoomType().getBasePrice() != null ? booking.getRoomType().getBasePrice() : BigDecimal.ZERO);
             Map<String, Object> np = new java.util.HashMap<>();
             np.put("date", night.toString());
@@ -948,9 +955,8 @@ public class BookingServiceImpl implements BookingService {
         List<RescheduleDatePreviewResponse.NightPriceDto> nightPrices = new java.util.ArrayList<>();
         for (long i = 0; i < nights; i++) {
             LocalDate night = newCheckIn.plusDays(i);
-            List<?> seasonal = seasonalPriceRepository.findByRoomTypeAndDate(booking.getRoomType().getId(), night);
-            BigDecimal price = !seasonal.isEmpty()
-                    ? ((SeasonalPrice) seasonal.get(0)).getPricePerNight()
+            BigDecimal price = pricingService != null
+                    ? pricingService.calculateNightPrice(booking.getRoomType(), night).getAppliedPrice()
                     : (booking.getRoomType().getBasePrice() != null ? booking.getRoomType().getBasePrice() : BigDecimal.ZERO);
             nightPrices.add(RescheduleDatePreviewResponse.NightPriceDto.builder()
                     .date(night.toString())
@@ -1203,12 +1209,29 @@ public class BookingServiceImpl implements BookingService {
 
     public BookingResponse toResponse(Booking b) {
         String paymentStatus = "UNPAID";
+        boolean payLaterCheckout = false;
         try {
             Invoice inv = invoiceRepository.findInvoicesCoveringBooking(b.getId()).stream().findFirst().orElse(null);
             if (inv != null && inv.getStatus() != null) {
                 paymentStatus = inv.getStatus().name();
             }
         } catch (Exception ignored) {}
+        if (b.getStatus() == BookingStatus.CHECKED_OUT) {
+            payLaterCheckout = debtApprovalRepository.existsActiveApprovedDebtByBookingId(b.getId());
+        }
+
+        java.util.List<plant.stay.dto.response.GuestResponse> stayingGuestsDto = null;
+        if (b.getStayingGuests() != null && !b.getStayingGuests().isEmpty()) {
+            stayingGuestsDto = b.getStayingGuests().stream()
+                    .map(g -> plant.stay.dto.response.GuestResponse.builder()
+                            .id(g.getId())
+                            .name(g.getName())
+                            .phone(g.getPhone())
+                            .email(g.getEmail())
+                            .idNumber(g.getIdNumber())
+                            .build())
+                    .collect(Collectors.toList());
+        }
 
         return BookingResponse.builder()
                 .id(b.getId())
@@ -1220,6 +1243,10 @@ public class BookingServiceImpl implements BookingService {
                 .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
                 .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null)
                 .roomCapacity(b.getRoomType() != null ? b.getRoomType().getMaxCapacity() : null)
+                .standardCapacity(b.getRoomType() != null ? b.getRoomType().getStandardCapacity() : 2)
+                .maxCapacity(b.getRoomType() != null ? b.getRoomType().getMaxCapacity() : 2)
+                .extraPersonChargePerNight(b.getRoomType() != null && b.getRoomType().getExtraPersonChargePerNight() != null ? b.getRoomType().getExtraPersonChargePerNight() : BigDecimal.ZERO)
+                .maxChildAgeFree(b.getRoomType() != null ? b.getRoomType().getMaxChildAgeFree() : 6)
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .status(b.getStatus())
@@ -1233,7 +1260,120 @@ public class BookingServiceImpl implements BookingService {
                 .createdAt(b.getCreatedAt())
                 .groupBookingId(b.getGroupBooking() != null ? b.getGroupBooking().getId() : null)
                 .paymentStatus(paymentStatus)
-                .roomStatus(b.getRoom() != null && b.getRoom().getStatus() != null ? b.getRoom().getStatus().name() : null)
+                .payLaterCheckout(payLaterCheckout)
+                .reminderSentAt(b.getReminderSentAt())
+                .stayingGuests(stayingGuestsDto)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void sendCheckInRemindersForTomorrow() {
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        List<Booking> bookings = bookingRepository.findBookingsNeedingCheckInReminder(tomorrow);
+        log.info("[CHECKIN_REMINDER] Tìm thấy {} đặt phòng nhận phòng vào ngày mai ({}) cần gửi email nhắc nhở", bookings.size(), tomorrow);
+
+        HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
+
+        int successCount = 0;
+        for (Booking booking : bookings) {
+            try {
+                if (booking.getReminderSentAt() != null) {
+                    continue;
+                }
+                String guestEmail = booking.getGuest() != null ? booking.getGuest().getEmail() : null;
+                if (guestEmail == null || guestEmail.isBlank()) {
+                    continue;
+                }
+
+                CheckInReminderData data = buildCheckInReminderData(booking, setting);
+                boolean sent = emailService.sendCheckInReminderEmail(guestEmail.trim(), data);
+                if (sent) {
+                    booking.setReminderSentAt(LocalDateTime.now());
+                    bookingRepository.save(booking);
+                    auditLogService.log("Booking", booking.getId(), "SEND_CHECKIN_REMINDER", null,
+                            "Đã tự động gửi email nhắc nhận phòng trước 1 ngày tới " + guestEmail.trim());
+                    successCount++;
+                } else {
+                    log.warn("[CHECKIN_REMINDER] Không thể gửi email nhắc nhận phòng cho đặt phòng #{} tới {}", booking.getId(), guestEmail);
+                }
+            } catch (Exception e) {
+                log.error("[CHECKIN_REMINDER] Lỗi khi xử lý gửi email nhắc nhận phòng #{}", booking.getId(), e);
+            }
+        }
+        log.info("[CHECKIN_REMINDER] Hoàn tất gửi email nhắc nhận phòng ngày mai: {}/{} thành công", successCount, bookings.size());
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse sendCheckInReminderManually(Long bookingId, User actor) {
+        Booking booking = findById(bookingId);
+        if (booking.getStatus() == BookingStatus.CANCELLED || booking.getStatus() == BookingStatus.NO_SHOW) {
+            throw new IllegalArgumentException("Không thể gửi email nhắc nhở cho đặt phòng đã hủy hoặc không đến.");
+        }
+        if (booking.getGuest() == null || booking.getGuest().getEmail() == null || booking.getGuest().getEmail().isBlank()) {
+            throw new IllegalArgumentException("Khách hàng của đặt phòng này chưa có thông tin email.");
+        }
+
+        HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
+        CheckInReminderData data = buildCheckInReminderData(booking, setting);
+
+        String guestEmail = booking.getGuest().getEmail().trim();
+        boolean sent = emailService.sendCheckInReminderEmail(guestEmail, data);
+        if (!sent) {
+            throw new IllegalStateException("Gửi email nhắc nhở thất bại. Vui lòng kiểm tra lại cấu hình email hệ thống.");
+        }
+
+        booking.setReminderSentAt(LocalDateTime.now());
+        bookingRepository.save(booking);
+
+        auditLogService.log("Booking", booking.getId(), "SEND_CHECKIN_REMINDER_MANUAL", actor,
+                "Nhân viên đã gửi email nhắc nhận phòng tới " + guestEmail);
+
+        return new MessageResponse("Đã gửi email nhắc nhận phòng thành công tới " + guestEmail);
+    }
+
+    private CheckInReminderData buildCheckInReminderData(Booking booking, HotelSetting setting) {
+        String hotelName = setting != null && setting.getPropertyName() != null && !setting.getPropertyName().isBlank()
+                ? setting.getPropertyName() : "STAYAWAY HOTEL";
+        String hotelAddress = setting != null && setting.getAddress() != null ? setting.getAddress() : "";
+        String hotelPhone = setting != null && setting.getPhone() != null ? setting.getPhone() : "";
+        String hotelEmail = setting != null && setting.getEmail() != null ? setting.getEmail() : "";
+
+        java.time.LocalTime defaultCheckin = setting != null && setting.getDefaultCheckinTime() != null
+                ? setting.getDefaultCheckinTime() : java.time.LocalTime.of(14, 0);
+        java.time.LocalTime defaultCheckout = setting != null && setting.getDefaultCheckoutTime() != null
+                ? setting.getDefaultCheckoutTime() : java.time.LocalTime.of(12, 0);
+
+        long nights = booking.getCheckInDate() != null && booking.getCheckOutDate() != null
+                ? ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate()) : 1;
+        if (nights <= 0) nights = 1;
+
+        BigDecimal totalPrice = booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO;
+        BigDecimal deposit = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+        BigDecimal remaining = totalPrice.subtract(deposit);
+        if (remaining.compareTo(BigDecimal.ZERO) < 0) remaining = BigDecimal.ZERO;
+
+        return CheckInReminderData.builder()
+                .bookingId(booking.getId())
+                .guestName(booking.getGuest() != null ? booking.getGuest().getName() : "Quý khách")
+                .guestPhone(booking.getGuest() != null ? booking.getGuest().getPhone() : "")
+                .guestEmail(booking.getGuest() != null ? booking.getGuest().getEmail() : "")
+                .hotelName(hotelName)
+                .hotelAddress(hotelAddress)
+                .hotelPhone(hotelPhone)
+                .hotelEmail(hotelEmail)
+                .roomTypeName(booking.getRoomType() != null ? booking.getRoomType().getName() : "")
+                .roomNumber(booking.getRoom() != null ? booking.getRoom().getRoomNumber() : null)
+                .checkInDate(booking.getCheckInDate())
+                .checkOutDate(booking.getCheckOutDate())
+                .checkInTime(defaultCheckin)
+                .checkOutTime(defaultCheckout)
+                .numberOfNights(nights)
+                .totalPrice(totalPrice)
+                .depositAmount(deposit)
+                .remainingAmount(remaining)
+                .note(booking.getNote())
                 .build();
     }
 }

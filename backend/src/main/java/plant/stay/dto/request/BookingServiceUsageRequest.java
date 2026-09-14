@@ -12,4 +12,6 @@ public class BookingServiceUsageRequest {
     @NotNull(message = "Số lượng không được để trống")
     @Min(value = 1, message = "Số lượng phải >= 1")
     private Integer quantity;
+
+    private String note;
 }

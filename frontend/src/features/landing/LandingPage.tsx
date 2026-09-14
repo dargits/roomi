@@ -18,6 +18,7 @@ import {
   IoTimeOutline, 
   IoNavigateOutline 
 } from 'react-icons/io5';
+import { toLocalDateString } from '../../utils/formatDate';
 
 const LandingPage: React.FC = () => {
   const { hotelSetting, isAppLoading } = useAppConfig();
@@ -43,21 +44,28 @@ const LandingPage: React.FC = () => {
       try {
         const data = await roomTypeApi.getPublicRoomTypes();
         // Map backend model to RoomCard props
-        const mappedRooms: RoomCardData[] = data.map(room => ({
-          id: room.id,
-          name: room.name,
-          maxCapacity: room.maxCapacity,
-          amenitiesDescription: room.amenitiesDescription,
-          basePrice: room.basePrice,
-          price: new Intl.NumberFormat('vi-VN').format(room.basePrice) + ' ₫',
-          imageUrls: room.imageUrls || [],
-          primaryButton: true
-        }));
+        const mappedRooms: RoomCardData[] = data.map(room => {
+          const displayPrice = room.currentPrice != null ? room.currentPrice : room.basePrice;
+          const hasSpecialPrice = room.currentPrice != null && Number(room.currentPrice) !== Number(room.basePrice);
+          return {
+            id: room.id,
+            name: room.name,
+            maxCapacity: room.maxCapacity,
+            amenitiesDescription: room.amenitiesDescription,
+            basePrice: room.basePrice,
+            currentPrice: room.currentPrice,
+            price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+            originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+            badge: hasSpecialPrice ? (room.priceSourceName || 'Giá ưu đãi') : undefined,
+            imageUrls: room.imageUrls || [],
+            primaryButton: true
+          };
+        });
         setRooms(mappedRooms);
         
         // Update max price based on fetched rooms
         if (mappedRooms.length > 0) {
-          const prices = mappedRooms.map(r => r.basePrice || 0);
+          const prices = mappedRooms.map(r => (r.currentPrice != null ? r.currentPrice : (r.basePrice || 0)));
           const highestPrice = Math.max(...prices);
           setPriceLimit(highestPrice > 0 ? highestPrice : 10000000);
         }
@@ -76,20 +84,30 @@ const LandingPage: React.FC = () => {
     setLoading(true);
     
     try {
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr = to.toISOString().split('T')[0];
+      const fromStr = toLocalDateString(from);
+      const toStr = toLocalDateString(to);
       const data = await bookingRequestApi.getPublicAvailability(fromStr, toStr);
       
-      const mappedRooms: RoomCardData[] = (data as any[]).map(room => ({
-        id: room.roomTypeId || room.id,
-        name: room.name,
-        maxCapacity: room.maxCapacity,
-        amenitiesDescription: room.amenitiesDescription,
-        basePrice: room.basePrice,
-        price: new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫',
-        imageUrls: room.imageUrls || [],
-        primaryButton: true
-      }));
+      const mappedRooms: RoomCardData[] = (data as any[]).map(room => {
+        const displayPrice = room.currentPrice != null ? room.currentPrice : (room.pricePerNight != null ? room.pricePerNight : room.basePrice);
+        const hasSpecialPrice = displayPrice != null && Number(displayPrice) !== Number(room.basePrice);
+        return {
+          id: room.roomTypeId || room.id,
+          name: room.name,
+          maxCapacity: room.maxCapacity,
+          amenitiesDescription: room.amenitiesDescription,
+          basePrice: room.basePrice,
+          currentPrice: displayPrice,
+          totalPrice: room.totalPrice,
+          nights: room.nights,
+          isAveragePrice: Boolean(room.isAveragePrice),
+          price: new Intl.NumberFormat('vi-VN').format(displayPrice || 0) + ' ₫',
+          originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
+          badge: hasSpecialPrice ? (room.priceSourceName || (room.isAveragePrice ? 'Giá trung bình' : 'Giá ngày áp dụng')) : undefined,
+          imageUrls: room.imageUrls || [],
+          primaryButton: true
+        };
+      });
       setRooms(mappedRooms);
     } catch (error) {
       console.error("Lỗi khi tìm phòng trống:", error);
@@ -140,7 +158,8 @@ const LandingPage: React.FC = () => {
       return false;
     }
     // 2. Filter by Price
-    if ((room.basePrice || 0) > priceLimit) {
+    const effPrice = room.currentPrice != null ? room.currentPrice : (room.basePrice || 0);
+    if (effPrice > priceLimit) {
       return false;
     }
     // 3. Filter by Amenities (room must have ALL selected amenities)
@@ -151,8 +170,8 @@ const LandingPage: React.FC = () => {
     }
     return true;
   }).sort((a, b) => {
-    const priceA = a.basePrice || 0;
-    const priceB = b.basePrice || 0;
+    const priceA = a.currentPrice != null ? a.currentPrice : (a.basePrice || 0);
+    const priceB = b.currentPrice != null ? b.currentPrice : (b.basePrice || 0);
     if (sortBy === 'price_asc') return priceA - priceB;
     if (sortBy === 'price_desc') return priceB - priceA;
     if (sortBy === 'capacity_desc') return b.maxCapacity - a.maxCapacity;
@@ -179,7 +198,7 @@ const LandingPage: React.FC = () => {
       <PublicHeader />
 
       {/* Hero Section */}
-      <section className="relative w-full h-[320px] flex flex-col items-center justify-center overflow-hidden">
+      <section className="relative z-30 w-full h-[320px] flex flex-col items-center justify-center">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <div 
             className="bg-cover bg-center w-full h-full bg-neutral-800 animate-hero-zoom" 
