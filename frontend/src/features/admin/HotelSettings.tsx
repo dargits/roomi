@@ -18,8 +18,7 @@ const HotelSettings: React.FC = () => {
     defaultCheckoutTime: '12:00',
     homeImage: '',
     reminderEmailEnabled: true,
-    reminderMorningTime: '10:30',
-    reminderEveningTime: '19:00'
+    reminderMorningTime: '10:30'
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -45,15 +44,8 @@ const HotelSettings: React.FC = () => {
         if (rest.defaultCheckoutTime && rest.defaultCheckoutTime.length > 5) {
           rest.defaultCheckoutTime = rest.defaultCheckoutTime.substring(0, 5);
         }
-        if (rest.reminderMorningTime && rest.reminderMorningTime.length > 5) {
-          rest.reminderMorningTime = rest.reminderMorningTime.substring(0, 5);
-        }
-        if (rest.reminderEveningTime && rest.reminderEveningTime.length > 5) {
-          rest.reminderEveningTime = rest.reminderEveningTime.substring(0, 5);
-        }
         rest.reminderEmailEnabled = rest.reminderEmailEnabled !== false;
         rest.reminderMorningTime = rest.reminderMorningTime || '10:30';
-        rest.reminderEveningTime = rest.reminderEveningTime || '19:00';
         setSettings(rest);
       }
     } catch (error) {
@@ -116,7 +108,6 @@ const HotelSettings: React.FC = () => {
         defaultCheckinTime: settings.defaultCheckinTime && settings.defaultCheckinTime.length === 5 ? `${settings.defaultCheckinTime}:00` : settings.defaultCheckinTime,
         defaultCheckoutTime: settings.defaultCheckoutTime && settings.defaultCheckoutTime.length === 5 ? `${settings.defaultCheckoutTime}:00` : settings.defaultCheckoutTime,
         reminderMorningTime: settings.reminderMorningTime && settings.reminderMorningTime.length === 5 ? `${settings.reminderMorningTime}:00` : settings.reminderMorningTime,
-        reminderEveningTime: settings.reminderEveningTime && settings.reminderEveningTime.length === 5 ? `${settings.reminderEveningTime}:00` : settings.reminderEveningTime,
       };
 
       await hotelSettingApi.updateSetting(payload);
@@ -318,37 +309,23 @@ const HotelSettings: React.FC = () => {
 
           {settings.reminderEmailEnabled && (
             <div className="space-y-4 pt-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Giờ gửi nhắc buổi sáng *"
-                  type="time"
-                  name="reminderMorningTime"
-                  value={settings.reminderMorningTime || '10:30'}
-                  onChange={handleChange}
-                  error={errors.reminderMorningTime || undefined}
-                  icon={IoTimeOutline}
-                  helperText="Hệ thống quét và gửi nhắc cho các khách check-in vào ngày hôm sau"
-                  required
-                />
-
-                <Input
-                  label="Giờ gửi nhắc buổi tối *"
-                  type="time"
-                  name="reminderEveningTime"
-                  value={settings.reminderEveningTime || '19:00'}
-                  onChange={handleChange}
-                  error={errors.reminderEveningTime || undefined}
-                  icon={IoTimeOutline}
-                  helperText="Gửi bổ sung cho các đặt phòng mới tạo trong ngày (chưa gửi ở đợt sáng)"
-                  required
-                />
-              </div>
+              <Input
+                label="Giờ gửi nhắc buổi sáng *"
+                type="time"
+                name="reminderMorningTime"
+                value={settings.reminderMorningTime || '10:30'}
+                onChange={handleChange}
+                error={errors.reminderMorningTime || undefined}
+                icon={IoTimeOutline}
+                helperText="Hệ thống quét và gửi nhắc cho các khách check-in vào ngày hôm sau"
+                required
+              />
 
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-800 space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <IoNotificationsOutline size={15} /> Cơ chế hoạt động:
                 </div>
-                <div>• Hệ thống tự động gửi 2 lần/ngày theo khung giờ đã đặt ở trên.</div>
+                <div>• Hệ thống tự động gửi email 1 lần/ngày vào buổi sáng theo khung giờ đã đặt ở trên.</div>
                 <div>• Chỉ gửi cho các đặt phòng có ngày nhận phòng là <strong>ngày mai</strong>.</div>
                 <div>• Mỗi đặt phòng chỉ nhận email <strong>1 lần duy nhất</strong>, các ngày lưu trú tiếp theo sẽ không gửi mail lặp lại.</div>
               </div>
