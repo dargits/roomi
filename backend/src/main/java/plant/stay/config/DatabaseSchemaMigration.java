@@ -40,5 +40,13 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: Could not add 'discount_approval_threshold' column (might already exist): {}", e.getMessage());
         }
+
+        // 3. Đảm bảo cột reminder_sent_at trong bookings sẵn sàng cho tính năng nhắc nhận phòng
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reminder_sent_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'bookings.reminder_sent_at' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'reminder_sent_at' column (might already exist): {}", e.getMessage());
+        }
     }
 }

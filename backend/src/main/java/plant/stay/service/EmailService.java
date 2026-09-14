@@ -24,4 +24,13 @@ public interface EmailService {
     boolean sendDebtAcknowledgementEmail(String toEmail, plant.stay.dto.response.DebtAcknowledgementData data);
 
     boolean sendDebtReminderEmail(String toEmail, plant.stay.dto.response.DebtAcknowledgementData data);
+
+    /**
+     * Gửi email nhắc nhở nhận phòng trước 1 ngày cho khách hàng
+     *
+     * @param toEmail Email người nhận
+     * @param data    Dữ liệu nhắc nhở nhận phòng
+     * @return true nếu gửi thành công, false nếu thất bại
+     */
+    boolean sendCheckInReminderEmail(String toEmail, plant.stay.dto.response.CheckInReminderData data);
 }

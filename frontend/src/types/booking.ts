@@ -44,6 +44,7 @@ export interface BookingResponse {
   paymentStatus?: string;
   roomStatus?: string;
   payLaterCheckout?: boolean;
+  reminderSentAt?: string;
   stayingGuests?: Array<{
     id?: number;
     name?: string;

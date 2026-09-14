@@ -189,6 +189,23 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.confirmReschedule(id, req, actor));
     }
 
+    // Gửi email nhắc nhận phòng thủ công cho một booking
+    @PostMapping("/{id}/send-reminder")
+    public ResponseEntity<plant.stay.dto.response.MessageResponse> sendReminder(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.sendCheckInReminderManually(id, actor));
+    }
+
+    // Kích hoạt quét và gửi nhắc nhận phòng ngày mai ngay lập tức (dành cho Admin/Owner)
+    @PostMapping("/trigger-reminders-job")
+    public ResponseEntity<plant.stay.dto.response.MessageResponse> triggerRemindersJob(HttpServletRequest request) {
+        checkStaff(request);
+        bookingService.sendCheckInRemindersForTomorrow();
+        return ResponseEntity.ok(new plant.stay.dto.response.MessageResponse("Đã kích hoạt quét và gửi email nhắc nhận phòng cho ngày mai"));
+    }
+
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER
