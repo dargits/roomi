@@ -38,6 +38,7 @@ import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 import BookingManagement from '../features/booking/BookingManagement';
 import BookingDetailPage from '../features/booking/BookingDetailPage';
 import StayDeclarationPage from '../features/booking/StayDeclarationPage';
+import InHouseGuestPage from '../features/booking/InHouseGuestPage';
 
 // Housekeeping
 import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
@@ -98,7 +99,8 @@ const AppRoutes: React.FC = () => {
                   <Route path="/manage/bookings/:bookingId" element={<BookingDetailPage />} />
                   <Route path="/manage/bookings/:bookingId/:tab" element={<BookingDetailPage />} />
 
-                  {/* Khai báo lưu trú — NCL-12 */}
+                  {/* Khách lưu trú & Khai báo lưu trú */}
+                  <Route path="/manage/in-house-guests" element={<InHouseGuestPage />} />
                   <Route path="/manage/stay-declarations" element={<StayDeclarationPage />} />
 
                   {/* Phòng */}
