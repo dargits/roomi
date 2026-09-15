@@ -51,6 +51,14 @@ public class HotelSetting {
     @Column(name = "discount_approval_threshold", precision = 12, scale = 2)
     private BigDecimal discountApprovalThreshold;
 
+    @Column(name = "reminder_email_enabled")
+    @Builder.Default
+    private Boolean reminderEmailEnabled = true;
+
+    @Column(name = "reminder_morning_time")
+    private LocalTime reminderMorningTime;
+
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

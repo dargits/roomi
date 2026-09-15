@@ -12,7 +12,9 @@ import plant.stay.repository.BookingRepository;
 import plant.stay.repository.RoomIncidentRepository;
 import plant.stay.repository.RoomRepository;
 import plant.stay.service.AuditLogService;
+import plant.stay.service.NotificationService;
 import plant.stay.service.RoomIncidentService;
+import plant.stay.model.NotificationType;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,6 +29,7 @@ public class RoomIncidentServiceImpl implements RoomIncidentService {
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -64,6 +67,22 @@ public class RoomIncidentServiceImpl implements RoomIncidentService {
             msg += " [CẢNH BÁO: Có " + affectedCount + " đặt phòng sắp tới bị ảnh hưởng cần đổi phòng!]";
         }
         auditLogService.log("RoomIncident", incident.getId(), "REPORT_INCIDENT", actor, msg);
+
+        // [Notification] Bắn thông báo sự cố phòng
+        try {
+            boolean isHeavy = req.getSeverity() == IncidentSeverity.HEAVY
+                    || req.getSeverity() == IncidentSeverity.OUT_OF_SERVICE;
+            NotificationType nType = isHeavy ? NotificationType.ROOM_INCIDENT_HEAVY : NotificationType.ROOM_INCIDENT_LIGHT;
+            String severityLabel = req.getSeverity() == IncidentSeverity.LIGHT ? "Nhẹ" :
+                    (req.getSeverity() == IncidentSeverity.HEAVY ? "Nặng" : "Không thể phục vụ");
+            notificationService.createForRoles(
+                nType,
+                "Sự cố phòng " + room.getRoomNumber() + " [" + severityLabel + "]",
+                req.getDescription() + (affectedCount > 0 ? " (" + affectedCount + " đặt phòng bị ảnh hưởng)" : ""),
+                "ROOM_INCIDENT", incident.getId());
+        } catch (Exception ex) {
+            // Không dừng luồng chính nếu thông báo lỗi
+        }
 
         return toDto(incident);
     }

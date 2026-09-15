@@ -29,4 +29,6 @@ public class PasswordResetItemResponse {
     private LocalDateTime usedAt;
     private Boolean emailSent;
     private String emailMessage;
+    private String resetToken;
+    private String resetLink;
 }

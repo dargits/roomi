@@ -89,6 +89,9 @@ public class Booking {
     @Column(name = "deposit_amount", precision = 12, scale = 2)
     private BigDecimal depositAmount;
 
+    @Column(name = "reminder_sent_at")
+    private LocalDateTime reminderSentAt; // Thời điểm đã gửi email nhắc nhận phòng
+
     @Version
     private Long version;
 

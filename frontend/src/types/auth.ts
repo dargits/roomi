@@ -86,10 +86,35 @@ export interface ForgotPasswordRequest {
 
 export interface PasswordResetItemResponse {
   id: number;
+  userId?: number;
   account: string;
   userName?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  userEmail?: string;
+  userRole?: Role;
+  status: 'PENDING' | 'ISSUED' | 'USED' | 'EXPIRED' | 'REJECTED';
+  plainTempPassword?: string;
+  resetToken?: string;
+  resetLink?: string;
+  expiresAt?: string;
   requestedAt: string;
-  resolvedAt?: string;
-  temporaryPassword?: string;
+  issuedByName?: string;
+  issuedAt?: string;
+  usedAt?: string;
+  emailSent?: boolean;
+  emailMessage?: string;
+}
+
+export interface VerifyResetTokenResponse {
+  valid: boolean;
+  account?: string;
+  userName?: string;
+  userEmail?: string;
+  remainingSeconds?: number;
+  message?: string;
+}
+
+export interface ResetPasswordWithTokenRequest {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
 }

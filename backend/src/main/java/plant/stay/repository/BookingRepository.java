@@ -70,7 +70,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findTodayCheckinCheckout(@Param("today") LocalDate today);
 
     // Báo cáo doanh thu
-    @Query("SELECT b FROM Booking b WHERE b.checkOutDate BETWEEN :from AND :to " +
+    @Query("SELECT DISTINCT b FROM Booking b " +
+           "LEFT JOIN FETCH b.room r " +
+           "LEFT JOIN FETCH b.roomType rt " +
+           "LEFT JOIN FETCH b.guest g " +
+           "WHERE b.checkOutDate BETWEEN :from AND :to " +
            "AND b.status = 'CHECKED_OUT'")
     List<Booking> findCheckedOutBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
@@ -85,4 +89,24 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "AND b.status IN ('NEW', 'CONFIRMED') AND b.checkOutDate >= :today " +
            "ORDER BY b.checkInDate ASC")
     List<Booking> findUpcomingBookingsForRoom(@Param("roomId") Long roomId, @Param("today") LocalDate today);
+
+    // Tự động nhắc nhở nhận phòng trước 1 ngày
+    @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.guest g " +
+           "JOIN FETCH b.roomType rt " +
+           "LEFT JOIN FETCH b.room r " +
+           "WHERE b.checkInDate = :checkInDate " +
+           "AND b.status IN ('CONFIRMED', 'NEW') " +
+           "AND b.reminderSentAt IS NULL " +
+           "AND g.email IS NOT NULL AND TRIM(g.email) <> ''")
+    List<Booking> findBookingsNeedingCheckInReminder(@Param("checkInDate") LocalDate checkInDate);
+
+    // Truy vấn danh sách đặt phòng đang lưu trú (CHECKED_IN)
+    @Query("SELECT DISTINCT b FROM Booking b " +
+           "JOIN FETCH b.guest g " +
+           "JOIN FETCH b.roomType rt " +
+           "LEFT JOIN FETCH b.room r " +
+           "WHERE b.status = 'CHECKED_IN' " +
+           "ORDER BY r.roomNumber ASC, b.id ASC")
+    List<Booking> findInHouseBookings();
 }
