@@ -49,6 +49,10 @@ import CashierShiftPage from '../features/reports/CashierShiftPage';
 import BackupDataPage from '../features/admin/BackupDataPage';
 import PersonalDataAuditLogPage from '../features/booking/PersonalDataAuditLogPage';
 
+// Notifications
+import NotificationCenter from '../features/notifications/NotificationCenter';
+import NotificationPreferences from '../features/notifications/NotificationPreferences';
+
 const AppRoutes: React.FC = () => {
   return (
     <AppConfigProvider>
@@ -151,8 +155,16 @@ const AppRoutes: React.FC = () => {
 
                   {/* Hồ sơ cá nhân */}
                   <Route path="/manage/profile" element={<ProfileSettings />} />
+
+                  {/* Trung tâm thông báo */}
+                  <Route path="/manage/notifications" element={<NotificationCenter />} />
+                  <Route path="/manage/notifications/preferences" element={<NotificationPreferences />} />
                 </Route>
               </Route>
+
+              {/* Redirects for notifications */}
+              <Route path="/notifications" element={<Navigate to="/manage/notifications" replace />} />
+              <Route path="/notifications/preferences" element={<Navigate to="/manage/notifications/preferences" replace />} />
 
               {/* Hỗ trợ mở trực tiếp dạng /:token (chuỗi ngẫu nhiên không thể brute force) */}
               <Route path="/:token" element={<ResetPasswordPage />} />

@@ -75,5 +75,61 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: Could not add 'reset_token' to password_reset_requests: {}", e.getMessage());
         }
+
+        // 7. Tạo bảng notifications (Notification Center)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS notifications (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  user_id BIGINT NOT NULL," +
+                "  type VARCHAR(60) NOT NULL," +
+                "  title VARCHAR(255) NOT NULL," +
+                "  body TEXT," +
+                "  ref_type VARCHAR(30)," +
+                "  ref_id BIGINT," +
+                "  is_read BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  created_at DATETIME(6) NOT NULL," +
+                "  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notif_user_read ON notifications(user_id, is_read)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notif_user_created ON notifications(user_id, created_at)");
+            log.info("Schema Migration: Successfully ensured 'notifications' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: notifications table: {}", e.getMessage());
+        }
+
+        // 8. Tạo bảng notification_role_defaults
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS notification_role_defaults (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  role VARCHAR(30) NOT NULL," +
+                "  type VARCHAR(60) NOT NULL," +
+                "  is_mandatory BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  UNIQUE KEY uq_role_type (role, type)" +
+                ")"
+            );
+            log.info("Schema Migration: Successfully ensured 'notification_role_defaults' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: notification_role_defaults table: {}", e.getMessage());
+        }
+
+        // 9. Tạo bảng notification_user_prefs
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS notification_user_prefs (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  user_id BIGINT NOT NULL," +
+                "  type VARCHAR(60) NOT NULL," +
+                "  enabled BOOLEAN NOT NULL DEFAULT TRUE," +
+                "  UNIQUE KEY uq_user_type (user_id, type)," +
+                "  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE" +
+                ")"
+            );
+            log.info("Schema Migration: Successfully ensured 'notification_user_prefs' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: notification_user_prefs table: {}", e.getMessage());
+        }
     }
 }
