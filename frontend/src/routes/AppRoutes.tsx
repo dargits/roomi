@@ -7,6 +7,7 @@ import { ToastProvider } from '../context/ToastContext';
 // Public pages
 import LandingPage from '../features/landing/LandingPage';
 import LoginPage from '../features/auth/LoginPage';
+import ResetPasswordPage from '../features/auth/ResetPasswordPage';
 import RoomsPage from '../features/public/RoomsPage';
 import AmenitiesPage from '../features/public/AmenitiesPage';
 import PromotionsPage from '../features/public/PromotionsPage';
@@ -37,6 +38,7 @@ import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 import BookingManagement from '../features/booking/BookingManagement';
 import BookingDetailPage from '../features/booking/BookingDetailPage';
 import StayDeclarationPage from '../features/booking/StayDeclarationPage';
+import InHouseGuestPage from '../features/booking/InHouseGuestPage';
 
 // Housekeeping
 import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
@@ -62,6 +64,8 @@ const AppRoutes: React.FC = () => {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               {/* Public Booking Details & Sharing */}
               <Route path="/booking-detail/:bookingId" element={<PublicBookingDetailPage />} />
@@ -95,7 +99,8 @@ const AppRoutes: React.FC = () => {
                   <Route path="/manage/bookings/:bookingId" element={<BookingDetailPage />} />
                   <Route path="/manage/bookings/:bookingId/:tab" element={<BookingDetailPage />} />
 
-                  {/* Khai báo lưu trú — NCL-12 */}
+                  {/* Khách lưu trú & Khai báo lưu trú */}
+                  <Route path="/manage/in-house-guests" element={<InHouseGuestPage />} />
                   <Route path="/manage/stay-declarations" element={<StayDeclarationPage />} />
 
                   {/* Phòng */}
@@ -148,6 +153,9 @@ const AppRoutes: React.FC = () => {
                   <Route path="/manage/profile" element={<ProfileSettings />} />
                 </Route>
               </Route>
+
+              {/* Hỗ trợ mở trực tiếp dạng /:token (chuỗi ngẫu nhiên không thể brute force) */}
+              <Route path="/:token" element={<ResetPasswordPage />} />
 
               {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

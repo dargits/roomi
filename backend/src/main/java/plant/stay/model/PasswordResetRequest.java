@@ -38,6 +38,9 @@ public class PasswordResetRequest {
     @Column(name = "plain_temp_password")
     private String plainTempPassword; // Hiển thị cho Admin sao chép 1 lần
 
+    @Column(name = "reset_token", length = 128, unique = true)
+    private String resetToken;
+
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 

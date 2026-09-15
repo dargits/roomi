@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface RoomStayGuestRepository extends JpaRepository<RoomStayGuest, Long> {
     List<RoomStayGuest> findByBookingIdOrderByCreatedAtAsc(Long bookingId);
+    long countByBookingId(Long bookingId);
     long countByBookingIdAndLeftEarlyAtIsNull(Long bookingId);
 }

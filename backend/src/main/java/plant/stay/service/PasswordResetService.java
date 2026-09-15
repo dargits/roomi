@@ -17,4 +17,6 @@ public interface PasswordResetService {
     PasswordResetItemResponse issueTempPassword(Long requestId, User adminActor);
     PasswordResetItemResponse rejectRequest(Long requestId, User adminActor);
     MessageResponse forceChangePassword(ForceChangePasswordRequest req);
+    plant.stay.dto.response.VerifyResetTokenResponse verifyResetToken(String token);
+    MessageResponse resetPasswordWithToken(plant.stay.dto.request.ResetPasswordWithTokenRequest req);
 }

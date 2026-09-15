@@ -4,10 +4,12 @@ import {
   ForceChangePasswordRequest,
   ForgotPasswordRequest,
   AccountCheckResponse,
-  MessageResponse
+  MessageResponse,
+  VerifyResetTokenResponse,
+  ResetPasswordWithTokenRequest
 } from '../types';
 
-export type { AccountCheckResponse };
+export type { AccountCheckResponse, VerifyResetTokenResponse, ResetPasswordWithTokenRequest };
 
 export const passwordResetApi = {
   // Kiểm tra tài khoản có tồn tại trong hệ thống hay không (Public)
@@ -19,6 +21,18 @@ export const passwordResetApi = {
   // Yêu cầu cấp lại mật khẩu khi quên (Public)
   requestReset: async (account: string): Promise<MessageResponse> => {
     const response = await api.post<MessageResponse>('/auth/forgot-password', { account } as ForgotPasswordRequest);
+    return response.data;
+  },
+
+  // Kiểm tra liên kết / token đặt lại mật khẩu có hợp lệ không (Public)
+  verifyResetToken: async (token: string): Promise<VerifyResetTokenResponse> => {
+    const response = await api.get<VerifyResetTokenResponse>('/auth/verify-reset-token', { params: { token } });
+    return response.data;
+  },
+
+  // Đặt lại mật khẩu mới bằng token (Public)
+  resetPassword: async (data: ResetPasswordWithTokenRequest): Promise<MessageResponse> => {
+    const response = await api.post<MessageResponse>('/auth/reset-password', data);
     return response.data;
   },
 
