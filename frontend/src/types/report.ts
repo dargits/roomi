@@ -90,3 +90,70 @@ export interface DashboardStatsResponse {
   monthCollectedRevenue: number;
   monthDebtRevenue: number;
 }
+
+export interface AdrRevparSummary {
+  totalRevenue: number;
+  totalSoldNights: number;
+  totalAvailableNights: number;
+  totalRooms: number;
+  days: number;
+  adr: number;
+  revpar: number;
+  occupancyRate: number;
+  bookingCount: number;
+  topRoomNumber?: string;
+  topRoomTypeName?: string;
+}
+
+export interface AdrRevparTimelineRow {
+  period: string;
+  bookings: number;
+  revenue: number;
+  soldNights: number;
+  availableNights: number;
+  occupancyRate: number;
+  adr: number;
+  revpar: number;
+}
+
+export interface AdrRevparRoomTypeRow {
+  roomTypeId: number;
+  roomTypeName: string;
+  basePrice: number;
+  totalRooms: number;
+  bookings: number;
+  revenue: number;
+  soldNights: number;
+  availableNights: number;
+  occupancyRate: number;
+  adr: number;
+  revpar: number;
+  revenueShare: number;
+}
+
+export interface AdrRevparRoomRow {
+  roomId: number;
+  roomNumber: string;
+  floor?: string;
+  roomTypeId?: number;
+  roomTypeName: string;
+  bookings: number;
+  revenue: number;
+  soldNights: number;
+  availableNights: number;
+  occupancyRate: number;
+  adr: number;
+  revpar: number;
+  revenueShare: number;
+}
+
+export interface AdrRevparReportResponse {
+  from: string;
+  to: string;
+  groupBy: string;
+  summary: AdrRevparSummary;
+  timelineRows: AdrRevparTimelineRow[];
+  roomTypeRows: AdrRevparRoomTypeRow[];
+  roomRows: AdrRevparRoomRow[];
+}
+
