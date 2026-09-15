@@ -33,6 +33,7 @@ import {
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
+import NotificationBell from '../features/notifications/NotificationBell';
 
 export interface NavItem {
   path: string;
@@ -63,6 +64,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoCalendarOutline,
     items: [
       { path: '/manage/bookings', label: 'Quản lý đặt phòng', icon: IoCalendarOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
+      { path: '/manage/in-house-guests', label: 'Khách đang lưu trú', icon: IoBedOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
       { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
       { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', icon: IoCashOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
     ]
@@ -131,6 +133,7 @@ export const ROLE_BADGE_STYLE: Record<string, string> = {
 const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/dashboard': { title: 'Tổng Quan Hệ Thống', group: 'Tổng quan' },
   '/manage/bookings': { title: 'Quản Lý Đặt Phòng', group: 'Đặt phòng' },
+  '/manage/in-house-guests': { title: 'Danh Sách Khách Đang Lưu Trú', group: 'Đặt phòng' },
   '/manage/stay-declarations': { title: 'Khai Báo Lưu Trú', group: 'Đặt phòng' },
   '/manage/deposit-policies': { title: 'Chính Sách Đặt Cọc', group: 'Đặt phòng' },
   '/manage/rooms': { title: 'Sơ Đồ Phòng', group: 'Phòng' },
@@ -148,6 +151,8 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/personal-data-audit': { title: 'Nhật Ký Dữ Liệu Cá Nhân', group: 'Hệ thống' },
   '/manage/backup': { title: 'Sao Lưu & Xuất Dữ Liệu', group: 'Hệ thống' },
   '/manage/settings': { title: 'Cài Đặt Khách Sạn', group: 'Hệ thống' },
+  '/manage/notifications': { title: 'Trung Tâm Thông Báo', group: 'Hệ thống' },
+  '/manage/notifications/preferences': { title: 'Cài Đặt Nhận Thông Báo', group: 'Hệ thống' },
   '/manage/profile': { title: 'Hồ Sơ Cá Nhân', group: 'Cá nhân' }
 };
 
@@ -813,6 +818,9 @@ const DashboardLayout: React.FC = () => {
                 <span>Xem Website</span>
                 <IoOpenOutline size={12} className="opacity-70" />
               </a>
+
+              {/* Notification Bell with Badge and Dropdown */}
+              <NotificationBell />
 
               <div className="hidden sm:block h-6 w-px bg-border-grey" />
 

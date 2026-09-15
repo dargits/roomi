@@ -44,6 +44,7 @@ export interface BookingResponse {
   paymentStatus?: string;
   roomStatus?: string;
   payLaterCheckout?: boolean;
+  reminderSentAt?: string;
   stayingGuests?: Array<{
     id?: number;
     name?: string;
@@ -190,3 +191,56 @@ export interface PublicGroupBookingRequestResponse {
   rooms: PublicGroupBookingRoomRequest[];
   createdAt: string;
 }
+
+export interface InHouseGuestResponse {
+  bookingId: number;
+  roomId?: number;
+  roomNumber: string;
+  floor?: string;
+  roomTypeId?: number;
+  roomTypeName: string;
+  primaryGuestId?: number;
+  primaryGuestName: string;
+  guestPhone?: string;
+  occupantCount: number;
+  standardCapacity?: number;
+  maxCapacity?: number;
+  checkInDate: string;
+  checkedInAt?: string;
+  expectedCheckOutDate: string;
+  checkingOutToday: boolean;
+  roomAmount: number;
+  serviceAmount: number;
+  incurredAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  hasDebt: boolean;
+  paymentStatus: 'PAID' | 'PARTIALLY_PAID' | 'UNPAID' | string;
+  specialRequests?: string;
+}
+
+export interface InHouseFilterParams {
+  floor?: string;
+  roomTypeId?: number | string;
+  checkingOutToday?: boolean;
+  hasDebt?: boolean;
+  search?: string;
+}
+
+export interface InHouseFilterOptions {
+  floors: string[];
+  roomTypes: {
+    id: number;
+    name: string;
+  }[];
+}
+
+export interface InHouseSummary {
+  totalRooms: number;
+  totalOccupants: number;
+  checkoutTodayCount: number;
+  debtCount: number;
+  totalDebtAmount: number;
+}
+
+

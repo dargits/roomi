@@ -41,9 +41,10 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
     try {
       const data = await passwordResetApi.getAllRequests();
       setRequests(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toastError('Không thể tải danh sách yêu cầu cấp lại mật khẩu.');
+      const msg = err.response?.data?.message || err.message || 'Không thể tải danh sách yêu cầu cấp lại mật khẩu.';
+      toastError(msg);
     } finally {
       setLoading(false);
     }
@@ -64,9 +65,9 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
     }
 
     const isConfirmed = await confirm({
-      title: 'Cấp mật khẩu tạm thời',
-      message: `Cấp mật khẩu tạm thời có hiệu lực 24 giờ cho tài khoản "${item.account}" (${item.userName})?`,
-      confirmText: 'Cấp mật khẩu',
+      title: 'Gửi liên kết đặt lại mật khẩu',
+      message: `Gửi liên kết đặt lại mật khẩu có hiệu lực 10 phút cho tài khoản "${item.account}" (${item.userName})?`,
+      confirmText: 'Gửi liên kết',
       cancelText: 'Hủy',
       type: 'warning'
     });
@@ -77,17 +78,17 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
       const res: any = await passwordResetApi.issueTempPassword(item.id);
       setIssuedResult(res);
       if (res?.emailSent) {
-        toastSuccess(`Đã cấp mật khẩu tạm và gửi email tới ${res.userEmail || item.account}!`);
+        toastSuccess(`Đã gửi liên kết đặt lại mật khẩu (10 phút) tới email ${res.userEmail || item.account}!`);
       } else if (res?.userEmail) {
-        toastSuccess(`Đã cấp mật khẩu tạm thành công! (Chưa gửi được email, vui lòng sao chép mật khẩu gửi trực tiếp cho nhân viên)`);
+        toastSuccess(`Đã tạo liên kết đặt lại mật khẩu thành công! (Chưa gửi được email, vui lòng sao chép liên kết gửi trực tiếp cho nhân viên)`);
       } else {
-        toastSuccess(`Đã cấp mật khẩu tạm cho tài khoản ${item.account}!`);
+        toastSuccess(`Đã tạo liên kết đặt lại mật khẩu cho tài khoản ${item.account}!`);
       }
       notifyPasswordResetUpdated();
       fetchRequests();
     } catch (err: any) {
       console.error(err);
-      toastError(err.response?.data?.message || 'Lỗi khi cấp mật khẩu tạm.');
+      toastError(err.response?.data?.message || 'Lỗi khi gửi liên kết đặt lại mật khẩu.');
     } finally {
       setActionLoading(false);
     }
@@ -125,7 +126,7 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    toastSuccess('Đã sao chép mật khẩu tạm vào khay nhớ tạm!');
+    toastSuccess('Đã sao chép liên kết đặt lại mật khẩu vào khay nhớ tạm!');
   };
 
   const getStatusBadge = (status?: string) => {
@@ -133,11 +134,11 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
       case 'PENDING':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">Chờ cấp</span>;
       case 'ISSUED':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">Đã cấp (Chờ đổi)</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">Đã gửi link</span>;
       case 'USED':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Đã hoàn tất đổi</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Đã đổi MK</span>;
       case 'EXPIRED':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Hết hạn 24h</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Hết hạn (10p)</span>;
       case 'REJECTED':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">Đã từ chối</span>;
       default:
@@ -157,48 +158,48 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
         <div className="p-3.5 bg-surface-container-low rounded-xl border border-border-grey flex items-start gap-3 text-xs text-on-surface-variant">
           <IoInformationCircleOutline size={18} className="text-primary mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p className="font-semibold text-on-surface">Quy trình cấp lại mật khẩu tạm thời an toàn (QTN-05):</p>
-            <p>1. Xác minh danh tính người gửi yêu cầu trước khi cấp mật khẩu tạm.</p>
-            <p>2. Mật khẩu tạm thời có <strong>hiệu lực trong 24 giờ</strong> và <strong>bắt buộc phải đổi mới</strong> ngay trong lần đăng nhập đầu tiên.</p>
-            <p>3. Vì lý do an toàn, Quản trị viên <strong>không thể tự cấp mật khẩu</strong> cho chính tài khoản của mình.</p>
+            <p className="font-semibold text-on-surface">Quy trình cấp lại mật khẩu qua email an toàn (QTN-05):</p>
+            <p>1. Xác minh danh tính người gửi yêu cầu trước khi phê duyệt gửi link đặt lại mật khẩu.</p>
+            <p>2. Liên kết đặt lại mật khẩu có <strong>hiệu lực chính xác 10 phút</strong> và tự động gửi tới email đã đăng ký của nhân sự.</p>
+            <p>3. Quản trị viên cũng có thể sao chép liên kết trực tiếp để gửi cho nhân sự nếu gửi email bị gián đoạn.</p>
           </div>
         </div>
 
-        {/* Kết quả vừa cấp mật khẩu tạm */}
+        {/* Kết quả vừa cấp liên kết reset */}
         {issuedResult && (
           <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl space-y-2.5 animate-fade-in">
             <div className="flex items-center justify-between">
               <span className="font-bold text-sm text-emerald-950 flex items-center gap-1.5">
                 <IoKeyOutline size={18} className="text-emerald-700" />
-                Mật khẩu tạm thời đã tạo thành công:
+                Liên kết đặt lại mật khẩu đã tạo thành công:
               </span>
               <span className="text-[11px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full font-semibold">
-                Hiệu lực 24 giờ
+                Hiệu lực 10 phút
               </span>
             </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 readOnly
-                value={issuedResult.tempPassword || ''}
-                className="flex-1 font-mono text-base font-bold bg-white px-3 py-2 border border-emerald-300 rounded-lg text-emerald-900 select-all"
+                value={issuedResult.resetLink || issuedResult.plainTempPassword || issuedResult.tempPassword || ''}
+                className="flex-1 font-mono text-xs font-semibold bg-white px-3 py-2 border border-emerald-300 rounded-lg text-emerald-900 select-all"
               />
               <Button
                 variant="primary"
                 size="sm"
                 icon={IoCopyOutline}
-                onClick={() => handleCopy(issuedResult.tempPassword)}
+                onClick={() => handleCopy(issuedResult.resetLink || issuedResult.plainTempPassword || issuedResult.tempPassword || '')}
               >
-                Sao chép
+                Sao chép link
               </Button>
             </div>
             <p className="text-xs text-emerald-800">
               {issuedResult.emailSent ? (
                 <span className="inline-flex items-center gap-1 text-emerald-900 font-medium">
-                  <IoMailOutline size={14} /> Đã tự động gửi email thông báo tới: <strong>{issuedResult.userEmail}</strong>
+                  <IoMailOutline size={14} /> Đã tự động gửi email chứa liên kết tới: <strong>{issuedResult.userEmail}</strong>
                 </span>
               ) : (
-                <span>Vui lòng sao chép và chuyển mật khẩu tạm này trực tiếp cho nhân viên.</span>
+                <span>Vui lòng sao chép liên kết trên và gửi trực tiếp cho nhân viên để cập nhật mật khẩu trong 10 phút.</span>
               )}
             </p>
           </div>
@@ -287,7 +288,7 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
                                   disabled={actionLoading}
                                   className="text-xs py-1 px-2.5"
                                 >
-                                  Cấp MK
+                                  Gửi link (10p)
                                 </Button>
                                 <Button
                                   variant="dangerOutline"
