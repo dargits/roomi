@@ -96,4 +96,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "AND b.reminderSentAt IS NULL " +
            "AND g.email IS NOT NULL AND TRIM(g.email) <> ''")
     List<Booking> findBookingsNeedingCheckInReminder(@Param("checkInDate") LocalDate checkInDate);
+
+    // Truy vấn danh sách đặt phòng đang lưu trú (CHECKED_IN)
+    @Query("SELECT DISTINCT b FROM Booking b " +
+           "JOIN FETCH b.guest g " +
+           "JOIN FETCH b.roomType rt " +
+           "LEFT JOIN FETCH b.room r " +
+           "WHERE b.status = 'CHECKED_IN' " +
+           "ORDER BY r.roomNumber ASC, b.id ASC")
+    List<Booking> findInHouseBookings();
 }

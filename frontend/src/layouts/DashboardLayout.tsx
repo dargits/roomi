@@ -63,6 +63,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoCalendarOutline,
     items: [
       { path: '/manage/bookings', label: 'Quản lý đặt phòng', icon: IoCalendarOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
+      { path: '/manage/in-house-guests', label: 'Khách đang lưu trú', icon: IoBedOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
       { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
       { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', icon: IoCashOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
     ]
@@ -131,6 +132,7 @@ export const ROLE_BADGE_STYLE: Record<string, string> = {
 const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/dashboard': { title: 'Tổng Quan Hệ Thống', group: 'Tổng quan' },
   '/manage/bookings': { title: 'Quản Lý Đặt Phòng', group: 'Đặt phòng' },
+  '/manage/in-house-guests': { title: 'Danh Sách Khách Đang Lưu Trú', group: 'Đặt phòng' },
   '/manage/stay-declarations': { title: 'Khai Báo Lưu Trú', group: 'Đặt phòng' },
   '/manage/deposit-policies': { title: 'Chính Sách Đặt Cọc', group: 'Đặt phòng' },
   '/manage/rooms': { title: 'Sơ Đồ Phòng', group: 'Phòng' },
