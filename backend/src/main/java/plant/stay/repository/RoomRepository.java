@@ -37,4 +37,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     @Query("SELECT DISTINCT r.floor FROM Room r WHERE r.floor IS NOT NULL AND TRIM(r.floor) <> '' ORDER BY r.floor")
     List<String> findDistinctFloors();
+
+    @Query("SELECT r FROM Room r LEFT JOIN FETCH r.roomType ORDER BY r.roomNumber")
+    List<Room> findAllWithRoomType();
 }
