@@ -34,11 +34,14 @@ import plant.stay.repository.RoomTypeRepository;
 import plant.stay.repository.UserRepository;
 import plant.stay.util.HashUtil;
 
+import org.springframework.core.env.Environment;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -58,6 +61,7 @@ public class DataSeeder implements CommandLineRunner {
     private final GuestRepository guestRepository;
     private final BookingRepository bookingRepository;
     private final NotificationRepository notificationRepository;
+    private final Environment environment;
 
     @Override
     public void run(String... args) throws Exception {
@@ -382,8 +386,17 @@ public class DataSeeder implements CommandLineRunner {
             log.info("Đã tạo thành công {} cấu hình phân quyền thông báo mặc định.", roleDefaults.size());
         }
 
-        // 8. Seed Guests & Bookings (Dữ liệu đặt phòng mẫu)
-        if (guestRepository.count() == 0) {
+        boolean isTest = false;
+        if (environment != null) {
+            String appName = environment.getProperty("spring.application.name");
+            List<String> activeProfiles = Arrays.asList(environment.getActiveProfiles());
+            if ("stay-test".equalsIgnoreCase(appName) || activeProfiles.contains("test")) {
+                isTest = true;
+            }
+        }
+
+        // 8. Seed Guests & Bookings (Dữ liệu đặt phòng mẫu - chỉ chạy môi trường thực tế, không chạy khi test)
+        if (!isTest && guestRepository.count() == 0) {
             log.info("Bắt đầu khởi tạo dữ liệu mẫu Khách hàng và Đặt phòng...");
             Guest g1 = guestRepository.save(Guest.builder()
                     .name("Nguyễn Văn An")
@@ -479,8 +492,8 @@ public class DataSeeder implements CommandLineRunner {
             log.info("Đã tạo thành công dữ liệu mẫu Khách hàng và Đặt phòng.");
         }
 
-        // 9. Seed Sample Notifications
-        if (notificationRepository.count() == 0) {
+        // 9. Seed Sample Notifications (chỉ chạy ngoài môi trường test)
+        if (!isTest && notificationRepository.count() == 0) {
             log.info("Bắt đầu khởi tạo thông báo mẫu...");
             List<User> users = userRepository.findAll();
             List<Notification> sampleNotifs = new ArrayList<>();
