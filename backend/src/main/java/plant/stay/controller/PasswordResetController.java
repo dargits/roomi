@@ -44,6 +44,20 @@ public class PasswordResetController {
         return ResponseEntity.ok(passwordResetService.requestPasswordReset(req));
     }
 
+    // Kiểm tra token đặt lại mật khẩu có hợp lệ không (Public)
+    @GetMapping("/auth/verify-reset-token")
+    public ResponseEntity<plant.stay.dto.response.VerifyResetTokenResponse> verifyResetToken(
+            @RequestParam("token") String token) {
+        return ResponseEntity.ok(passwordResetService.verifyResetToken(token));
+    }
+
+    // Cập nhật mật khẩu mới bằng liên kết token (Public)
+    @PostMapping("/auth/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(
+            @Valid @RequestBody plant.stay.dto.request.ResetPasswordWithTokenRequest req) {
+        return ResponseEntity.ok(passwordResetService.resetPasswordWithToken(req));
+    }
+
     // Đổi mật khẩu bắt buộc khi đăng nhập bằng mật khẩu tạm (Public)
     @PostMapping("/auth/force-change-password")
     public ResponseEntity<MessageResponse> forceChangePassword(
