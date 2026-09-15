@@ -19,6 +19,8 @@ import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.BookingService;
 import plant.stay.service.EmailService;
+import plant.stay.service.NotificationService;
+import plant.stay.model.NotificationType;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -52,6 +54,7 @@ public class BookingServiceImpl implements BookingService {
     private final plant.stay.service.PricingService pricingService;
     private final EmailService emailService;
     private final HotelSettingRepository hotelSettingRepository;
+    private final NotificationService notificationService;
 
     @Override
     public List<BookingResponse> getAll() {
@@ -475,6 +478,18 @@ public class BookingServiceImpl implements BookingService {
         auditLogService.log("Booking", savedBooking.getId(), "CHECK_IN", actor,
                 "Nhận phòng " + savedBooking.getRoom().getRoomNumber() + 
             (req != null && req.getGuests() != null && !req.getGuests().isEmpty() ? " (" + req.getGuests().size() + " khách lưu trú)" : ""));
+
+        // [Notification] Bắn thông báo check-in cho Lễ tân & Chủ cơ sở
+        try {
+            String guestName = savedBooking.getGuest() != null ? savedBooking.getGuest().getName() : "Khách";
+            notificationService.createForRoles(
+                NotificationType.CHECKIN_TODAY,
+                "Check-in: Phòng " + savedBooking.getRoom().getRoomNumber(),
+                guestName + " đã nhận phòng " + savedBooking.getRoom().getRoomNumber(),
+                "BOOKING", savedBooking.getId());
+        } catch (Exception ex) {
+            log.warn("[Notification] Không thể tạo thông báo check-in: {}", ex.getMessage());
+        }
         return toResponse(savedBooking);
     }
 
@@ -647,6 +662,18 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getRoom() != null) {
             booking.getRoom().setStatus(RoomStatus.DIRTY);
             roomRepository.save(booking.getRoom());
+
+            // [Notification] Thông báo phòng cần dọn cho Housekeeper
+            try {
+                String roomNum = booking.getRoom().getRoomNumber();
+                notificationService.createForRoles(
+                    NotificationType.ROOM_DIRTY,
+                    "Phòng cần dọn: " + roomNum,
+                    "Phòng " + roomNum + " vừa trả khách, cần dọn dẹp",
+                    "ROOM", booking.getRoom().getId());
+            } catch (Exception ex) {
+                log.warn("[Notification] Không thể tạo thông báo phòng DIRTY: {}", ex.getMessage());
+            }
         }
         // Tích điểm loyalty: mỗi 100k = 1 điểm
         if (booking.getActualPrice() != null) {
@@ -668,6 +695,19 @@ public class BookingServiceImpl implements BookingService {
         }
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CHECK_OUT", actor, "Trả phòng");
+
+        // [Notification] Bắn thông báo check-out
+        try {
+            String guestName = booking.getGuest() != null ? booking.getGuest().getName() : "Khách";
+            String roomNum = booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "";
+            notificationService.createForRoles(
+                NotificationType.CHECKOUT_TODAY,
+                "Check-out: Phòng " + roomNum,
+                guestName + " đã trả phòng " + roomNum,
+                "BOOKING", booking.getId());
+        } catch (Exception ex) {
+            log.warn("[Notification] Không thể tạo thông báo check-out: {}", ex.getMessage());
+        }
         return toResponse(booking);
     }
 
@@ -1294,6 +1334,19 @@ public class BookingServiceImpl implements BookingService {
                     auditLogService.log("Booking", booking.getId(), "SEND_CHECKIN_REMINDER", null,
                             "Đã tự động gửi email nhắc nhận phòng trước 1 ngày tới " + guestEmail.trim());
                     successCount++;
+
+                    // [Notification] Bắn thông báo nhắc lưu trú cho Lễ tân & Chủ cơ sở
+                    try {
+                        String guestName = booking.getGuest() != null ? booking.getGuest().getName() : "Khách";
+                        String roomInfo = booking.getRoom() != null ? "phòng " + booking.getRoom().getRoomNumber() : "đặt phòng #" + booking.getId();
+                        notificationService.createForRoles(
+                            NotificationType.STAY_MILESTONE,
+                            "Nhắc lịch lưu trú: " + guestName,
+                            "Khách " + guestName + " dự kiến nhận " + roomInfo + " vào ngày mai (" + tomorrow + ")",
+                            "BOOKING", booking.getId());
+                    } catch (Exception ex) {
+                        log.warn("[Notification] Không thể tạo thông báo STAY_MILESTONE: {}", ex.getMessage());
+                    }
                 } else {
                     log.warn("[CHECKIN_REMINDER] Không thể gửi email nhắc nhận phòng cho đặt phòng #{} tới {}", booking.getId(), guestEmail);
                 }
