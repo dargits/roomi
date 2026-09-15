@@ -144,7 +144,7 @@ const PreferencesModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
-  const { showToast } = useToast();
+  const { toastSuccess, toastError } = useToast();
   const [prefs, setPrefs] = useState<NotificationPref[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -155,11 +155,11 @@ const PreferencesModal: React.FC<{
       const data = await notificationApi.getPreferences();
       setPrefs(data);
     } catch {
-      showToast('error', 'Không thể tải cài đặt thông báo');
+      toastError('Không thể tải cài đặt thông báo');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [toastError]);
 
   useEffect(() => {
     if (isOpen) {
@@ -174,9 +174,9 @@ const PreferencesModal: React.FC<{
       setUpdating(type);
       await notificationApi.updatePreference(type, newEnabled);
       setPrefs(prev => prev.map(p => p.type === type ? { ...p, enabled: newEnabled } : p));
-      showToast('success', `Đã ${newEnabled ? 'bật' : 'tắt'} nhận thông báo ${NOTIFICATION_LABELS[type] || type}`);
+      toastSuccess(`Đã ${newEnabled ? 'bật' : 'tắt'} nhận thông báo ${NOTIFICATION_LABELS[type] || type}`);
     } catch {
-      showToast('error', 'Cập nhật tùy chọn thất bại');
+      toastError('Cập nhật tùy chọn thất bại');
     } finally {
       setUpdating(null);
     }
@@ -287,7 +287,7 @@ const PreferencesModal: React.FC<{
 // ─── Main Notification Center Component ──────────────────────────────────────
 const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const { toastSuccess, toastError } = useToast();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -321,12 +321,12 @@ const NotificationCenter: React.FC = () => {
       setTotalPages(res.totalPages || 1);
       setTotalElements(res.totalElements || 0);
     } catch {
-      showToast('error', 'Không thể tải danh sách thông báo');
+      toastError('Không thể tải danh sách thông báo');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedType, unreadOnly, page, showToast]);
+  }, [selectedType, unreadOnly, page, toastError]);
 
   useEffect(() => {
     loadNotifications();
@@ -340,7 +340,7 @@ const NotificationCenter: React.FC = () => {
       await notificationApi.markRead(item.id);
       setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n));
     } catch {
-      showToast('error', 'Không thể đánh dấu đã đọc');
+      toastError('Không thể đánh dấu đã đọc');
     }
   };
 
@@ -349,9 +349,9 @@ const NotificationCenter: React.FC = () => {
     try {
       await notificationApi.markAllRead();
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      showToast('success', 'Đã đánh dấu tất cả thông báo là đã đọc');
+      toastSuccess('Đã đánh dấu tất cả thông báo là đã đọc');
     } catch {
-      showToast('error', 'Thao tác thất bại');
+      toastError('Thao tác thất bại');
     }
   };
 

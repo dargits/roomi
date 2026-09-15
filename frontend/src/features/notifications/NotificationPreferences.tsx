@@ -13,7 +13,7 @@ import { useToast } from '../../context/ToastContext';
 
 const NotificationPreferences: React.FC = () => {
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const { toastSuccess, toastError } = useToast();
   const [prefs, setPrefs] = useState<NotificationPref[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -24,11 +24,11 @@ const NotificationPreferences: React.FC = () => {
       const data = await notificationApi.getPreferences();
       setPrefs(data);
     } catch {
-      showToast('error', 'Không thể tải tùy chọn nhận thông báo');
+      toastError('Không thể tải tùy chọn nhận thông báo');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [toastError]);
 
   useEffect(() => {
     fetchPrefs();
@@ -41,9 +41,9 @@ const NotificationPreferences: React.FC = () => {
       setUpdating(type);
       await notificationApi.updatePreference(type, newEnabled);
       setPrefs(prev => prev.map(p => p.type === type ? { ...p, enabled: newEnabled } : p));
-      showToast('success', `Đã ${newEnabled ? 'bật' : 'tắt'} nhận thông báo ${NOTIFICATION_LABELS[type] || type}`);
+      toastSuccess(`Đã ${newEnabled ? 'bật' : 'tắt'} nhận thông báo ${NOTIFICATION_LABELS[type] || type}`);
     } catch {
-      showToast('error', 'Cập nhật thất bại');
+      toastError('Cập nhật thất bại');
     } finally {
       setUpdating(null);
     }
