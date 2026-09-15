@@ -70,7 +70,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findTodayCheckinCheckout(@Param("today") LocalDate today);
 
     // Báo cáo doanh thu
-    @Query("SELECT b FROM Booking b WHERE b.checkOutDate BETWEEN :from AND :to " +
+    @Query("SELECT DISTINCT b FROM Booking b " +
+           "LEFT JOIN FETCH b.room r " +
+           "LEFT JOIN FETCH b.roomType rt " +
+           "LEFT JOIN FETCH b.guest g " +
+           "WHERE b.checkOutDate BETWEEN :from AND :to " +
            "AND b.status = 'CHECKED_OUT'")
     List<Booking> findCheckedOutBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
