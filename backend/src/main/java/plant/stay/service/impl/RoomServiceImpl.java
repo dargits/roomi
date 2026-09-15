@@ -14,6 +14,7 @@ import plant.stay.repository.RoomRepository;
 import plant.stay.repository.RoomTypeRepository;
 import plant.stay.repository.UserRepository;
 import plant.stay.service.AuditLogService;
+import plant.stay.service.NotificationService;
 import plant.stay.service.RoomService;
 
 import java.time.LocalDate;
@@ -30,6 +31,7 @@ public class RoomServiceImpl implements RoomService {
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
 
     @Override
     public List<RoomResponse> getAll() {
@@ -118,6 +120,18 @@ public class RoomServiceImpl implements RoomService {
         room.setStatus(RoomStatus.DIRTY);
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "MARK_DIRTY", actor, "Đánh dấu phòng " + room.getRoomNumber() + " cần dọn dẹp");
+
+        // [Notification] Thông báo phòng cần dọn cho Buồng phòng & Lễ tân
+        try {
+            notificationService.createForRoles(
+                NotificationType.ROOM_DIRTY,
+                "Phòng cần dọn: " + room.getRoomNumber(),
+                "Phòng " + room.getRoomNumber() + " được đánh dấu cần dọn dẹp",
+                "ROOM", room.getId());
+        } catch (Exception ex) {
+            // Không làm gián đoạn luồng chính
+        }
+
         return toResponse(room);
     }
 

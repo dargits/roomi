@@ -20,4 +20,6 @@ public class HotelSettingResponse {
     private LocalTime defaultCheckinTime;
     private LocalTime defaultCheckoutTime;
     private String homeImage;
+    private Boolean reminderEmailEnabled;
+    private LocalTime reminderMorningTime;
 }

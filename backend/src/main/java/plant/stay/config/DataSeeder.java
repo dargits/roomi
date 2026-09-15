@@ -12,21 +12,36 @@ import plant.stay.model.ExtraService;
 import plant.stay.model.RoomStatus;
 import plant.stay.model.HotelSetting;
 import plant.stay.model.DepositPolicy;
+import plant.stay.model.Booking;
+import plant.stay.model.BookingStatus;
+import plant.stay.model.Guest;
 import plant.stay.model.InventoryItem;
 import plant.stay.model.LoyaltyTier;
-import plant.stay.repository.UserRepository;
-import plant.stay.repository.RoomTypeRepository;
-import plant.stay.repository.RoomRepository;
-import plant.stay.repository.ExtraServiceRepository;
-import plant.stay.repository.HotelSettingRepository;
+import plant.stay.model.Notification;
+import plant.stay.model.NotificationRoleDefault;
+import plant.stay.model.NotificationType;
+import plant.stay.repository.BookingRepository;
 import plant.stay.repository.DepositPolicyRepository;
+import plant.stay.repository.ExtraServiceRepository;
+import plant.stay.repository.GuestRepository;
+import plant.stay.repository.HotelSettingRepository;
 import plant.stay.repository.InventoryItemRepository;
 import plant.stay.repository.LoyaltyTierRepository;
+import plant.stay.repository.NotificationRepository;
+import plant.stay.repository.NotificationRoleDefaultRepository;
+import plant.stay.repository.RoomRepository;
+import plant.stay.repository.RoomTypeRepository;
+import plant.stay.repository.UserRepository;
 import plant.stay.util.HashUtil;
 
+import org.springframework.core.env.Environment;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -42,6 +57,11 @@ public class DataSeeder implements CommandLineRunner {
     private final DepositPolicyRepository depositPolicyRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
+    private final NotificationRoleDefaultRepository notificationRoleDefaultRepository;
+    private final GuestRepository guestRepository;
+    private final BookingRepository bookingRepository;
+    private final NotificationRepository notificationRepository;
+    private final Environment environment;
 
     @Override
     public void run(String... args) throws Exception {
@@ -146,6 +166,8 @@ public class DataSeeder implements CommandLineRunner {
                     .defaultCheckinTime(LocalTime.of(14, 0))
                     .defaultCheckoutTime(LocalTime.of(12, 0))
                     .homeImage("https://i.ibb.co/TxVT7pQz/images-11-jpg.jpg")
+                    .reminderEmailEnabled(true)
+                    .reminderMorningTime(LocalTime.of(10, 30))
                     .build();
             hotelSettingRepository.save(hotelSetting);
             log.info("Đã tạo thành công dữ liệu mẫu cho HotelSetting.");
@@ -345,6 +367,181 @@ public class DataSeeder implements CommandLineRunner {
             );
             loyaltyTierRepository.saveAll(tiers);
             log.info("Đã tạo thành công dữ liệu mẫu cho Hạng hội viên.");
+        }
+
+        // 7. Seed NotificationRoleDefault (Cấu hình nhận thông báo theo vai trò mặc định)
+        if (notificationRoleDefaultRepository.count() == 0) {
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho Cấu hình thông báo theo vai trò...");
+            List<NotificationRoleDefault> roleDefaults = new ArrayList<>();
+            for (NotificationType type : NotificationType.values()) {
+                for (Role role : type.getDefaultRoles()) {
+                    roleDefaults.add(NotificationRoleDefault.builder()
+                            .type(type)
+                            .role(role)
+                            .isMandatory(type.isMandatory())
+                            .build());
+                }
+            }
+            notificationRoleDefaultRepository.saveAll(roleDefaults);
+            log.info("Đã tạo thành công {} cấu hình phân quyền thông báo mặc định.", roleDefaults.size());
+        }
+
+        boolean isTest = false;
+        if (environment != null) {
+            String appName = environment.getProperty("spring.application.name");
+            List<String> activeProfiles = Arrays.asList(environment.getActiveProfiles());
+            if ("stay-test".equalsIgnoreCase(appName) || activeProfiles.contains("test")) {
+                isTest = true;
+            }
+        }
+
+        // 8. Seed Guests & Bookings (Dữ liệu đặt phòng mẫu - chỉ chạy môi trường thực tế, không chạy khi test)
+        if (!isTest && guestRepository.count() == 0) {
+            log.info("Bắt đầu khởi tạo dữ liệu mẫu Khách hàng và Đặt phòng...");
+            Guest g1 = guestRepository.save(Guest.builder()
+                    .name("Nguyễn Văn An")
+                    .phone("0901234567")
+                    .email("an.nguyen@gmail.com")
+                    .idNumber("001200001111")
+                    .loyaltyPoints(120)
+                    .build());
+
+            Guest g2 = guestRepository.save(Guest.builder()
+                    .name("Trần Thị Lan")
+                    .phone("0912345678")
+                    .email("lan.tran@gmail.com")
+                    .idNumber("001200002222")
+                    .loyaltyPoints(650)
+                    .build());
+
+            Guest g3 = guestRepository.save(Guest.builder()
+                    .name("Lê Hoàng Nam")
+                    .phone("0923456789")
+                    .email("nam.le@gmail.com")
+                    .idNumber("001200003333")
+                    .loyaltyPoints(0)
+                    .build());
+
+            LocalDate today = LocalDate.now();
+            List<Room> allRooms = roomRepository.findAll();
+            Room r101 = allRooms.stream().filter(r -> "101".equals(r.getRoomNumber())).findFirst().orElse(null);
+            Room r102 = allRooms.stream().filter(r -> "102".equals(r.getRoomNumber())).findFirst().orElse(null);
+            Room r103 = allRooms.stream().filter(r -> "103".equals(r.getRoomNumber())).findFirst().orElse(null);
+            Room r201 = allRooms.stream().filter(r -> "201".equals(r.getRoomNumber())).findFirst().orElse(null);
+            Room r202 = allRooms.stream().filter(r -> "202".equals(r.getRoomNumber())).findFirst().orElse(null);
+
+            if (r101 != null && r102 != null && r201 != null) {
+                // Booking 1: Check-in hôm nay
+                Booking b1 = Booking.builder()
+                        .guest(g1)
+                        .room(r101)
+                        .roomType(r101.getRoomType())
+                        .checkInDate(today)
+                        .checkOutDate(today.plusDays(2))
+                        .status(BookingStatus.CONFIRMED)
+                        .expectedPrice(new BigDecimal("1000000"))
+                        .actualPrice(new BigDecimal("1000000"))
+                        .note("Khách đến nhận phòng buổi chiều")
+                        .build();
+
+                // Booking 2: Check-out hôm nay
+                Booking b2 = Booking.builder()
+                        .guest(g2)
+                        .room(r102)
+                        .roomType(r102.getRoomType())
+                        .checkInDate(today.minusDays(2))
+                        .checkOutDate(today)
+                        .checkedInAt(LocalDateTime.now().minusDays(2))
+                        .status(BookingStatus.CHECKED_IN)
+                        .expectedPrice(new BigDecimal("1000000"))
+                        .actualPrice(new BigDecimal("1000000"))
+                        .note("Khách trả phòng lúc 11h")
+                        .build();
+
+                // Booking 3: Đang lưu trú
+                Booking b3 = Booking.builder()
+                        .guest(g3)
+                        .room(r201)
+                        .roomType(r201.getRoomType())
+                        .checkInDate(today.minusDays(1))
+                        .checkOutDate(today.plusDays(1))
+                        .checkedInAt(LocalDateTime.now().minusDays(1))
+                        .status(BookingStatus.CHECKED_IN)
+                        .expectedPrice(new BigDecimal("1400000"))
+                        .actualPrice(new BigDecimal("1400000"))
+                        .build();
+
+                bookingRepository.saveAll(List.of(b1, b2, b3));
+
+                // Cập nhật trạng thái phòng thực tế
+                List<Room> updateRooms = new ArrayList<>();
+                r102.setStatus(RoomStatus.OCCUPIED);
+                updateRooms.add(r102);
+                r201.setStatus(RoomStatus.OCCUPIED);
+                updateRooms.add(r201);
+                if (r103 != null) {
+                    r103.setStatus(RoomStatus.DIRTY);
+                    updateRooms.add(r103);
+                }
+                if (r202 != null) {
+                    r202.setStatus(RoomStatus.MAINTENANCE);
+                    updateRooms.add(r202);
+                }
+                roomRepository.saveAll(updateRooms);
+            }
+            log.info("Đã tạo thành công dữ liệu mẫu Khách hàng và Đặt phòng.");
+        }
+
+        // 9. Seed Sample Notifications (chỉ chạy ngoài môi trường test)
+        if (!isTest && notificationRepository.count() == 0) {
+            log.info("Bắt đầu khởi tạo thông báo mẫu...");
+            List<User> users = userRepository.findAll();
+            List<Notification> sampleNotifs = new ArrayList<>();
+            for (User u : users) {
+                if (u.getRole() == Role.OWNER || u.getRole() == Role.RECEPTIONIST || u.getRole() == Role.ADMIN) {
+                    sampleNotifs.add(Notification.builder()
+                            .user(u)
+                            .type(NotificationType.CHECKIN_TODAY)
+                            .title("Check-in: Phòng 101")
+                            .body("Khách Nguyễn Văn An dự kiến nhận phòng 101 hôm nay")
+                            .refType("ROOM")
+                            .isRead(false)
+                            .build());
+
+                    sampleNotifs.add(Notification.builder()
+                            .user(u)
+                            .type(NotificationType.CHECKOUT_TODAY)
+                            .title("Check-out: Phòng 102")
+                            .body("Khách Trần Thị Lan dự kiến trả phòng 102 hôm nay")
+                            .refType("ROOM")
+                            .isRead(false)
+                            .build());
+                }
+
+                if (u.getRole() == Role.HOUSEKEEPER || u.getRole() == Role.OWNER || u.getRole() == Role.RECEPTIONIST) {
+                    sampleNotifs.add(Notification.builder()
+                            .user(u)
+                            .type(NotificationType.ROOM_DIRTY)
+                            .title("Phòng cần dọn: 103")
+                            .body("Phòng 103 được đánh dấu cần dọn dẹp để sẵn sàng đón khách")
+                            .refType("ROOM")
+                            .isRead(false)
+                            .build());
+                }
+
+                if (u.getRole() == Role.OWNER) {
+                    sampleNotifs.add(Notification.builder()
+                            .user(u)
+                            .type(NotificationType.INVOICE_DISCOUNT_APPROVAL)
+                            .title("Hóa đơn chờ duyệt giảm giá")
+                            .body("Có yêu cầu duyệt giảm giá vượt hạn mức từ Lễ tân")
+                            .refType("INVOICE")
+                            .isRead(false)
+                            .build());
+                }
+            }
+            notificationRepository.saveAll(sampleNotifs);
+            log.info("Đã tạo thành công {} thông báo mẫu.", sampleNotifs.size());
         }
     }
 }

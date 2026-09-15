@@ -33,12 +33,103 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             log.debug("Schema Migration Notice: Could not alter 'invoices.status' (might already be up-to-date or table not created yet): {}", e.getMessage());
         }
 
-        // 2. Đảm bảo cột discount_approval_threshold trong hotel_settings sẵn sàng
+        // 2. Đảm bảo cột discount_approval_threshold & temporary_hold_minutes trong hotel_settings sẵn sàng
         try {
             jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS discount_approval_threshold DECIMAL(12, 2)");
-            log.info("Schema Migration: Successfully ensured 'hotel_settings.discount_approval_threshold' column exists.");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS temporary_hold_minutes INT DEFAULT 60");
+            log.info("Schema Migration: Successfully ensured 'hotel_settings.temporary_hold_minutes' column exists.");
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not add 'discount_approval_threshold' column (might already exist): {}", e.getMessage());
+            log.debug("Schema Migration Notice: Could not add columns to hotel_settings: {}", e.getMessage());
+        }
+
+        // 3. Đảm bảo cột hold_expires_at trong bookings sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS hold_expires_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'bookings.hold_expires_at' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'hold_expires_at' to bookings: {}", e.getMessage());
+        }
+
+        // 4. Đảm bảo cột reminder_sent_at trong bookings sẵn sàng cho tính năng nhắc nhận phòng
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reminder_sent_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'bookings.reminder_sent_at' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'reminder_sent_at' column (might already exist): {}", e.getMessage());
+        }
+
+        // 5. Đảm bảo các cột cấu hình nhắc nhở qua email trong hotel_settings sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_email_enabled BOOLEAN DEFAULT TRUE");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_morning_time TIME DEFAULT '10:30:00'");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS reminder_evening_time TIME DEFAULT '19:00:00'");
+            log.info("Schema Migration: Successfully ensured email reminder configuration columns in 'hotel_settings'.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add email reminder columns to 'hotel_settings': {}", e.getMessage());
+        }
+
+        // 6. Đảm bảo cột reset_token trong password_reset_requests sẵn sàng cho cơ chế link 10 phút
+        try {
+            jdbcTemplate.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS reset_token VARCHAR(128)");
+            log.info("Schema Migration: Successfully ensured 'password_reset_requests.reset_token' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'reset_token' to password_reset_requests: {}", e.getMessage());
+        }
+
+        // 7. Tạo bảng notifications (Notification Center)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS notifications (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  user_id BIGINT NOT NULL," +
+                "  type VARCHAR(60) NOT NULL," +
+                "  title VARCHAR(255) NOT NULL," +
+                "  body TEXT," +
+                "  ref_type VARCHAR(30)," +
+                "  ref_id BIGINT," +
+                "  is_read BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  created_at DATETIME(6) NOT NULL," +
+                "  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notif_user_read ON notifications(user_id, is_read)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notif_user_created ON notifications(user_id, created_at)");
+            log.info("Schema Migration: Successfully ensured 'notifications' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: notifications table: {}", e.getMessage());
+        }
+
+        // 8. Tạo bảng notification_role_defaults
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS notification_role_defaults (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  role VARCHAR(30) NOT NULL," +
+                "  type VARCHAR(60) NOT NULL," +
+                "  is_mandatory BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  UNIQUE KEY uq_role_type (role, type)" +
+                ")"
+            );
+            log.info("Schema Migration: Successfully ensured 'notification_role_defaults' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: notification_role_defaults table: {}", e.getMessage());
+        }
+
+        // 9. Tạo bảng notification_user_prefs
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS notification_user_prefs (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  user_id BIGINT NOT NULL," +
+                "  type VARCHAR(60) NOT NULL," +
+                "  enabled BOOLEAN NOT NULL DEFAULT TRUE," +
+                "  UNIQUE KEY uq_user_type (user_id, type)," +
+                "  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE" +
+                ")"
+            );
+            log.info("Schema Migration: Successfully ensured 'notification_user_prefs' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: notification_user_prefs table: {}", e.getMessage());
         }
     }
 }
