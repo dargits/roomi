@@ -18,6 +18,7 @@ import plant.stay.repository.InvoiceRepository;
 import plant.stay.repository.PaymentRepository;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.InvoiceDiscountService;
+import plant.stay.service.NotificationService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -44,6 +45,7 @@ public class InvoiceDiscountServiceImpl implements InvoiceDiscountService {
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
 
     // =========================================================================
     // APPLY DISCOUNT
@@ -128,6 +130,18 @@ public class InvoiceDiscountServiceImpl implements InvoiceDiscountService {
             // Cần Owner duyệt: khóa thanh toán và check-out
             invoice.setStatus(InvoiceStatus.PENDING_DISCOUNT_APPROVAL);
             invoiceRepository.save(invoice);
+
+            // [Notification] Bắn thông báo cho Owner
+            try {
+                Long bookingId = invoice.getBooking() != null ? invoice.getBooking().getId() : null;
+                notificationService.createForRoles(
+                    plant.stay.model.NotificationType.INVOICE_DISCOUNT_APPROVAL,
+                    "Hóa đơn chờ duyệt giảm giá",
+                    "Hóa đơn #" + invoice.getId() + " có yêu cầu giảm giá đang chờ Chủ cơ sở phê duyệt",
+                    "INVOICE", invoice.getId());
+            } catch (Exception ex) {
+                log.warn("[Notification] Không thể tạo thông báo INVOICE_DISCOUNT_APPROVAL: {}", ex.getMessage());
+            }
         }
 
         // 9. Ghi Audit Log

@@ -33,6 +33,7 @@ import {
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
+import NotificationBell from '../features/notifications/NotificationBell';
 
 export interface NavItem {
   path: string;
@@ -150,6 +151,8 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/personal-data-audit': { title: 'Nhật Ký Dữ Liệu Cá Nhân', group: 'Hệ thống' },
   '/manage/backup': { title: 'Sao Lưu & Xuất Dữ Liệu', group: 'Hệ thống' },
   '/manage/settings': { title: 'Cài Đặt Khách Sạn', group: 'Hệ thống' },
+  '/manage/notifications': { title: 'Trung Tâm Thông Báo', group: 'Hệ thống' },
+  '/manage/notifications/preferences': { title: 'Cài Đặt Nhận Thông Báo', group: 'Hệ thống' },
   '/manage/profile': { title: 'Hồ Sơ Cá Nhân', group: 'Cá nhân' }
 };
 
@@ -815,6 +818,9 @@ const DashboardLayout: React.FC = () => {
                 <span>Xem Website</span>
                 <IoOpenOutline size={12} className="opacity-70" />
               </a>
+
+              {/* Notification Bell with Badge and Dropdown */}
+              <NotificationBell />
 
               <div className="hidden sm:block h-6 w-px bg-border-grey" />
 
