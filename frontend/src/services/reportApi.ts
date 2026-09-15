@@ -1,5 +1,5 @@
 import api from './api';
-import { RevenueReportResponse, OccupancyReportResponse, DashboardStatsResponse } from '../types';
+import { RevenueReportResponse, OccupancyReportResponse, DashboardStatsResponse, AdrRevparReportResponse } from '../types';
 
 const reportApi = {
   /**
@@ -29,6 +29,16 @@ const reportApi = {
    */
   getOccupancyReport: async (from?: string, to?: string): Promise<OccupancyReportResponse> => {
     const response = await api.get<OccupancyReportResponse>('/reports/occupancy', { params: { from, to } });
+    return response.data;
+  },
+
+  /**
+   * Báo cáo Giá bán trung bình (ADR) và Doanh thu trên mỗi phòng (RevPAR)
+   * GET /api/v1/reports/adr-revpar?from=&to=&groupBy=
+   * Role: OWNER / ACCOUNTANT / ADMIN
+   */
+  getAdrRevparReport: async (from?: string, to?: string, groupBy = 'day'): Promise<AdrRevparReportResponse> => {
+    const response = await api.get<AdrRevparReportResponse>('/reports/adr-revpar', { params: { from, to, groupBy } });
     return response.data;
   },
 
