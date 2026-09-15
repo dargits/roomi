@@ -67,5 +67,13 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: Could not add email reminder columns to 'hotel_settings': {}", e.getMessage());
         }
+
+        // 6. Đảm bảo cột reset_token trong password_reset_requests sẵn sàng cho cơ chế link 10 phút
+        try {
+            jdbcTemplate.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS reset_token VARCHAR(128)");
+            log.info("Schema Migration: Successfully ensured 'password_reset_requests.reset_token' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'reset_token' to password_reset_requests: {}", e.getMessage());
+        }
     }
 }

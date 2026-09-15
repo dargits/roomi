@@ -126,7 +126,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
           <div className="p-3 bg-surface-container-low border border-border-grey text-xs text-on-surface-variant flex items-start gap-2.5">
             <IoInformationCircleOutline size={18} className="text-primary shrink-0 mt-0.5" />
             <span>
-              Hệ thống sẽ kiểm tra tài khoản và gửi yêu cầu tới <strong>Quản trị viên</strong> cơ sở để xác minh và cấp mật khẩu tạm có hiệu lực 24 giờ.
+              Hệ thống sẽ gửi một liên kết đặt lại mật khẩu có hiệu lực trong <strong>10 phút</strong> về địa chỉ email của tài khoản. Đường dẫn ngẫu nhiên bảo mật cao chống tấn công dò quét.
             </span>
           </div>
 
@@ -160,7 +160,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
               Hủy
             </Button>
             <Button type="submit" isLoading={loading} icon={IoKeyOutline}>
-              Gửi yêu cầu cấp lại
+              Gửi liên kết đặt lại mật khẩu
             </Button>
           </div>
         </form>
