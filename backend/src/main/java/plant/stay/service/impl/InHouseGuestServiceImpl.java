@@ -29,7 +29,6 @@ public class InHouseGuestServiceImpl implements InHouseGuestService {
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
     private final BookingServiceUsageRepository usageRepository;
-    private final plant.stay.service.RoomStayGuestService roomStayGuestService;
 
     @Override
     @Transactional(readOnly = true)
@@ -44,30 +43,20 @@ public class InHouseGuestServiceImpl implements InHouseGuestService {
             RoomType roomType = booking.getRoomType();
             Guest primaryGuest = booking.getGuest();
 
-            // 1. Số lượng người thực tế trong phòng (đồng bộ tuyệt đối theo Danh sách khách cùng phòng RoomStayGuest)
-            int occupantCount = 1;
+            // 1. Số lượng người thực tế trong phòng (đồng bộ theo RoomStayGuest nếu có)
             int standardCapacity = roomType != null && roomType.getStandardCapacity() != null ? roomType.getStandardCapacity() : 2;
             int maxCapacity = roomType != null && roomType.getMaxCapacity() != null ? roomType.getMaxCapacity() : 2;
+            int occupantCount = 1;
 
             try {
-                var summary = roomStayGuestService.getStayingGuestsSummary(booking.getId(), actor);
-                if (summary != null && summary.getTotalGuests() != null && summary.getTotalGuests() > 0) {
-                    occupantCount = summary.getTotalGuests();
-                }
-                if (summary != null && summary.getStandardCapacity() != null) {
-                    standardCapacity = summary.getStandardCapacity();
-                }
-                if (summary != null && summary.getMaxCapacity() != null) {
-                    maxCapacity = summary.getMaxCapacity();
+                long activeStayCount = roomStayGuestRepository.countByBookingIdAndLeftEarlyAtIsNull(booking.getId());
+                if (activeStayCount > 0) {
+                    occupantCount = (int) activeStayCount;
+                } else if (booking.getStayingGuests() != null && !booking.getStayingGuests().isEmpty()) {
+                    occupantCount = Math.max(1, booking.getStayingGuests().size());
                 }
             } catch (Exception e) {
-                // Fallback nếu có lỗi
-                try {
-                    long activeStayCount = roomStayGuestRepository.countByBookingIdAndLeftEarlyAtIsNull(booking.getId());
-                    if (activeStayCount > 0) {
-                        occupantCount = (int) activeStayCount;
-                    }
-                } catch (Exception ignored) {}
+                log.warn("Lỗi kiểm tra số lượng khách lưu trú booking #{}", booking.getId(), e);
             }
 
             // 2. Tính tiền phòng và dịch vụ phát sinh
