@@ -91,6 +91,122 @@ public class ResendEmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public boolean sendPasswordResetLinkEmail(String toEmail, String recipientName, String account, String resetLink, int expireMinutes) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            log.warn("[EMAIL] Không thể gửi email: Địa chỉ email người nhận trống (Tài khoản: {})", account);
+            return false;
+        }
+
+        String effectiveKey = getEffectiveApiKey();
+        if (effectiveKey.isEmpty()) {
+            log.error("[EMAIL] Chưa cấu hình API Key cho Resend (resend.api-key hoặc RESEND_API_KEY).");
+            return false;
+        }
+
+        try {
+            String subject = "🔑 Đặt lại mật khẩu tài khoản StayAway PMS (Hiệu lực " + expireMinutes + " phút)";
+            String htmlContent = buildResetLinkEmailTemplate(recipientName, account, resetLink, expireMinutes);
+
+            String requestBody = "{\"from\":\"" + escapeJson(fromEmail) + "\","
+                    + "\"to\":[\"" + escapeJson(toEmail.trim()) + "\"],"
+                    + "\"subject\":\"" + escapeJson(subject) + "\","
+                    + "\"html\":\"" + escapeJson(htmlContent) + "\"}";
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(RESEND_API_URL))
+                    .header("Authorization", "Bearer " + effectiveKey)
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(15))
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            log.info("[EMAIL] Đang gửi email link reset mật khẩu tới {} (Tài khoản: {})...", toEmail, account);
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("[EMAIL] Gửi email link reset mật khẩu thành công qua Resend tới {} (Response: {})", toEmail, response.body());
+                return true;
+            } else {
+                log.error("[EMAIL] Resend API trả về lỗi khi gửi link reset [Status: {}]: {}", response.statusCode(), response.body());
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.error("[EMAIL] Ngoại lệ khi gửi email link reset qua Resend API: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    private String buildResetLinkEmailTemplate(String name, String account, String resetLink, int expireMinutes) {
+        String displayName = (name != null && !name.trim().isEmpty()) ? name : account;
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Đặt lại mật khẩu StayAway</title>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #1e293b; }
+                .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 6px; border: 1px solid #cbd5e1; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+                .header { background: #003b95; color: #ffffff; padding: 28px 32px; text-align: center; }
+                .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+                .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.9; }
+                .body { padding: 32px; }
+                .greeting { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #0f172a; }
+                .desc { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; }
+                .action-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 24px; text-align: center; margin-bottom: 24px; }
+                .badge { display: inline-block; background: #fee2e2; color: #991b1b; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 4px; margin-top: 14px; border: 1px solid #fecaca; }
+                .btn { display: inline-block; background: #003b95; color: #ffffff !important; font-size: 14px; font-weight: 700; text-transform: uppercase; text-decoration: none; padding: 13px 36px; letter-spacing: 0.5px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,59,149,0.25); }
+                .info-box { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 14px 16px; font-size: 13px; line-height: 1.5; color: #1e40af; margin-bottom: 20px; border-radius: 0 4px 4px 0; }
+                .link-fallback { font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 20px; word-break: break-all; background: #f1f5f9; padding: 12px; border-radius: 4px; border: 1px dashed #cbd5e1; }
+                .link-fallback a { color: #003b95; text-decoration: underline; }
+                .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.5; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>STAYAWAY PMS</h1>
+                  <p>Hệ Thống Quản Lý Cơ Sở Lưu Trú</p>
+                </div>
+                <div class="body">
+                  <div class="greeting">Xin chào, %s!</div>
+                  <p class="desc">
+                    Hệ thống đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>. Vui lòng bấm vào nút bên dưới để tiến hành tạo mật khẩu mới:
+                  </p>
+                  
+                  <div class="action-card">
+                    <a href="%s" class="btn" target="_blank">ĐẶT LẠI MẬT KHẨU</a>
+                    <div>
+                      <div class="badge">⏰ Liên kết chỉ có hiệu lực trong vòng %d phút</div>
+                    </div>
+                  </div>
+
+                  <div class="info-box">
+                    <strong>🛡️ Lưu ý bảo mật quan trọng:</strong><br/>
+                    • Đường dẫn này được tạo ngẫu nhiên chống dò quét (Brute-Force) và sẽ tự động vô hiệu hóa sau <strong>%d phút</strong> hoặc ngay sau khi bạn đổi mật khẩu thành công.<br/>
+                    • Nếu bạn <strong>không</strong> gửi yêu cầu này, vui lòng bỏ qua email này. Tài khoản của bạn hoàn toàn được giữ an toàn.
+                  </div>
+
+                  <div class="link-fallback">
+                    Nếu nút bấm trên không hoạt động, bạn hãy sao chép và dán liên kết sau vào trình duyệt:<br/>
+                    <a href="%s" target="_blank">%s</a>
+                  </div>
+                </div>
+                <div class="footer">
+                  Email này được gửi tự động từ hệ thống StayAway PMS.<br/>
+                  Vui lòng không trả lời trực tiếp email này.
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(displayName, account, resetLink, expireMinutes, expireMinutes, resetLink, resetLink);
+    }
+
     private String buildEmailTemplate(String name, String account, String tempPassword) {
         String displayName = (name != null && !name.trim().isEmpty()) ? name : account;
         String loginUrl = (appDomain != null && !appDomain.trim().isEmpty()) ? appDomain : "https://stayaway.io.vn";
