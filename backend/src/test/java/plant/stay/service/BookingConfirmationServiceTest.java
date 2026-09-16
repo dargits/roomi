@@ -15,6 +15,7 @@ import plant.stay.repository.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -295,8 +296,9 @@ public class BookingConfirmationServiceTest {
     void testSendEmailQuotaExceededThrowsException() {
         bookingService.confirmBooking(newBooking.getId(), staffUser);
 
-        // Giả lập 5 lượt gửi trong ngày hôm nay (cách đây 2, 3, 4, 5, 6 tiếng)
-        for (int i = 5; i >= 1; i--) {
+        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+        // Giả lập 5 lượt gửi thành công trong ngày hôm nay
+        for (int i = 1; i <= 5; i++) {
             bookingConfirmationLogRepository.save(BookingConfirmationLog.builder()
                     .booking(newBooking)
                     .channel(ConfirmationChannel.EMAIL)
@@ -304,7 +306,7 @@ public class BookingConfirmationServiceTest {
                     .sentBy(staffUser)
                     .status("SUCCESS")
                     .note("Gửi lần " + i)
-                    .sentAt(java.time.LocalDateTime.now().minusHours(i))
+                    .sentAt(startOfToday.plusSeconds(i * 10))
                     .build());
         }
 
