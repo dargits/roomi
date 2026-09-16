@@ -12,7 +12,9 @@ import {
   IoCardOutline,
   IoWalletOutline,
   IoCheckmarkOutline,
-  IoTicketOutline
+  IoTicketOutline,
+  IoTrashOutline,
+  IoCloseCircleOutline
 } from 'react-icons/io5';
 import { invoiceApi } from '../../services/invoiceApi';
 import { depositApi } from '../../services/depositApi';
@@ -59,7 +61,13 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
   const [adjustData, setAdjustData] = useState({ discountAmount: '', note: '' });
   const [adjustError, setAdjustError] = useState('');
 
+  // Modal hủy hóa đơn nháp (CLTSN3-392)
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
+
   const canAdjust = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
+  const canCancelDraft = ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
 
   useEffect(() => {
     fetchInvoiceData();
@@ -278,6 +286,33 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
     }
   };
 
+  const handleCancelInvoice = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanReason = cancelReason.trim();
+    if (!cleanReason) {
+      setCancelError('Vui lòng nhập lý do hủy hóa đơn.');
+      return;
+    }
+    if (cleanReason.length < 3) {
+      setCancelError('Lý do hủy phải có tối thiểu 3 ký tự.');
+      return;
+    }
+
+    setProcessing(true);
+    setCancelError('');
+    try {
+      await invoiceApi.cancelDraftInvoice(invoice.id, cleanReason);
+      toastSuccess('Đã hủy hóa đơn nháp thành công!');
+      setShowCancelModal(false);
+      setCancelReason('');
+      fetchInvoiceData();
+    } catch (error: any) {
+      setCancelError(error.response?.data?.message || error.message || 'Có lỗi xảy ra khi hủy hóa đơn.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleCheckOut = async () => {
     setProcessing(true);
     try {
@@ -442,6 +477,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
   }
 
   const isPaid = invoice?.status === 'PAID';
+  const isDraftOrPending = invoice && ['DRAFT', 'PENDING', 'PENDING_PAYMENT', 'PENDING_DISCOUNT_APPROVAL'].includes(invoice.status);
   const isCovered = invoice && remainingAmount <= 0;
 
   return (
@@ -456,6 +492,8 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
             <span className={`px-2 py-1 rounded-md text-xs font-bold ${
               isPaid
                 ? 'bg-green-100 text-green-800'
+                : invoice.status === 'CANCELLED'
+                ? 'bg-red-100 text-red-800'
                 : invoice.status === 'PENDING_DISCOUNT_APPROVAL'
                 ? 'bg-amber-100 text-amber-800'
                 : invoice.status === 'ADJUSTED'
@@ -466,6 +504,8 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
             }`}>
               {isPaid
                 ? 'ĐÃ THANH TOÁN'
+                : invoice.status === 'CANCELLED'
+                ? 'ĐÃ HỦY'
                 : invoice.status === 'PENDING_DISCOUNT_APPROVAL'
                 ? 'CHỜ DUYỆT GIẢM GIÁ'
                 : invoice.status === 'ADJUSTED'
@@ -540,7 +580,57 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
           </div>
         )}
 
-        {(isPaid || isCovered) && invoice.status !== 'ADJUSTED' && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
+        {/* Nút Hủy hóa đơn nháp (CLTSN3-392) */}
+        {canCancelDraft && isDraftOrPending && (
+          <div className="pt-1">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelReason('');
+                setCancelError('');
+                setShowCancelModal(true);
+              }}
+              icon={IoTrashOutline}
+              className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 font-medium transition-colors"
+            >
+              Hủy hóa đơn nháp
+            </Button>
+          </div>
+        )}
+
+        {invoice.status === 'CANCELLED' && (
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200 text-red-900 space-y-2.5">
+            <div className="flex items-start gap-2.5">
+              <IoCloseCircleOutline size={22} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-sm text-red-950">Hóa đơn này đã bị hủy</p>
+                {invoice.cancelReason && (
+                  <p className="text-xs text-red-800 mt-1">
+                    <span className="font-semibold">Lý do hủy:</span> {invoice.cancelReason}
+                  </p>
+                )}
+                <p className="text-[11px] text-red-700 mt-1">
+                  {invoice.cancelledByName ? `Người hủy: ${invoice.cancelledByName} • ` : ''}
+                  {invoice.cancelledAt ? new Date(invoice.cancelledAt).toLocaleString('vi-VN') : ''}
+                </p>
+              </div>
+            </div>
+            {status === 'CHECKED_IN' && (
+              <div className="pt-2 border-t border-red-200/60 flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleCreateInvoice}
+                  isLoading={processing}
+                  icon={IoAddCircleOutline}
+                >
+                  Lập hóa đơn mới
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {(isPaid || isCovered) && invoice.status !== 'ADJUSTED' && invoice.status !== 'CANCELLED' && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
           <div className="space-y-3">
             <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-green-800 flex items-center gap-3">
               <IoCheckmarkCircleOutline size={24} className="flex-shrink-0" />
@@ -583,7 +673,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
           </div>
         )}
 
-        {status === 'CHECKED_IN' && (isPaid || isCovered) && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
+        {status === 'CHECKED_IN' && (isPaid || isCovered) && invoice.status !== 'CANCELLED' && invoice.status !== 'PENDING_DISCOUNT_APPROVAL' && (
           <div className="mt-4">
             <Button onClick={handleCheckOut} isLoading={processing} className="w-full bg-green-600 hover:bg-green-700 text-white">
               Xác nhận Trả phòng
@@ -1025,6 +1115,77 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
         invoice={invoice}
         onSuccess={fetchInvoiceData}
       />
+
+      {/* Modal Hủy hóa đơn nháp kèm lý do (CLTSN3-392) */}
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => {
+          if (!processing) {
+            setShowCancelModal(false);
+            setCancelError('');
+          }
+        }}
+        title="Xác nhận hủy hóa đơn nháp"
+      >
+        <form onSubmit={handleCancelInvoice} className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+            <IoAlertCircleOutline size={22} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-amber-950">Lưu ý quan trọng:</p>
+              <p className="text-amber-800 leading-relaxed">
+                Hóa đơn sau khi hủy sẽ chuyển sang trạng thái <strong>ĐÃ HỦY</strong>. Nếu hóa đơn có các khoản tiền cọc đã khấu trừ, số tiền cọc sẽ được tự động bảo toàn để áp dụng khi bạn lập hóa đơn mới.
+              </p>
+            </div>
+          </div>
+
+          {cancelError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-error rounded-lg text-xs font-medium">
+              {cancelError}
+            </div>
+          )}
+
+          <div>
+            <label className="block font-label-md text-on-surface mb-1.5 text-sm font-semibold">
+              Lý do hủy hóa đơn <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => {
+                setCancelReason(e.target.value);
+                if (cancelError) setCancelError('');
+              }}
+              placeholder="Nhập lý do hủy hóa đơn (VD: Lập nhầm dịch vụ, thay đổi phòng, khách yêu cầu xuất hóa đơn mới...)"
+              rows={3}
+              className="w-full px-3 py-2 border border-border-grey rounded-lg focus:outline-none focus:ring-1 focus:ring-primary font-body-md text-sm bg-white"
+              required
+            />
+            <p className="text-[11px] text-on-surface-variant mt-1">
+              Ghi rõ lý do hủy để phục vụ công tác đối soát và kiểm tra của kế toán / chủ cơ sở.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
+            <Button
+              variant="ghost"
+              type="button"
+              disabled={processing}
+              onClick={() => {
+                setShowCancelModal(false);
+                setCancelError('');
+              }}
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              type="submit"
+              isLoading={processing}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Xác nhận hủy hóa đơn
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

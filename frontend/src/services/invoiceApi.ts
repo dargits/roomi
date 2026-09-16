@@ -44,6 +44,12 @@ export const invoiceApi = {
     return response.data;
   },
 
+  // Hủy hóa đơn nháp kèm lý do (CLTSN3-392)
+  cancelDraftInvoice: async (invoiceId: number | string, reason: string): Promise<InvoiceResponse> => {
+    const response = await api.post<InvoiceResponse>(`/invoices/${invoiceId}/cancel`, { reason });
+    return response.data;
+  },
+
   // Lập hóa đơn điều chỉnh
   adjustInvoice: async (invoiceId: number | string, adjustData: any): Promise<InvoiceResponse> => {
     const response = await api.post<InvoiceResponse>(`/invoices/${invoiceId}/adjust`, adjustData);
