@@ -8,3 +8,5 @@ export * from './guest';
 export * from './housekeeping';
 export * from './report';
 export * from './admin';
+export * from './bookingConfirmation';
+export * from './lostItem';

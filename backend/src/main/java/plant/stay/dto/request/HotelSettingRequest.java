@@ -14,24 +14,25 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HotelSettingRequest {
-    
+
     @NotBlank(message = "Tên cơ sở không được để trống")
     private String propertyName;
-    
+
     @NotBlank(message = "Địa chỉ không được để trống")
     private String address;
-    
+
     private String phone;
     private String email;
-    
+
     @NotNull(message = "Giờ nhận phòng mặc định không được để trống")
     private LocalTime defaultCheckinTime;
-    
+
     @NotNull(message = "Giờ trả phòng mặc định không được để trống")
     private LocalTime defaultCheckoutTime;
-    
+
     private String homeImage;
 
     private Boolean reminderEmailEnabled;
     private LocalTime reminderMorningTime;
+    private Integer lostItemRetentionDays;
 }
