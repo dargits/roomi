@@ -42,6 +42,7 @@ import InHouseGuestPage from '../features/booking/InHouseGuestPage';
 
 // Housekeeping
 import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
+import LostAndFoundPage from '../features/housekeeping/LostAndFoundPage';
 
 // Reports & Backup
 import ReportsPage from '../features/reports/ReportsPage';
@@ -85,6 +86,7 @@ const AppRoutes: React.FC = () => {
               <Route path="/dashboard" element={<Navigate to="/manage/dashboard" replace />} />
               <Route path="/bookings" element={<Navigate to="/manage/bookings" replace />} />
               <Route path="/housekeeping" element={<Navigate to="/manage/housekeeping" replace />} />
+              <Route path="/lost-and-found" element={<Navigate to="/manage/lost-and-found" replace />} />
               <Route path="/reports" element={<Navigate to="/manage/reports" replace />} />
               <Route path="/manage" element={<Navigate to="/manage/dashboard" replace />} />
 
@@ -121,6 +123,7 @@ const AppRoutes: React.FC = () => {
 
                   {/* Buồng phòng — OWNER / HOUSEKEEPER / RECEPTIONIST */}
                   <Route path="/manage/housekeeping" element={<HousekeepingPage />} />
+                  <Route path="/manage/lost-and-found" element={<LostAndFoundPage />} />
 
                   {/* Báo cáo — OWNER / ACCOUNTANT */}
                   <Route path="/manage/reports" element={<ReportsPage />} />
