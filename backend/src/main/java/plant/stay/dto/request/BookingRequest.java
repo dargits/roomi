@@ -25,4 +25,5 @@ public class BookingRequest {
     private Integer childCount;
 
     private String note;
+    private String source; // WALKIN, PHONE, SOCIAL, ONLINE, SIMULATION
 }
