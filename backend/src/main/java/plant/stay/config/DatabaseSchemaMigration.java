@@ -131,5 +131,28 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: notification_user_prefs table: {}", e.getMessage());
         }
+
+        // 10. Tạo bảng booking_confirmation_logs (Nhật ký gửi xác nhận đặt phòng)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS booking_confirmation_logs (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  booking_id BIGINT NOT NULL," +
+                "  channel VARCHAR(30) NOT NULL," +
+                "  recipient VARCHAR(255)," +
+                "  sent_by BIGINT," +
+                "  status VARCHAR(30) NOT NULL," +
+                "  note TEXT," +
+                "  sent_at DATETIME(6) NOT NULL," +
+                "  FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (sent_by) REFERENCES users(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_conf_log_booking ON booking_confirmation_logs(booking_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_conf_log_sent_at ON booking_confirmation_logs(sent_at)");
+            log.info("Schema Migration: Successfully ensured 'booking_confirmation_logs' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: booking_confirmation_logs table: {}", e.getMessage());
+        }
     }
 }
