@@ -50,6 +50,9 @@ public class BookingConfirmationServiceTest {
     @Autowired
     private BookingConfirmationLogRepository bookingConfirmationLogRepository;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private EmailService emailService;
+
     private User staffUser;
     private Guest testGuest;
     private RoomType testRoomType;
@@ -58,6 +61,10 @@ public class BookingConfirmationServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.when(emailService.isEmailConfigured()).thenReturn(true);
+        org.mockito.Mockito.when(emailService.sendBookingConfirmationEmail(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
+
         staffUser = userRepository.findByAccount("test_receptionist")
                 .orElseGet(() -> userRepository.save(User.builder()
                         .name("Lễ Tân Kiểm Thử")
