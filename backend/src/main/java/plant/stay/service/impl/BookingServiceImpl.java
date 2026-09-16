@@ -1584,6 +1584,29 @@ public class BookingServiceImpl implements BookingService {
                 grandTotal, requiredDepositAmount, cancelSummary
         );
 
+        // 9. Thống kê kiểm soát chống spam gửi Email
+        BookingConfirmationLog lastEmailLog = bookingConfirmationLogRepository
+                .findFirstByBookingIdAndChannelOrderBySentAtDesc(booking.getId(), ConfirmationChannel.EMAIL)
+                .orElse(null);
+
+        java.time.LocalDateTime lastEmailSentAt = lastEmailLog != null ? lastEmailLog.getSentAt() : null;
+        String lastEmailRecipient = lastEmailLog != null ? lastEmailLog.getRecipient() : null;
+        String lastEmailSenderName = lastEmailLog != null && lastEmailLog.getSentBy() != null
+                ? lastEmailLog.getSentBy().getName() : (lastEmailLog != null ? "Hệ thống" : null);
+        String lastEmailStatus = lastEmailLog != null ? lastEmailLog.getStatus() : null;
+
+        long emailCooldownSeconds = 0;
+        if (lastEmailSentAt != null) {
+            long diffSeconds = ChronoUnit.SECONDS.between(lastEmailSentAt, java.time.LocalDateTime.now());
+            if (diffSeconds < 60) {
+                emailCooldownSeconds = 60 - diffSeconds;
+            }
+        }
+
+        long countEmailToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndSentAtGreaterThanEqual(
+                booking.getId(), ConfirmationChannel.EMAIL, LocalDate.now().atStartOfDay()
+        );
+
         return BookingConfirmationData.builder()
                 .bookingId(booking.getId())
                 .bookingCode("#" + booking.getId())
@@ -1625,6 +1648,13 @@ public class BookingServiceImpl implements BookingService {
                 .hotelEmail(hotelEmail)
                 .emailConfigured(emailService.isEmailConfigured())
                 .formattedMessage(formattedMessage)
+                .lastEmailSentAt(lastEmailSentAt)
+                .lastEmailRecipient(lastEmailRecipient)
+                .lastEmailSenderName(lastEmailSenderName)
+                .lastEmailStatus(lastEmailStatus)
+                .emailSendCountToday((int) countEmailToday)
+                .maxEmailSendQuota(5)
+                .emailCooldownSecondsRemaining(emailCooldownSeconds)
                 .confirmationLogs(logs)
                 .build();
     }
@@ -1641,6 +1671,25 @@ public class BookingServiceImpl implements BookingService {
         String note = req.getNote();
 
         if (channel == ConfirmationChannel.EMAIL) {
+            // 1. Kiểm tra Quota giới hạn trong ngày (tối đa 5 lần)
+            long countToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndSentAtGreaterThanEqual(
+                    booking.getId(), ConfirmationChannel.EMAIL, LocalDate.now().atStartOfDay()
+            );
+            if (countToday >= 5) {
+                throw new IllegalArgumentException("Đã đạt giới hạn tối đa 5 lần gửi email xác nhận trong ngày cho mã đặt phòng #" + booking.getId() + ". Vui lòng chuyển sang kênh Tin nhắn (Zalo/SMS) hoặc In ấn / Xuất file để tránh spam khách hàng.");
+            }
+
+            // 2. Kiểm tra Rate Limit / Cooldown (60 giây giữa các lần gửi)
+            var lastEmailLogOpt = bookingConfirmationLogRepository
+                    .findFirstByBookingIdAndChannelOrderBySentAtDesc(booking.getId(), ConfirmationChannel.EMAIL);
+            if (lastEmailLogOpt.isPresent()) {
+                long diffSeconds = ChronoUnit.SECONDS.between(lastEmailLogOpt.get().getSentAt(), java.time.LocalDateTime.now());
+                if (diffSeconds < 60) {
+                    long waitSec = 60 - diffSeconds;
+                    throw new IllegalArgumentException("Email xác nhận vừa được gửi cách đây " + diffSeconds + " giây. Vui lòng đợi thêm " + waitSec + " giây trước khi gửi lại để tránh spam hòm thư của khách.");
+                }
+            }
+
             String targetEmail = (req.getCustomEmail() != null && !req.getCustomEmail().isBlank())
                     ? req.getCustomEmail().trim()
                     : data.getGuestEmail();
