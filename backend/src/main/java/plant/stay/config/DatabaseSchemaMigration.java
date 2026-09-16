@@ -24,13 +24,16 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
     public void run(String... args) {
         log.info("Checking and applying automatic database schema migrations...");
 
-        // 1. Nâng cấp cột status trong bảng invoices lên VARCHAR(50) để hỗ trợ các status mới
-        // (PENDING_PAYMENT, PENDING_DISCOUNT_APPROVAL, DRAFT, ...)
+        // 1. Nâng cấp cột status trong bảng invoices lên VARCHAR(50) và thêm các cột hủy hóa đơn
+        // (PENDING_PAYMENT, PENDING_DISCOUNT_APPROVAL, DRAFT, CANCELLED, ...)
         try {
             jdbcTemplate.execute("ALTER TABLE invoices MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'PENDING'");
-            log.info("Schema Migration: Successfully ensured 'invoices.status' is VARCHAR(50).");
+            jdbcTemplate.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancel_reason TEXT");
+            jdbcTemplate.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancelled_by BIGINT");
+            jdbcTemplate.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancelled_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'invoices.status' and cancellation columns exist.");
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not alter 'invoices.status' (might already be up-to-date or table not created yet): {}", e.getMessage());
+            log.debug("Schema Migration Notice: Could not alter 'invoices': {}", e.getMessage());
         }
 
         // 2. Đảm bảo cột discount_approval_threshold & temporary_hold_minutes trong hotel_settings sẵn sàng
