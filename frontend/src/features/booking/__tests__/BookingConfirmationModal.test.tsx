@@ -66,19 +66,10 @@ const mockConfirmationData: BookingConfirmationData = {
   hotelEmail: 'contact@stayaway.vn',
   emailConfigured: true,
   formattedMessage: '🏨 [XÁC NHẬN ĐẶT PHÒNG - STAYAWAY]\nMã: #101\nKhách: Nguyễn Văn A',
-  confirmationLogs: [
-    {
-      id: 1,
-      bookingId: 101,
-      channel: 'EMAIL',
-      channelDisplayName: 'Thư điện tử (Email)',
-      recipient: 'nguyenvana@gmail.com',
-      sentByName: 'Lễ tân Hoa',
-      status: 'SUCCESS',
-      note: 'Đã gửi email thành công',
-      sentAt: '2026-09-16T09:00:00'
-    }
-  ]
+  emailSendCountToday: 0,
+  maxEmailSendQuota: 5,
+  emailCooldownSecondsRemaining: 0,
+  confirmationLogs: []
 };
 
 describe('BookingConfirmationModal Component', () => {
@@ -121,7 +112,7 @@ describe('BookingConfirmationModal Component', () => {
     expect(screen.getByText('Miễn phí hủy trước 24 giờ nhận phòng.')).toBeInTheDocument();
   });
 
-  it('navigates to email tab and triggers email send', async () => {
+  it('navigates to email tab and triggers first email send directly', async () => {
     vi.mocked(bookingConfirmationApi.getConfirmationData).mockResolvedValue(mockConfirmationData);
     vi.mocked(bookingConfirmationApi.sendConfirmation).mockResolvedValue({
       id: 2,
@@ -164,10 +155,109 @@ describe('BookingConfirmationModal Component', () => {
     });
   });
 
+  it('opens re-confirm dialog when email was already sent before and submits with selected reason', async () => {
+    const sentBeforeData: BookingConfirmationData = {
+      ...mockConfirmationData,
+      lastEmailSentAt: '2026-09-16T08:30:00',
+      lastEmailRecipient: 'nguyenvana@gmail.com',
+      lastEmailSenderName: 'Lễ tân Hoa',
+      lastEmailStatus: 'SUCCESS',
+      emailSendCountToday: 1,
+      emailCooldownSecondsRemaining: 0
+    };
+
+    vi.mocked(bookingConfirmationApi.getConfirmationData).mockResolvedValue(sentBeforeData);
+    vi.mocked(bookingConfirmationApi.sendConfirmation).mockResolvedValue({
+      id: 3,
+      bookingId: 101,
+      channel: 'EMAIL',
+      channelDisplayName: 'Thư điện tử (Email)',
+      recipient: 'nguyenvana@gmail.com',
+      status: 'SUCCESS',
+      sentAt: '2026-09-16T09:40:00'
+    });
+
+    render(
+      <ToastProvider>
+        <BookingConfirmationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          bookingId={101}
+        />
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument();
+    });
+
+    // Switch to Email tab
+    const emailTabButtons = screen.getAllByRole('button', { name: /Gửi qua Email/i });
+    fireEvent.click(emailTabButtons[0]);
+
+    // Check recent send banner
+    expect(screen.getByText(/Đã gửi lần gần nhất/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hôm nay: 1\/5 lượt/i)).toBeInTheDocument();
+
+    // Click Send -> should open Re-confirm dialog
+    const sendButton = screen.getByRole('button', { name: /Gửi email xác nhận ngay/i });
+    fireEvent.click(sendButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Xác nhận gửi lại Email cho khách')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Lưu ý trước khi gửi lại/i)).toBeInTheDocument();
+
+    // Confirm resend
+    const confirmResendBtn = screen.getByRole('button', { name: /Xác nhận gửi lại/i });
+    fireEvent.click(confirmResendBtn);
+
+    await waitFor(() => {
+      expect(bookingConfirmationApi.sendConfirmation).toHaveBeenCalledWith(101, expect.objectContaining({
+        channel: 'EMAIL',
+        note: expect.stringContaining('Khách báo chưa nhận được email')
+      }));
+    });
+  });
+
+  it('disables send button and warns when daily email quota is reached', async () => {
+    const quotaExceededData: BookingConfirmationData = {
+      ...mockConfirmationData,
+      lastEmailSentAt: '2026-09-16T08:30:00',
+      lastEmailRecipient: 'nguyenvana@gmail.com',
+      lastEmailStatus: 'SUCCESS',
+      emailSendCountToday: 5,
+      maxEmailSendQuota: 5
+    };
+
+    vi.mocked(bookingConfirmationApi.getConfirmationData).mockResolvedValue(quotaExceededData);
+
+    render(
+      <ToastProvider>
+        <BookingConfirmationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          bookingId={101}
+        />
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument();
+    });
+
+    const emailTabButtons = screen.getAllByRole('button', { name: /Gửi qua Email/i });
+    fireEvent.click(emailTabButtons[0]);
+
+    expect(screen.getByText(/Đã đạt giới hạn tối đa 5 lần gửi email xác nhận/i)).toBeInTheDocument();
+    const quotaButton = screen.getByRole('button', { name: /Đã hết lượt gửi hôm nay/i });
+    expect(quotaButton).toBeDisabled();
+  });
+
   it('navigates to messaging tab and allows copying message', async () => {
     vi.mocked(bookingConfirmationApi.getConfirmationData).mockResolvedValue(mockConfirmationData);
     vi.mocked(bookingConfirmationApi.sendConfirmation).mockResolvedValue({
-      id: 3,
+      id: 4,
       bookingId: 101,
       channel: 'MESSAGING_APP',
       channelDisplayName: 'Kênh tin nhắn (Zalo/SMS)',

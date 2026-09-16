@@ -46,9 +46,13 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
   const [data, setData] = useState<BookingConfirmationData | null>(null);
   const [activeTab, setActiveTab] = useState<'preview' | 'email' | 'messaging' | 'history'>('preview');
 
-  // Email form state
+  // Email form state & anti-spam controls
   const [customEmail, setCustomEmail] = useState<string>('');
   const [sendingEmail, setSendingEmail] = useState<boolean>(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
+  const [showReconfirmModal, setShowReconfirmModal] = useState<boolean>(false);
+  const [reconfirmReason, setReconfirmReason] = useState<string>('Khách báo chưa nhận được email / hòm thư spam');
+  const [customReasonText, setCustomReasonText] = useState<string>('');
 
   // Messaging state
   const [customPhone, setCustomPhone] = useState<string>('');
@@ -68,6 +72,9 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
       setData(res);
       setCustomEmail(res.guestEmail || '');
       setCustomPhone(res.guestPhone || '');
+      if (res.emailCooldownSecondsRemaining && res.emailCooldownSecondsRemaining > 0) {
+        setCooldownRemaining(res.emailCooldownSecondsRemaining);
+      }
     } catch (err: any) {
       console.error('Lỗi tải bản xác nhận đặt phòng:', err);
       toastError(err.response?.data?.message || 'Không thể tải thông tin bản xác nhận đặt phòng');
@@ -81,8 +88,24 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
       fetchConfirmationData();
       setActiveTab('preview');
       setCopied(false);
+      setShowReconfirmModal(false);
     }
   }, [isOpen, bookingId]);
+
+  // Bộ đếm đếm ngược Cooldown 60s
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownRemaining]);
 
   const handleConfirmBooking = async () => {
     if (!bookingId) return;
@@ -99,7 +122,8 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
     }
   };
 
-  const handleSendEmail = async () => {
+  // Nút gửi email kích hoạt kiểm tra
+  const onSendEmailClick = () => {
     if (!bookingId || !data) return;
     const emailToSend = customEmail.trim() || data.guestEmail;
     if (!emailToSend) {
@@ -107,14 +131,33 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
       return;
     }
 
+    // Nếu đã từng có email gửi trước đó -> mở popup xác nhận và hỏi lý do gửi lại
+    const hasSentBefore = (data.emailSendCountToday && data.emailSendCountToday > 0) || Boolean(data.lastEmailSentAt);
+    if (hasSentBefore) {
+      setReconfirmReason('Khách báo chưa nhận được email / hòm thư spam');
+      setCustomReasonText('');
+      setShowReconfirmModal(true);
+    } else {
+      executeSendEmail('Gửi email xác nhận đặt phòng lần đầu cho khách');
+    }
+  };
+
+  // Thực thi gửi email và lưu vết lý do
+  const executeSendEmail = async (noteText?: string) => {
+    if (!bookingId || !data) return;
+    const emailToSend = customEmail.trim() || data.guestEmail;
+    if (!emailToSend) return;
+
     setSendingEmail(true);
     try {
       await bookingConfirmationApi.sendConfirmation(bookingId, {
         channel: 'EMAIL',
         customEmail: emailToSend,
-        note: `Gửi email bản xác nhận tới ${emailToSend}`
+        note: noteText || `Gửi email bản xác nhận tới ${emailToSend}`
       });
       toastSuccess(`Đã gửi bản xác nhận đặt phòng tới ${emailToSend}`);
+      setShowReconfirmModal(false);
+      setCooldownRemaining(60); // Khóa nút & kích hoạt đếm ngược 60s
       await fetchConfirmationData();
     } catch (err: any) {
       toastError(err.response?.data?.message || 'Lỗi khi gửi email xác nhận đặt phòng');
@@ -531,6 +574,53 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
                   </div>
                 )}
 
+                {/* Banner Trạng thái gửi gần nhất & Quota hôm nay */}
+                {data.lastEmailSentAt ? (
+                  <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 font-semibold text-blue-900">
+                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                        Đã gửi lần gần nhất: {new Date(data.lastEmailSentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ({new Date(data.lastEmailSentAt).toLocaleDateString('vi-VN')})
+                      </div>
+                      <div className="text-blue-800 text-[11px] flex flex-wrap gap-x-3">
+                        <span>Đến: <strong>{data.lastEmailRecipient}</strong></span>
+                        {data.lastEmailSenderName && <span>Bởi: <strong>{data.lastEmailSenderName}</strong></span>}
+                        <span>Trạng thái: <strong className={data.lastEmailStatus === 'SUCCESS' ? 'text-emerald-700' : 'text-rose-600'}>{data.lastEmailStatus === 'SUCCESS' ? 'Thành công' : 'Thất bại'}</strong></span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 self-start sm:self-auto">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                        (data.emailSendCountToday || 0) >= (data.maxEmailSendQuota || 5)
+                          ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                          : 'bg-blue-100 text-blue-800 border border-blue-200'
+                      }`}>
+                        Hôm nay: {data.emailSendCountToday || 0}/{data.maxEmailSendQuota || 5} lượt
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                      Đặt phòng này chưa từng gửi email xác nhận lần nào.
+                    </div>
+                    <span className="text-[11px] text-gray-500 font-medium">Hạn mức: 0/{data.maxEmailSendQuota || 5} lượt/ngày</span>
+                  </div>
+                )}
+
+                {/* Cảnh báo Quota vượt ngưỡng 5 lần */}
+                {(data.emailSendCountToday || 0) >= (data.maxEmailSendQuota || 5) && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-900 flex items-start gap-2.5">
+                    <IoAlertCircleOutline size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-rose-800">Đã đạt giới hạn tối đa 5 lần gửi email xác nhận trong ngày cho đặt phòng này.</span>
+                      <p className="mt-1 text-[11px] text-rose-700 leading-relaxed">
+                        Để tránh hòm thư của khách hàng đánh dấu spam, hệ thống tạm khóa gửi email tự động cho mã #{data.bookingId} hôm nay. Vui lòng chuyển sang tab <strong>TIN NHẮN ZALO / SMS</strong> hoặc <strong>XEM TRƯỚC BẢN XÁC NHẬN</strong> để tải file/in trực tiếp.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
                   <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                     <IoMailOutline size={18} className="text-blue-600" /> Cấu hình gửi thư điện tử cho khách
@@ -565,11 +655,22 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
                       <Button
                         size="md"
                         variant="primary"
-                        icon={IoSendOutline}
-                        disabled={sendingEmail || !customEmail.trim()}
-                        onClick={handleSendEmail}
+                        icon={cooldownRemaining > 0 ? IoTimeOutline : IoSendOutline}
+                        disabled={
+                          sendingEmail ||
+                          !customEmail.trim() ||
+                          (data.emailSendCountToday || 0) >= (data.maxEmailSendQuota || 5) ||
+                          cooldownRemaining > 0
+                        }
+                        onClick={onSendEmailClick}
                       >
-                        {sendingEmail ? 'Đang gửi email...' : 'Gửi email xác nhận ngay'}
+                        {sendingEmail
+                          ? 'Đang gửi email...'
+                          : (data.emailSendCountToday || 0) >= (data.maxEmailSendQuota || 5)
+                          ? 'Đã hết lượt gửi hôm nay'
+                          : cooldownRemaining > 0
+                          ? `Gửi lại sau (${cooldownRemaining}s)`
+                          : 'Gửi email xác nhận ngay'}
                       </Button>
                     </div>
                   </div>
@@ -739,6 +840,115 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
           </Button>
         </div>
       </div>
+
+      {/* Hộp thoại xác nhận gửi lại email (Chống spam) */}
+      {showReconfirmModal && (
+        <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 max-w-md w-full overflow-hidden">
+            <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-600 text-white rounded-lg">
+                  <IoMailOutline size={18} />
+                </div>
+                <h4 className="font-bold text-sm text-gray-900">Xác nhận gửi lại Email cho khách</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReconfirmModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 leading-relaxed space-y-1">
+                <div className="font-semibold flex items-center gap-1.5 text-amber-800">
+                  <IoAlertCircleOutline size={15} /> Lưu ý trước khi gửi lại
+                </div>
+                <p>
+                  Email xác nhận đã từng được gửi tới <strong>{data?.lastEmailRecipient || customEmail}</strong>
+                  {data?.lastEmailSentAt && (
+                    <> vào lúc <strong>{new Date(data.lastEmailSentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {new Date(data.lastEmailSentAt).toLocaleDateString('vi-VN')}</strong></>
+                  )}.
+                </p>
+                <p className="text-[11px] text-amber-800">
+                  Hôm nay đặt phòng này đã gửi <strong>{data?.emailSendCountToday || 0}/{data?.maxEmailSendQuota || 5}</strong> lượt. Bạn có chắc chắn muốn gửi thêm một bản nữa cho khách không?
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-800 mb-2">
+                  Lý do gửi lại (ghi nhận vào nhật ký):
+                </label>
+                <div className="space-y-2">
+                  {[
+                    'Khách báo chưa nhận được email / hòm thư spam',
+                    'Khách đổi sang địa chỉ email mới',
+                    'Gửi lại bản cập nhật thông tin phòng / giá',
+                    'Lý do khác'
+                  ].map((reason) => (
+                    <label
+                      key={reason}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                        reconfirmReason === reason
+                          ? 'bg-blue-50 border-blue-400 text-blue-900 font-medium'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="reconfirmReason"
+                        value={reason}
+                        checked={reconfirmReason === reason}
+                        onChange={(e) => setReconfirmReason(e.target.value)}
+                        className="text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span>{reason}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {reconfirmReason === 'Lý do khác' && (
+                  <div className="mt-2.5">
+                    <input
+                      type="text"
+                      placeholder="Nhập lý do gửi lại cụ thể..."
+                      value={customReasonText}
+                      onChange={(e) => setCustomReasonText(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowReconfirmModal(false)}
+                disabled={sendingEmail}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={IoSendOutline}
+                isLoading={sendingEmail}
+                disabled={reconfirmReason === 'Lý do khác' && !customReasonText.trim()}
+                onClick={() => {
+                  const finalNote = reconfirmReason === 'Lý do khác' ? customReasonText.trim() : reconfirmReason;
+                  executeSendEmail(finalNote);
+                }}
+              >
+                Xác nhận gửi lại
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 };
