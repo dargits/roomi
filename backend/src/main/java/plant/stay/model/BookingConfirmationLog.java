@@ -44,7 +44,13 @@ public class BookingConfirmationLog {
     @Column(name = "note", columnDefinition = "TEXT")
     private String note; // Ghi chú bổ sung hoặc chi tiết lỗi
 
-    @CreationTimestamp
-    @Column(name = "sent_at", nullable = false, updatable = false)
+    @Column(name = "sent_at", nullable = false)
     private LocalDateTime sentAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.sentAt == null) {
+            this.sentAt = LocalDateTime.now();
+        }
+    }
 }

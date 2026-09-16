@@ -47,6 +47,9 @@ public class BookingConfirmationServiceTest {
     @Autowired
     private CancellationPolicyRepository cancellationPolicyRepository;
 
+    @Autowired
+    private BookingConfirmationLogRepository bookingConfirmationLogRepository;
+
     private User staffUser;
     private Guest testGuest;
     private RoomType testRoomType;
@@ -255,5 +258,64 @@ public class BookingConfirmationServiceTest {
         assertThrows(IllegalArgumentException.class, () ->
                 bookingService.sendOrLogConfirmation(bookingNoEmail.getId(), req, staffUser)
         );
+    }
+
+    @Test
+    @DisplayName("Cơ chế chống spam: Gửi email liên tục trong vòng 60 giây bị chặn bởi Cooldown")
+    void testSendEmailCooldownThrowsException() {
+        bookingService.confirmBooking(newBooking.getId(), staffUser);
+
+        SendConfirmationRequest req = SendConfirmationRequest.builder()
+                .channel(ConfirmationChannel.EMAIL)
+                .customEmail("khachhang@example.com")
+                .note("Gửi lần 1")
+                .build();
+
+        // Lần 1: Thành công
+        BookingConfirmationLogResponse firstSend = bookingService.sendOrLogConfirmation(newBooking.getId(), req, staffUser);
+        assertNotNull(firstSend);
+
+        // Lần 2 ngay lập tức (< 60s): Phải ném ngoại lệ thông báo cooldown
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                bookingService.sendOrLogConfirmation(newBooking.getId(), req, staffUser)
+        );
+        assertTrue(ex.getMessage().contains("Email xác nhận vừa được gửi cách đây"));
+        assertTrue(ex.getMessage().contains("Vui lòng đợi thêm"));
+    }
+
+    @Test
+    @DisplayName("Cơ chế chống spam: Gửi email quá 5 lần trong một ngày bị chặn bởi Quota")
+    void testSendEmailQuotaExceededThrowsException() {
+        bookingService.confirmBooking(newBooking.getId(), staffUser);
+
+        // Giả lập 5 lượt gửi trong ngày hôm nay (cách đây 2, 3, 4, 5, 6 tiếng)
+        for (int i = 5; i >= 1; i--) {
+            bookingConfirmationLogRepository.save(BookingConfirmationLog.builder()
+                    .booking(newBooking)
+                    .channel(ConfirmationChannel.EMAIL)
+                    .recipient("khachhang@example.com")
+                    .sentBy(staffUser)
+                    .status("SUCCESS")
+                    .note("Gửi lần " + i)
+                    .sentAt(java.time.LocalDateTime.now().minusHours(i))
+                    .build());
+        }
+
+        // Kiểm tra DTO trả về đã thống kê đủ 5 lần
+        BookingConfirmationData data = bookingService.getBookingConfirmationData(newBooking.getId());
+        assertEquals(5, data.getEmailSendCountToday());
+        assertEquals(5, data.getMaxEmailSendQuota());
+
+        // Lần thứ 6: Phải ném ngoại lệ Quota
+        SendConfirmationRequest req = SendConfirmationRequest.builder()
+                .channel(ConfirmationChannel.EMAIL)
+                .customEmail("khachhang@example.com")
+                .note("Cố gửi lần 6")
+                .build();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                bookingService.sendOrLogConfirmation(newBooking.getId(), req, staffUser)
+        );
+        assertTrue(ex.getMessage().contains("Đã đạt giới hạn tối đa 5 lần"));
     }
 }
