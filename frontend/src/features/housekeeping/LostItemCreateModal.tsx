@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { lostItemApi } from '../../services/lostItemApi';
 import { roomApi } from '../../services/roomApi';
+import { fileApi } from '../../services/fileApi';
 import { useToast } from '../../context/ToastContext';
 import { extractErrorMessage } from '../../services/api';
 import {
@@ -17,6 +18,9 @@ import {
   IoDocumentTextOutline,
   IoBedOutline,
   IoShieldCheckmarkOutline,
+  IoCloudUploadOutline,
+  IoTrashOutline,
+  IoCameraOutline,
 } from 'react-icons/io5';
 
 interface LostItemCreateModalProps {
@@ -55,7 +59,7 @@ const LostItemCreateModal: React.FC<LostItemCreateModalProps> = ({
   initialRoom,
   onSuccess,
 }) => {
-  const { success: toastSuccess, error: toastError } = useToast();
+  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
 
   const [roomId, setRoomId] = useState<number | string>(initialRoom?.id || '');
   const [roomNumber, setRoomNumber] = useState(initialRoom?.roomNumber || '');
@@ -71,6 +75,10 @@ const LostItemCreateModal: React.FC<LostItemCreateModalProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -101,6 +109,38 @@ const LostItemCreateModal: React.FC<LostItemCreateModalProps> = ({
   const handleRoomSelect = (r: any) => {
     setRoomId(r.id);
     setRoomNumber(r.roomNumber);
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toastWarning('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP, JPEG)');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toastWarning('Dung lượng ảnh tối đa cho phép là 10MB');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setUploadProgress(0);
+      const res = await fileApi.uploadFile(file, (percent) => {
+        setUploadProgress(percent);
+      });
+      setImageUrl(res.url);
+      toastSuccess('Đã tải ảnh lên thành công!');
+    } catch (err: any) {
+      toastError(extractErrorMessage(err, 'Không thể tải ảnh lên. Vui lòng thử lại.'));
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,6 +192,7 @@ const LostItemCreateModal: React.FC<LostItemCreateModalProps> = ({
     setNotes('');
     setImageUrl('');
     setStorageLocation('Tủ Lost & Found (Quầy lễ tân)');
+    setUploadProgress(0);
   };
 
   const filteredRooms = rooms.filter((r) => {
@@ -332,22 +373,94 @@ const LostItemCreateModal: React.FC<LostItemCreateModalProps> = ({
           </div>
         </div>
 
-        {/* Link ảnh & Ghi chú */}
+        {/* Upload Ảnh từ máy / Chụp ảnh & Ghi chú */}
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Đường dẫn hình ảnh chụp món đồ (nếu có)
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
+              Hình ảnh chụp món đồ
             </label>
-            <div className="relative">
-              <IoImageOutline className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
-              <input
-                type="url"
-                placeholder="https://..."
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              capture="environment"
+              onChange={handleImageFileChange}
+              className="hidden"
+            />
+
+            {/* Khung upload hoặc xem trước */}
+            {imageUrl ? (
+              <div className="relative group border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900/60 p-2.5 flex items-center gap-3">
+                <img
+                  src={imageUrl}
+                  alt="Ảnh món đồ"
+                  className="w-16 h-16 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <IoCheckmarkCircleOutline className="w-4 h-4 text-emerald-600" />
+                    Đã tải ảnh lên thành công
+                  </div>
+                  <div className="text-[11px] text-slate-400 truncate mt-0.5">{imageUrl}</div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <IoCameraOutline className="w-3.5 h-3.5" />
+                      Thay ảnh khác
+                    </button>
+                    <span className="text-slate-300 dark:text-slate-600">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <IoTrashOutline className="w-3.5 h-3.5" />
+                      Xóa ảnh
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => !uploadingImage && fileInputRef.current?.click()}
+                className={`border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-xl p-4 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-slate-850 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 ${
+                  uploadingImage ? 'opacity-70 pointer-events-none' : ''
+                }`}
+              >
+                {uploadingImage ? (
+                  <div className="space-y-2 py-2">
+                    <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-block animate-square-spin w-4 h-4 border-2 border-emerald-600 border-t-transparent border-l-transparent" />
+                      Đang tải ảnh lên ({uploadProgress}%)...
+                    </div>
+                    <div className="w-48 mx-auto bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-emerald-600 h-1.5 transition-all duration-200"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-1.5 py-1">
+                    <div className="p-2.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                      <IoCloudUploadOutline className="w-6 h-6" />
+                    </div>
+                    <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      Bấm để chọn ảnh từ máy hoặc chụp ảnh trực tiếp
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Hỗ trợ định dạng JPG, PNG, WEBP (tối đa 10MB)
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -366,13 +479,14 @@ const LostItemCreateModal: React.FC<LostItemCreateModalProps> = ({
 
         {/* Buttons */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting || uploadingImage}>
             Hủy
           </Button>
           <Button
             type="submit"
             variant="primary"
             isLoading={submitting}
+            disabled={uploadingImage}
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             <IoCheckmarkCircleOutline className="w-4 h-4 mr-1.5" />
