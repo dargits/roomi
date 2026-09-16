@@ -21,9 +21,11 @@ import {
   IoPersonRemoveOutline,
   IoInformationCircleOutline,
   IoAlertCircleOutline,
-  IoWarningOutline
+  IoWarningOutline,
+  IoCubeOutline
 } from 'react-icons/io5';
 import RoomIncidentModal from './RoomIncidentModal';
+import LostItemCreateModal from './LostItemCreateModal';
 
 interface CleaningTaskListProps {
   onRoomCleaned?: () => void;
@@ -40,6 +42,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<number | string | null>(null);
   const [incidentRoom, setIncidentRoom] = useState<any | null>(null);
+  const [lostItemRoom, setLostItemRoom] = useState<any | null>(null);
   
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -871,14 +874,25 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                       )}
 
                       {/* Nút báo sự cố phòng khi dọn */}
-                      <button
-                        type="button"
-                        onClick={() => setIncidentRoom(room)}
-                        className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        <IoWarningOutline size={14} className="text-amber-600" />
-                        Báo sự cố phòng
-                      </button>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIncidentRoom(room)}
+                          className="flex items-center justify-center gap-1 px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          <IoWarningOutline size={14} className="text-amber-600 shrink-0" />
+                          <span>Sự cố</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setLostItemRoom(room)}
+                          className="flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          <IoCubeOutline size={14} className="text-blue-600 shrink-0" />
+                          <span>Đồ để quên</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -897,6 +911,18 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
           onIncidentReported={() => {
             fetchRoomsAndStaff();
             if (onRoomCleaned) onRoomCleaned();
+          }}
+        />
+      )}
+
+      {/* Modal Ghi nhận đồ để quên khi dọn */}
+      {lostItemRoom && (
+        <LostItemCreateModal
+          isOpen={!!lostItemRoom}
+          onClose={() => setLostItemRoom(null)}
+          initialRoom={lostItemRoom}
+          onSuccess={() => {
+            fetchRoomsAndStaff();
           }}
         />
       )}
