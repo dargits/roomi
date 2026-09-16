@@ -16,5 +16,9 @@ public interface BookingConfirmationLogRepository extends JpaRepository<BookingC
 
     Optional<BookingConfirmationLog> findFirstByBookingIdAndChannelOrderBySentAtDesc(Long bookingId, ConfirmationChannel channel);
 
+    Optional<BookingConfirmationLog> findFirstByBookingIdAndChannelAndStatusOrderBySentAtDesc(Long bookingId, ConfirmationChannel channel, String status);
+
     long countByBookingIdAndChannelAndSentAtGreaterThanEqual(Long bookingId, ConfirmationChannel channel, LocalDateTime since);
+
+    long countByBookingIdAndChannelAndStatusAndSentAtGreaterThanEqual(Long bookingId, ConfirmationChannel channel, String status, LocalDateTime since);
 }

@@ -1596,15 +1596,15 @@ public class BookingServiceImpl implements BookingService {
         String lastEmailStatus = lastEmailLog != null ? lastEmailLog.getStatus() : null;
 
         long emailCooldownSeconds = 0;
-        if (lastEmailSentAt != null) {
+        if (lastEmailSentAt != null && "SUCCESS".equalsIgnoreCase(lastEmailStatus)) {
             long diffSeconds = ChronoUnit.SECONDS.between(lastEmailSentAt, java.time.LocalDateTime.now());
             if (diffSeconds < 60) {
                 emailCooldownSeconds = 60 - diffSeconds;
             }
         }
 
-        long countEmailToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndSentAtGreaterThanEqual(
-                booking.getId(), ConfirmationChannel.EMAIL, LocalDate.now().atStartOfDay()
+        long countEmailToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndStatusAndSentAtGreaterThanEqual(
+                booking.getId(), ConfirmationChannel.EMAIL, "SUCCESS", LocalDate.now().atStartOfDay()
         );
 
         return BookingConfirmationData.builder()
@@ -1671,17 +1671,17 @@ public class BookingServiceImpl implements BookingService {
         String note = req.getNote();
 
         if (channel == ConfirmationChannel.EMAIL) {
-            // 1. Kiểm tra Quota giới hạn trong ngày (tối đa 5 lần)
-            long countToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndSentAtGreaterThanEqual(
-                    booking.getId(), ConfirmationChannel.EMAIL, LocalDate.now().atStartOfDay()
+            // 1. Kiểm tra Quota giới hạn trong ngày (tối đa 5 lần gửi thành công)
+            long countToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndStatusAndSentAtGreaterThanEqual(
+                    booking.getId(), ConfirmationChannel.EMAIL, "SUCCESS", LocalDate.now().atStartOfDay()
             );
             if (countToday >= 5) {
                 throw new IllegalArgumentException("Đã đạt giới hạn tối đa 5 lần gửi email xác nhận trong ngày cho mã đặt phòng #" + booking.getId() + ". Vui lòng chuyển sang kênh Tin nhắn (Zalo/SMS) hoặc In ấn / Xuất file để tránh spam khách hàng.");
             }
 
-            // 2. Kiểm tra Rate Limit / Cooldown (60 giây giữa các lần gửi)
+            // 2. Kiểm tra Rate Limit / Cooldown (60 giây giữa các lần gửi thành công)
             var lastEmailLogOpt = bookingConfirmationLogRepository
-                    .findFirstByBookingIdAndChannelOrderBySentAtDesc(booking.getId(), ConfirmationChannel.EMAIL);
+                    .findFirstByBookingIdAndChannelAndStatusOrderBySentAtDesc(booking.getId(), ConfirmationChannel.EMAIL, "SUCCESS");
             if (lastEmailLogOpt.isPresent()) {
                 long diffSeconds = ChronoUnit.SECONDS.between(lastEmailLogOpt.get().getSentAt(), java.time.LocalDateTime.now());
                 if (diffSeconds < 60) {
