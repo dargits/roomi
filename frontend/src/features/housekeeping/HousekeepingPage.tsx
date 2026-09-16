@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { IoBrushOutline, IoListOutline, IoWarningOutline } from 'react-icons/io5';
+import { IoBrushOutline, IoListOutline, IoWarningOutline, IoCubeOutline } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
 import Tabs from '../../components/ui/Tabs/Tabs';
 import CleaningTaskList from './CleaningTaskList';
 import RoomStatusUpdate from './RoomStatusUpdate';
 import RoomIncidentModal from './RoomIncidentModal';
+import LostAndFoundPage from './LostAndFoundPage';
 
 const TABS = [
-  { id: 'tasks',     label: 'Phòng cần dọn',   icon: IoBrushOutline },
-  { id: 'overview',  label: 'Tổng quan phòng',  icon: IoListOutline  },
-  { id: 'incidents', label: 'Sự cố phòng & Bảo trì', icon: IoWarningOutline }
+  { id: 'tasks',          label: 'Phòng cần dọn',        icon: IoBrushOutline },
+  { id: 'overview',       label: 'Tổng quan phòng',       icon: IoListOutline  },
+  { id: 'lost-and-found', label: 'Đồ khách để quên',     icon: IoCubeOutline },
+  { id: 'incidents',      label: 'Sự cố phòng & Bảo trì', icon: IoWarningOutline }
 ];
 
 const HousekeepingPage: React.FC = () => {
@@ -34,7 +36,7 @@ const HousekeepingPage: React.FC = () => {
       <PageHeader
         icon={IoBrushOutline}
         title="Buồng phòng"
-        subtitle="Quản lý vệ sinh và trạng thái phòng"
+        subtitle="Quản lý vệ sinh, trạng thái phòng và đồ khách để quên"
       />
 
       {/* Tabs */}
@@ -47,6 +49,7 @@ const HousekeepingPage: React.FC = () => {
         />
       )}
       {tab === 'overview' && <RoomStatusUpdate key={`overview-${refreshKey}`} />}
+      {tab === 'lost-and-found' && <LostAndFoundPage key={`lost-and-found-${refreshKey}`} />}
       {tab === 'incidents' && (
         <RoomIncidentModal
           isOpen={true}

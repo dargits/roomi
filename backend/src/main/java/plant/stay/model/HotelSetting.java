@@ -45,7 +45,8 @@ public class HotelSetting {
 
     /**
      * Ngưỡng giảm giá (số tiền tuyệt đối, sau khi đã tính ra calculatedAmount).
-     * Nếu calculatedAmount >= ngưỡng này → chuyển trạng thái PENDING_DISCOUNT_APPROVAL, cần OWNER duyệt.
+     * Nếu calculatedAmount >= ngưỡng này → chuyển trạng thái
+     * PENDING_DISCOUNT_APPROVAL, cần OWNER duyệt.
      * Nếu NULL → luôn tự động duyệt (không cần OWNER phê duyệt).
      */
     @Column(name = "discount_approval_threshold", precision = 12, scale = 2)
@@ -58,6 +59,9 @@ public class HotelSetting {
     @Column(name = "reminder_morning_time")
     private LocalTime reminderMorningTime;
 
+    @Column(name = "lost_item_retention_days")
+    @Builder.Default
+    private Integer lostItemRetentionDays = 30;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -71,4 +75,3 @@ public class HotelSetting {
     @JoinColumn(name = "updated_by", referencedColumnName = "id")
     private User updatedBy;
 }
-

@@ -206,6 +206,41 @@ public class BookingController {
         return ResponseEntity.ok(new plant.stay.dto.response.MessageResponse("Đã kích hoạt quét và gửi email nhắc nhận phòng cho ngày mai"));
     }
 
+    // Xác nhận đặt phòng (chuyển trạng thái NEW -> CONFIRMED)
+    @PutMapping("/{id}/confirm")
+    public ResponseEntity<BookingResponse> confirmBooking(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.confirmBooking(id, actor));
+    }
+
+    // Sinh / lấy dữ liệu bản xác nhận đặt phòng
+    @GetMapping("/{id}/confirmation")
+    public ResponseEntity<plant.stay.dto.response.BookingConfirmationData> getConfirmationData(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        checkReadBooking(request);
+        return ResponseEntity.ok(bookingService.getBookingConfirmationData(id));
+    }
+
+    // Gửi xác nhận đặt phòng (qua Email hoặc ghi nhật ký kết xuất tin nhắn Zalo/SMS/In)
+    @PostMapping("/{id}/send-confirmation")
+    public ResponseEntity<plant.stay.dto.response.BookingConfirmationLogResponse> sendConfirmation(
+            @PathVariable Long id,
+            @Valid @RequestBody plant.stay.dto.request.SendConfirmationRequest req,
+            HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(bookingService.sendOrLogConfirmation(id, req, actor));
+    }
+
+    // Lấy lịch sử các lần gửi bản xác nhận đặt phòng
+    @GetMapping("/{id}/confirmation-logs")
+    public ResponseEntity<List<plant.stay.dto.response.BookingConfirmationLogResponse>> getConfirmationLogs(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        checkReadBooking(request);
+        return ResponseEntity.ok(bookingService.getConfirmationLogs(id));
+    }
+
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER
