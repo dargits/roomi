@@ -79,6 +79,15 @@ export interface BookingConfirmationData {
   emailConfigured: boolean;
   formattedMessage: string;
 
+  // Kiểm soát chống spam gửi email
+  lastEmailSentAt?: string;
+  lastEmailRecipient?: string;
+  lastEmailSenderName?: string;
+  lastEmailStatus?: string;
+  emailSendCountToday: number;
+  maxEmailSendQuota: number;
+  emailCooldownSecondsRemaining: number;
+
   // Lịch sử gửi
   confirmationLogs: BookingConfirmationLog[];
 }

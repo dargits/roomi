@@ -78,6 +78,16 @@ public class BookingConfirmationData {
     private boolean emailConfigured; // true nếu hệ thống đã cấu hình API Key gửi thư
     private String formattedMessage; // Nội dung văn bản định dạng chuẩn sẵn sàng gửi Zalo/SMS/Messenger
 
+    // Thông tin kiểm soát chống spam gửi email
+    private java.time.LocalDateTime lastEmailSentAt;
+    private String lastEmailRecipient;
+    private String lastEmailSenderName;
+    private String lastEmailStatus;
+    private int emailSendCountToday;
+    @Builder.Default
+    private int maxEmailSendQuota = 5;
+    private long emailCooldownSecondsRemaining; // > 0 nếu đang trong thời gian chờ cooldown (60s)
+
     // Lịch sử gửi xác nhận
     @Builder.Default
     private List<BookingConfirmationLogResponse> confirmationLogs = new ArrayList<>();
