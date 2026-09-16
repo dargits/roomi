@@ -157,3 +157,42 @@ export interface AdrRevparReportResponse {
   roomRows: AdrRevparRoomRow[];
 }
 
+export interface ChannelReportRow {
+  channelKey: string;
+  channelName: string;
+  totalBookings: number;
+  completedBookings: number;
+  activeBookings: number;
+  cancelledBookings: number;
+  cancellationRate: number;
+  noShowBookings: number;
+  noShowRate: number;
+  soldNights: number;
+  revenue: number;
+  adr: number;
+  revenueShare: number;
+  bookingShare: number;
+}
+
+export interface ChannelReportSummary {
+  from: string;
+  to: string;
+  totalRevenue: number;
+  totalBookings: number;
+  totalSoldNights: number;
+  totalCancelled: number;
+  overallCancellationRate: number;
+  totalNoShow: number;
+  overallNoShowRate: number;
+  overallAdr: number;
+  unknownBookings: number;
+  unknownRate: number;
+  dataQualityScore: number;
+}
+
+export interface ChannelReportResponse {
+  summary: ChannelReportSummary;
+  rows: ChannelReportRow[];
+}
+
+
