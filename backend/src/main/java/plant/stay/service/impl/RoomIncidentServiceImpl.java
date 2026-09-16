@@ -15,6 +15,8 @@ import plant.stay.service.AuditLogService;
 import plant.stay.service.NotificationService;
 import plant.stay.service.RoomIncidentService;
 import plant.stay.model.NotificationType;
+import org.springframework.context.ApplicationEventPublisher;
+import plant.stay.event.CalendarSyncEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +32,7 @@ public class RoomIncidentServiceImpl implements RoomIncidentService {
     private final BookingRepository bookingRepository;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -43,6 +46,7 @@ public class RoomIncidentServiceImpl implements RoomIncidentService {
         if (req.getSeverity() == IncidentSeverity.HEAVY || req.getSeverity() == IncidentSeverity.OUT_OF_SERVICE) {
             room.setStatus(RoomStatus.MAINTENANCE);
             roomRepository.save(room);
+            eventPublisher.publishEvent(new CalendarSyncEvent(room.getRoomType().getId(), "ROOM_MAINTENANCE"));
 
             // Kiểm tra các booking sắp tới gán phòng này
             List<Booking> affectedBookings = bookingRepository.findUpcomingBookingsForRoom(room.getId(), LocalDate.now());
@@ -113,6 +117,7 @@ public class RoomIncidentServiceImpl implements RoomIncidentService {
         if (room.getStatus() == RoomStatus.MAINTENANCE && openHeavyIncidents == 0) {
             room.setStatus(RoomStatus.DIRTY);
             roomRepository.save(room);
+            eventPublisher.publishEvent(new CalendarSyncEvent(room.getRoomType().getId(), "ROOM_MAINTENANCE"));
         }
 
         auditLogService.log("RoomIncident", incident.getId(), "RESOLVE_INCIDENT", actor,

@@ -33,6 +33,7 @@ import InventoryManagement from '../features/admin/InventoryManagement';
 import LoyaltyTierManagement from '../features/admin/LoyaltyTierManagement';
 import DepositPolicyPage from '../features/admin/DepositPolicyPage';
 import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
+import ChannelCalendarPage from '../features/admin/ChannelCalendarPage';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
@@ -155,6 +156,9 @@ const AppRoutes: React.FC = () => {
 
                   {/* Kiểm soát đồng thời & Minh chứng — NCL-03 */}
                   <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />
+
+                  {/* Đồng bộ lịch kênh phân phối (iCal / OTA) */}
+                  <Route path="/manage/channels" element={<ChannelCalendarPage />} />
 
                   {/* Hồ sơ cá nhân */}
                   <Route path="/manage/profile" element={<ProfileSettings />} />
