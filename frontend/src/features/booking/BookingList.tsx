@@ -17,10 +17,12 @@ import {
   IoCardOutline,
   IoCloseOutline,
   IoDocumentOutline,
-  IoPeopleOutline
+  IoPeopleOutline,
+  IoDocumentTextOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import AssignRoomModal from './AssignRoomModal';
+import BookingConfirmationModal from './BookingConfirmationModal';
 import CheckInModal from './CheckInModal';
 import RequestDebtCheckoutModal from './RequestDebtCheckoutModal';
 import DebtManagementModal from './DebtManagementModal';
@@ -48,6 +50,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigningBooking, setAssigningBooking] = useState<any>(null);
+  const [confirmationBookingId, setConfirmationBookingId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL'); // ALL | TODAY_CHECKIN | TODAY_CHECKOUT | CHECKED_IN
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | NEW | CONFIRMED | CHECKED_IN | CHECKED_OUT | CANCELLED | NO_SHOW
@@ -548,6 +551,18 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                           <IoDocumentOutline size={14} /> Chi tiết
                         </Link>
                         
+                        {/* Nút Bản xác nhận */}
+                        {(booking.status === 'CONFIRMED' || booking.status === 'NEW') && (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setConfirmationBookingId(booking.id); }}
+                            className="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 cursor-pointer shadow-xs flex items-center gap-1"
+                            title="Xem & gửi bản xác nhận đặt phòng cho khách"
+                          >
+                            <IoDocumentTextOutline size={14} /> Xác nhận
+                          </button>
+                        )}
+
                         {/* Nút Xếp phòng */}
                         {!isAccountant && !booking.roomNumber && !booking.roomId && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
                           <button 
@@ -641,8 +656,11 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
           onClose={() => setAssigningBooking(null)}
           booking={assigningBooking}
           onAssigned={() => {
+            const bookedId = assigningBooking.id;
             fetchBookings();
             setAssigningBooking(null);
+            // Tự động mở Bản xác nhận đặt phòng ngay sau khi xếp phòng thành công
+            setConfirmationBookingId(bookedId);
           }}
         />
       )}
@@ -778,6 +796,16 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
         booking={stayingGuestsBooking}
         onUpdated={fetchBookings}
       />
+
+      {/* Modal Bản xác nhận đặt phòng */}
+      {confirmationBookingId && (
+        <BookingConfirmationModal
+          isOpen={Boolean(confirmationBookingId)}
+          onClose={() => setConfirmationBookingId(null)}
+          bookingId={confirmationBookingId}
+          onBookingConfirmed={fetchBookings}
+        />
+      )}
     </>
   );
 };
