@@ -415,11 +415,7 @@ const LostItemDetailModal: React.FC<LostItemDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Đóng
-          </Button>
-
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
           {isFrontDeskOrAdmin && item.status !== 'RETURNED' && item.status !== 'DISPOSED' && (
             <div className="flex items-center gap-2">
               {item.status === 'HOLDING' && !showContactInput && (
@@ -459,6 +455,10 @@ const LostItemDetailModal: React.FC<LostItemDetailModalProps> = ({
               )}
             </div>
           )}
+
+          <Button type="button" variant="outline" onClick={onClose}>
+            Đóng
+          </Button>
         </div>
       </div>
 
