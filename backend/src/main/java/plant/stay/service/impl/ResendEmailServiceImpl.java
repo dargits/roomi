@@ -834,6 +834,305 @@ public class ResendEmailServiceImpl implements EmailService {
             );
     }
 
+    @Override
+    public boolean isEmailConfigured() {
+        String effectiveKey = getEffectiveApiKey();
+        return effectiveKey != null && !effectiveKey.trim().isEmpty();
+    }
+
+    @Override
+    public boolean sendBookingConfirmationEmail(String toEmail, plant.stay.dto.response.BookingConfirmationData data) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            log.warn("[EMAIL] Không thể gửi email xác nhận đặt phòng: Địa chỉ email người nhận trống (Đặt phòng #{})", data != null ? data.getBookingId() : "N/A");
+            return false;
+        }
+
+        if (!isEmailConfigured()) {
+            log.error("[EMAIL] Chưa cấu hình API Key cho Resend (resend.api-key hoặc RESEND_API_KEY).");
+            return false;
+        }
+
+        try {
+            String hotelName = (data.getPropertyName() != null && !data.getPropertyName().isBlank()) ? data.getPropertyName() : "STAYAWAY HOTEL";
+            String subject = "📋 [Xác nhận đặt phòng] Bản xác nhận đặt phòng #" + data.getBookingId() + " tại " + hotelName;
+            String htmlContent = buildBookingConfirmationEmailTemplate(data);
+
+            String requestBody = "{\"from\":\"" + escapeJson(fromEmail) + "\","
+                    + "\"to\":[\"" + escapeJson(toEmail.trim()) + "\"],"
+                    + "\"subject\":\"" + escapeJson(subject) + "\","
+                    + "\"html\":\"" + escapeJson(htmlContent) + "\"}";
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(RESEND_API_URL))
+                    .header("Authorization", "Bearer " + getEffectiveApiKey())
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(15))
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            log.info("[EMAIL] Đang gửi email xác nhận đặt phòng #{} tới {}...", data.getBookingId(), toEmail);
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("[EMAIL] Gửi email xác nhận đặt phòng thành công qua Resend tới {} (Response: {})", toEmail, response.body());
+                return true;
+            } else {
+                log.error("[EMAIL] Resend API trả về lỗi khi gửi xác nhận đặt phòng [Status: {}]: {}", response.statusCode(), response.body());
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.error("[EMAIL] Ngoại lệ khi gửi email xác nhận đặt phòng qua Resend API: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    private String buildBookingConfirmationEmailTemplate(plant.stay.dto.response.BookingConfirmationData d) {
+        String hotelName = (d.getPropertyName() != null && !d.getPropertyName().isBlank()) ? d.getPropertyName() : "STAYAWAY HOTEL";
+        String hotelAddress = (d.getHotelAddress() != null && !d.getHotelAddress().isBlank()) ? d.getHotelAddress() : "Hệ thống Quản lý Khách sạn StayAway";
+        String hotelPhone = (d.getHotelPhone() != null && !d.getHotelPhone().isBlank()) ? d.getHotelPhone() : "1900 6868";
+        String hotelEmail = (d.getHotelEmail() != null && !d.getHotelEmail().isBlank()) ? d.getHotelEmail() : "support@stayaway.io.vn";
+
+        String guestName = (d.getGuestName() != null && !d.getGuestName().isBlank()) ? d.getGuestName() : "Quý khách";
+        String guestPhone = (d.getGuestPhone() != null && !d.getGuestPhone().isBlank()) ? d.getGuestPhone() : "---";
+        String guestEmail = (d.getGuestEmail() != null && !d.getGuestEmail().isBlank()) ? d.getGuestEmail() : "---";
+
+        java.time.format.DateTimeFormatter dateFormatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        String checkInStr = d.getCheckInDate() != null ? d.getCheckInDate().format(dateFormatter) : "---";
+        String checkOutStr = d.getCheckOutDate() != null ? d.getCheckOutDate().format(dateFormatter) : "---";
+        String checkInTimeStr = d.getStandardCheckInTime() != null ? d.getStandardCheckInTime().toString().substring(0, 5) : "14:00";
+        String checkOutTimeStr = d.getStandardCheckOutTime() != null ? d.getStandardCheckOutTime().toString().substring(0, 5) : "12:00";
+
+        String roomTypeName = d.getRoomTypeName() != null ? d.getRoomTypeName() : "Tiêu chuẩn";
+        String roomNumberInfo = (d.getRoomNumber() != null && !d.getRoomNumber().isBlank())
+                ? ("Phòng " + d.getRoomNumber())
+                : "Sắp xếp khi nhận phòng";
+
+        // Dựng bảng giá từng đêm
+        StringBuilder nightlyRowsHtml = new StringBuilder();
+        if (d.getNightlyDetails() != null && !d.getNightlyDetails().isEmpty()) {
+            for (plant.stay.dto.response.NightlyPriceDetailDto detail : d.getNightlyDetails()) {
+                String dateStr = detail.getDate() != null ? detail.getDate().format(dateFormatter) : "";
+                String dayOfWeek = detail.getDayOfWeek() != null ? detail.getDayOfWeek() : "";
+                String sourceName = detail.getSourceName() != null ? detail.getSourceName() : "Giá ngày thường";
+                String priceStr = formatMoney(detail.getAppliedPrice());
+
+                nightlyRowsHtml.append("""
+                    <tr>
+                      <td style="padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 13px;">%s (%s)</td>
+                      <td style="padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 12px;">%s</td>
+                      <td style="padding: 9px 12px; border-bottom: 1px solid #f1f5f9; text-align: right; color: #0f172a; font-weight: 600; font-size: 13px;">%s</td>
+                    </tr>
+                """.formatted(dateStr, dayOfWeek, sourceName, priceStr));
+            }
+        } else {
+            nightlyRowsHtml.append("""
+                <tr>
+                  <td colspan="2" style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #334155;">Giá phòng trọn gói (%d đêm)</td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; text-align: right; color: #0f172a; font-weight: 600;">%s</td>
+                </tr>
+            """.formatted(d.getTotalNights(), formatMoney(d.getGrandTotalPrice())));
+        }
+
+        // Dòng phụ thu nếu có
+        StringBuilder surchargeHtml = new StringBuilder();
+        if (d.getExtraPersonCharge() != null && d.getExtraPersonCharge().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            surchargeHtml.append("""
+                <tr>
+                  <td colspan="2" style="padding: 8px 12px; text-align: right; color: #d97706; font-size: 13px; font-weight: 500;">Phụ thu thêm người vượt tiêu chuẩn:</td>
+                  <td style="padding: 8px 12px; text-align: right; color: #d97706; font-size: 13px; font-weight: 700;">+%s</td>
+                </tr>
+            """.formatted(formatMoney(d.getExtraPersonCharge())));
+        }
+
+        // Phần thông tin đặt cọc
+        String depositSectionHtml;
+        if (d.getRequiredDepositAmount() != null && d.getRequiredDepositAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            String percentText = d.getDepositPercent() != null ? (" (" + d.getDepositPercent().stripTrailingZeros().toPlainString() + "% tổng tiền phòng)") : "";
+            depositSectionHtml = """
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 14px 18px; margin-bottom: 20px;">
+                  <div style="font-size: 12px; text-transform: uppercase; font-weight: 700; color: #1d4ed8; letter-spacing: 0.5px; margin-bottom: 4px;">Số tiền đặt cọc cần nộp</div>
+                  <div style="font-size: 18px; font-weight: 800; color: #1e40af;">%s <span style="font-size: 13px; font-weight: normal; color: #3b82f6;">%s</span></div>
+                  <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Khoản cọc là căn cứ giữ phòng chắc chắn cho Quý khách theo quy định của khách sạn.</div>
+                </div>
+            """.formatted(formatMoney(d.getRequiredDepositAmount()), percentText);
+        } else {
+            depositSectionHtml = """
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;">
+                  <div style="font-size: 12px; text-transform: uppercase; font-weight: 700; color: #64748b;">Số tiền đặt cọc</div>
+                  <div style="font-size: 14px; font-weight: 600; color: #059669; margin-top: 2px;">Không yêu cầu đặt cọc trước (Thanh toán khi nhận/trả phòng)</div>
+                </div>
+            """;
+        }
+
+        // Phần chính sách hủy
+        String cancellationSummary = (d.getCancellationPolicySummary() != null && !d.getCancellationPolicySummary().isBlank())
+                ? d.getCancellationPolicySummary()
+                : "Quý khách vui lòng liên hệ trực tiếp khách sạn sớm nhất nếu có nhu cầu thay đổi lịch trình.";
+
+        String cancellationPolicyHtml = """
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 14px 18px; margin-bottom: 24px;">
+              <div style="font-size: 12px; text-transform: uppercase; font-weight: 700; color: #b45309; letter-spacing: 0.5px; margin-bottom: 4px;">⚠️ Chính sách hủy đặt phòng áp dụng</div>
+              <div style="font-size: 13px; color: #92400e; line-height: 1.5; font-weight: 500;">%s</div>
+            </div>
+        """.formatted(cancellationSummary);
+
+        String lookupUrl = appDomain + "/p/booking/" + d.getBookingId();
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Bản xác nhận đặt phòng</title>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px 12px; color: #1e293b; }
+                .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+                .header { background: #003b95; color: #ffffff; padding: 28px 32px; }
+                .header-title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+                .header-sub { margin: 4px 0 0; font-size: 12px; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; }
+                .badge-confirmed { display: inline-block; background: #059669; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; margin-top: 10px; letter-spacing: 0.5px; }
+                .content { padding: 28px 32px; }
+                .welcome-banner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; color: #166534; line-height: 1.5; }
+                .grid-info { display: table; width: 100%%; margin-bottom: 24px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 20px; }
+                .col-info { display: table-cell; width: 50%%; vertical-align: top; }
+                .info-label { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; margin-bottom: 4px; }
+                .info-val { font-size: 14px; font-weight: 600; color: #0f172a; line-height: 1.4; }
+                .info-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+                .booking-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px 18px; margin-bottom: 24px; }
+                .booking-card table { width: 100%%; font-size: 13px; border-collapse: collapse; }
+                .booking-card td { padding: 5px 0; }
+                .table-items { width: 100%%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+                .table-items th { background: #f1f5f9; padding: 10px 12px; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 11px; border-bottom: 2px solid #cbd5e1; }
+                .grand-total-row { background: #f8fafc; border-top: 2px solid #003b95; }
+                .btn { display: inline-block; background: #003b95; color: #ffffff !important; font-size: 13px; font-weight: 700; text-transform: uppercase; text-decoration: none; padding: 12px 28px; border-radius: 4px; letter-spacing: 0.5px; text-align: center; }
+                .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; font-size: 12px; color: #64748b; line-height: 1.6; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <div class="header-title">%s</div>
+                  <div class="header-sub">Bản xác nhận đặt phòng • Booking Confirmation</div>
+                  <div class="badge-confirmed">✔ ĐÃ XÁC NHẬN</div>
+                </div>
+
+                <div class="content">
+                  <div class="welcome-banner">
+                    <strong>Kính gửi %s,</strong><br/>
+                    Cảm ơn Quý khách đã đặt phòng tại <strong>%s</strong>. Chúng tôi xin gửi thông tin chi tiết về kỳ lưu trú, bảng giá từng đêm, số tiền đặt cọc và chính sách hủy phòng dưới đây.
+                  </div>
+
+                  <div class="grid-info">
+                    <div class="col-info" style="padding-right: 12px;">
+                      <div class="info-label">Khách hàng</div>
+                      <div class="info-val">%s</div>
+                      <div class="info-sub">SĐT: %s</div>
+                      <div class="info-sub">Email: %s</div>
+                    </div>
+                    <div class="col-info" style="padding-left: 12px;">
+                      <div class="info-label">Cơ sở lưu trú</div>
+                      <div class="info-val">%s</div>
+                      <div class="info-sub">Đ/c: %s</div>
+                      <div class="info-sub">Hotline: %s</div>
+                    </div>
+                  </div>
+
+                  <div class="booking-card">
+                    <table>
+                      <tr>
+                        <td style="color: #64748b; width: 40%%;">Mã đặt phòng:</td>
+                        <td style="font-weight: 700; color: #003b95;">#%d</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Hạng phòng:</td>
+                        <td style="font-weight: 600; color: #1e293b;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Số phòng chỉ định:</td>
+                        <td style="font-weight: 600; color: #1e293b;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Nhận phòng (Check-in):</td>
+                        <td style="font-weight: 700; color: #059669;">%s (Từ %s)</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Trả phòng (Check-out):</td>
+                        <td style="font-weight: 600; color: #1e293b;">%s (Trước %s)</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b;">Thời gian ở:</td>
+                        <td style="font-weight: 600; color: #1e293b;">%d đêm</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <div style="font-weight: 700; font-size: 14px; margin-bottom: 8px; color: #0f172a;">Chi tiết giá từng đêm</div>
+                  <table class="table-items">
+                    <thead>
+                      <tr>
+                        <th style="text-align: left;">Ngày</th>
+                        <th style="text-align: left;">Loại giá / Ghi chú</th>
+                        <th style="text-align: right; width: 130px;">Đơn giá</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      %s
+                      %s
+                      <tr class="grand-total-row">
+                        <td colspan="2" style="padding: 12px; font-weight: 700; font-size: 14px; color: #0f172a;">TỔNG TIỀN PHÒNG DỰ KIẾN:</td>
+                        <td style="padding: 12px; text-align: right; font-weight: 800; font-size: 16px; color: #003b95;">%s</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  %s
+
+                  %s
+
+                  <div style="text-align: center; margin: 28px 0 10px;">
+                    <a href="%s" class="btn">Tra cứu đặt phòng trực tuyến</a>
+                  </div>
+                </div>
+
+                <div class="footer">
+                  Cảm ơn Quý khách đã lựa chọn <strong>%s</strong>.<br/>
+                  Mọi thắc mắc xin vui lòng liên hệ hotline <strong>%s</strong> để được giải đáp 24/7!
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(
+                hotelName,
+                guestName,
+                hotelName,
+                guestName,
+                guestPhone,
+                guestEmail,
+                hotelName,
+                hotelAddress,
+                hotelPhone,
+                d.getBookingId(),
+                roomTypeName,
+                roomNumberInfo,
+                checkInStr,
+                checkInTimeStr,
+                checkOutStr,
+                checkOutTimeStr,
+                d.getTotalNights(),
+                nightlyRowsHtml.toString(),
+                surchargeHtml.toString(),
+                formatMoney(d.getGrandTotalPrice()),
+                depositSectionHtml,
+                cancellationPolicyHtml,
+                lookupUrl,
+                hotelName,
+                hotelPhone
+            );
+    }
+
     private String escapeJson(String input) {
         if (input == null) return "";
         StringBuilder sb = new StringBuilder();
