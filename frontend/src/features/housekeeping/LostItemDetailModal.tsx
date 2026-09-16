@@ -50,6 +50,7 @@ const LostItemDetailModal: React.FC<LostItemDetailModalProps> = ({
   const [contacting, setContacting] = useState(false);
   const [showContactInput, setShowContactInput] = useState(false);
   const [contactNote, setContactNote] = useState('');
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   const isFrontDeskOrAdmin =
     user?.role === 'OWNER' || user?.role === 'ADMIN' || user?.role === 'RECEPTIONIST';
@@ -209,13 +210,26 @@ const LostItemDetailModal: React.FC<LostItemDetailModalProps> = ({
             </div>
 
             {item.imageUrl && (
-              <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="text-[11px] text-slate-500 mb-1">Ảnh chụp hiện trường:</div>
-                <img
-                  src={item.imageUrl}
-                  alt={item.itemName}
-                  className="w-full h-32 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
-                />
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                  <span className="font-semibold">Ảnh chụp món đồ:</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Bấm vào ảnh để phóng to</span>
+                </div>
+                <div
+                  onClick={() => setIsImageZoomed(true)}
+                  className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/60 flex items-center justify-center cursor-zoom-in hover:border-emerald-500 transition-all p-1.5"
+                >
+                  <img
+                    src={item.imageUrl}
+                    alt={item.itemName}
+                    className="w-full max-h-56 object-contain rounded-lg transition-transform duration-200 group-hover:scale-[1.01]"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity px-2.5 py-1 bg-black/70 text-white text-[11px] font-medium rounded-full shadow-md">
+                      🔍 Phóng to ảnh
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -447,6 +461,35 @@ const LostItemDetailModal: React.FC<LostItemDetailModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Lightbox Phóng to ảnh toàn màn hình */}
+      {isImageZoomed && item.imageUrl && (
+        <div
+          onClick={() => setIsImageZoomed(false)}
+          className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+          >
+            <button
+              type="button"
+              onClick={() => setIsImageZoomed(false)}
+              className="absolute -top-10 right-0 text-white/90 hover:text-white text-xs font-semibold px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full transition cursor-pointer"
+            >
+              ✕ Đóng
+            </button>
+            <img
+              src={item.imageUrl}
+              alt={item.itemName}
+              className="max-h-[82vh] max-w-full object-contain rounded-xl shadow-2xl border border-white/20"
+            />
+            <div className="text-white/90 text-xs mt-2.5 text-center font-medium">
+              {item.itemName} - Phòng {item.roomNumber} ({item.foundLocation})
+            </div>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 };
