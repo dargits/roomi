@@ -10,3 +10,4 @@ export * from './report';
 export * from './admin';
 export * from './bookingConfirmation';
 export * from './lostItem';
+export * from './channel';

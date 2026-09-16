@@ -33,13 +33,15 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     checkInDate: string;
     checkOutDate: string;
     note: string;
+    source: string;
   }>({
     guestId: '',
     roomTypeId: '',
     roomId: null,
     checkInDate: '',
     checkOutDate: '',
-    note: ''
+    note: '',
+    source: 'WALKIN'
   });
 
   useEffect(() => {
@@ -51,7 +53,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
         roomId: null,
         checkInDate: '',
         checkOutDate: '',
-        note: ''
+        note: '',
+        source: 'WALKIN'
       });
       setSearchGuestTerm('');
       setGuests([]);
@@ -131,7 +134,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       await bookingApi.createBooking({
         ...formData,
         guestId: Number(formData.guestId),
-        roomTypeId: Number(formData.roomTypeId)
+        roomTypeId: Number(formData.roomTypeId),
+        source: formData.source || 'WALKIN'
       });
       onSuccess?.();
     } catch (err: any) {
@@ -142,6 +146,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
   };
 
   const roomTypeOptions = roomTypes.map(rt => ({ value: rt.id, label: rt.name }));
+  const channelSourceOptions = [
+    { value: 'WALKIN', label: '🚶 Khách tại quầy (Walk-in)' },
+    { value: 'PHONE', label: '📞 Kênh điện thoại' },
+    { value: 'SOCIAL', label: '💬 Kênh mạng xã hội (FB, Zalo, Tiktok...)' },
+    { value: 'ONLINE', label: '🌐 Cổng đặt phòng trực tiếp' },
+    { value: 'SIMULATION', label: '🔄 Kênh mô phỏng / OTA (Airbnb, Booking...)' },
+  ];
 
   // Badge màu số phòng trống
   const availBadgeClass = availableCount === 0
@@ -205,7 +216,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
           )}
         </div>
 
-        {/* Room & Dates */}
+        {/* Room & Dates & Channel Source */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Select 
@@ -230,7 +241,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
             )}
           </div>
           
-          <div /> {/* Empty space */}
+          <Select 
+            label="Kênh đặt phòng" 
+            name="source" 
+            value={formData.source} 
+            onChange={handleInputChange} 
+            options={channelSourceOptions} 
+            required 
+          />
 
           <Input 
             label="Ngày nhận phòng" 

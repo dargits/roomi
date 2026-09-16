@@ -16,6 +16,8 @@ import plant.stay.repository.UserRepository;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.NotificationService;
 import plant.stay.service.RoomService;
+import org.springframework.context.ApplicationEventPublisher;
+import plant.stay.event.CalendarSyncEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,6 +34,7 @@ public class RoomServiceImpl implements RoomService {
     private final BookingRepository bookingRepository;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<RoomResponse> getAll() {
@@ -83,10 +86,14 @@ public class RoomServiceImpl implements RoomService {
         room.setRoomNumber(request.getRoomNumber());
         room.setRoomType(roomType);
         room.setFloor(request.getFloor());
+        RoomStatus oldStatus = room.getStatus();
         if (request.getStatus() != null) room.setStatus(request.getStatus());
         room.setNotes(request.getNotes());
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "UPDATE", actor, "Cập nhật phòng " + room.getRoomNumber());
+        if (oldStatus == RoomStatus.MAINTENANCE || room.getStatus() == RoomStatus.MAINTENANCE) {
+            eventPublisher.publishEvent(new CalendarSyncEvent(room.getRoomType().getId(), "ROOM_MAINTENANCE"));
+        }
         return toResponse(room);
     }
 
@@ -142,6 +149,7 @@ public class RoomServiceImpl implements RoomService {
         room.setStatus(RoomStatus.MAINTENANCE);
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "MAINTENANCE", actor, "Khóa phòng " + room.getRoomNumber() + " để bảo trì");
+        eventPublisher.publishEvent(new CalendarSyncEvent(room.getRoomType().getId(), "ROOM_MAINTENANCE"));
         return toResponse(room);
     }
 
