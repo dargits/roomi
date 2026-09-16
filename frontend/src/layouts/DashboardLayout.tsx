@@ -76,7 +76,8 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { path: '/manage/rooms',        label: 'Sơ đồ phòng',   icon: IoLayersOutline,   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
       { path: '/manage/room-types',   label: 'Loại phòng',     icon: IoBedOutline,      allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/housekeeping', label: 'Buồng phòng',    icon: IoSparklesOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
+      { path: '/manage/housekeeping', label: 'Buồng phòng',    icon: IoSparklesOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
+      { path: '/manage/lost-and-found', label: 'Đồ khách để quên', icon: IoCubeOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
     ]
   },
   {
@@ -139,6 +140,7 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/rooms': { title: 'Sơ Đồ Phòng', group: 'Phòng' },
   '/manage/room-types': { title: 'Quản Lý Loại Phòng', group: 'Phòng' },
   '/manage/housekeeping': { title: 'Quản Lý Buồng Phòng', group: 'Phòng' },
+  '/manage/lost-and-found': { title: 'Quản Lý Đồ Khách Để Quên', group: 'Phòng' },
   '/manage/guests': { title: 'Quản Lý Khách Hàng', group: 'Khách & Dịch vụ' },
   '/manage/extra-services': { title: 'Dịch Vụ Phụ Thu', group: 'Khách & Dịch vụ' },
   '/manage/loyalty': { title: 'Khách Thân Thiết', group: 'Khách & Dịch vụ' },

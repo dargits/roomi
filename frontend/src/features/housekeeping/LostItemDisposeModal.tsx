@@ -1,0 +1,165 @@
+import React, { useState } from 'react';
+import Modal from '../../components/ui/Modal';
+import Button from '../../components/ui/Button';
+import { lostItemApi } from '../../services/lostItemApi';
+import { LostItem } from '../../types';
+import { useToast } from '../../context/ToastContext';
+import { extractErrorMessage } from '../../services/api';
+import {
+  IoTrashOutline,
+  IoWarningOutline,
+  IoDocumentTextOutline,
+  IoCubeOutline,
+} from 'react-icons/io5';
+
+interface LostItemDisposeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  item: LostItem | null;
+  onSuccess: (updatedItem: LostItem) => void;
+}
+
+const DISPOSAL_METHODS = [
+  'Tiêu hủy',
+  'Thanh lý',
+  'Tặng từ thiện',
+  'Sung công quỹ cơ sở',
+  'Chuyển giao cho cơ quan chức năng',
+  'Khác',
+];
+
+const LostItemDisposeModal: React.FC<LostItemDisposeModalProps> = ({
+  isOpen,
+  onClose,
+  item,
+  onSuccess,
+}) => {
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  const [disposalMethod, setDisposalMethod] = useState('Tiêu hủy');
+  const [disposalNote, setDisposalNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!item) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!disposalMethod) {
+      toastError('Vui lòng chọn hình thức xử lý');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const updated = await lostItemApi.disposeItem(item.id, {
+        disposalMethod,
+        disposalNote: disposalNote.trim() || undefined,
+      });
+      toastSuccess(`Đã cập nhật xử lý quá hạn theo chính sách cho món đồ "${item.itemName}"!`);
+      onSuccess(updated);
+      onClose();
+    } catch (err: any) {
+      toastError(extractErrorMessage(err, 'Không thể xử lý món đồ. Vui lòng thử lại.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Xử lý đồ quá hạn theo chính sách"
+      maxWidth="max-w-lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3 flex items-start gap-2.5">
+          <IoWarningOutline className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+            Món đồ đã quá thời hạn lưu giữ cấu hình của cơ sở. Việc xử lý sẽ được ghi nhận vào nhật ký kiểm toán với người phê duyệt hiện tại.
+          </div>
+        </div>
+
+        {/* Tóm tắt món đồ */}
+        <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+          <div className="text-xs text-slate-500 dark:text-slate-400">Món đồ xử lý:</div>
+          <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+            {item.itemName}
+          </div>
+          <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-3">
+            <span>Phòng: <strong className="text-emerald-600">P.{item.roomNumber}</strong></span>
+            <span>Ngày phát hiện: <strong>{item.foundDate}</strong></span>
+            {item.retentionExpiryDate && (
+              <span className="text-rose-600 dark:text-rose-400">
+                Hạn lưu giữ: <strong>{item.retentionExpiryDate}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Hình thức xử lý */}
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
+            Hình thức xử lý <span className="text-rose-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {DISPOSAL_METHODS.map((method) => (
+              <button
+                key={method}
+                type="button"
+                onClick={() => setDisposalMethod(method)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border text-left flex items-center gap-2 transition ${
+                  disposalMethod === method
+                    ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-400 text-rose-700 dark:text-rose-300 font-semibold shadow-xs'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    disposalMethod === method ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-600'
+                  }`}
+                />
+                {method}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Ghi chú lý do / Biên bản */}
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
+            Lý do / Biên bản xử lý chi tiết
+          </label>
+          <div className="relative">
+            <IoDocumentTextOutline className="absolute left-3 top-3 text-slate-400 w-4 h-4" />
+            <textarea
+              rows={3}
+              placeholder="VD: Quá 30 ngày không liên lạc được với khách, cơ sở thực hiện tiêu hủy theo quy chế..."
+              value={disposalNote}
+              onChange={(e) => setDisposalNote(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            variant="danger"
+            isLoading={submitting}
+            className="bg-rose-600 hover:bg-rose-700 text-white"
+          >
+            <IoTrashOutline className="w-4 h-4 mr-1.5" />
+            Xác nhận xử lý quá hạn
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default LostItemDisposeModal;
