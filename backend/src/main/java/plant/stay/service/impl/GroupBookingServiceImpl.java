@@ -18,6 +18,8 @@ import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.BookingService;
 import plant.stay.service.GroupBookingService;
+import org.springframework.context.ApplicationEventPublisher;
+import plant.stay.event.CalendarSyncEvent;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -47,6 +49,7 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     private final PaymentRepository paymentRepository;
     private final plant.stay.repository.BookingServiceUsageRepository usageRepository;
     private final plant.stay.service.PricingService pricingService;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     @Override
@@ -88,6 +91,9 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         bookings = bookingRepository.saveAll(bookings);
         auditLogService.log("GroupBooking", groupBooking.getId(), "CREATE", actor,
                 "Tạo hồ sơ đoàn cho " + representative.getName() + " gồm " + bookings.size() + " phòng");
+        for (Long roomTypeId : requestedRooms.keySet()) {
+            eventPublisher.publishEvent(new CalendarSyncEvent(roomTypeId, "BOOKING_CREATED"));
+        }
         return toResponse(groupBooking, bookings);
     }
 
@@ -196,6 +202,13 @@ public class GroupBookingServiceImpl implements GroupBookingService {
 
         auditLogService.log("GroupBooking", groupBookingId, "CANCEL_PARTIAL_ROOMS", actor,
             logDetail.toString());
+
+        Set<Long> affectedRoomTypeIds = toCancel.stream()
+                .map(b -> b.getRoomType().getId())
+                .collect(Collectors.toSet());
+        for (Long rtId : affectedRoomTypeIds) {
+            eventPublisher.publishEvent(new CalendarSyncEvent(rtId, "BOOKING_CANCELLED"));
+        }
 
         return toResponse(groupBooking, bookingRepository.findByGroupBookingId(groupBookingId));
     }

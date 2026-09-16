@@ -20,6 +20,8 @@ import plant.stay.service.BookingService;
 import plant.stay.service.EmailService;
 import plant.stay.service.NotificationService;
 import plant.stay.model.NotificationType;
+import org.springframework.context.ApplicationEventPublisher;
+import plant.stay.event.CalendarSyncEvent;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -56,6 +58,7 @@ public class BookingServiceImpl implements BookingService {
     private final HotelSettingRepository hotelSettingRepository;
     private final NotificationService notificationService;
     private final BookingConfirmationLogRepository bookingConfirmationLogRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.domain:https://stayaway.io.vn}")
     private String appDomain;
@@ -148,6 +151,8 @@ public class BookingServiceImpl implements BookingService {
             room = roomRepository.findById(request.getRoomId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
             checkRoomConflict(room.getId(), request.getCheckInDate(), request.getCheckOutDate(), -1L);
+        } else {
+            checkRoomTypeCapacity(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate());
         }
 
         int guestCount = request.getGuestCount() != null ? request.getGuestCount() : (roomType.getStandardCapacity() != null ? roomType.getStandardCapacity() : 2);
@@ -165,6 +170,10 @@ public class BookingServiceImpl implements BookingService {
             finalNote = (finalNote != null && !finalNote.isBlank()) ? (finalNote + " " + surchargeNote) : surchargeNote;
         }
 
+        String bookingSource = (request.getSource() != null && !request.getSource().isBlank())
+                ? request.getSource().trim().toUpperCase()
+                : "WALKIN";
+
         Booking booking = Booking.builder()
                 .guest(guest)
                 .roomType(roomType)
@@ -174,12 +183,14 @@ public class BookingServiceImpl implements BookingService {
                 .status(BookingStatus.NEW)
                 .expectedPrice(expectedPrice)
                 .actualPrice(expectedPrice)
+                .source(bookingSource)
                 .note(finalNote)
                 .createdBy(actor)
                 .build();
         booking = bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CREATE", actor,
                 "Tạo đặt phòng cho khách " + guest.getName());
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_CREATED"));
         return toResponse(booking);
     }
 
@@ -288,6 +299,7 @@ public class BookingServiceImpl implements BookingService {
         }
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CANCEL", actor, cancelNote);
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_CANCELLED"));
         return toResponse(booking);
     }
 
@@ -770,6 +782,7 @@ public class BookingServiceImpl implements BookingService {
         auditLogService.log("Booking", booking.getId(), "EXTEND_STAY", actor,
                 "Gia hạn " + req.getAdditionalNights() + " đêm đến " + newCheckOut +
                 ", tiền thêm: " + additionalCost + "đ");
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_RESCHEDULED"));
         return toResponse(booking);
     }
 
@@ -1119,6 +1132,7 @@ public class BookingServiceImpl implements BookingService {
         auditLogService.log("Booking", booking.getId(), "RESCHEDULE", actor,
                 "Dời lịch từ " + oldRange + " sang " + newRange +
                 (req.getReason() != null && !req.getReason().isBlank() ? " | Lý do: " + req.getReason().trim() : ""));
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_RESCHEDULED"));
 
         return toResponse(booking);
     }
@@ -1235,6 +1249,50 @@ public class BookingServiceImpl implements BookingService {
         if (!conflicts.isEmpty()) {
             throw new IllegalArgumentException("Phòng đã được đặt trong khoảng thời gian này (xung đột với booking #"
                     + conflicts.get(0).getId() + ")");
+        }
+    }
+
+    // Kiểm tra sức chứa loại phòng khi đặt không chọn phòng cụ thể
+    private void checkRoomTypeCapacity(Long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        List<Room> allRooms = roomRepository.findByRoomTypeId(roomTypeId);
+        if (allRooms.isEmpty()) {
+            throw new IllegalArgumentException("Loại phòng này hiện chưa có phòng thực tế nào.");
+        }
+        long totalPhysicalRooms = allRooms.size();
+        List<Booking> activeBookings = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
+                roomTypeId, checkIn, checkOut);
+        LocalDate today = LocalDate.now();
+
+        for (LocalDate d = checkIn; d.isBefore(checkOut); d = d.plusDays(1)) {
+            final LocalDate cur = d;
+            java.util.Set<Long> occupiedRoomIds = new java.util.HashSet<>();
+            int unassignedBookingCount = 0;
+
+            for (Booking b : activeBookings) {
+                if (!b.getCheckInDate().isAfter(cur) && b.getCheckOutDate().isAfter(cur)) {
+                    if (b.getRoom() != null) {
+                        occupiedRoomIds.add(b.getRoom().getId());
+                    } else {
+                        unassignedBookingCount++;
+                    }
+                }
+            }
+
+            for (Room r : allRooms) {
+                if (r.getStatus() == RoomStatus.MAINTENANCE) {
+                    occupiedRoomIds.add(r.getId());
+                } else if (cur.equals(today) && r.getStatus() == RoomStatus.OCCUPIED) {
+                    occupiedRoomIds.add(r.getId());
+                }
+            }
+
+            long totalOccupied = occupiedRoomIds.size() + unassignedBookingCount;
+            if (totalPhysicalRooms - totalOccupied <= 0) {
+                throw new IllegalArgumentException(String.format(
+                        "Loại phòng đã hết phòng trống cho đêm ngày %s. Vui lòng chọn ngày hoặc loại phòng khác.",
+                        cur
+                ));
+            }
         }
     }
 

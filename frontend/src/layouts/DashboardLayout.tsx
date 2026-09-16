@@ -29,7 +29,8 @@ import {
   IoGlobeOutline,
   IoChevronBackOutline,
   IoChevronForwardOutline,
-  IoOpenOutline
+  IoOpenOutline,
+  IoSyncOutline
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
@@ -66,7 +67,8 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { path: '/manage/bookings', label: 'Quản lý đặt phòng', icon: IoCalendarOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
       { path: '/manage/in-house-guests', label: 'Khách đang lưu trú', icon: IoBedOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
       { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', icon: IoCashOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
+      { path: '/manage/deposit-policies', label: 'Chính sách đặt cọc', icon: IoCashOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] },
+      { path: '/manage/channels', label: 'Đồng bộ lịch kênh (iCal)', icon: IoSyncOutline, allowedRoles: ['OWNER', 'ADMIN'] }
     ]
   },
   {

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   IoCheckmarkCircle,
   IoCheckmarkCircleOutline,
+  IoCloseCircle,
   IoFlashOutline,
   IoInformationCircleOutline,
   IoPeopleOutline
@@ -22,6 +23,9 @@ export interface RoomCardData {
   totalPrice?: number;
   nights?: number;
   isAveragePrice?: boolean;
+  availableRooms?: number;
+  totalPhysicalRooms?: number;
+  isAvailable?: boolean;
 }
 
 export interface RoomCardProps {
@@ -31,6 +35,7 @@ export interface RoomCardProps {
 }
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => {
+  const isSoldOut = room.isAvailable === false || (room.availableRooms !== undefined && room.availableRooms <= 0);
   return (
     <div className="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group">
       {/* Image Gallery */}
@@ -82,10 +87,17 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
             </div>
           </div>
           <div className="text-right flex flex-col items-end gap-1">
-            <span className="bg-surface-container border border-border-grey text-on-surface font-label-sm px-2 py-1 rounded flex items-center gap-1">
-              <IoCheckmarkCircle className="text-green-600 text-[14px]" size={14} strokeWidth={1.5} />
-              Còn phòng
-            </span>
+            {isSoldOut ? (
+              <span className="bg-red-50 border border-red-200 text-red-600 font-label-sm px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-2xs">
+                <IoCloseCircle className="text-red-500 text-[14px]" size={14} />
+                Hết phòng
+              </span>
+            ) : (
+              <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 font-label-sm px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-2xs">
+                <IoCheckmarkCircle className="text-emerald-600 text-[14px]" size={14} />
+                {room.availableRooms !== undefined ? `Còn ${room.availableRooms} phòng` : 'Còn phòng'}
+              </span>
+            )}
             <span className="bg-surface-container border border-border-grey text-on-surface font-label-sm px-2 py-1 rounded flex items-center gap-1">
               <IoFlashOutline className="text-primary text-[14px]" size={14} strokeWidth={1.5} />
               Đặt nhanh chóng
@@ -135,22 +147,30 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
               {onGroupBook && (
                 <button
                   type="button"
-                  onClick={onGroupBook}
-                  className="border border-primary bg-surface-container-lowest px-4 py-2 font-label-md text-label-md text-primary transition-colors hover:bg-surface-blue-light cursor-pointer"
+                  onClick={isSoldOut ? undefined : onGroupBook}
+                  disabled={isSoldOut}
+                  className={`border px-4 py-2 font-label-md text-label-md transition-colors ${
+                    isSoldOut
+                      ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed select-none'
+                      : 'border-primary bg-surface-container-lowest text-primary hover:bg-surface-blue-light cursor-pointer'
+                  }`}
                 >
                   Đặt theo đoàn
                 </button>
               )}
               <button
                 type="button"
-                onClick={onBookNow}
+                onClick={isSoldOut ? undefined : onBookNow}
+                disabled={isSoldOut}
                 className={
-                  room.primaryButton
-                    ? 'btn-shimmer bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container hover:shadow-md active:scale-95 transition-all cursor-pointer'
-                    : 'btn-shimmer bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light hover:shadow-sm active:scale-95 transition-all cursor-pointer'
+                  isSoldOut
+                    ? 'bg-gray-200 text-gray-400 border border-gray-300 font-label-md text-label-md px-6 py-2 rounded cursor-not-allowed select-none'
+                    : room.primaryButton
+                      ? 'btn-shimmer bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container hover:shadow-md active:scale-95 transition-all cursor-pointer'
+                      : 'btn-shimmer bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light hover:shadow-sm active:scale-95 transition-all cursor-pointer'
                 }
               >
-                Đặt phòng ngay
+                {isSoldOut ? 'Hết phòng' : 'Đặt phòng ngay'}
               </button>
             </div>
           </div>
