@@ -109,4 +109,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "WHERE b.status = 'CHECKED_IN' " +
            "ORDER BY r.roomNumber ASC, b.id ASC")
     List<Booking> findInHouseBookings();
+
+    // Tìm lượt lưu trú vừa kết thúc gần nhất (hoặc đang lưu trú) của phòng để gắn đồ để quên
+    @Query("SELECT b FROM Booking b JOIN FETCH b.guest g WHERE b.room.id = :roomId " +
+           "AND b.status IN ('CHECKED_OUT', 'CHECKED_IN') " +
+           "ORDER BY CASE WHEN b.checkedOutAt IS NOT NULL THEN b.checkedOutAt ELSE b.createdAt END DESC, b.checkOutDate DESC, b.id DESC")
+    List<Booking> findRecentStaysForRoom(@Param("roomId") Long roomId, org.springframework.data.domain.Pageable pageable);
 }
