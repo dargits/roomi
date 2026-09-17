@@ -77,6 +77,15 @@ public class InvoiceController {
         return ResponseEntity.ok(invoiceService.getById(invoiceId));
     }
 
+    @PostMapping("/api/v1/invoices/{invoiceId}/cancel")
+    public ResponseEntity<InvoiceResponse> cancelDraftInvoice(
+            @PathVariable Long invoiceId,
+            @Valid @RequestBody plant.stay.dto.request.InvoiceCancelRequest req,
+            HttpServletRequest request) {
+        User actor = checkFinance(request);
+        return ResponseEntity.ok(invoiceService.cancelDraftInvoice(invoiceId, req, actor));
+    }
+
     @PostMapping("/api/v1/invoices/{invoiceId}/adjust")
     public ResponseEntity<InvoiceResponse> adjustInvoice(@PathVariable Long invoiceId,
                                                           @Valid @RequestBody InvoiceAdjustRequest req,
