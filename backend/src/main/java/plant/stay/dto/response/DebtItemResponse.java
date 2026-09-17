@@ -51,6 +51,12 @@ public class DebtItemResponse {
     /** Ghi chú tóm tắt lần liên hệ gần nhất */
     private String lastContactNote;
 
+    /** Kết quả lần liên hệ gần nhất */
+    private String lastContactResult;
+
+    /** Ngày khách hẹn thanh toán */
+    private LocalDate promisedDate;
+
     /** Ngày hẹn liên hệ lại kế tiếp */
     private LocalDate nextReminderDate;
 

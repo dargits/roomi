@@ -305,6 +305,8 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 .reminderStatus(reminderStatus)
                 .lastContactedAt(r.getLastContactedAt())
                 .lastContactNote(r.getLastContactNote())
+                .lastContactResult(r.getLastContactResult())
+                .promisedDate(r.getPromisedDate())
                 .nextReminderDate(r.getNextReminderDate())
                 .collectionCount(collectionCount)
                 .checkInDate(checkInDate)
@@ -441,8 +443,18 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
 
         // Cập nhật trường denormalized trên DebtApprovalRequest
         debt.setLastContactedAt(contactDate);
-        debt.setLastContactNote(finalNotes.length() > 200 ? finalNotes.substring(0, 200) + "..." : finalNotes);
-        debt.setNextReminderDate(req.getNextReminderDate());
+        if (finalNotes != null && !finalNotes.isBlank()) {
+            debt.setLastContactNote(finalNotes.length() > 200 ? finalNotes.substring(0, 200) + "..." : finalNotes);
+        }
+        if (req.getContactResult() != null && !req.getContactResult().isBlank()) {
+            debt.setLastContactResult(req.getContactResult());
+        }
+        if (req.getPromisedDate() != null) {
+            debt.setPromisedDate(req.getPromisedDate());
+        }
+        if (req.getNextReminderDate() != null) {
+            debt.setNextReminderDate(req.getNextReminderDate());
+        }
         debtApprovalRepository.save(debt);
 
         auditLogService.log("DebtApprovalRequest", debtId, "ADD_COLLECTION_LOG", actor,
