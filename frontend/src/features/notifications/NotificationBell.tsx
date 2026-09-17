@@ -14,6 +14,7 @@ const TYPE_ICON: Record<NotificationType, { emoji: string; bg: string; text: str
   ROOM_INCIDENT_HEAVY:        { emoji: '🚨', bg: 'bg-red-100',     text: 'text-red-700'     },
   STAY_MILESTONE:             { emoji: '📅', bg: 'bg-purple-100',  text: 'text-purple-700'  },
   INVOICE_DISCOUNT_APPROVAL:  { emoji: '💰', bg: 'bg-rose-100',    text: 'text-rose-700'    },
+  CHANNEL_OVERBOOKING_CONFLICT: { emoji: '🚨', bg: 'bg-red-100',     text: 'text-red-700'     },
 };
 
 // ─── Hiển thị thời gian tương đối ──────────────────────────────────────────
@@ -30,6 +31,9 @@ function relativeTime(dateStr: string): string {
 
 // ─── Deep-link routing ───────────────────────────────────────────────────────
 function buildLink(item: NotificationItem): string | null {
+  if (item.type === 'CHANNEL_OVERBOOKING_CONFLICT' || item.refType === 'BOOKING_CALENDAR' || item.refType === 'CHANNEL') {
+    return `/manage/bookings/calendar`;
+  }
   if (!item.refId) return null;
   switch (item.refType) {
     case 'BOOKING': return `/manage/bookings`;

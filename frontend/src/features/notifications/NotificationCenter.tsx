@@ -87,6 +87,14 @@ const TYPE_CONFIG: Record<NotificationType, {
     badgeColor: 'bg-red-100 text-red-800 border-red-200',
     borderColor: 'border-l-red-500'
   },
+  CHANNEL_OVERBOOKING_CONFLICT: {
+    label: 'Trùng phòng kênh OTA',
+    icon: IoAlertCircleOutline,
+    bgColor: 'bg-rose-50 text-rose-600',
+    textColor: 'text-rose-700',
+    badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
+    borderColor: 'border-l-rose-500'
+  },
 };
 
 // ─── Relative & formatted time helpers ───────────────────────────────────────
@@ -121,6 +129,9 @@ function isOlderThan30Days(dateStr: string): boolean {
 
 // ─── Deep-link resolver ──────────────────────────────────────────────────────
 function getTargetRoute(item: NotificationItem): string | null {
+  if (item.type === 'CHANNEL_OVERBOOKING_CONFLICT' || item.refType === 'BOOKING_CALENDAR') {
+    return '/manage/bookings/calendar';
+  }
   if (!item.refId) {
     if (item.type === 'ROOM_DIRTY') return '/manage/housekeeping';
     return null;
@@ -134,6 +145,8 @@ function getTargetRoute(item: NotificationItem): string | null {
       return `/manage/bookings/${item.refId}/invoice`;
     case 'ROOM_INCIDENT':
       return `/manage/rooms`;
+    case 'CHANNEL':
+      return '/manage/bookings/calendar';
     default:
       return null;
   }

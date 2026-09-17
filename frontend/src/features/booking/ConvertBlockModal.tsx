@@ -37,6 +37,8 @@ interface ConvertBlockModalProps {
     summary?: string;
     note?: string;
     isExcess?: boolean;
+    warningMessage?: string;
+    hasConflict?: boolean;
   } | null;
   onSuccess: (booking?: any) => void;
 }
@@ -203,6 +205,22 @@ const ConvertBlockModal: React.FC<ConvertBlockModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Banner cảnh báo xung đột trùng phòng */}
+        {block.warningMessage && (
+          <div className="bg-red-50 border border-red-300 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-red-900 shadow-xs">
+            <IoAlertCircleOutline size={20} className="text-red-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="font-bold text-red-950 flex items-center gap-1.5">
+                <span>⚠️ Cảnh báo trùng phòng / Không còn phòng trống:</span>
+              </div>
+              <p className="leading-relaxed text-red-800">{block.warningMessage}</p>
+              <p className="text-[11px] text-red-700 italic">
+                Lễ tân có thể chọn phòng vật lý khác còn trống bên dưới để xếp phòng, hoặc ghi nhận thông tin khách và liên hệ điều phối trước khi khách tới quầy.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Thông tin khách hàng */}
         <div className="border border-border-grey rounded-xl p-3.5 space-y-3 bg-surface-container-lowest">
