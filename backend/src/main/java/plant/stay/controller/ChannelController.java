@@ -88,6 +88,35 @@ public class ChannelController {
     }
 
     /**
+     * Kiểm tra kết nối kênh OTA (kiểm tra tính hợp lệ của feed và thử kết nối externalCalendarUrl).
+     */
+    @PostMapping("/{id}/test-connection")
+    public ResponseEntity<ChannelResponse> testConnection(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.testConnection(id, actor));
+    }
+
+    /**
+     * Đồng bộ lại toàn bộ tất cả các kênh phân phối đang kích hoạt.
+     */
+    @PostMapping("/sync-all")
+    public ResponseEntity<List<ChannelResponse>> syncAll(
+            @RequestParam(required = false) String reason,
+            HttpServletRequest request) {
+        User actor = checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.syncAllChannels(reason, actor));
+    }
+
+    /**
+     * Lấy dữ liệu tổng quan cảnh báo mất kết nối và tình trạng đồng bộ.
+     */
+    @GetMapping("/warning-summary")
+    public ResponseEntity<plant.stay.dto.response.ChannelWarningSummaryResponse> getWarningSummary(HttpServletRequest request) {
+        checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getWarningSummary());
+    }
+
+    /**
      * Lấy danh sách lịch sử các lần sinh tệp kèm số khoảng thời gian đã chặn của kênh.
      */
     @GetMapping("/{id}/logs")
@@ -97,7 +126,20 @@ public class ChannelController {
     }
 
     /**
-     * Lấy danh sách 50 bản ghi nhật ký sinh tệp gần nhất trong toàn hệ thống.
+     * Lấy danh sách nhật ký đồng bộ có hỗ trợ bộ lọc đa tiêu chí (kênh, trạng thái, loại kích hoạt).
+     */
+    @GetMapping("/logs")
+    public ResponseEntity<List<ChannelCalendarSyncLogResponse>> getLogsWithFilter(
+            @RequestParam(required = false) Long channelId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String triggeredBy,
+            HttpServletRequest request) {
+        checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getLogs(channelId, status, triggeredBy));
+    }
+
+    /**
+     * Lấy danh sách 100 bản ghi nhật ký sinh tệp gần nhất trong toàn hệ thống.
      */
     @GetMapping("/logs/recent")
     public ResponseEntity<List<ChannelCalendarSyncLogResponse>> getRecentLogs(HttpServletRequest request) {

@@ -14,12 +14,14 @@ import plant.stay.dto.response.ChannelCalendarSyncLogResponse;
 import plant.stay.dto.response.ChannelResponse;
 import plant.stay.dto.response.ChannelRoomMappingResponse;
 import plant.stay.dto.response.ChannelAvailabilityCheckResponse;
+import plant.stay.dto.response.ChannelWarningSummaryResponse;
 import plant.stay.event.CalendarSyncEvent;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.ChannelCalendarSyncService;
+import plant.stay.service.NotificationService;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -41,6 +43,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -345,6 +348,175 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
     }
 
     @Override
+    @Transactional
+    public ChannelResponse testConnection(Long id, User actor) {
+        Channel channel = findChannel(id);
+        if (!Boolean.TRUE.equals(channel.getIsActive())) {
+            throw new IllegalArgumentException("Kênh đang tạm ngưng đồng bộ. Vui lòng bật kênh trước khi kiểm tra kết nối.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Nếu có externalCalendarUrl, kiểm tra kết nối HTTP tới URL
+        String extUrl = channel.getExternalCalendarUrl();
+        if (extUrl != null && !extUrl.isBlank()) {
+            try {
+                java.net.URI uri = java.net.URI.create(extUrl.trim());
+                java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                        .connectTimeout(java.time.Duration.ofSeconds(4))
+                        .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+                        .build();
+
+                java.net.http.HttpRequest httpRequest = java.net.http.HttpRequest.newBuilder()
+                        .uri(uri)
+                        .timeout(java.time.Duration.ofSeconds(4))
+                        .header("User-Agent", "StayAway-PMS-CalendarBot/1.0")
+                        .GET()
+                        .build();
+
+                java.net.http.HttpResponse<Void> httpResponse = client.send(httpRequest, java.net.http.HttpResponse.BodyHandlers.discarding());
+                int statusCode = httpResponse.statusCode();
+
+                if (statusCode >= 400) {
+                    String errMsg = "URL lịch ngoài của kênh phản hồi mã lỗi HTTP " + statusCode;
+                    channel.setLastSyncedAt(now);
+                    channel.setLastSyncStatus("ERROR");
+                    channel.setLastSyncErrorMessage(errMsg);
+                    channel.setConsecutiveFailures((channel.getConsecutiveFailures() != null ? channel.getConsecutiveFailures() : 0) + 1);
+                    channel = channelRepository.save(channel);
+
+                    ChannelCalendarSyncLog errLog = ChannelCalendarSyncLog.builder()
+                            .channel(channel)
+                            .channelName(channel.getName())
+                            .roomTypeName(channel.getRoomType() != null ? channel.getRoomType().getName() : "N/A")
+                            .triggeredBy("CONNECTION_TEST")
+                            .blockedPeriodsCount(0)
+                            .blockedSummary("Kiểm tra kết nối thất bại")
+                            .status("ERROR")
+                            .errorMessage(errMsg)
+                            .syncedAt(now)
+                            .build();
+                    syncLogRepository.save(errLog);
+
+                    auditLogService.log("Channel", channel.getId(), "TEST_CONNECTION_FAILED", actor,
+                            "Kiểm tra kết nối thất bại cho kênh " + channel.getName() + ": " + errMsg);
+
+                    return toResponse(channel);
+                }
+            } catch (Exception e) {
+                String errMsg = "Không thể kết nối đến URL lịch ngoài: " + (e.getMessage() != null ? e.getMessage() : "Lỗi kết nối");
+                channel.setLastSyncedAt(now);
+                channel.setLastSyncStatus("ERROR");
+                channel.setLastSyncErrorMessage(errMsg);
+                channel.setConsecutiveFailures((channel.getConsecutiveFailures() != null ? channel.getConsecutiveFailures() : 0) + 1);
+                channel = channelRepository.save(channel);
+
+                ChannelCalendarSyncLog errLog = ChannelCalendarSyncLog.builder()
+                        .channel(channel)
+                        .channelName(channel.getName())
+                        .roomTypeName(channel.getRoomType() != null ? channel.getRoomType().getName() : "N/A")
+                        .triggeredBy("CONNECTION_TEST")
+                        .blockedPeriodsCount(0)
+                        .blockedSummary("Kiểm tra kết nối thất bại")
+                        .status("ERROR")
+                        .errorMessage(errMsg)
+                        .syncedAt(now)
+                        .build();
+                syncLogRepository.save(errLog);
+
+                auditLogService.log("Channel", channel.getId(), "TEST_CONNECTION_FAILED", actor,
+                        "Kiểm tra kết nối thất bại cho kênh " + channel.getName() + ": " + errMsg);
+
+                return toResponse(channel);
+            }
+        }
+
+        // 2. Kiểm tra sinh tệp iCal nội bộ
+        try {
+            syncChannelInternal(channel, "CONNECTION_TEST");
+        } catch (Exception ex) {
+            log.warn("Internal sync failed during connection test for channel ID {}: {}", id, ex.getMessage());
+        }
+
+        auditLogService.log("Channel", channel.getId(), "TEST_CONNECTION", actor,
+                "Kiểm tra kết nối và đồng bộ kênh " + channel.getName() + " - Kết quả: " + channel.getLastSyncStatus());
+
+        return toResponse(findChannel(id));
+    }
+
+    @Override
+    @Transactional
+    public List<ChannelResponse> syncAllChannels(String reason, User actor) {
+        List<Channel> activeChannels = channelRepository.findByIsActiveTrue();
+        String triggerReason = (reason != null && !reason.isBlank()) ? reason : "MANUAL_SYNC_ALL";
+        for (Channel channel : activeChannels) {
+            try {
+                syncChannelInternal(channel, triggerReason);
+            } catch (Exception ex) {
+                log.warn("Sync failed for channel ID {} during sync-all: {}", channel.getId(), ex.getMessage());
+            }
+        }
+        auditLogService.log("Channel", null, "SYNC_ALL", actor,
+                "Chủ cơ sở thực hiện đồng bộ lại tất cả " + activeChannels.size() + " kênh phân phối đang kích hoạt");
+        return getAllChannels();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChannelWarningSummaryResponse getWarningSummary() {
+        List<Channel> allChannels = channelRepository.findAll();
+        List<ChannelResponse> channelResponses = allChannels.stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        long totalChannels = channelResponses.size();
+        long activeChannels = channelResponses.stream().filter(c -> Boolean.TRUE.equals(c.getIsActive())).count();
+        long healthyChannels = channelResponses.stream().filter(c -> "HEALTHY".equals(c.getConnectionStatus())).count();
+        long disconnectedChannels = channelResponses.stream().filter(c -> "DISCONNECTED".equals(c.getConnectionStatus())).count();
+        long staleChannels = channelResponses.stream().filter(c -> "STALE".equals(c.getConnectionStatus())).count();
+        long pausedChannels = channelResponses.stream().filter(c -> "PAUSED".equals(c.getConnectionStatus())).count();
+
+        LocalDateTime past24h = LocalDateTime.now().minusHours(24);
+        long totalSyncs24h = syncLogRepository.countBySyncedAtAfter(past24h);
+        long successSyncs24h = syncLogRepository.countByStatusAndSyncedAtAfter("SUCCESS", past24h);
+        long failedSyncs24h = totalSyncs24h - successSyncs24h;
+
+        double successRate = totalSyncs24h > 0 ? (double) successSyncs24h / totalSyncs24h * 100.0 : 100.0;
+
+        List<ChannelResponse> warningChannels = channelResponses.stream()
+                .filter(c -> "DISCONNECTED".equals(c.getConnectionStatus()) || "STALE".equals(c.getConnectionStatus()))
+                .collect(Collectors.toList());
+
+        boolean hasWarning = disconnectedChannels > 0 || staleChannels > 0;
+
+        return ChannelWarningSummaryResponse.builder()
+                .totalChannels(totalChannels)
+                .activeChannels(activeChannels)
+                .healthyChannels(healthyChannels)
+                .disconnectedChannels(disconnectedChannels)
+                .staleChannels(staleChannels)
+                .pausedChannels(pausedChannels)
+                .syncSuccessRate24h(Math.round(successRate * 10.0) / 10.0)
+                .totalSyncs24h(totalSyncs24h)
+                .failedSyncs24h(failedSyncs24h)
+                .hasWarning(hasWarning)
+                .warningChannels(warningChannels)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChannelCalendarSyncLogResponse> getLogs(Long channelId, String status, String triggeredBy) {
+        String cleanStatus = (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) ? status.trim().toUpperCase() : null;
+        String cleanTrigger = (triggeredBy != null && !triggeredBy.isBlank() && !"ALL".equalsIgnoreCase(triggeredBy)) ? triggeredBy.trim().toUpperCase() : null;
+
+        return syncLogRepository.findByFilters(channelId, cleanStatus, cleanTrigger)
+                .stream()
+                .map(this::toLogResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<ChannelCalendarSyncLogResponse> getLogsByChannelId(Long channelId) {
         return syncLogRepository.findByChannelIdOrderBySyncedAtDesc(channelId)
@@ -356,7 +528,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
     @Override
     @Transactional(readOnly = true)
     public List<ChannelCalendarSyncLogResponse> getRecentLogs() {
-        return syncLogRepository.findTop50ByOrderBySyncedAtDesc()
+        return syncLogRepository.findTop100ByOrderBySyncedAtDesc()
                 .stream()
                 .map(this::toLogResponse)
                 .collect(Collectors.toList());
@@ -371,6 +543,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
      * 5. Ghi nhật ký sinh tệp kèm số khoảng thời gian đã chặn.
      */
     private void syncChannelInternal(Channel channel, String triggeredBy) {
+        LocalDateTime now = LocalDateTime.now();
         List<ChannelRoomMapping> mappings = channelRoomMappingRepository.findByChannelId(channel.getId());
         if (mappings.isEmpty() && channel.getRoomType() != null) {
             mappings = List.of(ChannelRoomMapping.builder()
@@ -381,71 +554,115 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                     .build());
         }
 
-        LocalDate today = LocalDate.now();
-        LocalDate horizonEnd = today.plusDays(365); // Quét 365 ngày tới
+        try {
+            LocalDate today = LocalDate.now();
+            LocalDate horizonEnd = today.plusDays(365); // Quét 365 ngày tới
 
-        List<BlockedPeriodItem> allBlockedPeriods = new ArrayList<>();
+            List<BlockedPeriodItem> allBlockedPeriods = new ArrayList<>();
 
-        for (ChannelRoomMapping mapping : mappings) {
-            RoomType roomType = mapping.getRoomType();
-            int allocatedRooms = mapping.getAllocatedRooms() != null ? mapping.getAllocatedRooms() : 1;
+            for (ChannelRoomMapping mapping : mappings) {
+                RoomType roomType = mapping.getRoomType();
+                int allocatedRooms = mapping.getAllocatedRooms() != null ? mapping.getAllocatedRooms() : 1;
 
-            // 1. Lấy danh sách booking đang chiếm phòng của loại phòng này trong horizon
-            List<Booking> activeBookings = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
-                    roomType.getId(), today, horizonEnd);
+                // 1. Lấy danh sách booking đang chiếm phòng của loại phòng này trong horizon
+                List<Booking> activeBookings = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
+                        roomType.getId(), today, horizonEnd);
 
-            // 2. Đếm số phòng của loại phòng này đang bị khóa bảo trì (RoomStatus.MAINTENANCE)
-            long maintenanceRooms = roomRepository.countByRoomTypeIdAndStatus(roomType.getId(), RoomStatus.MAINTENANCE);
+                // 2. Đếm số phòng của loại phòng này đang bị khóa bảo trì (RoomStatus.MAINTENANCE)
+                long maintenanceRooms = roomRepository.countByRoomTypeIdAndStatus(roomType.getId(), RoomStatus.MAINTENANCE);
 
-            // 3. Quét từng ngày để tìm các ngày hết chỗ
-            List<LocalDate> blockedDates = new ArrayList<>();
-            for (LocalDate date = today; date.isBefore(horizonEnd); date = date.plusDays(1)) {
-                final LocalDate currentDate = date;
-                long bookingCountOnDate = activeBookings.stream()
-                        .filter(b -> !b.getCheckInDate().isAfter(currentDate) && b.getCheckOutDate().isAfter(currentDate))
-                        .count();
-                long totalOccupied = bookingCountOnDate + maintenanceRooms;
-                long availableForChannel = allocatedRooms - totalOccupied;
+                // 3. Quét từng ngày để tìm các ngày hết chỗ
+                List<LocalDate> blockedDates = new ArrayList<>();
+                for (LocalDate date = today; date.isBefore(horizonEnd); date = date.plusDays(1)) {
+                    final LocalDate currentDate = date;
+                    long bookingCountOnDate = activeBookings.stream()
+                            .filter(b -> !b.getCheckInDate().isAfter(currentDate) && b.getCheckOutDate().isAfter(currentDate))
+                            .count();
+                    long totalOccupied = bookingCountOnDate + maintenanceRooms;
+                    long availableForChannel = allocatedRooms - totalOccupied;
 
-                if (availableForChannel <= 0) {
-                    blockedDates.add(currentDate);
+                    if (availableForChannel <= 0) {
+                        blockedDates.add(currentDate);
+                    }
+                }
+
+                // Gộp các ngày liên tiếp thành các khoảng VEVENT
+                List<BlockedPeriod> periods = groupConsecutiveDates(blockedDates);
+                for (BlockedPeriod p : periods) {
+                    allBlockedPeriods.add(new BlockedPeriodItem(roomType, mapping.getExternalRoomTypeCode(), allocatedRooms, p.startDate, p.endDate));
                 }
             }
 
-            // Gộp các ngày liên tiếp thành các khoảng VEVENT
-            List<BlockedPeriod> periods = groupConsecutiveDates(blockedDates);
-            for (BlockedPeriod p : periods) {
-                allBlockedPeriods.add(new BlockedPeriodItem(roomType, mapping.getExternalRoomTypeCode(), allocatedRooms, p.startDate, p.endDate));
+            // Sinh chuỗi iCalendar RFC 5545
+            String icsContent = buildIcsContent(channel, allBlockedPeriods);
+
+            channel.setCachedIcsContent(icsContent);
+            channel.setLastSyncedAt(now);
+            channel.setLastSuccessSyncedAt(now);
+            channel.setLastSyncStatus("SUCCESS");
+            channel.setLastSyncErrorMessage(null);
+            channel.setConsecutiveFailures(0);
+            channel.setLastBlockedPeriodsCount(allBlockedPeriods.size());
+            channelRepository.save(channel);
+
+            // Ghi nhật ký sinh tệp
+            String roomTypeNames = mappings.stream().map(m -> m.getRoomType().getName()).distinct().collect(Collectors.joining(", "));
+            String blockedSummary = summarizeBlockedPeriods(allBlockedPeriods);
+
+            ChannelCalendarSyncLog syncLog = ChannelCalendarSyncLog.builder()
+                    .channel(channel)
+                    .channelName(channel.getName())
+                    .roomTypeName(roomTypeNames.isEmpty() ? "N/A" : roomTypeNames)
+                    .triggeredBy(triggeredBy)
+                    .blockedPeriodsCount(allBlockedPeriods.size())
+                    .blockedSummary(blockedSummary)
+                    .status("SUCCESS")
+                    .errorMessage(null)
+                    .syncedAt(now)
+                    .build();
+
+            syncLogRepository.save(syncLog);
+
+            log.info("Synced iCal feed for channel '{}' (ID: {}). Blocked periods: {}, Triggered by: {}",
+                    channel.getName(), channel.getId(), allBlockedPeriods.size(), triggeredBy);
+        } catch (Exception ex) {
+            log.error("Sync error for channel '{}' (ID: {}): {}", channel.getName(), channel.getId(), ex.getMessage(), ex);
+
+            int failures = (channel.getConsecutiveFailures() != null ? channel.getConsecutiveFailures() : 0) + 1;
+            channel.setLastSyncedAt(now);
+            channel.setLastSyncStatus("ERROR");
+            channel.setLastSyncErrorMessage(ex.getMessage() != null ? ex.getMessage() : "Lỗi không xác định khi sinh dữ liệu lịch");
+            channel.setConsecutiveFailures(failures);
+            channelRepository.save(channel);
+
+            String roomTypeNames = mappings.stream().map(m -> m.getRoomType().getName()).distinct().collect(Collectors.joining(", "));
+            ChannelCalendarSyncLog errLog = ChannelCalendarSyncLog.builder()
+                    .channel(channel)
+                    .channelName(channel.getName())
+                    .roomTypeName(roomTypeNames.isEmpty() ? "N/A" : roomTypeNames)
+                    .triggeredBy(triggeredBy)
+                    .blockedPeriodsCount(0)
+                    .blockedSummary("Đồng bộ thất bại")
+                    .status("ERROR")
+                    .errorMessage(ex.getMessage() != null ? ex.getMessage() : "Lỗi không xác định khi sinh dữ liệu lịch")
+                    .syncedAt(now)
+                    .build();
+            syncLogRepository.save(errLog);
+
+            try {
+                notificationService.createForRoles(
+                        NotificationType.CHANNEL_DISCONNECT_WARNING,
+                        "Cảnh báo lỗi kênh: " + channel.getName(),
+                        "Kênh phân phối " + channel.getName() + " bị lỗi đồng bộ: " + ex.getMessage() + ". Nguy cơ trùng phòng!",
+                        "Channel",
+                        channel.getId()
+                );
+            } catch (Exception notifEx) {
+                log.debug("Could not dispatch notification: {}", notifEx.getMessage());
             }
+
+            throw new RuntimeException("Lỗi đồng bộ kênh '" + channel.getName() + "': " + ex.getMessage(), ex);
         }
-
-        // Sinh chuỗi iCalendar RFC 5545
-        String icsContent = buildIcsContent(channel, allBlockedPeriods);
-
-        channel.setCachedIcsContent(icsContent);
-        channel.setLastSyncedAt(LocalDateTime.now());
-        channel.setLastBlockedPeriodsCount(allBlockedPeriods.size());
-        channelRepository.save(channel);
-
-        // Ghi nhật ký sinh tệp
-        String roomTypeNames = mappings.stream().map(m -> m.getRoomType().getName()).distinct().collect(Collectors.joining(", "));
-        String blockedSummary = summarizeBlockedPeriods(allBlockedPeriods);
-
-        ChannelCalendarSyncLog syncLog = ChannelCalendarSyncLog.builder()
-                .channel(channel)
-                .channelName(channel.getName())
-                .roomTypeName(roomTypeNames.isEmpty() ? "N/A" : roomTypeNames)
-                .triggeredBy(triggeredBy)
-                .blockedPeriodsCount(allBlockedPeriods.size())
-                .blockedSummary(blockedSummary)
-                .status("SUCCESS")
-                .syncedAt(LocalDateTime.now())
-                .build();
-
-        syncLogRepository.save(syncLog);
-
-        log.info("Synced iCal feed for channel '{}' (ID: {}). Blocked periods: {}, Triggered by: {}",
-                channel.getName(), channel.getId(), allBlockedPeriods.size(), triggeredBy);
     }
 
     /**
@@ -649,6 +866,31 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                     .build();
         }).collect(Collectors.toList());
 
+        String connectionStatus;
+        String connectionStatusMessage;
+
+        if (!Boolean.TRUE.equals(channel.getIsActive())) {
+            connectionStatus = "PAUSED";
+            connectionStatusMessage = "Kênh đang tạm ngưng đồng bộ";
+        } else if ("ERROR".equalsIgnoreCase(channel.getLastSyncStatus()) || (channel.getConsecutiveFailures() != null && channel.getConsecutiveFailures() > 0)) {
+            connectionStatus = "DISCONNECTED";
+            String reason = channel.getLastSyncErrorMessage() != null ? channel.getLastSyncErrorMessage() : "Lỗi đồng bộ gần nhất";
+            connectionStatusMessage = "Mất kết nối: " + reason;
+        } else if (channel.getLastSyncedAt() == null || "NEVER_SYNCED".equalsIgnoreCase(channel.getLastSyncStatus())) {
+            connectionStatus = "STALE";
+            connectionStatusMessage = "Kênh chưa từng đồng bộ dữ liệu";
+        } else {
+            int interval = channel.getSyncIntervalMinutes() != null ? channel.getSyncIntervalMinutes() : 15;
+            long maxGraceMinutes = Math.max(interval * 2L, 30L);
+            if (channel.getLastSyncedAt().plusMinutes(maxGraceMinutes).isBefore(LocalDateTime.now())) {
+                connectionStatus = "STALE";
+                connectionStatusMessage = "Cảnh báo ngừng cập nhật: Đã quá " + maxGraceMinutes + " phút chưa đồng bộ (Nguy cơ trùng phòng)";
+            } else {
+                connectionStatus = "HEALTHY";
+                connectionStatusMessage = "Kết nối ổn định (Đồng bộ thành công)";
+            }
+        }
+
         return ChannelResponse.builder()
                 .id(channel.getId())
                 .name(channel.getName())
@@ -663,6 +905,12 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                 .syncIntervalMinutes(channel.getSyncIntervalMinutes())
                 .isActive(channel.getIsActive())
                 .lastSyncedAt(channel.getLastSyncedAt())
+                .lastSyncStatus(channel.getLastSyncStatus() != null ? channel.getLastSyncStatus() : "NEVER_SYNCED")
+                .lastSyncErrorMessage(channel.getLastSyncErrorMessage())
+                .lastSuccessSyncedAt(channel.getLastSuccessSyncedAt())
+                .consecutiveFailures(channel.getConsecutiveFailures() != null ? channel.getConsecutiveFailures() : 0)
+                .connectionStatus(connectionStatus)
+                .connectionStatusMessage(connectionStatusMessage)
                 .lastBlockedPeriodsCount(channel.getLastBlockedPeriodsCount())
                 .createdAt(channel.getCreatedAt())
                 .updatedAt(channel.getUpdatedAt())

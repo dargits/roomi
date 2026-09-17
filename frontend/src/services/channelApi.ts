@@ -50,13 +50,45 @@ export const channelApi = {
     return response.data;
   },
 
+  // Kiểm tra kết nối kênh OTA (kiểm tra tính hợp lệ của feed và externalCalendarUrl)
+  testConnection: async (id: number | string): Promise<Channel> => {
+    const response = await api.post<Channel>(`/channels/${id}/test-connection`);
+    return response.data;
+  },
+
+  // Đồng bộ lại tất cả kênh đang hoạt động
+  syncAll: async (reason?: string): Promise<Channel[]> => {
+    const response = await api.post<Channel[]>('/channels/sync-all', null, {
+      params: reason ? { reason } : undefined,
+    });
+    return response.data;
+  },
+
+  // Lấy dữ liệu tổng quan cảnh báo mất kết nối và tình trạng đồng bộ
+  getWarningSummary: async (): Promise<import('../types').ChannelWarningSummary> => {
+    const response = await api.get<import('../types').ChannelWarningSummary>('/channels/warning-summary');
+    return response.data;
+  },
+
   // Lịch sử nhật ký sinh tệp của 1 kênh
   getChannelLogs: async (id: number | string): Promise<ChannelCalendarSyncLog[]> => {
     const response = await api.get<ChannelCalendarSyncLog[]>(`/channels/${id}/logs`);
     return response.data;
   },
 
-  // 50 nhật ký sinh tệp gần nhất
+  // Lấy nhật ký đồng bộ có hỗ trợ lọc theo kênh, trạng thái và loại kích hoạt
+  getLogsWithFilter: async (params?: {
+    channelId?: number | string;
+    status?: string;
+    triggeredBy?: string;
+  }): Promise<ChannelCalendarSyncLog[]> => {
+    const response = await api.get<ChannelCalendarSyncLog[]>('/channels/logs', {
+      params,
+    });
+    return response.data;
+  },
+
+  // 100 nhật ký sinh tệp gần nhất
   getRecentLogs: async (): Promise<ChannelCalendarSyncLog[]> => {
     const response = await api.get<ChannelCalendarSyncLog[]>('/channels/logs/recent');
     return response.data;

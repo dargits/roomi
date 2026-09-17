@@ -56,6 +56,20 @@ public class Channel {
     @Column(name = "last_synced_at")
     private LocalDateTime lastSyncedAt; // Lần sinh tệp gần nhất
 
+    @Column(name = "last_sync_status", length = 20)
+    @Builder.Default
+    private String lastSyncStatus = "NEVER_SYNCED"; // SUCCESS, ERROR, NEVER_SYNCED, WARNING
+
+    @Column(name = "last_sync_error_message", columnDefinition = "TEXT")
+    private String lastSyncErrorMessage; // Chi tiết lỗi của lần đồng bộ gần nhất nếu có
+
+    @Column(name = "last_success_synced_at")
+    private LocalDateTime lastSuccessSyncedAt; // Lần đồng bộ thành công gần nhất
+
+    @Column(name = "consecutive_failures")
+    @Builder.Default
+    private Integer consecutiveFailures = 0; // Số lần đồng bộ thất bại liên tiếp
+
     @Column(name = "last_blocked_periods_count")
     @Builder.Default
     private Integer lastBlockedPeriodsCount = 0; // Số khoảng thời gian đã chặn ở lần sinh gần nhất
