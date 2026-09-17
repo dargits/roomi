@@ -110,4 +110,35 @@ export const channelApi = {
     );
     return response.data;
   },
+
+  // Chuyển lượt chặn từ kênh thành đặt phòng chính thức
+  convertBlockToBooking: async (
+    blockId: number | string,
+    data: import('../types').ConvertBlockRequest
+  ): Promise<import('../types').BookingResponse> => {
+    const response = await api.post<import('../types').BookingResponse>(
+      `/channels/blocks/${blockId}/convert`,
+      data
+    );
+    return response.data;
+  },
+
+  // Lấy danh sách lượt chặn phòng từ kênh (có bộ lọc)
+  getBlocks: async (params?: {
+    channelId?: number | string;
+    roomTypeId?: number | string;
+    status?: string;
+  }): Promise<import('../types').ChannelRoomBlock[]> => {
+    const response = await api.get<import('../types').ChannelRoomBlock[]>('/channels/blocks', {
+      params,
+    });
+    return response.data;
+  },
+
+  // Lấy danh sách lượt chặn phòng đang hoạt động (BLOCKED)
+  getActiveBlocks: async (): Promise<import('../types').ChannelRoomBlock[]> => {
+    const response = await api.get<import('../types').ChannelRoomBlock[]>('/channels/blocks/active');
+    return response.data;
+  },
 };
+
