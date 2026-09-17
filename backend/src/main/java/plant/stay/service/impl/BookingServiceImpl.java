@@ -166,6 +166,9 @@ public class BookingServiceImpl implements BookingService {
             item.put("summary", block.getSummary());
             item.put("isExcess", block.getIsExcess());
             item.put("warningMessage", block.getWarningMessage());
+            boolean hasConflict = block.getRoom() == null && block.getWarningMessage() != null &&
+                    (block.getWarningMessage().contains("Trùng lịch") || block.getWarningMessage().contains("không còn phòng trống"));
+            item.put("hasConflict", hasConflict);
             result.add(item);
         }
 
