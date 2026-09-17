@@ -32,4 +32,10 @@ public class DebtCollectionLogRequest {
 
     /** Ngày hẹn liên hệ lại — hệ thống nhắc kế toán vào ngày này */
     private LocalDate nextReminderDate;
+
+    /** Email người nhận (nếu gửi qua email) */
+    private String recipientEmail;
+
+    /** Cờ xác định có thực sự gửi email hay chỉ ghi log */
+    private Boolean sendEmail;
 }

@@ -83,6 +83,15 @@ export const debtApprovalApi = {
     return response.data;
   },
 
+  // Gửi email đối soát / nhắc nợ
+  sendDebtReminderEmail: async (id: number | string, email?: string): Promise<MessageResponse> => {
+    const response = await api.post<MessageResponse>(
+      `/debt-approvals/${id}/send-reminder-email`,
+      { email }
+    );
+    return response.data;
+  },
+
   // Ghi nhận nhật ký một lần liên hệ đòi nợ
   addCollectionLog: async (
     id: number | string,
@@ -93,6 +102,8 @@ export const debtApprovalApi = {
       contactDate?: string;
       promisedDate?: string;
       nextReminderDate?: string;
+      recipientEmail?: string;
+      sendEmail?: boolean;
     }
   ): Promise<any> => {
     const response = await api.post(`/debt-approvals/${id}/collection-logs`, data);
