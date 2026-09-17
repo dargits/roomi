@@ -488,7 +488,7 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 writer.write("PHÂN NHÓM TUỔI NỢ\r\n");
                 writer.write("Nhóm,Số hóa đơn,Tổng tiền nợ,Tỷ trọng (%)\r\n");
                 for (DebtAgingBucketDto b : report.getBuckets()) {
-                    writer.write(String.format("\"%s\",%d,%s,%.1f%%%r\n",
+                    writer.write(String.format("\"%s\",%d,%s,%.1f%%\r\n",
                             b.getBucketName(), b.getInvoiceCount(),
                             b.getTotalAmount(), b.getPercentage()));
                 }
