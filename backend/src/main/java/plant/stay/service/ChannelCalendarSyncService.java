@@ -93,4 +93,23 @@ public interface ChannelCalendarSyncService {
             String externalRoomTypeCode,
             java.time.LocalDate checkInDate,
             java.time.LocalDate checkOutDate);
+
+    /**
+     * Chuyển một lượt chặn phòng từ kênh OTA thành đặt phòng chính thức khi có thông tin khách.
+     * Giữ nguyên liên kết tới kênh nguồn để phục vụ báo cáo.
+     */
+    plant.stay.dto.response.BookingResponse convertBlockToBooking(
+            Long blockId,
+            plant.stay.dto.request.ConvertBlockToBookingRequest req,
+            User actor);
+
+    /**
+     * Lấy danh sách lượt chặn phòng theo kênh và trạng thái.
+     */
+    List<plant.stay.dto.response.ChannelRoomBlockResponse> getBlocks(Long channelId, String status);
+
+    /**
+     * Lấy danh sách lượt chặn phòng đang hoạt động trong khoảng thời gian (phục vụ lịch phòng).
+     */
+    List<plant.stay.dto.response.ChannelRoomBlockResponse> getActiveBlocks(java.time.LocalDate from, java.time.LocalDate to);
 }

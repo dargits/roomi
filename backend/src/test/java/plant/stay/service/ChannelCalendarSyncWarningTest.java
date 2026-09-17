@@ -33,6 +33,9 @@ class ChannelCalendarSyncWarningTest {
     private ChannelRoomMappingRepository channelRoomMappingRepository;
 
     @Mock
+    private ChannelRoomBlockRepository channelRoomBlockRepository;
+
+    @Mock
     private ChannelCalendarSyncLogRepository syncLogRepository;
 
     @Mock

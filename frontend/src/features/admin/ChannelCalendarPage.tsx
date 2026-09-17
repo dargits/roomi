@@ -1136,16 +1136,25 @@ const ChannelCalendarPage: React.FC = () => {
 
                         {/* Khoảng chặn */}
                         <td className="py-4 px-4 text-center">
-                          {channel.lastBlockedPeriodsCount &&
-                          channel.lastBlockedPeriodsCount > 0 ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">
-                              {channel.lastBlockedPeriodsCount} khoảng hết chỗ
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                              Còn chỗ toàn bộ
-                            </span>
-                          )}
+                          <div className="flex flex-col items-center gap-1">
+                            {channel.lastBlockedPeriodsCount &&
+                            channel.lastBlockedPeriodsCount > 0 ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800" title="Khoảng thời gian hết phòng cơ sở xuất sang kênh">
+                                Xuất: {channel.lastBlockedPeriodsCount} chặn
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                                Xuất: Mở bán
+                              </span>
+                            )}
+                            {channel.activeBlocksCount !== undefined && channel.activeBlocksCount > 0 ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200 shadow-2xs" title="Lượt phòng kênh đang giữ trên sơ đồ">
+                                Kênh giữ: {channel.activeBlocksCount} phòng
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400">0 lượt giữ</span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Lần đồng bộ cuối */}

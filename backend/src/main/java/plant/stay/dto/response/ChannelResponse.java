@@ -30,6 +30,7 @@ public class ChannelResponse {
     private String connectionStatus; // HEALTHY, DISCONNECTED, STALE, PAUSED
     private String connectionStatusMessage; // Tiếng Việt mô tả trực quan trạng thái
     private Integer lastBlockedPeriodsCount;
+    private Integer activeBlocksCount; // Số lượt phòng đang bị chặn bởi kênh này
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

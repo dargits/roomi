@@ -31,6 +31,7 @@ export interface Channel {
   connectionStatus?: ChannelConnectionStatus;
   connectionStatusMessage?: string;
   lastBlockedPeriodsCount?: number;
+  activeBlocksCount?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -101,3 +102,38 @@ export interface ChannelAvailabilityCheckResponse {
   message: string;
   dailyDetails: DailyAvailabilityDetail[];
 }
+
+export interface ChannelRoomBlock {
+  id: number;
+  channelId: number;
+  channelName: string;
+  channelCode: string;
+  roomTypeId: number;
+  roomTypeName: string;
+  roomId?: number;
+  roomNumber?: string;
+  externalUid: string;
+  startDate: string;
+  endDate: string;
+  summary?: string;
+  description?: string;
+  status: 'BLOCKED' | 'CONVERTED' | 'CANCELLED';
+  isExcess: boolean;
+  warningMessage?: string;
+  convertedBookingId?: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ConvertBlockRequest {
+  guestName: string;
+  guestPhone?: string;
+  guestEmail?: string;
+  guestIdNumber?: string;
+  roomId?: number;
+  expectedPrice?: number;
+  depositAmount?: number;
+  paymentMethod?: string;
+  note?: string;
+}
+

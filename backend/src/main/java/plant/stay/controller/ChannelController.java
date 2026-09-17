@@ -162,10 +162,45 @@ public class ChannelController {
                 id, roomTypeId, externalRoomTypeCode, checkInDate, checkOutDate));
     }
 
+    @PostMapping("/blocks/{blockId}/convert")
+    public ResponseEntity<plant.stay.dto.response.BookingResponse> convertBlock(
+            @PathVariable Long blockId,
+            @Valid @RequestBody plant.stay.dto.request.ConvertBlockToBookingRequest req,
+            HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(channelCalendarSyncService.convertBlockToBooking(blockId, req, actor));
+    }
+
+    @GetMapping("/blocks")
+    public ResponseEntity<List<plant.stay.dto.response.ChannelRoomBlockResponse>> getBlocks(
+            @RequestParam(required = false) Long channelId,
+            @RequestParam(required = false) String status,
+            HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getBlocks(channelId, status));
+    }
+
+    @GetMapping("/blocks/active")
+    public ResponseEntity<List<plant.stay.dto.response.ChannelRoomBlockResponse>> getActiveBlocks(
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to,
+            HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getActiveBlocks(from, to));
+    }
+
     private User checkAdminOrOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN)) {
             throw new UnauthorizedException("Chỉ Chủ cơ sở (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền quản lý kênh phân phối.");
+        }
+        return user;
+    }
+
+    private User checkStaff(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện thao tác này.");
         }
         return user;
     }

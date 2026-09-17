@@ -289,5 +289,45 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: channels sync status columns: {}", e.getMessage());
         }
+
+        // 17. Tạo bảng channel_room_blocks (Lượt chặn phòng từ kênh OTA) và thêm channel_id vào bookings
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS channel_room_blocks (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  channel_id BIGINT NOT NULL," +
+                "  room_type_id BIGINT NOT NULL," +
+                "  room_id BIGINT NULL," +
+                "  external_uid VARCHAR(255) NOT NULL," +
+                "  start_date DATE NOT NULL," +
+                "  end_date DATE NOT NULL," +
+                "  summary VARCHAR(255)," +
+                "  status VARCHAR(30) NOT NULL DEFAULT 'BLOCKED'," +
+                "  converted_booking_id BIGINT NULL," +
+                "  is_excess BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  warning_message TEXT," +
+                "  created_at DATETIME(6) NOT NULL," +
+                "  updated_at DATETIME(6)," +
+                "  FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL," +
+                "  FOREIGN KEY (converted_booking_id) REFERENCES bookings(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_channel ON channel_room_blocks(channel_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_dates ON channel_room_blocks(start_date, end_date)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_room ON channel_room_blocks(room_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_uid ON channel_room_blocks(channel_id, external_uid)");
+            log.info("Schema Migration: Successfully ensured 'channel_room_blocks' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channel_room_blocks table: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS channel_id BIGINT NULL");
+            log.info("Schema Migration: Successfully ensured 'bookings.channel_id' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: bookings.channel_id: {}", e.getMessage());
+        }
     }
 }
