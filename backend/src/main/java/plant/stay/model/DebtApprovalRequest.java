@@ -69,4 +69,18 @@ public class DebtApprovalRequest {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // === Trường denormalized hỗ trợ hiển thị nhanh trạng thái nhắc thu ===
+
+    /** Thời điểm liên hệ đòi nợ gần nhất (cập nhật mỗi khi thêm DebtCollectionLog) */
+    @Column(name = "last_contacted_at")
+    private LocalDateTime lastContactedAt;
+
+    /** Ghi chú tóm tắt lần liên hệ gần nhất */
+    @Column(name = "last_contact_note", columnDefinition = "TEXT")
+    private String lastContactNote;
+
+    /** Ngày hẹn liên hệ lại kế tiếp — hệ thống sẽ nhắc kế toán vào ngày này */
+    @Column(name = "next_reminder_date")
+    private LocalDate nextReminderDate;
 }

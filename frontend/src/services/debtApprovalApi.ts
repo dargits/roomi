@@ -54,6 +54,56 @@ export const debtApprovalApi = {
     });
     return response.data;
   },
+
+  // Báo cáo tuổi nợ và nhắc thu
+  getDebtAgingReport: async (params?: {
+    asOfDate?: string;
+    fromCheckout?: string;
+    toCheckout?: string;
+    guestId?: number;
+    bucketFilter?: string;
+    reminderFilter?: string;
+  }): Promise<any> => {
+    const response = await api.get('/debt-approvals/aging', { params });
+    return response.data;
+  },
+
+  // Xuất file CSV báo cáo tuổi nợ
+  exportDebtAgingCsv: async (params?: {
+    asOfDate?: string;
+    fromCheckout?: string;
+    toCheckout?: string;
+    guestId?: number;
+    bucketFilter?: string;
+  }): Promise<Blob> => {
+    const response = await api.get('/debt-approvals/aging/export', {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  // Ghi nhận nhật ký một lần liên hệ đòi nợ
+  addCollectionLog: async (
+    id: number | string,
+    data: {
+      contactMethod: string;
+      contactResult?: string;
+      notes: string;
+      contactDate?: string;
+      promisedDate?: string;
+      nextReminderDate?: string;
+    }
+  ): Promise<any> => {
+    const response = await api.post(`/debt-approvals/${id}/collection-logs`, data);
+    return response.data;
+  },
+
+  // Lấy danh sách lịch sử đòi nợ của một khoản
+  getCollectionLogs: async (id: number | string): Promise<any[]> => {
+    const response = await api.get(`/debt-approvals/${id}/collection-logs`);
+    return response.data;
+  },
 };
 
 export default debtApprovalApi;
