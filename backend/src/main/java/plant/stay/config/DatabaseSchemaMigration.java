@@ -250,5 +250,41 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: channel_room_mappings table: {}", e.getMessage());
         }
+
+        // 14. Tạo bảng debt_collection_logs (Nhật ký liên hệ đòi nợ)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS debt_collection_logs (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  debt_approval_request_id BIGINT NOT NULL," +
+                "  contact_date DATETIME NOT NULL," +
+                "  contact_method VARCHAR(20) NOT NULL," +
+                "  contact_result VARCHAR(50)," +
+                "  notes TEXT," +
+                "  promised_date DATE," +
+                "  next_reminder_date DATE," +
+                "  recorded_by BIGINT," +
+                "  created_at DATETIME(6)," +
+                "  FOREIGN KEY (debt_approval_request_id) REFERENCES debt_approval_requests(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dcl_debt_id_date ON debt_collection_logs(debt_approval_request_id, contact_date DESC)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dcl_reminder_date ON debt_collection_logs(next_reminder_date)");
+            log.info("Schema Migration: Successfully ensured 'debt_collection_logs' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: debt_collection_logs table: {}", e.getMessage());
+        }
+
+        // 15. Thêm các cột nhắc thu vào bảng debt_approval_requests
+        try {
+            jdbcTemplate.execute("ALTER TABLE debt_approval_requests ADD COLUMN IF NOT EXISTS last_contacted_at DATETIME");
+            jdbcTemplate.execute("ALTER TABLE debt_approval_requests ADD COLUMN IF NOT EXISTS last_contact_note TEXT");
+            jdbcTemplate.execute("ALTER TABLE debt_approval_requests ADD COLUMN IF NOT EXISTS next_reminder_date DATE");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dar_reminder_date ON debt_approval_requests(next_reminder_date)");
+            log.info("Schema Migration: Successfully ensured reminder columns in 'debt_approval_requests'.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: debt_approval_requests reminder columns: {}", e.getMessage());
+        }
     }
 }
