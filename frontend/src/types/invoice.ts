@@ -4,6 +4,7 @@ export type InvoiceStatus =
   | 'PENDING_DISCOUNT_APPROVAL'
   | 'PAID'
   | 'ADJUSTED'
+  | 'CANCELLED'
   | 'PENDING';
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -12,6 +13,7 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   PENDING_DISCOUNT_APPROVAL: 'Chờ duyệt giảm giá',
   PAID: 'Đã thanh toán',
   ADJUSTED: 'Đã điều chỉnh',
+  CANCELLED: 'Đã hủy',
   PENDING: 'Chờ thanh toán'
 };
 
@@ -34,6 +36,10 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   DEBT: 'Ghi nợ'
 };
 
+export interface InvoiceCancelRequest {
+  reason: string;
+}
+
 export interface InvoiceResponse {
   id: number;
   bookingId?: number;
@@ -46,6 +52,9 @@ export interface InvoiceResponse {
   status: InvoiceStatus;
   adjustmentOfId?: number;
   note?: string;
+  cancelReason?: string;
+  cancelledByName?: string;
+  cancelledAt?: string;
   createdAt?: string;
 }
 
