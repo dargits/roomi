@@ -15,10 +15,17 @@ public class DebtReminderScheduler {
 
     @Scheduled(cron = "0 0 9 * * ?", zone = "${app.time-zone:Asia/Ho_Chi_Minh}")
     public void remindGuestsBeforeDueDate() {
+        // Nhắc nội bộ hóa đơn sắp đến hạn ngày mai
         try {
             debtApprovalService.sendDueTomorrowReminders();
         } catch (Exception exception) {
             log.error("Không thể hoàn tất tác vụ nhắc công nợ trước hạn", exception);
         }
+        // Nhắc kế toán theo lịch hẹn đòi nợ đã ghi nhận
+        try {
+            debtApprovalService.sendDailyDebtReminders();
+        } catch (Exception exception) {
+            log.error("Không thể hoàn tất tác vụ nhắc lịch hẹn đòi nợ", exception);
+        }
     }
-}
+}
