@@ -32,4 +32,9 @@ public class RoomResponse {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Dọn định kỳ phòng trống dài ngày
+    private LocalDateTime lastCleanedAt;
+    private String cleaningReason; // "PERIODIC_VACANT", "CHECKOUT", "MANUAL", "INCIDENT"
+    private Long vacantDays; // Số ngày phòng đã để trống
 }
