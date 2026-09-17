@@ -19,6 +19,7 @@ import plant.stay.service.RoomService;
 import org.springframework.context.ApplicationEventPublisher;
 import plant.stay.event.CalendarSyncEvent;
 
+import plant.stay.repository.HotelSettingRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,6 +36,7 @@ public class RoomServiceImpl implements RoomService {
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
+    private final HotelSettingRepository hotelSettingRepository;
 
     @Override
     public List<RoomResponse> getAll() {
@@ -66,6 +68,7 @@ public class RoomServiceImpl implements RoomService {
                 .floor(request.getFloor())
                 .status(request.getStatus() != null ? request.getStatus() : RoomStatus.AVAILABLE)
                 .notes(request.getNotes())
+                .lastCleanedAt(LocalDateTime.now())
                 .build();
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "CREATE", actor, "Tạo phòng " + room.getRoomNumber());
@@ -113,6 +116,8 @@ public class RoomServiceImpl implements RoomService {
             throw new IllegalArgumentException("Chỉ có thể đánh dấu sạch khi phòng đang ở trạng thái DIRTY hoặc INSPECTING");
         }
         room.setStatus(RoomStatus.AVAILABLE);
+        room.setLastCleanedAt(LocalDateTime.now());
+        room.setCleaningReason(null);
         room.setAssignedHousekeeper(null);
         room.setAssignedAt(null);
         room = roomRepository.save(room);
@@ -125,6 +130,7 @@ public class RoomServiceImpl implements RoomService {
     public RoomResponse markDirty(Long id, User actor) {
         Room room = findById(id);
         room.setStatus(RoomStatus.DIRTY);
+        room.setCleaningReason("MANUAL");
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "MARK_DIRTY", actor, "Đánh dấu phòng " + room.getRoomNumber() + " cần dọn dẹp");
 
@@ -184,6 +190,8 @@ public class RoomServiceImpl implements RoomService {
             throw new IllegalArgumentException("Chỉ có thể duyệt sạch khi phòng đang ở trạng thái Chờ duyệt (INSPECTING)");
         }
         room.setStatus(RoomStatus.AVAILABLE);
+        room.setLastCleanedAt(LocalDateTime.now());
+        room.setCleaningReason(null);
         room.setAssignedHousekeeper(null);
         room.setAssignedAt(null);
         room = roomRepository.save(room);
@@ -250,6 +258,68 @@ public class RoomServiceImpl implements RoomService {
         return toResponse(room);
     }
 
+    // ===== Lịch dọn định kỳ phòng trống dài ngày =====
+
+    @Override
+    @Transactional
+    public int triggerPeriodicCleaningCheck(User actor) {
+        HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
+        if (setting != null && Boolean.FALSE.equals(setting.getPeriodicCleaningEnabled())) {
+            return 0; // Tính năng dọn định kỳ đã bị tắt bởi chủ cơ sở
+        }
+        int thresholdDays = (setting != null && setting.getPeriodicCleaningDays() != null && setting.getPeriodicCleaningDays() > 0)
+                ? setting.getPeriodicCleaningDays()
+                : 5;
+
+        List<Room> availableRooms = roomRepository.findByStatus(RoomStatus.AVAILABLE);
+        int count = 0;
+        LocalDate today = LocalDate.now();
+
+        for (Room room : availableRooms) {
+            LocalDateTime baseTime = room.getLastCleanedAt();
+            if (baseTime == null) {
+                try {
+                    Booking lastBooking = bookingRepository.findTopByRoomIdAndStatusOrderByCheckOutDateDesc(room.getId(), BookingStatus.CHECKED_OUT);
+                    if (lastBooking != null && lastBooking.getCheckedOutAt() != null) {
+                        baseTime = lastBooking.getCheckedOutAt();
+                    } else if (lastBooking != null && lastBooking.getCheckOutDate() != null) {
+                        baseTime = lastBooking.getCheckOutDate().atTime(12, 0);
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (baseTime == null) {
+                baseTime = room.getUpdatedAt() != null ? room.getUpdatedAt() : room.getCreatedAt();
+            }
+            if (baseTime == null) {
+                baseTime = LocalDateTime.now();
+            }
+
+            long days = java.time.temporal.ChronoUnit.DAYS.between(baseTime.toLocalDate(), today);
+            if (days >= thresholdDays) {
+                room.setStatus(RoomStatus.DIRTY);
+                room.setCleaningReason("PERIODIC_VACANT");
+                room.setAssignedHousekeeper(null);
+                room.setAssignedAt(null);
+                roomRepository.save(room);
+                count++;
+
+                auditLogService.log("Room", room.getId(), "PERIODIC_CLEANING_TRIGGERED", actor,
+                        "Phòng " + room.getRoomNumber() + " tự động chuyển sang Cần dọn (DIRTY) do để trống "
+                        + days + " ngày không có khách (chu kỳ: " + thresholdDays + " ngày)");
+
+                try {
+                    notificationService.createForRoles(
+                            NotificationType.ROOM_DIRTY,
+                            "Dọn định kỳ phòng trống: " + room.getRoomNumber(),
+                            "Phòng " + room.getRoomNumber() + " đã trống " + days + " ngày không có khách, cần làm sạch bụi định kỳ",
+                            "ROOM", room.getId()
+                    );
+                } catch (Exception ignored) {}
+            }
+        }
+        return count;
+    }
+
     private Room findById(Long id) {
         return roomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với id: " + id));
@@ -281,6 +351,28 @@ public class RoomServiceImpl implements RoomService {
             // Không để lỗi truy vấn booking ảnh hưởng đến việc load phòng
         }
 
+        // Tính số ngày phòng đã trống (nếu đang AVAILABLE hoặc lý do là PERIODIC_VACANT)
+        Long vacantDays = null;
+        if (room.getStatus() == RoomStatus.AVAILABLE || "PERIODIC_VACANT".equals(room.getCleaningReason())) {
+            LocalDateTime baseTime = room.getLastCleanedAt();
+            if (baseTime == null) {
+                try {
+                    Booking lastBooking = bookingRepository.findTopByRoomIdAndStatusOrderByCheckOutDateDesc(room.getId(), BookingStatus.CHECKED_OUT);
+                    if (lastBooking != null && lastBooking.getCheckedOutAt() != null) {
+                        baseTime = lastBooking.getCheckedOutAt();
+                    } else if (lastBooking != null && lastBooking.getCheckOutDate() != null) {
+                        baseTime = lastBooking.getCheckOutDate().atTime(12, 0);
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (baseTime == null) {
+                baseTime = room.getUpdatedAt() != null ? room.getUpdatedAt() : room.getCreatedAt();
+            }
+            if (baseTime != null) {
+                vacantDays = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(baseTime.toLocalDate(), today));
+            }
+        }
+
         return RoomResponse.builder()
                 .id(room.getId())
                 .roomNumber(room.getRoomNumber())
@@ -299,6 +391,9 @@ public class RoomServiceImpl implements RoomService {
                 .priorityLevel(priority)
                 .createdAt(room.getCreatedAt())
                 .updatedAt(room.getUpdatedAt())
+                .lastCleanedAt(room.getLastCleanedAt())
+                .cleaningReason(room.getCleaningReason())
+                .vacantDays(vacantDays)
                 .build();
     }
 }

@@ -23,4 +23,6 @@ public class HotelSettingResponse {
     private Boolean reminderEmailEnabled;
     private LocalTime reminderMorningTime;
     private Integer lostItemRetentionDays;
+    private Boolean periodicCleaningEnabled;
+    private Integer periodicCleaningDays;
 }

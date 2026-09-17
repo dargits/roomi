@@ -33,6 +33,9 @@ export interface RoomResponse {
   priorityLevel?: PriorityLevel;
   createdAt?: string;
   updatedAt?: string;
+  lastCleanedAt?: string;
+  cleaningReason?: string;
+  vacantDays?: number;
 }
 
 export interface RoomRequest {

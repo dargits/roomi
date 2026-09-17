@@ -715,6 +715,7 @@ public class BookingServiceImpl implements BookingService {
         // Phòng chuyển sang DIRTY sau khi trả (QTN-05)
         if (booking.getRoom() != null) {
             booking.getRoom().setStatus(RoomStatus.DIRTY);
+            booking.getRoom().setCleaningReason("CHECKOUT");
             roomRepository.save(booking.getRoom());
 
             // [Notification] Thông báo phòng cần dọn cho Housekeeper

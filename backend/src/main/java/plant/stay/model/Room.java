@@ -42,6 +42,23 @@ public class Room {
     @Column(name = "assigned_at")
     private LocalDateTime assignedAt;
 
+    /**
+     * Thời điểm phòng được làm sạch hoặc nghiệm thu sạch gần nhất.
+     * Dùng để tính chu kỳ dọn định kỳ khi phòng để trống lâu ngày.
+     */
+    @Column(name = "last_cleaned_at")
+    private LocalDateTime lastCleanedAt;
+
+    /**
+     * Lý do phòng chuyển sang trạng thái cần dọn (DIRTY):
+     * - CHECKOUT: Khách vừa trả phòng
+     * - PERIODIC_VACANT: Phòng để trống lâu ngày theo chu kỳ dọn định kỳ
+     * - MANUAL: Nhân viên / Quản lý đánh dấu thủ công
+     * - INCIDENT: Phát sinh sự cố kỹ thuật hoặc phòng ốc
+     */
+    @Column(name = "cleaning_reason", length = 50)
+    private String cleaningReason;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

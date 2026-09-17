@@ -85,6 +85,12 @@ export const roomApi = {
     const response = await api.delete<RoomResponse>(`/rooms/${id}/assign-cleaner`);
     return response.data;
   },
+
+  // Quét định kỳ phòng trống dài ngày (OWNER)
+  scanPeriodicCleaning: async (): Promise<MessageResponse> => {
+    const response = await api.post<MessageResponse>('/rooms/scan-periodic-cleaning');
+    return response.data;
+  },
 };
 
 export default roomApi;
