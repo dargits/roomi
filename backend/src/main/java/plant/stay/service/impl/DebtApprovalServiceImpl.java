@@ -14,6 +14,7 @@ import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.DebtApprovalService;
+import plant.stay.service.EmailService;
 import plant.stay.service.NotificationService;
 import org.springframework.http.HttpStatus;
 
@@ -42,6 +43,9 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
     private final AuditLogService auditLogService;
     private final DebtCollectionLogRepository collectionLogRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final HotelSettingRepository hotelSettingRepository;
+    private final GuestRepository guestRepository;
 
     @Override
     @Transactional
@@ -282,6 +286,7 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 .guestId(r.getGuest() != null ? r.getGuest().getId() : null)
                 .guestName(r.getGuest() != null ? r.getGuest().getName() : null)
                 .guestPhone(r.getGuest() != null ? r.getGuest().getPhone() : null)
+                .guestEmail(r.getGuest() != null ? r.getGuest().getEmail() : null)
                 .roomNumber(r.getBooking() != null && r.getBooking().getRoom() != null ? r.getBooking().getRoom().getRoomNumber() : null)
                 .totalAmount(totalAmount)
                 .paidAmount(paidAmount)
@@ -394,12 +399,40 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
 
         LocalDateTime contactDate = req.getContactDate() != null ? req.getContactDate() : LocalDateTime.now();
 
+        // Xử lý gửi email nếu hình thức liên hệ là EMAIL hoặc sendEmail = true
+        String finalNotes = req.getNotes();
+        boolean isEmail = "EMAIL".equalsIgnoreCase(req.getContactMethod()) || Boolean.TRUE.equals(req.getSendEmail());
+        if (isEmail) {
+            String targetEmail = (req.getRecipientEmail() != null && !req.getRecipientEmail().trim().isEmpty())
+                    ? req.getRecipientEmail().trim()
+                    : (debt.getGuest() != null ? debt.getGuest().getEmail() : null);
+
+            if (targetEmail != null && !targetEmail.isBlank()) {
+                if (debt.getGuest() != null && (debt.getGuest().getEmail() == null || debt.getGuest().getEmail().isBlank())) {
+                    debt.getGuest().setEmail(targetEmail);
+                    guestRepository.save(debt.getGuest());
+                }
+
+                DebtAcknowledgementData emailData = buildDebtEmailData(debt, targetEmail);
+                boolean sent = emailService.sendDebtReminderEmail(targetEmail, emailData);
+                if (sent) {
+                    finalNotes = "[Email đã gửi thành công tới: " + targetEmail + "] " + finalNotes;
+                    log.info("[DEBT EMAIL] Đã gửi email nhắc nợ khoản #{} tới {}", debtId, targetEmail);
+                } else {
+                    finalNotes = "[Gửi email thất bại tới: " + targetEmail + "] " + finalNotes;
+                    log.warn("[DEBT EMAIL] Không thể gửi email nhắc nợ khoản #{} tới {}", debtId, targetEmail);
+                }
+            } else {
+                finalNotes = "[Khách chưa có email] " + finalNotes;
+            }
+        }
+
         DebtCollectionLog log = DebtCollectionLog.builder()
                 .debtApprovalRequest(debt)
                 .contactDate(contactDate)
                 .contactMethod(req.getContactMethod())
                 .contactResult(req.getContactResult())
-                .notes(req.getNotes())
+                .notes(finalNotes)
                 .promisedDate(req.getPromisedDate())
                 .nextReminderDate(req.getNextReminderDate())
                 .recordedBy(actor)
@@ -408,12 +441,12 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
 
         // Cập nhật trường denormalized trên DebtApprovalRequest
         debt.setLastContactedAt(contactDate);
-        debt.setLastContactNote(req.getNotes().length() > 200 ? req.getNotes().substring(0, 200) + "..." : req.getNotes());
+        debt.setLastContactNote(finalNotes.length() > 200 ? finalNotes.substring(0, 200) + "..." : finalNotes);
         debt.setNextReminderDate(req.getNextReminderDate());
         debtApprovalRepository.save(debt);
 
         auditLogService.log("DebtApprovalRequest", debtId, "ADD_COLLECTION_LOG", actor,
-                "Ghi nhận liên hệ đòi nợ: " + req.getContactMethod() + " - " + req.getNotes());
+                "Ghi nhận liên hệ đòi nợ: " + req.getContactMethod() + " - " + finalNotes);
 
         return toCollectionLogDto(log);
     }
@@ -650,6 +683,123 @@ public class DebtApprovalServiceImpl implements DebtApprovalService {
                 .nextReminderDate(log.getNextReminderDate())
                 .recordedByName(log.getRecordedBy() != null ? log.getRecordedBy().getName() : null)
                 .createdAt(log.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public boolean sendDebtReminderEmail(Long debtId, String recipientEmail, User actor) {
+        DebtApprovalRequest debt = debtApprovalRepository.findById(debtId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khoản nợ #" + debtId));
+
+        String targetEmail = (recipientEmail != null && !recipientEmail.trim().isEmpty())
+                ? recipientEmail.trim()
+                : (debt.getGuest() != null ? debt.getGuest().getEmail() : null);
+
+        if (targetEmail == null || targetEmail.isBlank()) {
+            throw new IllegalArgumentException("Khách hàng chưa có địa chỉ email để nhận thông báo");
+        }
+
+        if (debt.getGuest() != null && (debt.getGuest().getEmail() == null || debt.getGuest().getEmail().isBlank())) {
+            debt.getGuest().setEmail(targetEmail);
+            guestRepository.save(debt.getGuest());
+        }
+
+        DebtAcknowledgementData emailData = buildDebtEmailData(debt, targetEmail);
+        boolean sent = emailService.sendDebtReminderEmail(targetEmail, emailData);
+
+        // Tự động ghi nhận 1 log EMAIL
+        DebtCollectionLog collectionLog = DebtCollectionLog.builder()
+                .debtApprovalRequest(debt)
+                .contactDate(LocalDateTime.now())
+                .contactMethod("EMAIL")
+                .contactResult(sent ? "PROMISED_TO_PAY" : "OTHER")
+                .notes(sent ? ("Đã gửi email nhắc nợ & đối soát tới: " + targetEmail) : ("Gửi email nhắc nợ thất bại tới: " + targetEmail))
+                .recordedBy(actor)
+                .build();
+        collectionLogRepository.save(collectionLog);
+
+        debt.setLastContactedAt(LocalDateTime.now());
+        debt.setLastContactNote("Đã gửi email nhắc nợ tới: " + targetEmail);
+        debtApprovalRepository.save(debt);
+
+        auditLogService.log("DebtApprovalRequest", debtId, "SEND_DEBT_REMINDER_EMAIL", actor,
+                "Gửi email nhắc nợ tới: " + targetEmail);
+
+        return sent;
+    }
+
+    @Override
+    @Transactional
+    public boolean sendAcknowledgementEmail(Long debtId, String recipientEmail, User actor) {
+        DebtApprovalRequest debt = debtApprovalRepository.findById(debtId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khoản nợ #" + debtId));
+
+        String targetEmail = (recipientEmail != null && !recipientEmail.trim().isEmpty())
+                ? recipientEmail.trim()
+                : (debt.getGuest() != null ? debt.getGuest().getEmail() : null);
+
+        if (targetEmail == null || targetEmail.isBlank()) {
+            throw new IllegalArgumentException("Khách hàng chưa có địa chỉ email để nhận giấy xác nhận");
+        }
+
+        if (debt.getGuest() != null && (debt.getGuest().getEmail() == null || debt.getGuest().getEmail().isBlank())) {
+            debt.getGuest().setEmail(targetEmail);
+            guestRepository.save(debt.getGuest());
+        }
+
+        DebtAcknowledgementData emailData = buildDebtEmailData(debt, targetEmail);
+        boolean sent = emailService.sendDebtAcknowledgementEmail(targetEmail, emailData);
+
+        auditLogService.log("DebtApprovalRequest", debtId, "SEND_ACKNOWLEDGEMENT_EMAIL", actor,
+                "Gửi giấy xác nhận công nợ qua email tới: " + targetEmail);
+
+        return sent;
+    }
+
+    private DebtAcknowledgementData buildDebtEmailData(DebtApprovalRequest debt, String recipientEmail) {
+        HotelSetting hotelSetting = hotelSettingRepository.findById(1L).orElse(null);
+        String hotelName = hotelSetting != null && hotelSetting.getPropertyName() != null ? hotelSetting.getPropertyName() : "STAYAWAY HOTEL";
+        String hotelPhone = hotelSetting != null && hotelSetting.getPhone() != null ? hotelSetting.getPhone() : "1900 6868";
+        String hotelAddress = hotelSetting != null && hotelSetting.getAddress() != null ? hotelSetting.getAddress() : "";
+        String hotelEmail = hotelSetting != null && hotelSetting.getEmail() != null ? hotelSetting.getEmail() : "support@stayaway.io.vn";
+
+        Booking booking = debt.getBooking();
+        Invoice inv = debt.getInvoice();
+        BigDecimal totalAmount = inv != null ? inv.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paidAmount = BigDecimal.ZERO;
+        if (inv != null) {
+            paidAmount = paymentRepository.findByInvoiceId(inv.getId()).stream()
+                    .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+        BigDecimal actualDebt = totalAmount.subtract(paidAmount);
+        if (actualDebt.compareTo(BigDecimal.ZERO) < 0) {
+            actualDebt = BigDecimal.ZERO;
+        }
+
+        Guest guest = debt.getGuest();
+        return DebtAcknowledgementData.builder()
+                .debtRequestId(debt.getId())
+                .bookingId(booking != null ? booking.getId() : null)
+                .invoiceId(inv != null ? inv.getId() : null)
+                .hotelName(hotelName)
+                .hotelAddress(hotelAddress)
+                .hotelPhone(hotelPhone)
+                .hotelEmail(hotelEmail)
+                .guestName(guest != null ? guest.getName() : "Quý khách")
+                .guestPhone(guest != null ? guest.getPhone() : "")
+                .guestEmail(recipientEmail)
+                .guestIdNumber(guest != null ? guest.getIdNumber() : "")
+                .roomNumber(booking != null && booking.getRoom() != null ? booking.getRoom().getRoomNumber() : "")
+                .checkInDate(booking != null ? booking.getCheckInDate() : null)
+                .checkOutDate(booking != null ? booking.getCheckOutDate() : null)
+                .invoiceTotal(totalAmount)
+                .paidAmount(paidAmount)
+                .debtAmount(debt.getStatus() == DebtApprovalStatus.APPROVED ? actualDebt : debt.getDebtAmount())
+                .dueDate(debt.getDueDate())
+                .reason(debt.getReason())
+                .approvedByName(debt.getApprovedBy() != null ? debt.getApprovedBy().getName() : null)
+                .approvedAt(debt.getApprovedAt())
                 .build();
     }
 

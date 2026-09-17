@@ -67,4 +67,14 @@ public interface DebtApprovalService {
      * Được gọi tự động bởi DebtReminderScheduler lúc 09:00 sáng hàng ngày.
      */
     void sendDailyDebtReminders();
+
+    /**
+     * Gửi email nhắc nợ & đối soát trực tiếp tới khách hàng.
+     */
+    boolean sendDebtReminderEmail(Long debtId, String recipientEmail, User actor);
+
+    /**
+     * Gửi email giấy xác nhận công nợ tới khách hàng.
+     */
+    boolean sendAcknowledgementEmail(Long debtId, String recipientEmail, User actor);
 }

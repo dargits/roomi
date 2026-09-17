@@ -22,6 +22,7 @@ public class DebtItemResponse {
     private Long guestId;
     private String guestName;
     private String guestPhone;
+    private String guestEmail;
     private String roomNumber;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;

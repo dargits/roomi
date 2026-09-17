@@ -15,6 +15,7 @@ import plant.stay.dto.request.DebtCollectionLogRequest;
 import plant.stay.dto.response.DebtAgingReportResponse;
 import plant.stay.dto.response.DebtCollectionLogResponse;
 import plant.stay.dto.response.DebtItemResponse;
+import plant.stay.dto.response.MessageResponse;
 import plant.stay.exception.BusinessException;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Role;
@@ -137,17 +138,53 @@ public class DebtApprovalController {
         return ResponseEntity.ok(debtApprovalService.getCollectionLogs(id));
     }
 
+    // Gửi email đối soát / nhắc nợ tới khách hàng
+    @PostMapping("/{id}/send-reminder-email")
+    public ResponseEntity<MessageResponse> sendDebtReminderEmail(
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            @RequestParam(required = false) String email,
+            HttpServletRequest request) {
+        User actor = checkFinancialStaff(request);
+        String targetEmail = email;
+        if (targetEmail == null && body != null && body.containsKey("email")) {
+            targetEmail = body.get("email");
+        }
+        boolean sent = debtApprovalService.sendDebtReminderEmail(id, targetEmail, actor);
+        return ResponseEntity.ok(new MessageResponse(sent ? "Đã gửi email nhắc nợ & đối soát thành công!"
+                : "Không thể gửi email lúc này. Vui lòng kiểm tra cấu hình hệ thống."));
+    }
+
+    // Gửi email giấy xác nhận công nợ tới khách hàng
+    @PostMapping("/{id}/send-acknowledgement")
+    public ResponseEntity<MessageResponse> sendAcknowledgementEmail(
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            @RequestParam(required = false) String email,
+            HttpServletRequest request) {
+        User actor = checkFinancialStaff(request);
+        String targetEmail = email;
+        if (targetEmail == null && body != null && body.containsKey("email")) {
+            targetEmail = body.get("email");
+        }
+        boolean sent = debtApprovalService.sendAcknowledgementEmail(id, targetEmail, actor);
+        return ResponseEntity.ok(new MessageResponse(sent ? "Đã gửi giấy xác nhận công nợ qua email thành công!"
+                : "Không thể gửi email lúc này. Vui lòng kiểm tra cấu hình hệ thống."));
+    }
+
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null) throw new UnauthorizedException("Vui lòng đăng nhập");
+        if (user == null)
+            throw new UnauthorizedException("Vui lòng đăng nhập");
         return user;
     }
 
     private User checkFinancialStaff(HttpServletRequest request) {
         User user = checkStaff(request);
-        if (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN 
+        if (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN
                 && user.getRole() != Role.ACCOUNTANT && user.getRole() != Role.RECEPTIONIST) {
-            throw new BusinessException("Chỉ Kế toán, Lễ tân hoặc Quản trị viên mới có quyền truy cập chức năng này!", HttpStatus.FORBIDDEN);
+            throw new BusinessException("Chỉ Kế toán, Lễ tân hoặc Quản trị viên mới có quyền truy cập chức năng này!",
+                    HttpStatus.FORBIDDEN);
         }
         return user;
     }
