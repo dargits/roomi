@@ -54,6 +54,12 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         if (request.getLostItemRetentionDays() != null) {
             setting.setLostItemRetentionDays(request.getLostItemRetentionDays());
         }
+        if (request.getPeriodicCleaningEnabled() != null) {
+            setting.setPeriodicCleaningEnabled(request.getPeriodicCleaningEnabled());
+        }
+        if (request.getPeriodicCleaningDays() != null) {
+            setting.setPeriodicCleaningDays(request.getPeriodicCleaningDays());
+        }
         setting.setUpdatedBy(updatedBy);
 
         // Với @Transactional và Managed Entity, save() sẽ hoạt động đúng và an toàn
@@ -76,6 +82,8 @@ public class HotelSettingServiceImpl implements HotelSettingService {
                 .reminderMorningTime(setting.getReminderMorningTime() != null ? setting.getReminderMorningTime()
                         : java.time.LocalTime.of(10, 30))
                 .lostItemRetentionDays(setting.getLostItemRetentionDays() != null ? setting.getLostItemRetentionDays() : 30)
+                .periodicCleaningEnabled(setting.getPeriodicCleaningEnabled() != null ? setting.getPeriodicCleaningEnabled() : true)
+                .periodicCleaningDays(setting.getPeriodicCleaningDays() != null ? setting.getPeriodicCleaningDays() : 5)
                 .build();
     }
 }
