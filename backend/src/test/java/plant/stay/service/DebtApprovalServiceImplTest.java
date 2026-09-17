@@ -38,6 +38,9 @@ class DebtApprovalServiceImplTest {
     @Mock private AuditLogService auditLogService;
     @Mock private DebtCollectionLogRepository collectionLogRepository;
     @Mock private NotificationService notificationService;
+    @Mock private EmailService emailService;
+    @Mock private HotelSettingRepository hotelSettingRepository;
+    @Mock private GuestRepository guestRepository;
 
     private DebtApprovalService debtApprovalService;
     private Booking booking;
@@ -50,7 +53,8 @@ class DebtApprovalServiceImplTest {
         debtApprovalService = new DebtApprovalServiceImpl(
                 debtApprovalRepository, bookingRepository, invoiceRepository,
                 paymentRepository, roomRepository, auditLogService,
-                collectionLogRepository, notificationService);
+                collectionLogRepository, notificationService,
+                emailService, hotelSettingRepository, guestRepository);
 
         guest = Guest.builder().id(1L).name("Khách có hồ sơ").phone("0900000000").build();
         booking = Booking.builder().id(10L).guest(guest).status(BookingStatus.CHECKED_IN).checkOutDate(LocalDate.now()).build();
@@ -274,6 +278,54 @@ class DebtApprovalServiceImplTest {
                 eq("DebtApprovalRequest"),
                 eq(60L)
         );
+    }
+
+    @Test
+    @DisplayName("Ghi nhận nhật ký liên hệ với hình thức EMAIL kích hoạt gửi email nhắc nợ")
+    void addCollectionLogWithEmailSendsEmail() {
+        DebtApprovalRequest debt = DebtApprovalRequest.builder()
+                .id(70L).guest(guest).booking(booking).invoice(invoice)
+                .debtAmount(new BigDecimal("1000000"))
+                .dueDate(LocalDate.now().plusDays(5))
+                .status(DebtApprovalStatus.APPROVED).build();
+
+        when(debtApprovalRepository.findById(70L)).thenReturn(Optional.of(debt));
+        when(debtApprovalRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(collectionLogRepository.save(any())).thenAnswer(invocation -> {
+            DebtCollectionLog log = invocation.getArgument(0);
+            log.setId(102L);
+            return log;
+        });
+        when(emailService.sendDebtReminderEmail(anyString(), any())).thenReturn(true);
+
+        DebtCollectionLogRequest req = new DebtCollectionLogRequest();
+        req.setContactMethod("EMAIL");
+        req.setNotes("Đã gửi email đối soát");
+        req.setRecipientEmail("guest@example.com");
+
+        DebtCollectionLogResponse res = debtApprovalService.addCollectionLog(70L, req, testUser);
+
+        assertNotNull(res);
+        verify(emailService).sendDebtReminderEmail(eq("guest@example.com"), any());
+    }
+
+    @Test
+    @DisplayName("Gửi giấy xác nhận công nợ qua email thành công")
+    void sendAcknowledgementEmailSuccess() {
+        DebtApprovalRequest debt = DebtApprovalRequest.builder()
+                .id(80L).guest(guest).booking(booking).invoice(invoice)
+                .debtAmount(new BigDecimal("1000000"))
+                .dueDate(LocalDate.now().plusDays(5))
+                .status(DebtApprovalStatus.APPROVED).build();
+
+        when(debtApprovalRepository.findById(80L)).thenReturn(Optional.of(debt));
+        when(emailService.sendDebtAcknowledgementEmail(anyString(), any())).thenReturn(true);
+
+        boolean result = debtApprovalService.sendAcknowledgementEmail(80L, "guest@example.com", testUser);
+
+        assertTrue(result);
+        verify(emailService).sendDebtAcknowledgementEmail(eq("guest@example.com"), any());
+        verify(auditLogService).log(eq("DebtApprovalRequest"), eq(80L), eq("SEND_ACKNOWLEDGEMENT_EMAIL"), eq(testUser), anyString());
     }
 
     private DebtApprovalCreateRequest requestWithAmount(BigDecimal debtAmount) {

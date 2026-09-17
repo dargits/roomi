@@ -601,7 +601,14 @@ const DebtAgingReport: React.FC = () => {
                         </td>
                         <td className="p-3">
                           <div className="font-semibold text-on-surface">{item.guestName}</div>
-                          <div className="text-xs text-on-surface-variant">{item.guestPhone || '—'}</div>
+                          <div className="text-xs text-on-surface-variant flex flex-col">
+                            <span>{item.guestPhone || '—'}</span>
+                            {item.guestEmail && (
+                              <span className="text-[11px] text-primary/80 truncate max-w-[160px]" title={item.guestEmail}>
+                                {item.guestEmail}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3 font-medium text-on-surface">
                           {item.roomNumber || '—'}

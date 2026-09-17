@@ -226,6 +226,8 @@ export interface DebtCollectionLogRequest {
   contactedAt?: string;
   promisedDate?: string;
   nextReminderDate?: string;
+  recipientEmail?: string;
+  sendEmail?: boolean;
 }
 
 export interface DebtAgingBucketDto {
@@ -273,6 +275,7 @@ export interface DebtAgingItemResponse {
   guestId?: number;
   guestName: string;
   guestPhone: string;
+  guestEmail?: string;
   roomNumber?: string;
   debtAmount: number;
   paidAmount?: number;

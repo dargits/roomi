@@ -42,18 +42,37 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
 }) => {
   const [contactMethod, setContactMethod] = useState('PHONE');
   const [contactResult, setContactResult] = useState('PROMISED_TO_PAY');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [promisedDate, setPromisedDate] = useState('');
   const [nextReminderDate, setNextReminderDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (debtItem) {
+      setRecipientEmail(debtItem.guestEmail || '');
+    }
+  }, [debtItem, isOpen]);
+
   if (!debtItem) return null;
+
+  const handleContactMethodChange = (newMethod: string) => {
+    setContactMethod(newMethod);
+    if (newMethod === 'EMAIL' && !notes.trim()) {
+      setNotes('Gửi email đối soát công nợ chi tiết & thông tin thanh toán cho khách hàng.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!notes.trim()) {
       setError('Vui lòng nhập nội dung trao đổi / kết quả liên hệ');
+      return;
+    }
+
+    if (contactMethod === 'EMAIL' && !recipientEmail.trim()) {
+      setError('Vui lòng nhập địa chỉ email người nhận để gửi đối soát');
       return;
     }
 
@@ -65,7 +84,9 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
         contactResult,
         notes: notes.trim(),
         promisedDate: promisedDate || undefined,
-        nextReminderDate: nextReminderDate || undefined
+        nextReminderDate: nextReminderDate || undefined,
+        recipientEmail: recipientEmail.trim() || undefined,
+        sendEmail: contactMethod === 'EMAIL'
       });
       onSuccess();
       onClose();
@@ -128,7 +149,7 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
             <Select
               options={CONTACT_METHODS}
               value={contactMethod}
-              onChange={(e) => setContactMethod(e.target.value)}
+              onChange={(e) => handleContactMethodChange(e.target.value)}
             />
           </div>
 
@@ -143,6 +164,29 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
             />
           </div>
         </div>
+
+        {contactMethod === 'EMAIL' && (
+          <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl space-y-2.5">
+            <div className="flex items-start gap-2 text-xs text-blue-800 dark:text-blue-300">
+              <span className="text-base leading-none">✉️</span>
+              <span>
+                Hệ thống sẽ tự động gửi email thông báo đối soát công nợ chi tiết kèm thông tin số tài khoản và hạn thanh toán tới địa chỉ email dưới đây:
+              </span>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-blue-950 dark:text-blue-200 mb-1">
+                Địa chỉ Email người nhận <span className="text-error">*</span>
+              </label>
+              <Input
+                type="email"
+                placeholder="Ví dụ: ketoan@khachhang.com hoặc guest@example.com"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-xs font-semibold text-on-surface mb-1">
@@ -186,7 +230,7 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
             Hủy
           </Button>
           <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Đang lưu...' : 'Lưu nhật ký'}
+            {loading ? 'Đang xử lý...' : (contactMethod === 'EMAIL' ? '✉️ Gửi Email & Lưu Nhật Ký' : 'Lưu nhật ký')}
           </Button>
         </div>
       </form>
