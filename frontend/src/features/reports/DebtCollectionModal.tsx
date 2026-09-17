@@ -41,10 +41,8 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
   onSuccess
 }) => {
   const [contactMethod, setContactMethod] = useState('PHONE');
-  const [contactResult, setContactResult] = useState('PROMISED_TO_PAY');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [notes, setNotes] = useState('');
-  const [promisedDate, setPromisedDate] = useState('');
   const [nextReminderDate, setNextReminderDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +65,7 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!notes.trim()) {
-      setError('Vui lòng nhập nội dung trao đổi / kết quả liên hệ');
+      setError('Vui lòng nhập nội dung trao đổi / ghi chú liên hệ');
       return;
     }
 
@@ -81,9 +79,7 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
       setError(null);
       await debtApprovalApi.addCollectionLog(debtItem.id, {
         contactMethod,
-        contactResult,
         notes: notes.trim(),
-        promisedDate: promisedDate || undefined,
         nextReminderDate: nextReminderDate || undefined,
         recipientEmail: recipientEmail.trim() || undefined,
         sendEmail: contactMethod === 'EMAIL'
@@ -92,7 +88,6 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
       onClose();
       // Reset form
       setNotes('');
-      setPromisedDate('');
       setNextReminderDate('');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Có lỗi xảy ra khi ghi nhận nhật ký');
@@ -140,29 +135,16 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
           </div>
         )}
 
-        {/* Inputs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-on-surface mb-1">
-              Hình thức liên hệ <span className="text-error">*</span>
-            </label>
-            <Select
-              options={CONTACT_METHODS}
-              value={contactMethod}
-              onChange={(e) => handleContactMethodChange(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-on-surface mb-1">
-              Kết quả liên hệ
-            </label>
-            <Select
-              options={CONTACT_RESULTS}
-              value={contactResult}
-              onChange={(e) => setContactResult(e.target.value)}
-            />
-          </div>
+        {/* Form Inputs */}
+        <div>
+          <label className="block text-xs font-semibold text-on-surface mb-1">
+            Hình thức liên hệ <span className="text-error">*</span>
+          </label>
+          <Select
+            options={CONTACT_METHODS}
+            value={contactMethod}
+            onChange={(e) => handleContactMethodChange(e.target.value)}
+          />
         </div>
 
         {contactMethod === 'EMAIL' && (
@@ -190,39 +172,29 @@ const DebtCollectionModal: React.FC<DebtCollectionModalProps> = ({
 
         <div>
           <label className="block text-xs font-semibold text-on-surface mb-1">
-            Nội dung trao đổi / Ghi chú chi tiết <span className="text-error">*</span>
+            Nội dung trao đổi / Ghi chú liên hệ <span className="text-error">*</span>
           </label>
           <textarea
             className="w-full p-3 rounded-lg border border-border-grey bg-surface focus:border-primary focus:outline-hidden text-sm text-on-surface min-h-[90px]"
-            placeholder="Ví dụ: Đã gọi cho kế toán Anh Nam, anh xác nhận nhận được hóa đơn và hẹn chuyển khoản thứ 6..."
+            placeholder="Ví dụ: Đã gửi email đối soát chi tiết cho khách; hoặc đã gọi điện nhắc khách..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             required
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-on-surface mb-1">
-              Ngày khách hẹn thanh toán
-            </label>
-            <Input
-              type="date"
-              value={promisedDate}
-              onChange={(e) => setPromisedDate(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-on-surface mb-1">
-              Hẹn ngày liên hệ lại (Hệ thống nhắc thu)
-            </label>
-            <Input
-              type="date"
-              value={nextReminderDate}
-              onChange={(e) => setNextReminderDate(e.target.value)}
-            />
-          </div>
+        <div>
+          <label className="block text-xs font-semibold text-on-surface mb-1">
+            Hẹn ngày liên hệ lại (Hệ thống nhắc thu)
+          </label>
+          <Input
+            type="date"
+            value={nextReminderDate}
+            onChange={(e) => setNextReminderDate(e.target.value)}
+          />
+          <span className="text-[11px] text-on-surface-variant mt-1 block">
+            Hệ thống sẽ tự động cảnh báo nhắc thu cho kế toán vào ngày này.
+          </span>
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
