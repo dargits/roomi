@@ -15,7 +15,10 @@ public enum NotificationType {
     ROOM_INCIDENT_LIGHT(false, Set.of(Role.OWNER, Role.RECEPTIONIST)),
     ROOM_INCIDENT_HEAVY(true, Set.of(Role.OWNER, Role.RECEPTIONIST, Role.HOUSEKEEPER)),
     STAY_MILESTONE(false, Set.of(Role.OWNER, Role.RECEPTIONIST)),
-    INVOICE_DISCOUNT_APPROVAL(true, Set.of(Role.OWNER));
+    INVOICE_DISCOUNT_APPROVAL(true, Set.of(Role.OWNER)),
+    /** Nhắc kế toán đến hạn liên hệ đòi nợ theo lịch hẹn ghi nhận trước đó */
+    DEBT_REMINDER(false, Set.of(Role.ACCOUNTANT, Role.OWNER, Role.ADMIN));
+
 
     private final boolean mandatory;
     private final Set<Role> defaultRoles;
