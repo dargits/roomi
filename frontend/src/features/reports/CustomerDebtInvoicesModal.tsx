@@ -22,7 +22,17 @@ interface CustomerDebtInvoicesModalProps {
   items: DebtAgingItemResponse[];
   onOpenCollectionModal: (item: DebtAgingItemResponse) => void;
   onOpenHistoryModal: (item: DebtAgingItemResponse) => void;
+  onQuickUpdateResult?: (item: DebtAgingItemResponse, newResult: string, newPromisedDate?: string) => void;
 }
+
+const CONTACT_RESULT_OPTIONS = [
+  { value: '', label: '— Chưa cập nhật kết quả —' },
+  { value: 'PROMISED_TO_PAY', label: '✅ Khách hẹn thanh toán' },
+  { value: 'NO_ANSWER', label: '📵 Không nghe máy / Chưa phản hồi' },
+  { value: 'COMPLAINT', label: '⚠️ Khách khiếu nại hóa đơn' },
+  { value: 'PENDING_APPROVAL', label: '⏳ Chờ kế toán bên khách duyệt' },
+  { value: 'OTHER', label: '📋 Khác' }
+];
 
 const BUCKET_COLORS: Record<string, { bg: string; text: string; badge: string }> = {
   CURRENT: {
@@ -63,7 +73,8 @@ const CustomerDebtInvoicesModal: React.FC<CustomerDebtInvoicesModalProps> = ({
   customer,
   items,
   onOpenCollectionModal,
-  onOpenHistoryModal
+  onOpenHistoryModal,
+  onQuickUpdateResult
 }) => {
   if (!customer) return null;
 
@@ -144,6 +155,7 @@ const CustomerDebtInvoicesModal: React.FC<CustomerDebtInvoicesModalProps> = ({
                   <th className="p-3 font-semibold text-center">Quá hạn</th>
                   <th className="p-3 font-semibold text-right">Còn nợ</th>
                   <th className="p-3 font-semibold">Trạng thái nhắc</th>
+                  <th className="p-3 font-semibold">Kết quả liên hệ</th>
                   <th className="p-3 font-semibold">Liên hệ gần nhất</th>
                   <th className="p-3 font-semibold text-center">Thao tác</th>
                 </tr>
@@ -151,7 +163,7 @@ const CustomerDebtInvoicesModal: React.FC<CustomerDebtInvoicesModalProps> = ({
               <tbody className="divide-y divide-border-grey bg-surface-container-lowest">
                 {customerItems.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-on-surface-variant text-sm">
+                    <td colSpan={10} className="p-8 text-center text-on-surface-variant text-sm">
                       Không tìm thấy hóa đơn nợ chi tiết nào của khách hàng này.
                     </td>
                   </tr>
@@ -207,6 +219,44 @@ const CustomerDebtInvoicesModal: React.FC<CustomerDebtInvoicesModalProps> = ({
                               Chưa đặt lịch
                             </span>
                           )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-col gap-1 min-w-[180px]">
+                            <select
+                              aria-label="Kết quả liên hệ"
+                              className={`w-full text-xs py-1 px-2 rounded-lg border focus:outline-hidden font-medium transition-colors ${
+                                item.lastContactResult === 'PROMISED_TO_PAY'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                  : item.lastContactResult === 'NO_ANSWER'
+                                  ? 'bg-slate-50 text-slate-700 border-slate-300 dark:bg-slate-900/40 dark:text-slate-300'
+                                  : item.lastContactResult === 'COMPLAINT'
+                                  ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300'
+                                  : item.lastContactResult === 'PENDING_APPROVAL'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                                  : 'bg-surface text-on-surface border-border-grey'
+                              }`}
+                              value={item.lastContactResult || ''}
+                              onChange={(e) => onQuickUpdateResult?.(item, e.target.value, item.promisedDate)}
+                            >
+                              {CONTACT_RESULT_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+
+                            {item.lastContactResult === 'PROMISED_TO_PAY' && (
+                              <div className="flex items-center gap-1 text-xs">
+                                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Hẹn:</span>
+                                <input
+                                  type="date"
+                                  className="text-xs py-0.5 px-1.5 rounded border border-emerald-300 bg-white dark:bg-surface text-on-surface w-full focus:outline-hidden"
+                                  value={item.promisedDate || ''}
+                                  onChange={(e) => onQuickUpdateResult?.(item, 'PROMISED_TO_PAY', e.target.value)}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3 text-xs">
                           {item.lastContactedAt ? (

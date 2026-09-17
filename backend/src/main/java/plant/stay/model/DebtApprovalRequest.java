@@ -80,6 +80,14 @@ public class DebtApprovalRequest {
     @Column(name = "last_contact_note", columnDefinition = "TEXT")
     private String lastContactNote;
 
+    /** Kết quả lần liên hệ gần nhất */
+    @Column(name = "last_contact_result", length = 50)
+    private String lastContactResult;
+
+    /** Ngày khách hẹn thanh toán */
+    @Column(name = "promised_date")
+    private LocalDate promisedDate;
+
     /** Ngày hẹn liên hệ lại kế tiếp — hệ thống sẽ nhắc kế toán vào ngày này */
     @Column(name = "next_reminder_date")
     private LocalDate nextReminderDate;

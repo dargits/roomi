@@ -289,6 +289,8 @@ export interface DebtAgingItemResponse {
   agingBucket: DebtAgingBucketKey;
   lastContactedAt?: string;
   lastContactNote?: string;
+  lastContactResult?: string;
+  promisedDate?: string;
   nextReminderDate?: string;
   reminderStatus: DebtReminderStatus;
   contactCount?: number;

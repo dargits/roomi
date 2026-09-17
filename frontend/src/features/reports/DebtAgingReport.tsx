@@ -18,6 +18,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import debtApprovalApi from '../../services/debtApprovalApi';
+import { useToast } from '../../context/ToastContext';
 import DebtCollectionModal from './DebtCollectionModal';
 import DebtCollectionHistoryModal from './DebtCollectionHistoryModal';
 import CustomerDebtInvoicesModal from './CustomerDebtInvoicesModal';
@@ -27,6 +28,15 @@ import {
   DebtAgingBucketDto,
   CustomerDebtSummaryDto
 } from '../../types/report';
+
+export const CONTACT_RESULT_OPTIONS = [
+  { value: '', label: '— Chưa cập nhật kết quả —' },
+  { value: 'PROMISED_TO_PAY', label: '✅ Khách hẹn thanh toán' },
+  { value: 'NO_ANSWER', label: '📵 Không nghe máy / Chưa phản hồi' },
+  { value: 'COMPLAINT', label: '⚠️ Khách khiếu nại hóa đơn' },
+  { value: 'PENDING_APPROVAL', label: '⏳ Chờ kế toán bên khách duyệt' },
+  { value: 'OTHER', label: '📋 Khác' }
+];
 
 const BUCKET_FILTER_OPTIONS = [
   { value: '', label: 'Tất cả nhóm tuổi nợ' },
@@ -86,6 +96,7 @@ const fmtDate = (str?: string) => {
 };
 
 const DebtAgingReport: React.FC = () => {
+  const { toastSuccess, toastError } = useToast();
   const [data, setData] = useState<DebtAgingReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +134,27 @@ const DebtAgingReport: React.FC = () => {
       setError(err?.response?.data?.message || 'Không thể tải báo cáo tuổi nợ');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleQuickUpdateContactResult = async (
+    item: DebtAgingItemResponse,
+    newResult: string,
+    newPromisedDate?: string
+  ) => {
+    try {
+      await debtApprovalApi.addCollectionLog(item.id, {
+        contactMethod: 'QUICK_UPDATE',
+        contactResult: newResult || undefined,
+        promisedDate: newPromisedDate || undefined,
+        notes: `Cập nhật kết quả: ${
+          CONTACT_RESULT_OPTIONS.find((r) => r.value === newResult)?.label || newResult || 'Chưa có'
+        }${newPromisedDate ? ` (Hẹn trả: ${fmtDate(newPromisedDate)})` : ''}`
+      });
+      toastSuccess('Đã cập nhật kết quả liên hệ');
+      fetchReport();
+    } catch (err: any) {
+      toastError(err?.response?.data?.message || 'Không thể cập nhật kết quả liên hệ');
     }
   };
 
@@ -574,6 +606,7 @@ const DebtAgingReport: React.FC = () => {
                   <th className="p-3 font-semibold text-right">Số tiền còn nợ</th>
                   <th className="p-3 font-semibold">Người duyệt cho nợ</th>
                   <th className="p-3 font-semibold">Trạng thái nhắc thu</th>
+                  <th className="p-3 font-semibold">Kết quả liên hệ</th>
                   <th className="p-3 font-semibold">Liên hệ gần nhất</th>
                   <th className="p-3 font-semibold text-center">Hành động</th>
                 </tr>
@@ -581,7 +614,7 @@ const DebtAgingReport: React.FC = () => {
               <tbody className="divide-y divide-border-grey">
                 {data?.items?.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="p-12 text-center text-on-surface-variant text-sm">
+                    <td colSpan={12} className="p-12 text-center text-on-surface-variant text-sm">
                       Không có khoản nợ nào phù hợp với bộ lọc hiện tại.
                     </td>
                   </tr>
@@ -655,6 +688,44 @@ const DebtAgingReport: React.FC = () => {
                             </span>
                           )}
                         </td>
+                        <td className="p-3">
+                          <div className="flex flex-col gap-1 min-w-[190px]">
+                            <select
+                              aria-label="Kết quả liên hệ"
+                              className={`w-full text-xs py-1 px-2 rounded-lg border focus:outline-hidden font-medium transition-colors ${
+                                item.lastContactResult === 'PROMISED_TO_PAY'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                  : item.lastContactResult === 'NO_ANSWER'
+                                  ? 'bg-slate-50 text-slate-700 border-slate-300 dark:bg-slate-900/40 dark:text-slate-300'
+                                  : item.lastContactResult === 'COMPLAINT'
+                                  ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300'
+                                  : item.lastContactResult === 'PENDING_APPROVAL'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                                  : 'bg-surface text-on-surface border-border-grey'
+                              }`}
+                              value={item.lastContactResult || ''}
+                              onChange={(e) => handleQuickUpdateContactResult(item, e.target.value, item.promisedDate)}
+                            >
+                              {CONTACT_RESULT_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+
+                            {item.lastContactResult === 'PROMISED_TO_PAY' && (
+                              <div className="flex items-center gap-1 text-xs">
+                                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Hẹn:</span>
+                                <input
+                                  type="date"
+                                  className="text-xs py-0.5 px-1.5 rounded border border-emerald-300 bg-white dark:bg-surface text-on-surface w-full focus:outline-hidden"
+                                  value={item.promisedDate || ''}
+                                  onChange={(e) => handleQuickUpdateContactResult(item, 'PROMISED_TO_PAY', e.target.value)}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-3 text-xs">
                           {item.lastContactedAt ? (
                             <div className="max-w-[180px]">
@@ -723,6 +794,7 @@ const DebtAgingReport: React.FC = () => {
         onClose={() => setCustomerInvoicesModalItem(null)}
         onOpenCollectionModal={(item) => setCollectionModalItem(item)}
         onOpenHistoryModal={(item) => setHistoryModalItem(item)}
+        onQuickUpdateResult={handleQuickUpdateContactResult}
       />
     </div>
   );
