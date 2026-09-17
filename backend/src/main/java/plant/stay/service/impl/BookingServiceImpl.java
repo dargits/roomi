@@ -58,6 +58,7 @@ public class BookingServiceImpl implements BookingService {
     private final HotelSettingRepository hotelSettingRepository;
     private final NotificationService notificationService;
     private final BookingConfirmationLogRepository bookingConfirmationLogRepository;
+    private final ChannelRoomBlockRepository channelRoomBlockRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.domain:https://stayaway.io.vn}")
@@ -120,18 +121,55 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<?> getCalendar(LocalDate from, LocalDate to) {
-        // Trả về danh sách booking cho lịch phòng
-        return bookingRepository.findForCalendar(from, to).stream()
-                .map(b -> Map.of(
-                        "bookingId", b.getId(),
-                        "roomId", b.getRoom() != null ? b.getRoom().getId() : "",
-                        "roomNumber", b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán",
-                        "guestName", b.getGuest().getName(),
-                        "checkInDate", b.getCheckInDate().toString(),
-                        "checkOutDate", b.getCheckOutDate().toString(),
-                        "status", b.getStatus().name()
-                ))
-                .collect(Collectors.toList());
+        // Trả về danh sách đặt phòng và lượt chặn phòng kênh cho lịch phòng
+        List<Map<String, Object>> result = new ArrayList<>();
+        
+        for (Booking b : bookingRepository.findForCalendar(from, to)) {
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("bookingId", b.getId());
+            item.put("id", b.getId());
+            item.put("roomId", b.getRoom() != null ? b.getRoom().getId() : "");
+            item.put("roomNumber", b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán");
+            item.put("guestName", b.getGuest() != null ? b.getGuest().getName() : "Khách");
+            item.put("guestPhone", b.getGuest() != null ? b.getGuest().getPhone() : "");
+            item.put("checkInDate", b.getCheckInDate().toString());
+            item.put("checkOutDate", b.getCheckOutDate().toString());
+            item.put("status", b.getStatus().name());
+            item.put("expectedPrice", b.getExpectedPrice());
+            item.put("isChannelBlock", false);
+            if (b.getChannel() != null) {
+                item.put("channelId", b.getChannel().getId());
+                item.put("channelName", b.getChannel().getName());
+                item.put("channelCode", b.getChannel().getChannelCode());
+            }
+            result.add(item);
+        }
+
+        for (ChannelRoomBlock block : channelRoomBlockRepository.findActiveBlocksBetween(from, to)) {
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("id", "block_" + block.getId());
+            item.put("blockId", block.getId());
+            item.put("bookingId", "block_" + block.getId());
+            item.put("roomId", block.getRoom() != null ? block.getRoom().getId() : "");
+            item.put("roomNumber", block.getRoom() != null ? block.getRoom().getRoomNumber() : "Chưa gán");
+            item.put("guestName", "[" + block.getChannel().getName() + "] Kênh giữ chỗ");
+            item.put("guestPhone", "");
+            item.put("checkInDate", block.getStartDate().toString());
+            item.put("checkOutDate", block.getEndDate().toString());
+            item.put("status", "CHANNEL_BLOCKED");
+            item.put("isChannelBlock", true);
+            item.put("channelId", block.getChannel().getId());
+            item.put("channelName", block.getChannel().getName());
+            item.put("channelCode", block.getChannel().getChannelCode());
+            item.put("roomTypeId", block.getRoomType().getId());
+            item.put("roomTypeName", block.getRoomType().getName());
+            item.put("summary", block.getSummary());
+            item.put("isExcess", block.getIsExcess());
+            item.put("warningMessage", block.getWarningMessage());
+            result.add(item);
+        }
+
+        return result;
     }
 
     @Override
@@ -1242,13 +1280,21 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(booking);
     }
 
-    // Kiểm tra chống trùng phòng — gọi query có pessimistic lock (QTN-01)
+    // Kiểm tra chống trùng phòng — gọi query có pessimistic lock (QTN-01) và kiểm tra lượt chặn kênh
     private void checkRoomConflict(Long roomId, LocalDate checkIn, LocalDate checkOut, Long excludeBookingId) {
         List<Booking> conflicts = bookingRepository.findConflictingBookings(
                 roomId, checkIn, checkOut, excludeBookingId);
         if (!conflicts.isEmpty()) {
             throw new IllegalArgumentException("Phòng đã được đặt trong khoảng thời gian này (xung đột với booking #"
                     + conflicts.get(0).getId() + ")");
+        }
+
+        List<ChannelRoomBlock> blockConflicts = channelRoomBlockRepository.findConflictingBlocks(
+                roomId, checkIn, checkOut);
+        if (!blockConflicts.isEmpty()) {
+            ChannelRoomBlock b = blockConflicts.get(0);
+            throw new IllegalArgumentException("Phòng đã bị giữ bởi kênh phân phối '" + b.getChannel().getName()
+                    + "' từ " + b.getStartDate() + " đến " + b.getEndDate() + " (lượt chặn kênh OTA). Vui lòng chọn phòng khác.");
         }
     }
 
@@ -1283,6 +1329,19 @@ public class BookingServiceImpl implements BookingService {
                     occupiedRoomIds.add(r.getId());
                 } else if (cur.equals(today) && r.getStatus() == RoomStatus.OCCUPIED) {
                     occupiedRoomIds.add(r.getId());
+                }
+            }
+
+            // Đếm thêm các lượt chặn phòng từ kênh đang giữ chỗ trên loại phòng này
+            List<ChannelRoomBlock> activeBlocks = channelRoomBlockRepository.findActiveBlocksByRoomTypeAndDates(
+                    roomTypeId, checkIn, checkOut);
+            for (ChannelRoomBlock block : activeBlocks) {
+                if (!block.getStartDate().isAfter(cur) && block.getEndDate().isAfter(cur)) {
+                    if (block.getRoom() != null) {
+                        occupiedRoomIds.add(block.getRoom().getId());
+                    } else {
+                        unassignedBookingCount++;
+                    }
                 }
             }
 
@@ -1365,6 +1424,9 @@ public class BookingServiceImpl implements BookingService {
                 .payLaterCheckout(payLaterCheckout)
                 .reminderSentAt(b.getReminderSentAt())
                 .stayingGuests(stayingGuestsDto)
+                .channelId(b.getChannel() != null ? b.getChannel().getId() : null)
+                .channelName(b.getChannel() != null ? b.getChannel().getName() : null)
+                .channelCode(b.getChannel() != null ? b.getChannel().getChannelCode() : null)
                 .build();
     }
 

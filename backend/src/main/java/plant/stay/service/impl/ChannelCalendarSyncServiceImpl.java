@@ -1,6 +1,6 @@
 package plant.stay.service.impl;
 
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
@@ -17,12 +17,18 @@ import plant.stay.dto.response.ChannelAvailabilityCheckResponse;
 import plant.stay.dto.response.ChannelWarningSummaryResponse;
 import plant.stay.event.CalendarSyncEvent;
 import plant.stay.exception.ResourceNotFoundException;
+import plant.stay.dto.request.ConvertBlockToBookingRequest;
+import plant.stay.dto.response.BookingResponse;
+import plant.stay.dto.response.ChannelRoomBlockResponse;
 import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.AuditLogService;
 import plant.stay.service.ChannelCalendarSyncService;
 import plant.stay.service.NotificationService;
+import plant.stay.service.PricingService;
+import org.springframework.context.ApplicationEventPublisher;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +48,10 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
     private final RoomTypeRepository roomTypeRepository;
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
+    private final ChannelRoomBlockRepository channelRoomBlockRepository;
+    private final GuestRepository guestRepository;
+    private final PricingService pricingService;
+    private final ApplicationEventPublisher eventPublisher;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
 
@@ -221,7 +231,8 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
     public void deleteChannel(Long id, User actor) {
         Channel channel = findChannel(id);
         String channelName = channel.getName();
-        // Xóa bảng ánh xạ và nhật ký liên quan trước để tránh lỗi ràng buộc khóa ngoại
+        // Xóa các lượt chặn phòng, bảng ánh xạ và nhật ký liên quan trước để tránh lỗi ràng buộc khóa ngoại
+        channelRoomBlockRepository.deleteByChannelId(id);
         channelRoomMappingRepository.deleteByChannelId(id);
         syncLogRepository.deleteByChannelId(id);
         channelRepository.delete(channel);
@@ -593,14 +604,31 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                 }
             }
 
-            // Sinh chuỗi iCalendar RFC 5545
+            // Inbound Sync: Nhận lịch bận từ kênh ngoài nếu có URL tệp lịch
+            InboundSyncResult inboundResult = null;
+            if (channel.getExternalCalendarUrl() != null && !channel.getExternalCalendarUrl().isBlank()) {
+                try {
+                    inboundResult = syncInboundCalendarInternal(channel, triggeredBy);
+                } catch (Exception inEx) {
+                    log.warn("Inbound sync warning for channel '{}': {}", channel.getName(), inEx.getMessage());
+                    inboundResult = new InboundSyncResult(0, 0, List.of("Lỗi đọc tệp lịch ngoài: " + inEx.getMessage()), inEx.getMessage());
+                }
+            }
+
+            // Sinh chuỗi iCalendar RFC 5545 cho chiều chia sẻ ra ngoài (Outbound)
             String icsContent = buildIcsContent(channel, allBlockedPeriods);
+
+            boolean hasWarning = inboundResult != null && (!inboundResult.getWarnings().isEmpty() || inboundResult.getErrorMessage() != null);
+            String syncStatus = hasWarning ? "WARNING" : "SUCCESS";
+            String syncErrMsg = hasWarning 
+                    ? (inboundResult.getErrorMessage() != null ? inboundResult.getErrorMessage() : String.join("; ", inboundResult.getWarnings()))
+                    : null;
 
             channel.setCachedIcsContent(icsContent);
             channel.setLastSyncedAt(now);
             channel.setLastSuccessSyncedAt(now);
-            channel.setLastSyncStatus("SUCCESS");
-            channel.setLastSyncErrorMessage(null);
+            channel.setLastSyncStatus(syncStatus);
+            channel.setLastSyncErrorMessage(syncErrMsg);
             channel.setConsecutiveFailures(0);
             channel.setLastBlockedPeriodsCount(allBlockedPeriods.size());
             channelRepository.save(channel);
@@ -608,6 +636,10 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
             // Ghi nhật ký sinh tệp
             String roomTypeNames = mappings.stream().map(m -> m.getRoomType().getName()).distinct().collect(Collectors.joining(", "));
             String blockedSummary = summarizeBlockedPeriods(allBlockedPeriods);
+            if (inboundResult != null && inboundResult.getSavedCount() > 0) {
+                blockedSummary = String.format("Nhận %d lượt chặn từ kênh (%d vượt phân bổ). ",
+                        inboundResult.getSavedCount(), inboundResult.getExcessCount()) + blockedSummary;
+            }
 
             ChannelCalendarSyncLog syncLog = ChannelCalendarSyncLog.builder()
                     .channel(channel)
@@ -616,15 +648,16 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                     .triggeredBy(triggeredBy)
                     .blockedPeriodsCount(allBlockedPeriods.size())
                     .blockedSummary(blockedSummary)
-                    .status("SUCCESS")
-                    .errorMessage(null)
+                    .status(syncStatus)
+                    .errorMessage(syncErrMsg)
                     .syncedAt(now)
                     .build();
 
             syncLogRepository.save(syncLog);
 
-            log.info("Synced iCal feed for channel '{}' (ID: {}). Blocked periods: {}, Triggered by: {}",
-                    channel.getName(), channel.getId(), allBlockedPeriods.size(), triggeredBy);
+            log.info("Synced iCal feed for channel '{}' (ID: {}). Outbound blocked: {}, Inbound blocks: {}, Status: {}, Triggered by: {}",
+                    channel.getName(), channel.getId(), allBlockedPeriods.size(),
+                    inboundResult != null ? inboundResult.getSavedCount() : 0, syncStatus, triggeredBy);
         } catch (Exception ex) {
             log.error("Sync error for channel '{}' (ID: {}): {}", channel.getName(), channel.getId(), ex.getMessage(), ex);
 
@@ -912,6 +945,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                 .connectionStatus(connectionStatus)
                 .connectionStatusMessage(connectionStatusMessage)
                 .lastBlockedPeriodsCount(channel.getLastBlockedPeriodsCount())
+                .activeBlocksCount(channelRoomBlockRepository != null && channel.getId() != null ? (int) channelRoomBlockRepository.countByChannelIdAndStatus(channel.getId(), "BLOCKED") : 0)
                 .createdAt(channel.getCreatedAt())
                 .updatedAt(channel.getUpdatedAt())
                 .build();
@@ -1093,6 +1127,540 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                 .message(message)
                 .dailyDetails(dailyDetails)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse convertBlockToBooking(Long blockId, ConvertBlockToBookingRequest req, User actor) {
+        ChannelRoomBlock block = channelRoomBlockRepository.findById(blockId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt chặn phòng với ID: " + blockId));
+
+        if (!"BLOCKED".equals(block.getStatus())) {
+            throw new IllegalArgumentException("Lượt chặn này không ở trạng thái khả dụng để chuyển đổi (hiện tại: " + block.getStatus() + ")");
+        }
+
+        if (req.getGuestName() == null || req.getGuestName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên khách hàng không được để trống");
+        }
+
+        // 1. Tìm hoặc tạo khách hàng
+        String cleanName = req.getGuestName().trim();
+        String cleanPhone = req.getGuestPhone() != null && !req.getGuestPhone().isBlank() ? req.getGuestPhone().trim() : null;
+        String cleanEmail = req.getGuestEmail() != null && !req.getGuestEmail().isBlank() ? req.getGuestEmail().trim() : null;
+        String cleanIdNum = req.getGuestIdNumber() != null && !req.getGuestIdNumber().isBlank() ? req.getGuestIdNumber().trim() : null;
+
+        Guest guest = null;
+        if (cleanPhone != null) {
+            guest = guestRepository.findByPhone(cleanPhone).orElse(null);
+        }
+        if (guest == null && cleanIdNum != null) {
+            guest = guestRepository.findFirstByIdNumberOrderByIdDesc(cleanIdNum).orElse(null);
+        }
+        if (guest == null) {
+            guest = Guest.builder()
+                    .name(cleanName)
+                    .phone(cleanPhone)
+                    .email(cleanEmail)
+                    .idNumber(cleanIdNum)
+                    .build();
+            guest = guestRepository.save(guest);
+        } else {
+            boolean updated = false;
+            if (cleanEmail != null && (guest.getEmail() == null || guest.getEmail().isBlank())) {
+                guest.setEmail(cleanEmail);
+                updated = true;
+            }
+            if (cleanIdNum != null && (guest.getIdNumber() == null || guest.getIdNumber().isBlank())) {
+                guest.setIdNumber(cleanIdNum);
+                updated = true;
+            }
+            if (updated) {
+                guest = guestRepository.save(guest);
+            }
+        }
+
+        // 2. Xác định phòng vật lý
+        Room room = null;
+        if (req.getRoomId() != null) {
+            room = roomRepository.findById(req.getRoomId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
+            if (!room.getRoomType().getId().equals(block.getRoomType().getId())) {
+                throw new IllegalArgumentException("Phòng được chọn không thuộc loại phòng " + block.getRoomType().getName());
+            }
+        } else if (block.getRoom() != null) {
+            room = block.getRoom();
+        } else {
+            room = findAvailableRoom(block.getRoomType().getId(), block.getStartDate(), block.getEndDate());
+        }
+
+        if (room != null) {
+            List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                    room.getId(), block.getStartDate(), block.getEndDate(), -1L);
+            if (!conflicts.isEmpty()) {
+                throw new IllegalArgumentException("Phòng " + room.getRoomNumber() + " đã có đặt phòng trùng lịch #" + conflicts.get(0).getId());
+            }
+        }
+
+        // 3. Tính toán giá tiền
+        BigDecimal price = req.getExpectedPrice();
+        if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+            try {
+                price = pricingService.calculateTotalPrice(block.getRoomType(), block.getStartDate(), block.getEndDate());
+            } catch (Exception e) {
+                price = block.getRoomType().getBasePrice();
+            }
+        }
+
+        String channelCode = block.getChannel() != null ? block.getChannel().getChannelCode() : "OTA";
+        String channelName = block.getChannel() != null ? block.getChannel().getName() : "Kênh OTA";
+
+        String initialNote = "[Chuyển từ lượt chặn kênh " + channelName + " - UID: " + block.getExternalUid() + "]";
+        if (req.getNote() != null && !req.getNote().isBlank()) {
+            initialNote += " " + req.getNote().trim();
+        }
+
+        // 4. Tạo Booking chính thức giữ nguyên liên kết tới kênh nguồn
+        Booking booking = Booking.builder()
+                .guest(guest)
+                .roomType(block.getRoomType())
+                .room(room)
+                .checkInDate(block.getStartDate())
+                .checkOutDate(block.getEndDate())
+                .status(BookingStatus.CONFIRMED)
+                .expectedPrice(price)
+                .actualPrice(price)
+                .depositAmount(req.getDepositAmount() != null ? req.getDepositAmount() : BigDecimal.ZERO)
+                .source(channelCode)
+                .channel(block.getChannel())
+                .note(initialNote)
+                .createdBy(actor)
+                .build();
+
+        booking = bookingRepository.save(booking);
+
+        // 5. Cập nhật lượt chặn thành CONVERTED
+        block.setStatus("CONVERTED");
+        block.setConvertedBooking(booking);
+        channelRoomBlockRepository.save(block);
+
+        auditLogService.log("ChannelRoomBlock", block.getId(), "CONVERT_TO_BOOKING", actor,
+                "Chuyển lượt chặn từ kênh " + channelName + " (#" + block.getId() + ") thành đặt phòng chính thức #"
+                        + booking.getId() + " cho khách " + guest.getName());
+
+        eventPublisher.publishEvent(new CalendarSyncEvent(block.getRoomType().getId(), "BLOCK_CONVERTED_TO_BOOKING"));
+
+        return toBookingResponse(booking);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChannelRoomBlockResponse> getBlocks(Long channelId, String status) {
+        List<ChannelRoomBlock> blocks;
+        if (channelId != null && status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+            blocks = channelRoomBlockRepository.findByChannelIdAndStatus(channelId, status.trim().toUpperCase());
+        } else if (channelId != null) {
+            blocks = channelRoomBlockRepository.findByChannelId(channelId);
+        } else if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+            blocks = channelRoomBlockRepository.findAll().stream()
+                    .filter(b -> status.trim().equalsIgnoreCase(b.getStatus()))
+                    .collect(Collectors.toList());
+        } else {
+            blocks = channelRoomBlockRepository.findAll();
+        }
+        return blocks.stream().map(this::toBlockResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChannelRoomBlockResponse> getActiveBlocks(LocalDate from, LocalDate to) {
+        return channelRoomBlockRepository.findActiveBlocksBetween(from, to).stream()
+                .map(this::toBlockResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Thuật toán đồng bộ Inbound: Đọc tệp lịch từ kênh ngoài, trích xuất các khoảng bận,
+     * kiểm tra giới hạn phân bổ phòng (allocatedRooms), cảnh báo nếu vượt, và tự động tạo/gỡ chặn phòng.
+     */
+    public InboundSyncResult syncInboundCalendarInternal(Channel channel, String triggeredBy) {
+        String extUrl = channel.getExternalCalendarUrl();
+        if (extUrl == null || extUrl.isBlank()) {
+            return new InboundSyncResult(0, 0, Collections.emptyList(), null);
+        }
+
+        String icsBody;
+        try {
+            icsBody = fetchExternalCalendar(extUrl);
+        } catch (Exception e) {
+            log.warn("Không thể tải tệp lịch ngoài cho kênh '{}' (URL: {}): {}", channel.getName(), extUrl, e.getMessage());
+            return new InboundSyncResult(0, 0, Collections.emptyList(), "Không thể kết nối tải lịch ngoài: " + e.getMessage());
+        }
+
+        if (icsBody == null || icsBody.isBlank()) {
+            return new InboundSyncResult(0, 0, Collections.emptyList(), null);
+        }
+
+        return processInboundIcsContent(channel, icsBody, triggeredBy);
+    }
+
+    /**
+     * Xử lý nội dung tệp .ics và đồng bộ các lượt chặn phòng vào database.
+     */
+    public InboundSyncResult processInboundIcsContent(Channel channel, String icsBody, String triggeredBy) {
+        List<ParsedIcsEvent> parsedEvents = parseIcsContent(icsBody);
+        LocalDate today = LocalDate.now();
+
+        // Lọc các sự kiện có ngày kết thúc từ hôm nay trở đi
+        List<ParsedIcsEvent> futureEvents = parsedEvents.stream()
+                .filter(e -> !e.getEndDate().isBefore(today))
+                .collect(Collectors.toList());
+
+        List<ChannelRoomMapping> mappings = channelRoomMappingRepository.findByChannelId(channel.getId());
+        if (mappings.isEmpty() && channel.getRoomType() != null) {
+            mappings = List.of(ChannelRoomMapping.builder()
+                    .channel(channel)
+                    .roomType(channel.getRoomType())
+                    .externalRoomTypeCode(channel.getChannelCode() + "_" + channel.getRoomType().getId())
+                    .allocatedRooms(channel.getAllocatedRooms() != null ? channel.getAllocatedRooms() : 1)
+                    .build());
+        }
+
+        if (mappings.isEmpty()) {
+            return new InboundSyncResult(0, 0, Collections.emptyList(), null);
+        }
+
+        ChannelRoomMapping primaryMapping = mappings.get(0);
+        RoomType roomType = primaryMapping.getRoomType();
+        int allocatedRooms = primaryMapping.getAllocatedRooms() != null ? primaryMapping.getAllocatedRooms() : 1;
+
+        // 1. Kiểm tra phân bổ: Số lượt chặn đồng thời trên bất kỳ đêm nào không được vượt allocatedRooms
+        Set<ParsedIcsEvent> excessEvents = new HashSet<>();
+        LocalDate horizonEnd = today.plusDays(365);
+
+        for (LocalDate d = today; d.isBefore(horizonEnd); d = d.plusDays(1)) {
+            final LocalDate cur = d;
+            List<ParsedIcsEvent> overlappingOnDay = futureEvents.stream()
+                    .filter(e -> !e.getStartDate().isAfter(cur) && e.getEndDate().isAfter(cur))
+                    .collect(Collectors.toList());
+
+            if (overlappingOnDay.size() > allocatedRooms) {
+                for (int i = allocatedRooms; i < overlappingOnDay.size(); i++) {
+                    excessEvents.add(overlappingOnDay.get(i));
+                }
+            }
+        }
+
+        List<String> warnings = new ArrayList<>();
+        if (!excessEvents.isEmpty()) {
+            String warnMsg = String.format(
+                    "Cảnh báo vượt phân bổ: Kênh '%s' có %d lượt đặt trùng đêm vượt quá số phòng phân bổ (%d phòng) cho loại phòng '%s'. Cần Chủ cơ sở xử lý.",
+                    channel.getName(), excessEvents.size(), allocatedRooms, roomType.getName()
+            );
+            warnings.add(warnMsg);
+            log.warn(warnMsg);
+
+            try {
+                notificationService.createForRoles(
+                        NotificationType.CHANNEL_DISCONNECT_WARNING,
+                        "Cảnh báo phân bổ kênh: " + channel.getName(),
+                        warnMsg,
+                        "Channel",
+                        channel.getId()
+                );
+            } catch (Exception ex) {
+                log.debug("Không thể gửi thông báo cảnh báo: {}", ex.getMessage());
+            }
+        }
+
+        // 2. Lấy danh sách lượt chặn BLOCKED hiện có trong cơ sở dữ liệu
+        List<ChannelRoomBlock> currentBlocks = channelRoomBlockRepository.findActiveBlocksForChannelSince(channel.getId(), today);
+        Map<String, ChannelRoomBlock> currentByUid = currentBlocks.stream()
+                .collect(Collectors.toMap(ChannelRoomBlock::getExternalUid, b -> b, (b1, b2) -> b1));
+
+        Set<String> incomingUids = new HashSet<>();
+        int savedCount = 0;
+
+        for (ParsedIcsEvent ev : futureEvents) {
+            incomingUids.add(ev.getUid());
+            boolean isExcess = excessEvents.contains(ev);
+
+            ChannelRoomBlock block = currentByUid.get(ev.getUid());
+            if (block == null) {
+                // Kiểm tra xem UID này có từng được convert thành booking trước đó không
+                Optional<ChannelRoomBlock> prevOpt = channelRoomBlockRepository.findByChannelIdAndExternalUid(channel.getId(), ev.getUid());
+                if (prevOpt.isPresent() && "CONVERTED".equals(prevOpt.get().getStatus())) {
+                    continue;
+                }
+
+                Room room = null;
+                if (!isExcess) {
+                    room = findAvailableRoom(roomType.getId(), ev.getStartDate(), ev.getEndDate());
+                }
+
+                block = ChannelRoomBlock.builder()
+                        .channel(channel)
+                        .roomType(roomType)
+                        .room(room)
+                        .externalUid(ev.getUid())
+                        .startDate(ev.getStartDate())
+                        .endDate(ev.getEndDate())
+                        .summary(ev.getSummary())
+                        .status("BLOCKED")
+                        .isExcess(isExcess)
+                        .warningMessage(isExcess ? ("Vượt số phòng phân bổ (" + allocatedRooms + " phòng)") : null)
+                        .build();
+                channelRoomBlockRepository.save(block);
+                savedCount++;
+            } else {
+                block.setStartDate(ev.getStartDate());
+                block.setEndDate(ev.getEndDate());
+                block.setSummary(ev.getSummary());
+                block.setIsExcess(isExcess);
+                block.setWarningMessage(isExcess ? ("Vượt số phòng phân bổ (" + allocatedRooms + " phòng)") : null);
+
+                if (!isExcess && block.getRoom() == null) {
+                    Room room = findAvailableRoom(roomType.getId(), ev.getStartDate(), ev.getEndDate());
+                    block.setRoom(room);
+                } else if (isExcess) {
+                    block.setRoom(null);
+                }
+                channelRoomBlockRepository.save(block);
+                savedCount++;
+            }
+        }
+
+        // 3. Tự động gỡ bỏ lượt chặn khi khoảng bận biến mất khỏi tệp của kênh
+        int removedCount = 0;
+        for (ChannelRoomBlock existing : currentBlocks) {
+            if (!incomingUids.contains(existing.getExternalUid())) {
+                log.info("Khoảng bận UID '{}' đã biến mất khỏi tệp của kênh '{}'. Tự động gỡ chặn phòng.",
+                        existing.getExternalUid(), channel.getName());
+                channelRoomBlockRepository.delete(existing);
+                removedCount++;
+            }
+        }
+
+        return new InboundSyncResult(savedCount, excessEvents.size(), warnings, null);
+    }
+
+    /**
+     * Tải tệp lịch từ đường dẫn ngoài bằng HTTP GET (hỗ trợ timeout, redirect).
+     */
+    private String fetchExternalCalendar(String url) throws Exception {
+        if (url == null || url.isBlank()) return null;
+        java.net.URI uri = java.net.URI.create(url.trim());
+        java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(6))
+                .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+                .build();
+
+        java.net.http.HttpRequest httpRequest = java.net.http.HttpRequest.newBuilder()
+                .uri(uri)
+                .timeout(java.time.Duration.ofSeconds(6))
+                .header("User-Agent", "StayAway-PMS-CalendarBot/1.0")
+                .GET()
+                .build();
+
+        java.net.http.HttpResponse<String> response = client.send(httpRequest, java.net.http.HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new RuntimeException("Tải lịch từ kênh thất bại: Mã HTTP " + response.statusCode());
+        }
+        return response.body();
+    }
+
+    /**
+     * Tìm phòng vật lý khả dụng của loại phòng để gán cho lượt chặn.
+     */
+    private Room findAvailableRoom(Long roomTypeId, LocalDate start, LocalDate end) {
+        List<Room> rooms = roomRepository.findByRoomTypeId(roomTypeId);
+        for (Room r : rooms) {
+            if (r.getStatus() == RoomStatus.MAINTENANCE) {
+                continue;
+            }
+            List<Booking> conflicts = bookingRepository.findConflictingBookings(r.getId(), start, end, -1L);
+            if (!conflicts.isEmpty()) {
+                continue;
+            }
+            List<ChannelRoomBlock> blockConflicts = channelRoomBlockRepository.findConflictingBlocks(r.getId(), start, end);
+            if (!blockConflicts.isEmpty()) {
+                continue;
+            }
+            return r;
+        }
+        return null;
+    }
+
+    /**
+     * Phân tích cú pháp chuỗi iCalendar RFC 5545 trích xuất danh sách sự kiện VEVENT.
+     */
+    public List<ParsedIcsEvent> parseIcsContent(String icsContent) {
+        List<ParsedIcsEvent> events = new ArrayList<>();
+        if (icsContent == null || icsContent.isBlank()) {
+            return events;
+        }
+
+        String[] rawLines = icsContent.replace("\r\n", "\n").replace("\r", "\n").split("\n");
+        List<String> lines = new ArrayList<>();
+        for (String rawLine : rawLines) {
+            if ((rawLine.startsWith(" ") || rawLine.startsWith("\t")) && !lines.isEmpty()) {
+                int lastIdx = lines.size() - 1;
+                lines.set(lastIdx, lines.get(lastIdx) + rawLine.substring(1));
+            } else {
+                lines.add(rawLine);
+            }
+        }
+
+        boolean inVevent = false;
+        String uid = null;
+        LocalDate startDate = null;
+        LocalDate endDate = null;
+        String summary = null;
+        String description = null;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if ("BEGIN:VEVENT".equalsIgnoreCase(trimmed)) {
+                inVevent = true;
+                uid = null;
+                startDate = null;
+                endDate = null;
+                summary = null;
+                description = null;
+            } else if ("END:VEVENT".equalsIgnoreCase(trimmed) && inVevent) {
+                inVevent = false;
+                if (startDate != null) {
+                    if (endDate == null || !endDate.isAfter(startDate)) {
+                        endDate = startDate.plusDays(1);
+                    }
+                    if (uid == null || uid.isBlank()) {
+                        uid = "gen-" + UUID.randomUUID().toString().substring(0, 8);
+                    }
+                    events.add(ParsedIcsEvent.builder()
+                            .uid(uid.trim())
+                            .startDate(startDate)
+                            .endDate(endDate)
+                            .summary(summary != null ? summary.trim() : "Unavailable / Kênh giữ chỗ")
+                            .description(description != null ? description.trim() : null)
+                            .build());
+                }
+            } else if (inVevent) {
+                int colonIdx = line.indexOf(':');
+                if (colonIdx > 0) {
+                    String propPart = line.substring(0, colonIdx).trim().toUpperCase();
+                    String valPart = line.substring(colonIdx + 1).trim();
+
+                    if (propPart.equals("UID")) {
+                        uid = valPart;
+                    } else if (propPart.startsWith("DTSTART")) {
+                        startDate = parseIcsDate(valPart);
+                    } else if (propPart.startsWith("DTEND")) {
+                        endDate = parseIcsDate(valPart);
+                    } else if (propPart.equals("SUMMARY")) {
+                        summary = valPart;
+                    } else if (propPart.equals("DESCRIPTION")) {
+                        description = valPart;
+                    }
+                }
+            }
+        }
+        return events;
+    }
+
+    private LocalDate parseIcsDate(String val) {
+        if (val == null || val.isBlank()) return null;
+        val = val.trim();
+        try {
+            if (val.length() == 8 && val.chars().allMatch(Character::isDigit)) {
+                return LocalDate.parse(val, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            }
+            if (val.endsWith("Z") && val.contains("T")) {
+                java.time.Instant instant = java.time.Instant.parse(
+                        val.substring(0, 4) + "-" + val.substring(4, 6) + "-" + val.substring(6, 11) + ":" +
+                        val.substring(11, 13) + ":" + val.substring(13)
+                );
+                return instant.atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
+            }
+            if (val.contains("T") && val.length() >= 15) {
+                String dateSub = val.substring(0, 8);
+                return LocalDate.parse(dateSub, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            }
+            if (val.length() >= 10 && val.charAt(4) == '-' && val.charAt(7) == '-') {
+                return LocalDate.parse(val.substring(0, 10));
+            }
+        } catch (Exception e) {
+            log.warn("Không thể parse ngày iCal '{}': {}", val, e.getMessage());
+        }
+        return null;
+    }
+
+    private ChannelRoomBlockResponse toBlockResponse(ChannelRoomBlock b) {
+        return ChannelRoomBlockResponse.builder()
+                .id(b.getId())
+                .channelId(b.getChannel().getId())
+                .channelName(b.getChannel().getName())
+                .channelCode(b.getChannel().getChannelCode())
+                .roomTypeId(b.getRoomType().getId())
+                .roomTypeName(b.getRoomType().getName())
+                .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
+                .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán")
+                .externalUid(b.getExternalUid())
+                .startDate(b.getStartDate())
+                .endDate(b.getEndDate())
+                .summary(b.getSummary())
+                .status(b.getStatus())
+                .convertedBookingId(b.getConvertedBooking() != null ? b.getConvertedBooking().getId() : null)
+                .isExcess(b.getIsExcess())
+                .warningMessage(b.getWarningMessage())
+                .createdAt(b.getCreatedAt())
+                .build();
+    }
+
+    private BookingResponse toBookingResponse(Booking b) {
+        return BookingResponse.builder()
+                .id(b.getId())
+                .guestId(b.getGuest() != null ? b.getGuest().getId() : null)
+                .guestName(b.getGuest() != null ? b.getGuest().getName() : "")
+                .guestPhone(b.getGuest() != null ? b.getGuest().getPhone() : "")
+                .guestEmail(b.getGuest() != null ? b.getGuest().getEmail() : "")
+                .guestIdNumber(b.getGuest() != null ? b.getGuest().getIdNumber() : "")
+                .roomTypeId(b.getRoomType() != null ? b.getRoomType().getId() : null)
+                .roomTypeName(b.getRoomType() != null ? b.getRoomType().getName() : "")
+                .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
+                .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán")
+                .checkInDate(b.getCheckInDate())
+                .checkOutDate(b.getCheckOutDate())
+                .status(b.getStatus())
+                .expectedPrice(b.getExpectedPrice())
+                .actualPrice(b.getActualPrice())
+                .source(b.getSource())
+                .channelId(b.getChannel() != null ? b.getChannel().getId() : null)
+                .channelName(b.getChannel() != null ? b.getChannel().getName() : null)
+                .channelCode(b.getChannel() != null ? b.getChannel().getChannelCode() : null)
+                .note(b.getNote())
+                .createdAt(b.getCreatedAt())
+                .build();
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ParsedIcsEvent {
+        private String uid;
+        private LocalDate startDate;
+        private LocalDate endDate;
+        private String summary;
+        private String description;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class InboundSyncResult {
+        private final int savedCount;
+        private final int excessCount;
+        private final List<String> warnings;
+        private final String errorMessage;
     }
 
     private static class BlockedPeriod {
