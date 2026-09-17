@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   IoCalendarOutline,
   IoSyncOutline,
@@ -20,6 +20,10 @@ import {
   IoLinkOutline,
   IoAddOutline,
   IoSearchOutline,
+  IoCloseCircleOutline,
+  IoFilterOutline,
+  IoEyeOutline,
+  IoPauseCircleOutline,
 } from 'react-icons/io5';
 import { channelApi } from '../../services/channelApi';
 import { roomTypeApi } from '../../services/roomTypeApi';
@@ -32,6 +36,7 @@ import {
   ChannelRoomMapping,
   ChannelCalendarSyncLog,
   ChannelAvailabilityCheckResponse,
+  ChannelWarningSummary,
   RoomTypeResponse,
   RoomResponse,
 } from '../../types';
@@ -62,6 +67,8 @@ const TRIGGER_LABELS: Record<string, { label: string; color: string }> = {
   ROOM_MAINTENANCE: { label: 'Khóa / Giải phóng bảo trì', color: 'text-orange-600 bg-orange-50 border-orange-200' },
   MANUAL_REFRESH: { label: 'Đồng bộ thủ công', color: 'text-sky-600 bg-sky-50 border-sky-200' },
   MANUAL_USER_REQUEST: { label: 'Đồng bộ thủ công', color: 'text-sky-600 bg-sky-50 border-sky-200' },
+  MANUAL_SYNC_ALL: { label: 'Đồng bộ hàng loạt', color: 'text-violet-600 bg-violet-50 border-violet-200' },
+  CONNECTION_TEST: { label: 'Kiểm tra kết nối', color: 'text-cyan-600 bg-cyan-50 border-cyan-200' },
   TOKEN_REGENERATED: { label: 'Làm mới liên kết', color: 'text-teal-600 bg-teal-50 border-teal-200' },
   FEED_ACCESS: { label: 'Bot truy cập lần đầu', color: 'text-gray-600 bg-gray-50 border-gray-200' },
 };
@@ -72,10 +79,12 @@ const ChannelCalendarPage: React.FC = () => {
   const { success, error, warning } = useToast();
 
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [warningSummary, setWarningSummary] = useState<ChannelWarningSummary | null>(null);
   const [roomTypes, setRoomTypes] = useState<RoomTypeResponse[]>([]);
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'channels' | 'all-logs'>('channels');
+  const [channelFilterStatus, setChannelFilterStatus] = useState<string>('ALL');
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -98,16 +107,28 @@ const ChannelCalendarPage: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<Channel | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Logs Modal
+  // Error Detail Modal
+  const [selectedErrorChannel, setSelectedErrorChannel] = useState<Channel | null>(null);
+
+  // Logs Modal (single channel)
   const [logsModalChannel, setLogsModalChannel] = useState<Channel | null>(null);
   const [channelLogs, setChannelLogs] = useState<ChannelCalendarSyncLog[]>([]);
   const [allLogs, setAllLogs] = useState<ChannelCalendarSyncLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  // Copy tracking
+  // Log Filters for All Logs tab
+  const [logFilterChannel, setLogFilterChannel] = useState<string>('ALL');
+  const [logFilterStatus, setLogFilterStatus] = useState<string>('ALL');
+  const [logFilterTrigger, setLogFilterTrigger] = useState<string>('ALL');
+  const [logSearchText, setLogSearchText] = useState<string>('');
+  const [selectedLogDetail, setSelectedLogDetail] = useState<ChannelCalendarSyncLog | null>(null);
+
+  // Actions tracking
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copiedExternalId, setCopiedExternalId] = useState<number | null>(null);
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [testingConnectionId, setTestingConnectionId] = useState<number | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
   // Availability Checker State
@@ -126,12 +147,14 @@ const ChannelCalendarPage: React.FC = () => {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [channelsData, roomTypesData, roomsData] = await Promise.all([
+      const [channelsData, warningSummaryData, roomTypesData, roomsData] = await Promise.all([
         channelApi.getAll(),
+        channelApi.getWarningSummary().catch(() => null),
         roomTypeApi.getAllRoomTypes(),
         roomApi.getAllRooms(),
       ]);
       setChannels(channelsData || []);
+      setWarningSummary(warningSummaryData);
       setRoomTypes(roomTypesData || []);
       setRooms(roomsData || []);
     } catch {
@@ -141,10 +164,30 @@ const ChannelCalendarPage: React.FC = () => {
     }
   };
 
+  const fetchWarningSummary = async () => {
+    try {
+      const summary = await channelApi.getWarningSummary();
+      setWarningSummary(summary);
+    } catch {
+      // ignore
+    }
+  };
+
   const fetchAllLogs = async () => {
     setLoadingLogs(true);
     try {
-      const logs = await channelApi.getRecentLogs();
+      const params: { channelId?: number; status?: string; triggeredBy?: string } = {};
+      if (logFilterChannel !== 'ALL') {
+        params.channelId = Number(logFilterChannel);
+      }
+      if (logFilterStatus !== 'ALL') {
+        params.status = logFilterStatus;
+      }
+      if (logFilterTrigger !== 'ALL') {
+        params.triggeredBy = logFilterTrigger;
+      }
+
+      const logs = await channelApi.getLogsWithFilter(params);
       setAllLogs(logs || []);
     } catch {
       error('Không thể tải nhật ký đồng bộ.');
@@ -152,6 +195,12 @@ const ChannelCalendarPage: React.FC = () => {
       setLoadingLogs(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'all-logs') {
+      fetchAllLogs();
+    }
+  }, [activeTab, logFilterChannel, logFilterStatus, logFilterTrigger]);
 
   const getPhysicalRoomCount = (roomTypeId: number): number => {
     return rooms.filter((r) => r.roomTypeId === roomTypeId).length;
@@ -336,6 +385,7 @@ const ChannelCalendarPage: React.FC = () => {
         );
       }
       setModalOpen(false);
+      fetchWarningSummary();
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Có lỗi xảy ra khi lưu kênh.';
       error(msg);
@@ -358,6 +408,7 @@ const ChannelCalendarPage: React.FC = () => {
           `Đã tắt đồng bộ kênh "${updated.name}". Dữ liệu lịch và nhật ký cũ được lưu giữ nguyên.`
         );
       }
+      fetchWarningSummary();
     } catch (err: any) {
       const msg =
         err.response?.data?.message || 'Không thể thay đổi trạng thái kênh.';
@@ -365,6 +416,127 @@ const ChannelCalendarPage: React.FC = () => {
     } finally {
       setTogglingId(null);
     }
+  };
+
+  const handleTestConnection = async (channel: Channel) => {
+    setTestingConnectionId(channel.id);
+    try {
+      const updated = await channelApi.testConnection(channel.id);
+      setChannels((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
+      );
+      if (updated.connectionStatus === 'HEALTHY') {
+        success(`Kết nối tới kênh "${updated.name}" ổn định và đã đồng bộ dữ liệu mới nhất!`);
+      } else if (updated.connectionStatus === 'DISCONNECTED') {
+        error(`Cảnh báo: Kênh "${updated.name}" mất kết nối! ${updated.lastSyncErrorMessage || ''}`);
+      } else {
+        warning(`Kênh "${updated.name}": ${updated.connectionStatusMessage}`);
+      }
+      fetchWarningSummary();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Kiểm tra kết nối thất bại.';
+      error(msg);
+    } finally {
+      setTestingConnectionId(null);
+    }
+  };
+
+  const handleSyncChannel = async (channel: Channel) => {
+    setSyncingId(channel.id);
+    try {
+      const updated = await channelApi.syncChannel(channel.id);
+      setChannels((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
+      );
+      success(`Đã đồng bộ tệp lịch cho kênh "${updated.name}" thành công!`);
+      fetchWarningSummary();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Đồng bộ thất bại.';
+      error(msg);
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const handleSyncAll = async () => {
+    setSyncingAll(true);
+    try {
+      const updatedList = await channelApi.syncAll('MANUAL_USER_REQUEST');
+      setChannels(updatedList || []);
+      success('Đã kích hoạt đồng bộ lại toàn bộ các kênh phân phối!');
+      fetchWarningSummary();
+    } catch (err: any) {
+      error(err.response?.data?.message || 'Đồng bộ hàng loạt thất bại.');
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
+  const handleRefreshTokenConfirm = async () => {
+    if (!refreshTokenModal) return;
+    setRefreshingToken(true);
+    try {
+      const updated = await channelApi.refreshToken(refreshTokenModal.id);
+      setChannels((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
+      );
+      success(
+        `Đã tạo token bảo mật mới cho kênh "${updated.name}". Vui lòng sao chép lại liên kết mới!`
+      );
+      setRefreshTokenModal(null);
+      fetchWarningSummary();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Không thể làm mới token.';
+      error(msg);
+    } finally {
+      setRefreshingToken(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await channelApi.delete(deleteConfirm.id);
+      setChannels((prev) => prev.filter((c) => c.id !== deleteConfirm.id));
+      success(`Đã xóa kênh "${deleteConfirm.name}" thành công.`);
+      setDeleteConfirm(null);
+      fetchWarningSummary();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Không thể xóa kênh phân phối.';
+      error(msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleViewLogs = async (channel: Channel) => {
+    setLogsModalChannel(channel);
+    setLoadingLogs(true);
+    try {
+      const logs = await channelApi.getChannelLogs(channel.id);
+      setChannelLogs(logs || []);
+    } catch {
+      error('Không thể tải lịch sử nhật ký của kênh này.');
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const handleCopyUrl = (channel: Channel) => {
+    if (!channel.feedUrl) return;
+    navigator.clipboard.writeText(channel.feedUrl);
+    setCopiedId(channel.id);
+    success('Đã sao chép đường dẫn tệp lịch iCal vào clipboard!');
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  const handleCopyExternalUrl = (channel: Channel) => {
+    if (!channel.externalCalendarUrl) return;
+    navigator.clipboard.writeText(channel.externalCalendarUrl);
+    setCopiedExternalId(channel.id);
+    success('Đã sao chép đường dẫn lịch phía kênh vào clipboard!');
+    setTimeout(() => setCopiedExternalId(null), 2500);
   };
 
   const handleOpenChecker = (channel?: Channel) => {
@@ -403,7 +575,7 @@ const ChannelCalendarPage: React.FC = () => {
       warning('Vui lòng chọn ngày nhận phòng và ngày trả phòng');
       return;
     }
-    if (checkerCheckOut <= checkerCheckIn) {
+    if (checkerCheckIn >= checkerCheckOut) {
       warning('Ngày trả phòng phải sau ngày nhận phòng ít nhất 1 ngày');
       return;
     }
@@ -416,146 +588,147 @@ const ChannelCalendarPage: React.FC = () => {
         checkOutDate: checkerCheckOut,
       });
       setAvailabilityResult(res);
-      if (res.isAvailable) {
-        success(
-          `CÒN PHÒNG! Kênh "${res.channelName}" còn ${res.availableRooms} phòng loại "${res.roomTypeName}".`
-        );
-      } else {
-        warning(
-          `ĐÃ HẾT PHÒNG! Kênh "${res.channelName}" không còn phòng loại "${res.roomTypeName}" cho giai đoạn này.`
-        );
-      }
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message || 'Có lỗi xảy ra khi kiểm tra phòng trống.';
+      const msg = err.response?.data?.message || 'Kiểm tra phòng trống thất bại.';
       error(msg);
     } finally {
       setCheckingAvailability(false);
     }
   };
 
-  const handleCopyUrl = (channel: Channel) => {
-    if (!channel.feedUrl) return;
-    navigator.clipboard.writeText(channel.feedUrl);
-    setCopiedId(channel.id);
-    success(`Đã sao chép liên kết tệp lịch iCal cho kênh "${channel.name}"!`);
-    setTimeout(() => setCopiedId(null), 3000);
-  };
-
-  const handleCopyExternalUrl = (channel: Channel) => {
-    if (!channel.externalCalendarUrl) return;
-    navigator.clipboard.writeText(channel.externalCalendarUrl);
-    setCopiedExternalId(channel.id);
-    success(`Đã sao chép đường dẫn lịch phía kênh "${channel.name}"!`);
-    setTimeout(() => setCopiedExternalId(null), 3000);
-  };
-
-  const handleRefreshTokenConfirm = async () => {
-    if (!refreshTokenModal) return;
-    setRefreshingToken(true);
-    try {
-      const updated = await channelApi.refreshToken(refreshTokenModal.id);
-      setChannels((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
-      success(
-        `Đã làm mới liên kết lịch thành công! Liên kết cũ đã bị vô hiệu hóa.`
-      );
-      setRefreshTokenModal(null);
-    } catch {
-      error('Không thể làm mới liên kết. Vui lòng thử lại.');
-    } finally {
-      setRefreshingToken(false);
-    }
-  };
-
-  const handleSyncNow = async (channel: Channel) => {
-    setSyncingId(channel.id);
-    try {
-      const updated = await channelApi.syncChannel(channel.id);
-      setChannels((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
-      success(
-        `Đồng bộ tệp lịch thành công! Đã ghi nhận ${
-          updated.lastBlockedPeriodsCount || 0
-        } khoảng hết chỗ.`
-      );
-    } catch {
-      error('Đồng bộ thất bại. Vui lòng thử lại.');
-    } finally {
-      setSyncingId(null);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteConfirm) return;
-    setDeleting(true);
-    try {
-      await channelApi.delete(deleteConfirm.id);
-      setChannels((prev) => prev.filter((c) => c.id !== deleteConfirm.id));
-      success(`Đã xóa kênh "${deleteConfirm.name}" thành công.`);
-      setDeleteConfirm(null);
-    } catch {
-      error('Không thể xóa kênh. Vui lòng thử lại.');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleViewLogs = async (channel: Channel) => {
-    setLogsModalChannel(channel);
-    setLoadingLogs(true);
-    try {
-      const logs = await channelApi.getChannelLogs(channel.id);
-      setChannelLogs(logs || []);
-    } catch {
-      error('Không thể tải nhật ký của kênh.');
-    } finally {
-      setLoadingLogs(false);
-    }
-  };
-
   const getPlatformInfo = (code: string) => {
     return (
-      CHANNEL_PLATFORMS.find((p) => p.value === code) ||
-      CHANNEL_PLATFORMS[CHANNEL_PLATFORMS.length - 1]
+      CHANNEL_PLATFORMS.find((p) => p.value === code) || {
+        value: code,
+        label: code,
+        color: '#4B5563',
+        bg: '#F3F4F6',
+      }
     );
   };
 
-  const formatDateTime = (dtStr?: string) => {
-    if (!dtStr) return 'Chưa đồng bộ';
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return 'Chưa đồng bộ';
     try {
-      const d = new Date(dtStr);
+      const d = new Date(dateStr);
       return d.toLocaleString('vi-VN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
       });
     } catch {
-      return dtStr;
+      return dateStr;
     }
   };
 
-  if (loading) {
-    return <LoadingScreen message="Đang tải dữ liệu kênh phân phối..." />;
-  }
+  // Render Status Badge
+  const renderConnectionBadge = (channel: Channel) => {
+    const status = channel.connectionStatus || (channel.isActive ? 'HEALTHY' : 'PAUSED');
+
+    if (status === 'PAUSED' || !channel.isActive) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+          <IoPauseCircleOutline className="mr-1 text-gray-500" size={14} />
+          Tạm ngưng
+        </span>
+      );
+    }
+
+    if (status === 'DISCONNECTED') {
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+            <IoAlertCircleOutline className="mr-1 text-rose-600" size={15} />
+            Mất kết nối
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedErrorChannel(channel)}
+            className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 underline flex items-center"
+          >
+            <IoEyeOutline className="mr-0.5" size={13} />
+            Xem lỗi chi tiết
+          </button>
+        </div>
+      );
+    }
+
+    if (status === 'STALE') {
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+            <IoWarningOutline className="mr-1 text-amber-600" size={14} />
+            Ngừng cập nhật / Trễ
+          </span>
+          <span className="text-[10px] text-amber-700 font-medium max-w-[140px] truncate" title="Quá hạn đồng bộ - Nguy cơ trùng phòng">
+            Nguy cơ trùng phòng
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+        <IoCheckmarkCircleOutline className="mr-1 text-emerald-600" size={14} />
+        Kết nối tốt
+      </span>
+    );
+  };
+
+  // Filtered Channels
+  const filteredChannels = useMemo(() => {
+    if (channelFilterStatus === 'ALL') return channels;
+    if (channelFilterStatus === 'WARNINGS') {
+      return channels.filter(
+        (c) => c.connectionStatus === 'DISCONNECTED' || c.connectionStatus === 'STALE'
+      );
+    }
+    if (channelFilterStatus === 'ACTIVE') return channels.filter((c) => c.isActive);
+    if (channelFilterStatus === 'HEALTHY') return channels.filter((c) => c.connectionStatus === 'HEALTHY');
+    if (channelFilterStatus === 'PAUSED') return channels.filter((c) => !c.isActive || c.connectionStatus === 'PAUSED');
+    return channels;
+  }, [channels, channelFilterStatus]);
+
+  // Filtered All Logs (search text)
+  const filteredAllLogs = useMemo(() => {
+    if (!logSearchText.trim()) return allLogs;
+    const q = logSearchText.toLowerCase();
+    return allLogs.filter(
+      (l) =>
+        l.channelName.toLowerCase().includes(q) ||
+        l.roomTypeName.toLowerCase().includes(q) ||
+        (l.blockedSummary && l.blockedSummary.toLowerCase().includes(q)) ||
+        (l.errorMessage && l.errorMessage.toLowerCase().includes(q)) ||
+        l.triggeredBy.toLowerCase().includes(q)
+    );
+  }, [allLogs, logSearchText]);
 
   const activeChannelsCount = channels.filter((c) => c.isActive).length;
+  const healthyChannelsCount = channels.filter((c) => c.isActive && c.connectionStatus === 'HEALTHY').length;
+  const warningChannelsCount = channels.filter(
+    (c) => c.isActive && (c.connectionStatus === 'DISCONNECTED' || c.connectionStatus === 'STALE')
+  ).length;
+
   const totalAllocatedRooms = channels.reduce((sum, c) => {
+    if (!c.isActive) return sum;
     if (c.mappings && c.mappings.length > 0) {
-      return sum + c.mappings.reduce((acc, m) => acc + m.allocatedRooms, 0);
+      return sum + c.mappings.reduce((mSum, m) => mSum + m.allocatedRooms, 0);
     }
     return sum + (c.allocatedRooms || 0);
   }, 0);
 
+  if (loading) {
+    return <LoadingScreen message="Đang tải cấu hình kênh phân phối & kiểm tra tình trạng kết nối..." />;
+  }
+
   return (
     <div className="space-y-6 pb-12">
       <PageHeader
-        title="Quản Lý Kênh Phân Phối & Đồng Bộ Lịch (OTA Calendar)"
-        subtitle="Khai báo kênh OTA, liên kết tệp lịch 2 chiều, ánh xạ loại phòng và tự động đồng bộ theo chuẩn RFC 5545"
+        title="Quản Lý Kênh Phân Phối & Nhật Ký Đồng Bộ Lịch (OTA Calendar)"
+        subtitle="Theo dõi tình trạng kết nối, cảnh báo mất kết nối tránh trùng phòng và kiểm tra lịch sử đồng bộ đa kênh RFC 5545"
         actions={
           <div className="flex items-center space-x-2.5">
             <Button
@@ -566,160 +739,225 @@ const ChannelCalendarPage: React.FC = () => {
               Kiểm Tra Phòng Trống
             </Button>
             {isOwner && (
-              <Button
-                variant="primary"
-                onClick={handleOpenCreate}
-                icon={IoAddCircleOutline}
-              >
-                Thêm Kênh Phân Phối
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleSyncAll}
+                  disabled={syncingAll}
+                  icon={IoSyncOutline}
+                >
+                  {syncingAll ? 'Đang đồng bộ...' : 'Đồng Bộ Tất Cả'}
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleOpenCreate}
+                  icon={IoAddCircleOutline}
+                >
+                  Thêm Kênh Phân Phối
+                </Button>
+              </>
             )}
           </div>
         }
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Warning Alert Banner (CẢNH BÁO MẤT KẾT NỐI NỔI BẬT) */}
+      {(warningSummary?.hasWarning || warningChannelsCount > 0) && (
+        <div className="bg-gradient-to-r from-rose-50 via-red-50 to-orange-50 p-5 rounded-2xl border-2 border-rose-300 shadow-md">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start space-x-3.5">
+              <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-sm animate-bounce mt-0.5">
+                <IoAlertCircleOutline size={28} />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2.5">
+                  <h3 className="text-base font-bold text-rose-900">
+                    CẢNH BÁO: PHÁT HIỆN KÊNH OTA MẤT KẾT NỐI HOẶC NGỪNG CẬP NHẬT!
+                  </h3>
+                  <span className="px-2.5 py-0.5 bg-rose-600 text-white text-xs font-bold rounded-full">
+                    {warningSummary?.warningChannels?.length || warningChannelsCount} kênh cần xử lý
+                  </span>
+                </div>
+                <p className="text-sm text-rose-800 mt-1 leading-relaxed">
+                  Một hoặc nhiều kênh phân phối đã ngừng cập nhật dữ liệu lịch hoặc gặp sự cố kết nối. Dữ liệu phòng trống trên các sàn OTA có nguy cơ không khớp với thực tế, có thể gây ra <strong>TRÙNG PHÒNG (OVERBOOKING)</strong>!
+                </p>
+
+                {/* Danh sách kênh cảnh báo nhanh */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(warningSummary?.warningChannels || channels.filter(c => c.connectionStatus === 'DISCONNECTED' || c.connectionStatus === 'STALE')).map((wc) => (
+                    <div
+                      key={wc.id}
+                      className="inline-flex items-center px-3 py-1 bg-white/90 border border-rose-300 rounded-lg text-xs font-medium text-rose-900 shadow-xs"
+                    >
+                      <span className="font-bold mr-1.5">{wc.name}</span>
+                      <span className="text-rose-600 mr-2">
+                        ({wc.connectionStatus === 'DISCONNECTED' ? 'Lỗi kết nối' : 'Quá hạn cập nhật'})
+                      </span>
+                      <button
+                        onClick={() => handleTestConnection(wc)}
+                        className="text-blue-700 hover:text-blue-900 underline font-semibold ml-1"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleSyncAll}
+                disabled={syncingAll}
+                icon={IoRefreshOutline}
+              >
+                {syncingAll ? 'Đang xử lý...' : 'Đồng bộ lại tất cả'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setChannelFilterStatus('WARNINGS')}
+              >
+                Lọc kênh gặp sự cố
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4 Metric KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Thẻ 1: Tổng kênh */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
             <IoLayersOutline size={26} />
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-500">Tổng số kênh</div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng số kênh</div>
             <div className="text-2xl font-bold text-gray-900">
-              {channels.length}
+              {channels.length}{' '}
+              <span className="text-xs font-normal text-gray-500">
+                ({activeChannelsCount} đang bật)
+              </span>
             </div>
           </div>
         </div>
 
+        {/* Thẻ 2: Kết nối tốt */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
             <IoCheckmarkCircleOutline size={26} />
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-500">
-              Kênh đang bật đồng bộ
-            </div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">Kết nối ổn định</div>
             <div className="text-2xl font-bold text-emerald-600">
-              {activeChannelsCount} / {channels.length}
+              {healthyChannelsCount}{' '}
+              <span className="text-xs font-normal text-emerald-700">kênh</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-            <IoCalendarOutline size={26} />
+        {/* Thẻ 3: Mất kết nối / Cảnh báo */}
+        <div className={`p-5 rounded-xl border shadow-sm flex items-center space-x-4 transition-colors ${
+          warningChannelsCount > 0
+            ? 'bg-rose-50/70 border-rose-300'
+            : 'bg-white border-gray-200'
+        }`}>
+          <div className={`p-3 rounded-xl ${
+            warningChannelsCount > 0 ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-500'
+          }`}>
+            <IoAlertCircleOutline size={26} />
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-500">
-              Phòng phân bổ qua OTA
-            </div>
-            <div className="text-2xl font-bold text-indigo-600">
-              {totalAllocatedRooms} phòng
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">Cảnh báo / Mất kết nối</div>
+            <div className={`text-2xl font-bold ${
+              warningChannelsCount > 0 ? 'text-rose-600' : 'text-gray-900'
+            }`}>
+              {warningChannelsCount}{' '}
+              <span className="text-xs font-normal text-gray-500">kênh</span>
             </div>
           </div>
         </div>
 
+        {/* Thẻ 4: Tỷ lệ đồng bộ 24h */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
             <IoSyncOutline size={26} />
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-500">
-              Chu kỳ cập nhật
-            </div>
-            <div className="text-sm font-semibold text-gray-800">
-              Tức thì + Định kỳ
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tỷ lệ đồng bộ 24h</div>
+            <div className="text-2xl font-bold text-indigo-600">
+              {warningSummary?.syncSuccessRate24h !== undefined ? `${warningSummary.syncSuccessRate24h}%` : '100%'}
+              <span className="text-xs font-normal text-gray-500 ml-1.5">
+                ({warningSummary?.totalSyncs24h || 0} lượt)
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Guide Banner */}
-      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-white p-5 rounded-xl border border-blue-200 text-sm text-gray-700 shadow-sm">
-        <div className="flex items-start space-x-3">
-          <IoInformationCircleOutline
-            className="text-blue-600 mt-0.5 flex-shrink-0"
-            size={22}
-          />
-          <div className="space-y-1.5 leading-relaxed">
-            <div className="font-semibold text-gray-900">
-              Quy tắc quản lý & Đồng bộ lịch kênh phân phối:
-            </div>
-            <ul className="list-disc pl-5 space-y-1 text-gray-600">
-              <li>
-                <strong>Đồng bộ 2 chiều:</strong> Khai báo đường dẫn tệp lịch do
-                kênh cung cấp và lấy đường dẫn tệp lịch cơ sở chia sẻ ngược lại để
-                dán vào kênh OTA (Airbnb, Booking.com...).
-              </li>
-              <li>
-                <strong>Bảng ánh xạ loại phòng:</strong> Cho phép 1 loại phòng bán
-                trên nhiều kênh. Tổng số phòng phân bổ qua các kênh không được vượt
-                quá số phòng thực có của loại phòng đó.
-              </li>
-              <li>
-                <strong>Điều kiện bật đồng bộ:</strong> Kênh chưa ánh xạ loại phòng
-                thì không được bật đồng bộ. Hệ thống tự động chặn nếu vi phạm.
-              </li>
-              <li>
-                <strong>Bật/Tắt linh hoạt:</strong> Chủ cơ sở có thể bật hoặc tắt
-                đồng bộ từng kênh bất cứ lúc nào. <em>Tắt kênh không xóa dữ liệu
-                hay nhật ký đã đồng bộ trước đó</em>.
-              </li>
-              <li>
-                <strong>Nhật ký & An toàn:</strong> Mọi thay đổi cấu hình kênh đều
-                được ghi nhật ký kiểm tra (Audit Log). Đường dẫn có token bảo mật
-                khó đoán và có thể làm mới bất cứ lúc nào.
-              </li>
-            </ul>
-          </div>
+      {/* Tab Switcher & Filters */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-gray-200 pb-2">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setActiveTab('channels')}
+            className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors flex items-center space-x-2 ${
+              activeTab === 'channels'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <IoLayersOutline size={16} />
+            <span>Danh sách Kênh Phân Phối ({channels.length})</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('all-logs');
+            }}
+            className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors flex items-center space-x-2 ${
+              activeTab === 'all-logs'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <IoDocumentTextOutline size={16} />
+            <span>Nhật Ký Đồng Bộ & Lịch Sử Lỗi</span>
+          </button>
         </div>
-      </div>
 
-      {/* Tab Switcher */}
-      <div className="flex space-x-2 border-b border-gray-200 pb-2">
-        <button
-          onClick={() => setActiveTab('channels')}
-          className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors flex items-center space-x-2 ${
-            activeTab === 'channels'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          <IoLayersOutline size={16} />
-          <span>Danh sách Kênh Phân Phối ({channels.length})</span>
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('all-logs');
-            fetchAllLogs();
-          }}
-          className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors flex items-center space-x-2 ${
-            activeTab === 'all-logs'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          <IoDocumentTextOutline size={16} />
-          <span>Nhật Ký Sinh Tệp Toàn Hệ Thống</span>
-        </button>
+        {activeTab === 'channels' && (
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="text-gray-500 font-medium">Lọc kênh:</span>
+            <select
+              value={channelFilterStatus}
+              onChange={(e) => setChannelFilterStatus(e.target.value)}
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">Tất cả trạng thái ({channels.length})</option>
+              <option value="WARNINGS">Cần chú ý / Sự cố ({warningChannelsCount})</option>
+              <option value="HEALTHY">Kết nối ổn định ({healthyChannelsCount})</option>
+              <option value="ACTIVE">Đang bật ({activeChannelsCount})</option>
+              <option value="PAUSED">Tạm ngưng ({channels.length - activeChannelsCount})</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Tab 1: Channels List */}
       {activeTab === 'channels' && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          {channels.length === 0 ? (
+          {filteredChannels.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              <IoCalendarOutline
-                size={48}
-                className="mx-auto text-gray-400 mb-3"
-              />
+              <IoCalendarOutline size={48} className="mx-auto text-gray-400 mb-3" />
               <p className="text-base font-medium">
-                Chưa có kênh phân phối nào được cấu hình
+                {channelFilterStatus === 'ALL'
+                  ? 'Chưa có kênh phân phối nào được cấu hình'
+                  : 'Không có kênh nào phù hợp với bộ lọc'}
               </p>
               <p className="text-sm text-gray-400 mt-1">
-                Bấm "Thêm kênh phân phối" để khai báo kênh và thiết lập ánh xạ loại
-                phòng.
+                Bấm "Thêm kênh phân phối" để khai báo kênh và thiết lập ánh xạ loại phòng.
               </p>
             </div>
           ) : (
@@ -728,22 +966,24 @@ const ChannelCalendarPage: React.FC = () => {
                 <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500 border-b border-gray-200">
                   <tr>
                     <th className="py-3.5 px-4">Kênh & Nền tảng</th>
+                    <th className="py-3.5 px-4">Sức khỏe kết nối</th>
                     <th className="py-3.5 px-4">Đường dẫn lịch 2 chiều</th>
                     <th className="py-3.5 px-4">Ánh xạ loại phòng</th>
                     <th className="py-3.5 px-4 text-center">Tổng phân bổ</th>
                     <th className="py-3.5 px-4 text-center">Chu kỳ</th>
                     <th className="py-3.5 px-4 text-center">Khoảng chặn</th>
                     <th className="py-3.5 px-4">Lần đồng bộ cuối</th>
-                    <th className="py-3.5 px-4 text-center">Trạng thái</th>
+                    <th className="py-3.5 px-4 text-center">Bật/Tắt</th>
                     <th className="py-3.5 px-4 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {channels.map((channel) => {
+                  {filteredChannels.map((channel) => {
                     const platform = getPlatformInfo(channel.channelCode);
                     const isCopied = copiedId === channel.id;
                     const isCopiedExternal = copiedExternalId === channel.id;
                     const isSyncing = syncingId === channel.id;
+                    const isTesting = testingConnectionId === channel.id;
                     const isToggling = togglingId === channel.id;
 
                     const mappingList =
@@ -769,7 +1009,13 @@ const ChannelCalendarPage: React.FC = () => {
                     return (
                       <tr
                         key={channel.id}
-                        className="hover:bg-gray-50/75 transition-colors"
+                        className={`hover:bg-gray-50/75 transition-colors ${
+                          channel.connectionStatus === 'DISCONNECTED'
+                            ? 'bg-rose-50/30'
+                            : channel.connectionStatus === 'STALE'
+                            ? 'bg-amber-50/20'
+                            : ''
+                        }`}
                       >
                         {/* Kênh & Nền tảng */}
                         <td className="py-4 px-4">
@@ -797,11 +1043,16 @@ const ChannelCalendarPage: React.FC = () => {
                           </div>
                         </td>
 
+                        {/* Sức khỏe kết nối */}
+                        <td className="py-4 px-4 min-w-[150px]">
+                          {renderConnectionBadge(channel)}
+                        </td>
+
                         {/* Đường dẫn lịch 2 chiều */}
-                        <td className="py-4 px-4 text-xs space-y-1.5 min-w-[200px]">
+                        <td className="py-4 px-4 text-xs space-y-1.5 min-w-[190px]">
                           {/* Phía cơ sở xuất */}
                           <div className="flex items-center justify-between bg-blue-50/60 border border-blue-200/80 px-2 py-1 rounded">
-                            <span className="text-blue-700 font-medium truncate max-w-[140px]" title={channel.feedUrl}>
+                            <span className="text-blue-700 font-medium truncate max-w-[130px]" title={channel.feedUrl}>
                               Cơ sở chia sẻ: .ics
                             </span>
                             <button
@@ -820,7 +1071,7 @@ const ChannelCalendarPage: React.FC = () => {
                           {/* Phía kênh cấp */}
                           {channel.externalCalendarUrl ? (
                             <div className="flex items-center justify-between bg-gray-50 border border-gray-200 px-2 py-1 rounded">
-                              <span className="text-gray-600 truncate max-w-[140px]" title={channel.externalCalendarUrl}>
+                              <span className="text-gray-600 truncate max-w-[130px]" title={channel.externalCalendarUrl}>
                                 Kênh cấp: URL
                               </span>
                               <button
@@ -899,7 +1150,12 @@ const ChannelCalendarPage: React.FC = () => {
 
                         {/* Lần đồng bộ cuối */}
                         <td className="py-4 px-4 text-xs text-gray-500 whitespace-nowrap">
-                          {formatDateTime(channel.lastSyncedAt)}
+                          <div>{formatDateTime(channel.lastSyncedAt)}</div>
+                          {channel.lastSyncStatus === 'ERROR' && (
+                            <div className="text-[11px] text-rose-600 font-semibold mt-0.5">
+                              Thất bại ({channel.consecutiveFailures || 1} lần)
+                            </div>
+                          )}
                         </td>
 
                         {/* Trạng thái & Toggle */}
@@ -940,97 +1196,73 @@ const ChannelCalendarPage: React.FC = () => {
                         {/* Thao tác */}
                         <td className="py-4 px-4 text-right">
                           <div className="flex items-center justify-end space-x-1.5">
-                            {/* Copy URL */}
-                            <button
-                              onClick={() => handleCopyUrl(channel)}
-                              title="Sao chép đường dẫn tệp lịch iCal (.ics)"
-                              className={`p-1.5 rounded-lg border transition-colors ${
-                                isCopied
-                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-600'
-                                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                              }`}
-                            >
-                              {isCopied ? (
-                                <IoCheckmarkOutline size={16} />
-                              ) : (
-                                <IoCopyOutline size={16} />
-                              )}
-                            </button>
-
-                            {/* Download .ics */}
-                            <a
-                              href={channel.feedUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Tải / Xem tệp .ics"
-                              className="p-1.5 rounded-lg border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors"
-                            >
-                              <IoDownloadOutline size={16} />
-                            </a>
-
-                            {/* Regenerate Token */}
-                            {isOwner && (
+                            {/* Kiểm tra kết nối & Đồng bộ ngay */}
+                            {channel.isActive && (
                               <button
-                                onClick={() => setRefreshTokenModal(channel)}
-                                title="Làm mới liên kết (Đổi Token bảo mật khi nghi ngờ bị lộ)"
-                                className="p-1.5 rounded-lg border bg-white border-gray-200 text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-colors"
+                                onClick={() => handleTestConnection(channel)}
+                                disabled={isTesting}
+                                title="Kiểm tra kết nối và cập nhật tệp lịch ngay"
+                                className="p-1.5 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
                               >
-                                <IoShieldCheckmarkOutline size={16} />
+                                <IoShieldCheckmarkOutline
+                                  size={16}
+                                  className={isTesting ? 'animate-spin' : ''}
+                                />
                               </button>
                             )}
 
-                            {/* Sync Now */}
-                            <button
-                              onClick={() => handleSyncNow(channel)}
-                              disabled={isSyncing || !channel.isActive}
-                              title={
-                                channel.isActive
-                                  ? 'Đồng bộ lại tệp lịch ngay lập tức'
-                                  : 'Kênh đang tắt đồng bộ'
-                              }
-                              className="p-1.5 rounded-lg border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors disabled:opacity-40"
-                            >
-                              <IoRefreshOutline
-                                size={16}
-                                className={isSyncing ? 'animate-spin' : ''}
-                              />
-                            </button>
+                            {/* Đồng bộ thủ công */}
+                            {channel.isActive && (
+                              <button
+                                onClick={() => handleSyncChannel(channel)}
+                                disabled={isSyncing}
+                                title="Đồng bộ thủ công"
+                                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                              >
+                                <IoSyncOutline
+                                  size={16}
+                                  className={isSyncing ? 'animate-spin' : ''}
+                                />
+                              </button>
+                            )}
 
-                            {/* Check Availability */}
-                            <button
-                              onClick={() => handleOpenChecker(channel)}
-                              title="Kiểm tra tình trạng phòng trống (Còn/Hết phòng) cho kênh này"
-                              className="p-1.5 rounded-lg border bg-white border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors"
-                            >
-                              <IoSearchOutline size={16} />
-                            </button>
-
-                            {/* View Logs */}
+                            {/* Xem nhật ký kênh */}
                             <button
                               onClick={() => handleViewLogs(channel)}
-                              title="Xem lịch sử các lần sinh tệp"
-                              className="p-1.5 rounded-lg border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                              title="Xem lịch sử sinh tệp của kênh này"
+                              className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
                             >
-                              <IoTimeOutline size={16} />
+                              <IoDocumentTextOutline size={16} />
                             </button>
 
-                            {/* Edit */}
+                            {/* Sửa kênh */}
                             {isOwner && (
                               <button
                                 onClick={() => handleOpenEdit(channel)}
-                                title="Chỉnh sửa cấu hình kênh"
-                                className="p-1.5 rounded-lg border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                                title="Chỉnh sửa cấu hình & ánh xạ loại phòng"
+                                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-amber-600 transition-colors"
                               >
                                 <IoPencilOutline size={16} />
                               </button>
                             )}
 
-                            {/* Delete */}
+                            {/* Làm mới token */}
+                            {isOwner && (
+                              <button
+                                onClick={() => setRefreshTokenModal(channel)}
+                                title="Làm mới token đường dẫn lịch (khi nghi ngờ bị lộ)"
+                                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-teal-600 transition-colors"
+                              >
+                                <IoRefreshOutline size={16} />
+                              </button>
+                            )}
+
+                            {/* Xóa kênh */}
                             {isOwner && (
                               <button
                                 onClick={() => setDeleteConfirm(channel)}
-                                title="Xóa kênh phân phối"
-                                className="p-1.5 rounded-lg border bg-white border-gray-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition-colors"
+                                title="Xóa kênh phân phối này"
+                                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors"
                               >
                                 <IoTrashOutline size={16} />
                               </button>
@@ -1047,12 +1279,89 @@ const ChannelCalendarPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: All System Logs */}
+      {/* Tab 2: Enhanced All System Sync Logs */}
       {activeTab === 'all-logs' && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
-            <div className="font-semibold text-gray-800 text-sm">
-              50 Lần Sinh Tệp Gần Nhất Toàn Hệ Thống
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden space-y-4 p-4">
+          {/* Filter Bar */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-gray-50 p-3.5 rounded-xl border border-gray-200">
+            {/* Lọc kênh */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Kênh phân phối
+              </label>
+              <select
+                value={logFilterChannel}
+                onChange={(e) => setLogFilterChannel(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs border rounded-lg border-gray-300 bg-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="ALL">Tất cả kênh</option>
+                {channels.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Lọc trạng thái */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Trạng thái
+              </label>
+              <select
+                value={logFilterStatus}
+                onChange={(e) => setLogFilterStatus(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs border rounded-lg border-gray-300 bg-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="SUCCESS">Thành công (SUCCESS)</option>
+                <option value="ERROR">Lỗi / Thất bại (ERROR)</option>
+              </select>
+            </div>
+
+            {/* Lọc nguyên nhân */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Nguyên nhân kích hoạt
+              </label>
+              <select
+                value={logFilterTrigger}
+                onChange={(e) => setLogFilterTrigger(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs border rounded-lg border-gray-300 bg-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="ALL">Tất cả nguyên nhân</option>
+                <option value="SCHEDULED_CYCLE">Quét định kỳ</option>
+                <option value="BOOKING_CREATED">Đặt phòng mới</option>
+                <option value="BOOKING_CANCELLED">Hủy đặt phòng</option>
+                <option value="BOOKING_RESCHEDULED">Dời ngày / Gia hạn</option>
+                <option value="ROOM_MAINTENANCE">Khóa / Mở bảo trì</option>
+                <option value="CONNECTION_TEST">Kiểm tra kết nối</option>
+                <option value="MANUAL_REFRESH">Đồng bộ thủ công</option>
+              </select>
+            </div>
+
+            {/* Tìm kiếm từ khóa */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Tìm kiếm từ khóa
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Tìm kênh, lỗi, ngày chặn..."
+                  value={logSearchText}
+                  onChange={(e) => setLogSearchText(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs border rounded-lg border-gray-300 bg-white focus:ring-2 focus:ring-blue-500"
+                />
+                <IoSearchOutline className="absolute left-2.5 top-2 text-gray-400" size={14} />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Row */}
+          <div className="flex justify-between items-center text-xs text-gray-500 px-1">
+            <div>
+              Hiển thị <strong>{filteredAllLogs.length}</strong> bản ghi nhật ký đồng bộ
             </div>
             <Button
               variant="outline"
@@ -1066,15 +1375,13 @@ const ChannelCalendarPage: React.FC = () => {
           </div>
 
           {loadingLogs ? (
+            <div className="py-12 text-center text-gray-500">Đang tải nhật ký...</div>
+          ) : filteredAllLogs.length === 0 ? (
             <div className="py-12 text-center text-gray-500">
-              Đang tải nhật ký...
-            </div>
-          ) : allLogs.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">
-              Chưa có bản ghi nhật ký sinh tệp nào.
+              Không có bản ghi nhật ký nào phù hợp với bộ lọc.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
               <table className="w-full text-left text-sm text-gray-600 border-collapse">
                 <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500 border-b border-gray-200">
                   <tr>
@@ -1082,20 +1389,28 @@ const ChannelCalendarPage: React.FC = () => {
                     <th className="py-3 px-4">Kênh phân phối</th>
                     <th className="py-3 px-4">Loại phòng</th>
                     <th className="py-3 px-4">Nguyên nhân kích hoạt</th>
-                    <th className="py-3 px-4 text-center">Số khoảng đã chặn</th>
-                    <th className="py-3 px-4">Chi tiết các khoảng hết chỗ</th>
+                    <th className="py-3 px-4 text-center">Số khoảng chặn</th>
                     <th className="py-3 px-4 text-center">Trạng thái</th>
+                    <th className="py-3 px-4">Chi tiết / Thông điệp</th>
+                    <th className="py-3 px-4 text-right">Xem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {allLogs.map((log) => {
+                  {filteredAllLogs.map((log) => {
                     const trigger = TRIGGER_LABELS[log.triggeredBy] || {
                       label: log.triggeredBy,
                       color: 'text-gray-600 bg-gray-50 border-gray-200',
                     };
 
+                    const isSuccess = log.status === 'SUCCESS';
+
                     return (
-                      <tr key={log.id} className="hover:bg-gray-50/75">
+                      <tr
+                        key={log.id}
+                        className={`hover:bg-gray-50/75 ${
+                          !isSuccess ? 'bg-rose-50/40' : ''
+                        }`}
+                      >
                         <td className="py-3 px-4 text-xs font-mono text-gray-500 whitespace-nowrap">
                           {formatDateTime(log.syncedAt)}
                         </td>
@@ -1121,16 +1436,36 @@ const ChannelCalendarPage: React.FC = () => {
                             <span className="text-gray-400">0</span>
                           )}
                         </td>
+                        <td className="py-3 px-4 text-center">
+                          {isSuccess ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                              Thành công
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                              Thất bại
+                            </span>
+                          )}
+                        </td>
                         <td
                           className="py-3 px-4 text-xs text-gray-600 max-w-xs truncate"
-                          title={log.blockedSummary}
+                          title={isSuccess ? log.blockedSummary : log.errorMessage}
                         >
-                          {log.blockedSummary || 'Không có khoảng chặn'}
+                          {isSuccess
+                            ? log.blockedSummary || 'Không có khoảng chặn'
+                            : (
+                                <span className="text-rose-600 font-medium">
+                                  {log.errorMessage || 'Lỗi đồng bộ'}
+                                </span>
+                              )}
                         </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                            Thành công
-                          </span>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => setSelectedLogDetail(log)}
+                            className="text-blue-600 hover:text-blue-800 font-medium text-xs underline"
+                          >
+                            Chi tiết
+                          </button>
                         </td>
                       </tr>
                     );
@@ -1141,6 +1476,139 @@ const ChannelCalendarPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Modal: Chi Tiết Lỗi Mất Kết Nối (Error Details Modal) */}
+      <Modal
+        isOpen={Boolean(selectedErrorChannel)}
+        onClose={() => setSelectedErrorChannel(null)}
+        title={`Chi Tiết Sự Cố Kênh - ${selectedErrorChannel?.name}`}
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+            <div className="flex items-center space-x-2 text-rose-800 font-bold text-sm">
+              <IoAlertCircleOutline size={20} className="text-rose-600" />
+              <span>Kênh đang ở trạng thái MẤT KẾT NỐI (DISCONNECTED)</span>
+            </div>
+            <div className="text-xs text-rose-700 leading-relaxed font-mono bg-white p-3 rounded-lg border border-rose-200 break-words">
+              {selectedErrorChannel?.lastSyncErrorMessage || 'Không thể đồng bộ dữ liệu với kênh OTA.'}
+            </div>
+          </div>
+
+          <div className="space-y-2 text-xs text-gray-600">
+            <div className="flex justify-between py-1 border-b border-gray-100">
+              <span className="text-gray-500">Số lần thất bại liên tiếp:</span>
+              <strong className="text-rose-600">
+                {selectedErrorChannel?.consecutiveFailures || 1} lần
+              </strong>
+            </div>
+            <div className="flex justify-between py-1 border-b border-gray-100">
+              <span className="text-gray-500">Lần đồng bộ gần nhất:</span>
+              <span className="font-mono">{formatDateTime(selectedErrorChannel?.lastSyncedAt)}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-gray-100">
+              <span className="text-gray-500">Lần đồng bộ thành công cuối:</span>
+              <span className="font-mono">{formatDateTime(selectedErrorChannel?.lastSuccessSyncedAt)}</span>
+            </div>
+            {selectedErrorChannel?.externalCalendarUrl && (
+              <div className="py-1">
+                <span className="text-gray-500 block mb-1">Đường dẫn iCal kênh cấp:</span>
+                <span className="font-mono text-[11px] bg-gray-50 p-2 rounded block break-all text-gray-800 border">
+                  {selectedErrorChannel.externalCalendarUrl}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Hướng dẫn khắc phục */}
+          <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1.5">
+            <div className="font-bold flex items-center space-x-1.5">
+              <IoInformationCircleOutline size={16} className="text-blue-600" />
+              <span>Các bước khắc phục khuyến nghị:</span>
+            </div>
+            <ol className="list-decimal pl-4 space-y-1 text-blue-800">
+              <li>Kiểm tra lại đường dẫn <code>externalCalendarUrl</code> do OTA cung cấp có còn hoạt động không.</li>
+              <li>Bấm <strong>"Kiểm tra & Thử lại ngay"</strong> bên dưới để hệ thống thực hiện ping lại.</li>
+              <li>Nếu link bị lộ hoặc hỏng, sử dụng nút <strong>"Làm mới token"</strong> để tạo liên kết mới.</li>
+            </ol>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedErrorChannel(null)}
+            >
+              Đóng
+            </Button>
+            {selectedErrorChannel && (
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  const ch = selectedErrorChannel;
+                  setSelectedErrorChannel(null);
+                  await handleTestConnection(ch);
+                }}
+              >
+                Kiểm tra & Thử lại ngay
+              </Button>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Xem Chi Tiết 1 Bản Ghi Nhật Ký */}
+      <Modal
+        isOpen={Boolean(selectedLogDetail)}
+        onClose={() => setSelectedLogDetail(null)}
+        title={`Chi Tiết Nhật Ký Đồng Bộ #${selectedLogDetail?.id}`}
+      >
+        {selectedLogDetail && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <div>
+                <span className="text-gray-500 block">Kênh phân phối:</span>
+                <strong className="text-gray-900 text-sm">{selectedLogDetail.channelName}</strong>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Thời gian thực thi:</span>
+                <span className="font-mono text-gray-800">{formatDateTime(selectedLogDetail.syncedAt)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Loại phòng:</span>
+                <strong className="text-gray-800">{selectedLogDetail.roomTypeName}</strong>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Trạng thái:</span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold ${
+                  selectedLogDetail.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                }`}>
+                  {selectedLogDetail.status === 'SUCCESS' ? 'Thành công' : 'Thất bại'}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-gray-700 font-semibold block mb-1">
+                {selectedLogDetail.status === 'SUCCESS' ? 'Chi tiết các khoảng thời gian bị chặn:' : 'Thông báo lỗi:'}
+              </span>
+              <div className={`p-3 rounded-lg border font-mono text-[11px] leading-relaxed break-all ${
+                selectedLogDetail.status === 'SUCCESS'
+                  ? 'bg-gray-50 border-gray-200 text-gray-700'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}>
+                {selectedLogDetail.status === 'SUCCESS'
+                  ? selectedLogDetail.blockedSummary || 'Không có khoảng thời gian nào bị chặn (còn phòng toàn bộ).'
+                  : selectedLogDetail.errorMessage || 'Lỗi không xác định.'}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setSelectedLogDetail(null)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Modal: Thêm / Sửa Kênh */}
       <Modal
@@ -1200,76 +1668,65 @@ const ChannelCalendarPage: React.FC = () => {
                   <span>Sao chép</span>
                 </button>
               </div>
-              <div className="font-mono text-gray-700 bg-white p-2 rounded border border-blue-200/80 break-all select-all">
+              <div className="font-mono text-gray-700 break-all bg-white p-2 rounded border border-blue-100 select-all">
                 {editingChannel.feedUrl}
-              </div>
-              <div className="text-gray-500 text-[11px]">
-                Dán liên kết này vào mục "Import Calendar" trên trang quản trị của kênh OTA (Airbnb, Booking.com...).
               </div>
             </div>
           )}
 
-          {/* Chu kỳ đồng bộ */}
+          {/* Chu kỳ cập nhật */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Chu kỳ quét đồng bộ định kỳ (phút)"
-              type="number"
-              min={1}
-              value={form.syncIntervalMinutes?.toString() || '15'}
+            <Select
+              label="Chu kỳ quét định kỳ"
+              value={String(form.syncIntervalMinutes || 15)}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  syncIntervalMinutes: Math.max(1, Number(e.target.value)),
+                  syncIntervalMinutes: Number(e.target.value),
                 })
               }
-              helperText="Hệ thống luôn đồng bộ tức thì khi có biến động booking hoặc bảo trì"
-              required
+              options={[
+                { value: '5', label: '5 phút / lần (Cập nhật cực nhanh)' },
+                { value: '15', label: '15 phút / lần (Khuyến nghị)' },
+                { value: '30', label: '30 phút / lần' },
+                { value: '60', label: '60 phút / lần' },
+              ]}
             />
 
-            <div className="flex flex-col justify-center space-y-1 pt-2">
-              <label className="text-sm font-medium text-gray-700">
-                Trạng thái đồng bộ của kênh
-              </label>
-              <div className="flex items-center space-x-2 pt-1">
+            <div className="flex items-center space-x-3 pt-6">
+              <label className="flex items-center cursor-pointer space-x-2">
                 <input
                   type="checkbox"
-                  id="isActive"
                   checked={form.isActive}
                   onChange={(e) =>
                     setForm({ ...form, isActive: e.target.checked })
                   }
-                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                 />
-                <label
-                  htmlFor="isActive"
-                  className="text-sm font-medium text-gray-700 select-none cursor-pointer"
-                >
-                  Bật đồng bộ kênh phân phối này
-                </label>
-              </div>
-              <p className="text-xs text-gray-500">
-                Kênh chưa ánh xạ loại phòng thì không được bật đồng bộ. Tắt kênh không xóa dữ liệu cũ.
-              </p>
+                <span className="text-sm font-medium text-gray-700">
+                  Bật đồng bộ ngay sau khi lưu
+                </span>
+              </label>
             </div>
           </div>
 
-          {/* Bảng ánh xạ loại phòng */}
-          <div className="border border-indigo-200 bg-indigo-50/30 rounded-xl p-4 space-y-3">
-            <div className="flex justify-between items-center">
+          {/* BẢNG ÁNH XẠ LOẠI PHÒNG */}
+          <div className="space-y-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between">
               <div>
-                <div className="font-semibold text-gray-900 text-sm flex items-center space-x-1.5">
-                  <IoLayersOutline className="text-indigo-600" size={18} />
-                  <span>Bảng Ánh Xạ Loại Phòng & Hạn Mức Phân Bổ</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  Một loại phòng có thể bán trên nhiều kênh, nhưng tổng phân bổ không được vượt quá số phòng thực có.
-                </div>
+                <h4 className="text-sm font-bold text-gray-900 flex items-center space-x-1.5">
+                  <IoLayersOutline className="text-blue-600" size={18} />
+                  <span>Bảng Ánh Xạ Loại Phòng (Room Mappings)</span>
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Thiết lập mã phòng bên kênh và số phòng phân bổ tương ứng cho từng loại phòng.
+                </p>
               </div>
 
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
-                type="button"
                 onClick={handleAddMappingRow}
                 icon={IoAddOutline}
               >
@@ -1278,7 +1735,7 @@ const ChannelCalendarPage: React.FC = () => {
             </div>
 
             {form.mappings && form.mappings.length > 0 ? (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3">
                 {form.mappings.map((mapping, idx) => {
                   const physical = getPhysicalRoomCount(mapping.roomTypeId);
                   const otherAllocated = getAllocatedOnOtherActiveChannels(
@@ -1291,7 +1748,11 @@ const ChannelCalendarPage: React.FC = () => {
                   return (
                     <div
                       key={idx}
-                      className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm space-y-2"
+                      className={`p-3.5 rounded-xl border space-y-3 transition-colors ${
+                        isOver
+                          ? 'border-rose-300 bg-rose-50/50'
+                          : 'border-gray-200 bg-gray-50/60'
+                      }`}
                     >
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                         {/* Mã loại phòng bên kênh */}
@@ -1564,10 +2025,14 @@ const ChannelCalendarPage: React.FC = () => {
                   color: 'text-gray-600 bg-gray-50 border-gray-200',
                 };
 
+                const isSuccess = log.status === 'SUCCESS';
+
                 return (
                   <div
                     key={log.id}
-                    className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs space-y-1.5"
+                    className={`p-3 rounded-lg border text-xs space-y-1.5 ${
+                      isSuccess ? 'bg-gray-50 border-gray-200' : 'bg-rose-50 border-rose-200'
+                    }`}
                   >
                     <div className="flex justify-between items-center">
                       <span
@@ -1585,20 +2050,24 @@ const ChannelCalendarPage: React.FC = () => {
                         Loại phòng: <strong>{log.roomTypeName}</strong>
                       </span>
                       <span className="font-semibold">
-                        Số khoảng đã chặn:{' '}
-                        {log.blockedPeriodsCount > 0 ? (
-                          <span className="text-rose-600 font-bold">
-                            {log.blockedPeriodsCount}
-                          </span>
+                        Trạng thái:{' '}
+                        {isSuccess ? (
+                          <span className="text-emerald-600 font-bold">Thành công</span>
                         ) : (
-                          <span className="text-emerald-600 font-bold">0</span>
+                          <span className="text-rose-600 font-bold">Lỗi</span>
                         )}
                       </span>
                     </div>
 
-                    {log.blockedSummary && (
+                    {isSuccess && log.blockedSummary && (
                       <div className="text-gray-500 bg-white p-2 rounded border border-gray-200 font-mono text-[11px] break-all">
                         {log.blockedSummary}
+                      </div>
+                    )}
+
+                    {!isSuccess && log.errorMessage && (
+                      <div className="text-rose-700 bg-white p-2 rounded border border-rose-200 font-mono text-[11px] break-all">
+                        {log.errorMessage}
                       </div>
                     )}
                   </div>
@@ -1618,320 +2087,154 @@ const ChannelCalendarPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Modal: Kiểm Tra Tình Trạng Phòng Trống Kênh OTA */}
+      {/* Modal: Kiểm Tra Tình Trạng Phòng Trống Trực Tiếp */}
       <Modal
         isOpen={checkerModalOpen}
         onClose={() => setCheckerModalOpen(false)}
-        title="Kiểm Tra Loại Phòng Trống Theo Kênh Đặt Phòng"
+        title="Kiểm Tra Khả Năng Nhận Phòng Trên Kênh OTA"
       >
-        <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
-          <form
-            onSubmit={handleRunCheckAvailability}
-            className="space-y-4 bg-gray-50/75 p-4 rounded-xl border border-gray-200"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Kênh đặt phòng */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Kênh đặt phòng (Channel)
-                </label>
-                <select
-                  className="w-full px-3 py-2 text-sm border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  value={checkerChannelId}
-                  onChange={(e) => {
-                    const chId = Number(e.target.value);
-                    setCheckerChannelId(chId);
-                    const ch = channels.find((c) => c.id === chId);
-                    const firstRtId =
-                      ch?.mappings && ch.mappings.length > 0
-                        ? ch.mappings[0].roomTypeId
-                        : ch?.roomTypeId || (roomTypes[0]?.id || 0);
-                    setCheckerRoomTypeId(firstRtId);
-                    setAvailabilityResult(null);
-                  }}
-                  required
-                >
-                  {channels.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.channelCode}) {c.isActive ? '' : '⚠️ [Tạm ngưng]'}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <form onSubmit={handleRunCheckAvailability} className="space-y-4">
+          <p className="text-xs text-gray-500">
+            Kiểm tra xem loại phòng trên kênh phân phối đã hết chỗ hay chưa theo thời gian nhận / trả phòng.
+          </p>
 
-              {/* Loại phòng */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Loại phòng khách muốn đặt
-                </label>
-                <select
-                  className="w-full px-3 py-2 text-sm border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  value={checkerRoomTypeId}
-                  onChange={(e) => {
-                    setCheckerRoomTypeId(Number(e.target.value));
-                    setAvailabilityResult(null);
-                  }}
-                  required
-                >
-                  {(() => {
-                    const selectedChannel = channels.find(
-                      (c) => c.id === checkerChannelId
-                    );
-                    const mappedRts =
-                      selectedChannel?.mappings &&
-                      selectedChannel.mappings.length > 0
-                        ? selectedChannel.mappings
-                        : selectedChannel?.roomTypeId
-                        ? [
-                            {
-                              roomTypeId: selectedChannel.roomTypeId,
-                              roomTypeName: selectedChannel.roomTypeName,
-                              externalRoomTypeCode: selectedChannel.channelCode,
-                              allocatedRooms: selectedChannel.allocatedRooms || 1,
-                            },
-                          ]
-                        : [];
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Select
+              label="Kênh phân phối"
+              value={String(checkerChannelId)}
+              onChange={(e) => {
+                const cId = Number(e.target.value);
+                setCheckerChannelId(cId);
+                const target = channels.find((c) => c.id === cId);
+                if (target && target.mappings && target.mappings.length > 0) {
+                  setCheckerRoomTypeId(target.mappings[0].roomTypeId);
+                }
+              }}
+              options={channels.map((c) => ({
+                value: String(c.id),
+                label: `${c.name} (${c.channelCode})`,
+              }))}
+              required
+            />
 
-                    if (mappedRts.length > 0) {
-                      return mappedRts.map((m, idx) => (
-                        <option key={idx} value={m.roomTypeId}>
-                          {m.roomTypeName || 'Loại phòng'} (Mã kênh:{' '}
-                          {m.externalRoomTypeCode} - Phân bổ:{' '}
-                          {m.allocatedRooms} phòng)
-                        </option>
-                      ));
-                    }
-                    return roomTypes.map((rt) => (
-                      <option key={rt.id} value={rt.id}>
-                        {rt.name}
-                      </option>
-                    ));
-                  })()}
-                </select>
-              </div>
-            </div>
+            <Select
+              label="Loại phòng muốn kiểm tra"
+              value={String(checkerRoomTypeId)}
+              onChange={(e) => setCheckerRoomTypeId(Number(e.target.value))}
+              options={roomTypes.map((rt) => ({
+                value: String(rt.id),
+                label: rt.name,
+              }))}
+              required
+            />
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Ngày nhận */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Ngày nhận phòng (Check-in)
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-3 py-2 text-sm border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  value={checkerCheckIn}
-                  onChange={(e) => {
-                    setCheckerCheckIn(e.target.value);
-                    setAvailabilityResult(null);
-                  }}
-                  required
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Input
+              type="date"
+              label="Ngày nhận phòng (Check-in)"
+              value={checkerCheckIn}
+              onChange={(e) => setCheckerCheckIn(e.target.value)}
+              required
+            />
 
-              {/* Ngày trả */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Ngày trả phòng (Check-out)
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-3 py-2 text-sm border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  value={checkerCheckOut}
-                  onChange={(e) => {
-                    setCheckerCheckOut(e.target.value);
-                    setAvailabilityResult(null);
-                  }}
-                  required
-                />
-              </div>
-            </div>
+            <Input
+              type="date"
+              label="Ngày trả phòng (Check-out)"
+              value={checkerCheckOut}
+              onChange={(e) => setCheckerCheckOut(e.target.value)}
+              required
+            />
+          </div>
 
-            <div className="flex justify-end pt-1">
-              <Button
-                variant="primary"
-                type="submit"
-                icon={IoSearchOutline}
-                disabled={checkingAvailability}
-              >
-                {checkingAvailability
-                  ? 'Đang kiểm tra...'
-                  : 'Kiểm tra tình trạng phòng'}
-              </Button>
-            </div>
-          </form>
-
-          {/* Kết quả kiểm tra */}
-          {availabilityResult && (
-            <div className="space-y-4 pt-2">
-              {/* Banner trạng thái */}
-              <div
-                className={`p-4 rounded-xl border flex items-start space-x-3.5 ${
-                  availabilityResult.isAvailable
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
-                    : 'bg-rose-50 border-rose-300 text-rose-950'
-                }`}
-              >
-                {availabilityResult.isAvailable ? (
-                  <IoCheckmarkCircleOutline
-                    className="text-emerald-600 flex-shrink-0 mt-0.5"
-                    size={28}
-                  />
-                ) : (
-                  <IoAlertCircleOutline
-                    className="text-rose-600 flex-shrink-0 mt-0.5"
-                    size={28}
-                  />
-                )}
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
-                        availabilityResult.isAvailable
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-rose-600 text-white'
-                      }`}
-                    >
-                      {availabilityResult.isAvailable
-                        ? 'CÒN PHÒNG ĐỂ ĐẶT'
-                        : 'ĐÃ HẾT PHÒNG'}
-                    </span>
-                    <span className="text-xs font-medium text-gray-600">
-                      (Kỳ lưu trú: {availabilityResult.totalNights} đêm)
-                    </span>
-                  </div>
-
-                  <p className="text-sm font-semibold leading-relaxed">
-                    {availabilityResult.message}
-                  </p>
-
-                  <div className="text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1 pt-1">
-                    <span>
-                      Loại phòng:{' '}
-                      <strong>{availabilityResult.roomTypeName}</strong>
-                    </span>
-                    {availabilityResult.externalRoomTypeCode && (
-                      <span>
-                        Mã kênh:{' '}
-                        <strong>
-                          {availabilityResult.externalRoomTypeCode}
-                        </strong>
-                      </span>
-                    )}
-                    <span>
-                      Phân bổ cho kênh:{' '}
-                      <strong>{availabilityResult.allocatedRooms} phòng</strong>
-                    </span>
-                    <span>
-                      Tối đa còn bán được:{' '}
-                      <strong
-                        className={
-                          availabilityResult.isAvailable
-                            ? 'text-emerald-700'
-                            : 'text-rose-700'
-                        }
-                      >
-                        {availabilityResult.availableRooms} phòng
-                      </strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bảng chi tiết theo từng đêm */}
-              {availabilityResult.dailyDetails &&
-                availabilityResult.dailyDetails.length > 0 && (
-                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                    <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 text-xs font-bold text-gray-700 uppercase tracking-wide">
-                      Chi Tiết Tình Trạng Từng Đêm Trong Kỳ Lưu Trú
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs text-gray-600 border-collapse">
-                        <thead className="bg-gray-50/50 text-[11px] font-semibold text-gray-500 border-b border-gray-200">
-                          <tr>
-                            <th className="py-2.5 px-3">Ngày (Đêm)</th>
-                            <th className="py-2.5 px-3 text-center">Phân bổ</th>
-                            <th className="py-2.5 px-3 text-center">
-                              Đang đặt / ở
-                            </th>
-                            <th className="py-2.5 px-3 text-center">Bảo trì</th>
-                            <th className="py-2.5 px-3 text-center">
-                              Tổng chiếm
-                            </th>
-                            <th className="py-2.5 px-3 text-center">
-                              Còn bán được
-                            </th>
-                            <th className="py-2.5 px-3 text-center">
-                              Trạng thái
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {availabilityResult.dailyDetails.map((day, dIdx) => (
-                            <tr
-                              key={dIdx}
-                              className={
-                                day.isSoldOut
-                                  ? 'bg-rose-50/40 hover:bg-rose-50/70'
-                                  : 'hover:bg-gray-50'
-                              }
-                            >
-                              <td className="py-2 px-3 font-mono font-medium text-gray-900">
-                                {day.date} ({day.dayOfWeek})
-                              </td>
-                              <td className="py-2 px-3 text-center font-semibold text-gray-700">
-                                {day.allocatedRooms}
-                              </td>
-                              <td className="py-2 px-3 text-center text-amber-700 font-medium">
-                                {day.bookingOccupied}
-                              </td>
-                              <td className="py-2 px-3 text-center text-orange-700 font-medium">
-                                {day.maintenanceOccupied}
-                              </td>
-                              <td className="py-2 px-3 text-center font-semibold text-gray-900">
-                                {day.totalOccupied}
-                              </td>
-                              <td className="py-2 px-3 text-center font-bold">
-                                <span
-                                  className={
-                                    day.availableRooms > 0
-                                      ? 'text-emerald-700'
-                                      : 'text-rose-600'
-                                  }
-                                >
-                                  {day.availableRooms} phòng
-                                </span>
-                              </td>
-                              <td className="py-2 px-3 text-center">
-                                {day.isSoldOut ? (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
-                                    Hết chỗ
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                    Còn phòng
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-            </div>
-          )}
-
-          <div className="flex justify-end pt-2 border-t border-gray-100">
+          <div className="flex justify-end space-x-2 pt-2">
             <Button
+              type="button"
               variant="outline"
               onClick={() => setCheckerModalOpen(false)}
             >
               Đóng
             </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={checkingAvailability}
+              icon={IoSearchOutline}
+            >
+              {checkingAvailability ? 'Đang kiểm tra...' : 'Kiểm tra ngay'}
+            </Button>
           </div>
-        </div>
+
+          {/* Availability Result Display */}
+          {availabilityResult && (
+            <div
+              className={`mt-4 p-4 rounded-xl border text-xs space-y-3 ${
+                availabilityResult.isAvailable
+                  ? 'bg-emerald-50/70 border-emerald-300'
+                  : 'bg-rose-50/70 border-rose-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                {availabilityResult.isAvailable ? (
+                  <IoCheckmarkCircleOutline className="text-emerald-600" size={22} />
+                ) : (
+                  <IoCloseCircleOutline className="text-rose-600" size={22} />
+                )}
+                <div className="font-bold text-sm">
+                  {availabilityResult.isAvailable ? (
+                    <span className="text-emerald-900">
+                      CÒN PHÒNG ({availabilityResult.availableRooms} phòng khả dụng)
+                    </span>
+                  ) : (
+                    <span className="text-rose-900">
+                      HẾT PHÒNG / KHÔNG KHẢ DỤNG
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-gray-700 leading-relaxed font-medium">
+                {availabilityResult.message}
+              </p>
+
+              {/* Chi tiết từng đêm */}
+              {availabilityResult.dailyDetails &&
+                availabilityResult.dailyDetails.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <div className="font-semibold text-gray-800 mb-2">
+                      Chi tiết tình trạng từng đêm lưu trú ({availabilityResult.totalNights} đêm):
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {availabilityResult.dailyDetails.map((day, dIdx) => (
+                        <div
+                          key={dIdx}
+                          className={`p-2 rounded border text-[11px] ${
+                            day.isSoldOut
+                              ? 'bg-rose-100/70 border-rose-300 text-rose-900 font-bold'
+                              : 'bg-white border-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <div className="font-semibold">{day.date}</div>
+                          <div className="text-[10px] text-gray-500">
+                            Phân bổ: {day.allocatedRooms} • Chiếm: {day.totalOccupied}
+                          </div>
+                          <div className="mt-0.5">
+                            {day.isSoldOut ? (
+                              <span className="text-rose-600">Hết chỗ</span>
+                            ) : (
+                              <span className="text-emerald-600 font-semibold">
+                                Còn {day.availableRooms} phòng
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+            </div>
+          )}
+        </form>
       </Modal>
     </div>
   );

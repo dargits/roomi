@@ -8,6 +8,8 @@ export interface ChannelRoomMapping {
   totalAllocatedAcrossChannels?: number;
 }
 
+export type ChannelConnectionStatus = 'HEALTHY' | 'DISCONNECTED' | 'STALE' | 'PAUSED';
+
 export interface Channel {
   id: number;
   name: string;
@@ -22,9 +24,29 @@ export interface Channel {
   syncIntervalMinutes: number;
   isActive: boolean;
   lastSyncedAt?: string;
+  lastSyncStatus?: 'SUCCESS' | 'ERROR' | 'NEVER_SYNCED' | 'WARNING' | string;
+  lastSyncErrorMessage?: string;
+  lastSuccessSyncedAt?: string;
+  consecutiveFailures?: number;
+  connectionStatus?: ChannelConnectionStatus;
+  connectionStatusMessage?: string;
   lastBlockedPeriodsCount?: number;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface ChannelWarningSummary {
+  totalChannels: number;
+  activeChannels: number;
+  healthyChannels: number;
+  disconnectedChannels: number;
+  staleChannels: number;
+  pausedChannels: number;
+  syncSuccessRate24h: number;
+  totalSyncs24h: number;
+  failedSyncs24h: number;
+  hasWarning: boolean;
+  warningChannels: Channel[];
 }
 
 export interface ChannelRequest {
