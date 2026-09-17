@@ -88,6 +88,35 @@ public class ChannelController {
     }
 
     /**
+     * Kiểm tra kết nối kênh OTA (kiểm tra tính hợp lệ của feed và thử kết nối externalCalendarUrl).
+     */
+    @PostMapping("/{id}/test-connection")
+    public ResponseEntity<ChannelResponse> testConnection(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.testConnection(id, actor));
+    }
+
+    /**
+     * Đồng bộ lại toàn bộ tất cả các kênh phân phối đang kích hoạt.
+     */
+    @PostMapping("/sync-all")
+    public ResponseEntity<List<ChannelResponse>> syncAll(
+            @RequestParam(required = false) String reason,
+            HttpServletRequest request) {
+        User actor = checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.syncAllChannels(reason, actor));
+    }
+
+    /**
+     * Lấy dữ liệu tổng quan cảnh báo mất kết nối và tình trạng đồng bộ.
+     */
+    @GetMapping("/warning-summary")
+    public ResponseEntity<plant.stay.dto.response.ChannelWarningSummaryResponse> getWarningSummary(HttpServletRequest request) {
+        checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getWarningSummary());
+    }
+
+    /**
      * Lấy danh sách lịch sử các lần sinh tệp kèm số khoảng thời gian đã chặn của kênh.
      */
     @GetMapping("/{id}/logs")
@@ -97,7 +126,20 @@ public class ChannelController {
     }
 
     /**
-     * Lấy danh sách 50 bản ghi nhật ký sinh tệp gần nhất trong toàn hệ thống.
+     * Lấy danh sách nhật ký đồng bộ có hỗ trợ bộ lọc đa tiêu chí (kênh, trạng thái, loại kích hoạt).
+     */
+    @GetMapping("/logs")
+    public ResponseEntity<List<ChannelCalendarSyncLogResponse>> getLogsWithFilter(
+            @RequestParam(required = false) Long channelId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String triggeredBy,
+            HttpServletRequest request) {
+        checkAdminOrOwner(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getLogs(channelId, status, triggeredBy));
+    }
+
+    /**
+     * Lấy danh sách 100 bản ghi nhật ký sinh tệp gần nhất trong toàn hệ thống.
      */
     @GetMapping("/logs/recent")
     public ResponseEntity<List<ChannelCalendarSyncLogResponse>> getRecentLogs(HttpServletRequest request) {
@@ -120,10 +162,45 @@ public class ChannelController {
                 id, roomTypeId, externalRoomTypeCode, checkInDate, checkOutDate));
     }
 
+    @PostMapping("/blocks/{blockId}/convert")
+    public ResponseEntity<plant.stay.dto.response.BookingResponse> convertBlock(
+            @PathVariable Long blockId,
+            @Valid @RequestBody plant.stay.dto.request.ConvertBlockToBookingRequest req,
+            HttpServletRequest request) {
+        User actor = checkStaff(request);
+        return ResponseEntity.ok(channelCalendarSyncService.convertBlockToBooking(blockId, req, actor));
+    }
+
+    @GetMapping("/blocks")
+    public ResponseEntity<List<plant.stay.dto.response.ChannelRoomBlockResponse>> getBlocks(
+            @RequestParam(required = false) Long channelId,
+            @RequestParam(required = false) String status,
+            HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getBlocks(channelId, status));
+    }
+
+    @GetMapping("/blocks/active")
+    public ResponseEntity<List<plant.stay.dto.response.ChannelRoomBlockResponse>> getActiveBlocks(
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to,
+            HttpServletRequest request) {
+        checkStaff(request);
+        return ResponseEntity.ok(channelCalendarSyncService.getActiveBlocks(from, to));
+    }
+
     private User checkAdminOrOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN)) {
             throw new UnauthorizedException("Chỉ Chủ cơ sở (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền quản lý kênh phân phối.");
+        }
+        return user;
+    }
+
+    private User checkStaff(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện thao tác này.");
         }
         return user;
     }
