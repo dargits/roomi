@@ -328,6 +328,28 @@ class DebtApprovalServiceImplTest {
         verify(auditLogService).log(eq("DebtApprovalRequest"), eq(80L), eq("SEND_ACKNOWLEDGEMENT_EMAIL"), eq(testUser), anyString());
     }
 
+    @Test
+    @DisplayName("Xuất CSV báo cáo tuổi nợ thành công không bị lỗi định dạng")
+    void exportDebtAgingCsvGeneratesValidBytes() {
+        LocalDate today = LocalDate.now();
+        DebtApprovalRequest debt = DebtApprovalRequest.builder()
+                .id(90L).guest(guest).booking(booking).invoice(invoice)
+                .debtAmount(new BigDecimal("1000000"))
+                .dueDate(today.minusDays(5))
+                .status(DebtApprovalStatus.APPROVED).build();
+
+        when(debtApprovalRepository.findActiveApprovedDebts())
+                .thenReturn(List.of(debt));
+        when(paymentRepository.findByInvoiceId(invoice.getId())).thenReturn(List.of());
+
+        byte[] csvBytes = debtApprovalService.exportDebtAgingCsv(today, null, null, null, null);
+
+        assertNotNull(csvBytes);
+        assertTrue(csvBytes.length > 0);
+        String csvContent = new String(csvBytes, java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(csvContent.contains("BÁO CÁO TUỔI NỢ"));
+    }
+
     private DebtApprovalCreateRequest requestWithAmount(BigDecimal debtAmount) {
         DebtApprovalCreateRequest request = new DebtApprovalCreateRequest();
         request.setBookingId(booking.getId());
