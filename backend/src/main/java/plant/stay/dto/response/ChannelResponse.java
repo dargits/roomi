@@ -23,6 +23,12 @@ public class ChannelResponse {
     private Integer syncIntervalMinutes;
     private Boolean isActive;
     private LocalDateTime lastSyncedAt;
+    private String lastSyncStatus; // SUCCESS, ERROR, NEVER_SYNCED, WARNING
+    private String lastSyncErrorMessage;
+    private LocalDateTime lastSuccessSyncedAt;
+    private Integer consecutiveFailures;
+    private String connectionStatus; // HEALTHY, DISCONNECTED, STALE, PAUSED
+    private String connectionStatusMessage; // Tiếng Việt mô tả trực quan trạng thái
     private Integer lastBlockedPeriodsCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

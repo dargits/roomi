@@ -276,15 +276,18 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             log.debug("Schema Migration Notice: debt_collection_logs table: {}", e.getMessage());
         }
 
-        // 15. Thêm các cột nhắc thu vào bảng debt_approval_requests
+        // 16. Thêm các cột theo dõi trạng thái đồng bộ và cảnh báo mất kết nối vào bảng channels
         try {
-            jdbcTemplate.execute("ALTER TABLE debt_approval_requests ADD COLUMN IF NOT EXISTS last_contacted_at DATETIME");
-            jdbcTemplate.execute("ALTER TABLE debt_approval_requests ADD COLUMN IF NOT EXISTS last_contact_note TEXT");
-            jdbcTemplate.execute("ALTER TABLE debt_approval_requests ADD COLUMN IF NOT EXISTS next_reminder_date DATE");
-            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dar_reminder_date ON debt_approval_requests(next_reminder_date)");
-            log.info("Schema Migration: Successfully ensured reminder columns in 'debt_approval_requests'.");
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS last_sync_status VARCHAR(20) DEFAULT 'NEVER_SYNCED'");
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS last_sync_error_message TEXT");
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS last_success_synced_at DATETIME");
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS consecutive_failures INT DEFAULT 0");
+            
+            // Cập nhật dữ liệu cũ nếu last_synced_at đã có nhưng last_sync_status chưa có
+            jdbcTemplate.execute("UPDATE channels SET last_sync_status = 'SUCCESS', last_success_synced_at = last_synced_at WHERE last_synced_at IS NOT NULL AND (last_sync_status IS NULL OR last_sync_status = 'NEVER_SYNCED')");
+            log.info("Schema Migration: Successfully ensured sync status & disconnect warning columns in 'channels'.");
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: debt_approval_requests reminder columns: {}", e.getMessage());
+            log.debug("Schema Migration Notice: channels sync status columns: {}", e.getMessage());
         }
     }
 }

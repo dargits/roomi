@@ -17,7 +17,9 @@ public enum NotificationType {
     STAY_MILESTONE(false, Set.of(Role.OWNER, Role.RECEPTIONIST)),
     INVOICE_DISCOUNT_APPROVAL(true, Set.of(Role.OWNER)),
     /** Nhắc kế toán đến hạn liên hệ đòi nợ theo lịch hẹn ghi nhận trước đó */
-    DEBT_REMINDER(false, Set.of(Role.ACCOUNTANT, Role.OWNER, Role.ADMIN));
+    DEBT_REMINDER(false, Set.of(Role.ACCOUNTANT, Role.OWNER, Role.ADMIN)),
+    /** Cảnh báo kênh phân phối OTA bị mất kết nối hoặc ngừng cập nhật */
+    CHANNEL_DISCONNECT_WARNING(true, Set.of(Role.OWNER, Role.ADMIN));
 
 
     private final boolean mandatory;
