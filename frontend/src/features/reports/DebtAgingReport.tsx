@@ -20,6 +20,7 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import debtApprovalApi from '../../services/debtApprovalApi';
 import DebtCollectionModal from './DebtCollectionModal';
 import DebtCollectionHistoryModal from './DebtCollectionHistoryModal';
+import CustomerDebtInvoicesModal from './CustomerDebtInvoicesModal';
 import {
   DebtAgingReportResponse,
   DebtAgingItemResponse,
@@ -103,6 +104,7 @@ const DebtAgingReport: React.FC = () => {
   // Modals state
   const [collectionModalItem, setCollectionModalItem] = useState<DebtAgingItemResponse | null>(null);
   const [historyModalItem, setHistoryModalItem] = useState<DebtAgingItemResponse | null>(null);
+  const [customerInvoicesModalItem, setCustomerInvoicesModalItem] = useState<CustomerDebtSummaryDto | null>(null);
 
   const fetchReport = async () => {
     try {
@@ -476,8 +478,7 @@ const DebtAgingReport: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedGuestId(cust.guestId);
-                              setViewMode('detail');
+                              setCustomerInvoicesModalItem(cust);
                             }}
                             className="text-primary hover:underline text-left cursor-pointer"
                           >
@@ -531,8 +532,7 @@ const DebtAgingReport: React.FC = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setSelectedGuestId(cust.guestId);
-                              setViewMode('detail');
+                              setCustomerInvoicesModalItem(cust);
                             }}
                           >
                             Xem hóa đơn
@@ -714,6 +714,15 @@ const DebtAgingReport: React.FC = () => {
         isOpen={!!historyModalItem}
         debtItem={historyModalItem}
         onClose={() => setHistoryModalItem(null)}
+      />
+
+      <CustomerDebtInvoicesModal
+        isOpen={!!customerInvoicesModalItem}
+        customer={customerInvoicesModalItem}
+        items={data?.items || []}
+        onClose={() => setCustomerInvoicesModalItem(null)}
+        onOpenCollectionModal={(item) => setCollectionModalItem(item)}
+        onOpenHistoryModal={(item) => setHistoryModalItem(item)}
       />
     </div>
   );
