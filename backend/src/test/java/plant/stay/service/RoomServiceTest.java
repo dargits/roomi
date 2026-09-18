@@ -121,20 +121,45 @@ public class RoomServiceTest {
         assertEquals(RoomStatus.AVAILABLE, updated.getStatus());
     }
 
+    @Autowired
+    private plant.stay.repository.HotelSettingRepository hotelSettingRepository;
+
     @Test
-    @DisplayName("Bảo trì: Khóa phòng bảo trì chuyển trạng thái sang MAINTENANCE")
-    void testMarkRoomMaintenance() {
+    @DisplayName("Dọn định kỳ: Tự động chuyển phòng trống lâu ngày sang Cần dọn (DIRTY)")
+    void testPeriodicCleaningTrigger() {
+        // Cấu hình chu kỳ dọn định kỳ là 5 ngày
+        plant.stay.model.HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
+        if (setting != null) {
+            setting.setPeriodicCleaningEnabled(true);
+            setting.setPeriodicCleaningDays(5);
+            hotelSettingRepository.save(setting);
+        }
+
+        // Tạo phòng đã trống 7 ngày trước
         RoomRequest request = new RoomRequest();
-        request.setRoomNumber("904");
+        request.setRoomNumber("999");
         request.setRoomTypeId(testRoomType.getId());
         request.setFloor("9");
         request.setStatus(RoomStatus.AVAILABLE);
 
         RoomResponse created = roomService.create(request, testOwner);
+        plant.stay.model.Room room = roomRepository.findById(created.getId()).orElseThrow();
+        room.setLastCleanedAt(java.time.LocalDateTime.now().minusDays(7));
+        roomRepository.save(room);
 
-        roomService.setMaintenance(created.getId(), testOwner);
+        // Kích hoạt quét dọn định kỳ
+        int count = roomService.triggerPeriodicCleaningCheck(testOwner);
+        assertTrue(count >= 1, "Ít nhất 1 phòng phải được chuyển sang Cần dọn");
 
-        RoomResponse updated = roomService.getById(created.getId());
-        assertEquals(RoomStatus.MAINTENANCE, updated.getStatus());
+        RoomResponse checked = roomService.getById(created.getId());
+        assertEquals(RoomStatus.DIRTY, checked.getStatus());
+        assertEquals("PERIODIC_VACANT", checked.getCleaningReason());
+
+        // Đánh dấu dọn sạch -> reset cleaningReason và cập nhật lastCleanedAt
+        roomService.markClean(checked.getId(), testOwner);
+        RoomResponse cleaned = roomService.getById(created.getId());
+        assertEquals(RoomStatus.AVAILABLE, cleaned.getStatus());
+        assertNull(cleaned.getCleaningReason());
+        assertNotNull(cleaned.getLastCleanedAt());
     }
 }

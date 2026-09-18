@@ -1,6 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import hotelSettingApi from '../../services/hotelSettingApi';
-import { IoAlertCircleOutline, IoBusinessOutline, IoCallOutline, IoCameraOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoImageOutline, IoLocationOutline, IoLogInOutline, IoLogOutOutline, IoMailOutline, IoNotificationsOutline, IoSaveOutline, IoTimeOutline } from 'react-icons/io5';
+import roomApi from '../../services/roomApi';
+import { 
+  IoAlertCircleOutline, 
+  IoBusinessOutline, 
+  IoCallOutline, 
+  IoCameraOutline, 
+  IoCheckmarkCircleOutline, 
+  IoCloseOutline, 
+  IoImageOutline, 
+  IoLocationOutline, 
+  IoLogInOutline, 
+  IoLogOutOutline, 
+  IoMailOutline, 
+  IoNotificationsOutline, 
+  IoSaveOutline, 
+  IoTimeOutline,
+  IoBrushOutline,
+  IoSparklesOutline,
+  IoRefreshOutline,
+  IoCalendarOutline
+} from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -18,10 +38,13 @@ const HotelSettings: React.FC = () => {
     defaultCheckoutTime: '12:00',
     homeImage: '',
     reminderEmailEnabled: true,
-    reminderMorningTime: '10:30'
+    reminderMorningTime: '10:30',
+    periodicCleaningEnabled: true,
+    periodicCleaningDays: 5
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -46,6 +69,8 @@ const HotelSettings: React.FC = () => {
         }
         rest.reminderEmailEnabled = rest.reminderEmailEnabled !== false;
         rest.reminderMorningTime = rest.reminderMorningTime || '10:30';
+        rest.periodicCleaningEnabled = rest.periodicCleaningEnabled !== false;
+        rest.periodicCleaningDays = rest.periodicCleaningDays || 5;
         setSettings(rest);
       }
     } catch (error) {
@@ -108,6 +133,8 @@ const HotelSettings: React.FC = () => {
         defaultCheckinTime: settings.defaultCheckinTime && settings.defaultCheckinTime.length === 5 ? `${settings.defaultCheckinTime}:00` : settings.defaultCheckinTime,
         defaultCheckoutTime: settings.defaultCheckoutTime && settings.defaultCheckoutTime.length === 5 ? `${settings.defaultCheckoutTime}:00` : settings.defaultCheckoutTime,
         reminderMorningTime: settings.reminderMorningTime && settings.reminderMorningTime.length === 5 ? `${settings.reminderMorningTime}:00` : settings.reminderMorningTime,
+        periodicCleaningEnabled: settings.periodicCleaningEnabled !== false,
+        periodicCleaningDays: Number(settings.periodicCleaningDays) || 5,
       };
 
       await hotelSettingApi.updateSetting(payload);
@@ -126,6 +153,18 @@ const HotelSettings: React.FC = () => {
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleScanPeriodicCleaning = async () => {
+    setIsScanning(true);
+    try {
+      const res = await roomApi.scanPeriodicCleaning();
+      toastSuccess(res.message || 'Quét phòng trống định kỳ thành công!');
+    } catch (err: any) {
+      toastError(err.response?.data?.message || 'Có lỗi xảy ra khi quét phòng trống.');
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -328,6 +367,74 @@ const HotelSettings: React.FC = () => {
                 <div>• Hệ thống tự động gửi email 1 lần/ngày vào buổi sáng theo khung giờ đã đặt ở trên.</div>
                 <div>• Chỉ gửi cho các đặt phòng có ngày nhận phòng là <strong>ngày mai</strong>.</div>
                 <div>• Mỗi đặt phòng chỉ nhận email <strong>1 lần duy nhất</strong>, các ngày lưu trú tiếp theo sẽ không gửi mail lặp lại.</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Cấu hình lịch dọn định kỳ cho phòng trống dài ngày */}
+        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
+          <div className="flex items-center justify-between border-b border-border-grey pb-3">
+            <div className="flex items-center gap-2">
+              <IoSparklesOutline size={20} className="text-primary" />
+              <div>
+                <h3 className="font-title-md text-on-surface font-semibold">
+                  Lịch dọn định kỳ cho phòng trống dài ngày
+                </h3>
+                <p className="text-xs text-on-surface-variant">
+                  Tự động chuyển phòng trống lâu ngày sang trạng thái Cần dọn (DIRTY) để tránh bụi bẩn khi bất ngờ có khách nhận phòng.
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={settings.periodicCleaningEnabled ?? true} 
+                onChange={(e) => setSettings(prev => ({ ...prev, periodicCleaningEnabled: e.target.checked }))}
+                className="sr-only peer" 
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+
+          {settings.periodicCleaningEnabled && (
+            <div className="space-y-4 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                <Input
+                  label="Số ngày không có khách để chuyển sang Cần dọn *"
+                  type="number"
+                  name="periodicCleaningDays"
+                  min={1}
+                  max={90}
+                  value={settings.periodicCleaningDays !== undefined ? String(settings.periodicCleaningDays) : '5'}
+                  onChange={handleChange}
+                  error={errors.periodicCleaningDays || undefined}
+                  icon={IoCalendarOutline}
+                  helperText="Sau số ngày này không có khách, phòng sẽ tự động chuyển sang Cần dọn"
+                  required
+                />
+
+                <div className="pb-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    icon={IoRefreshOutline}
+                    onClick={handleScanPeriodicCleaning}
+                    isLoading={isScanning}
+                    className="w-full sm:w-auto"
+                  >
+                    Quét phòng trống ngay
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <IoBrushOutline size={15} /> Cơ chế hoạt động:
+                </div>
+                <div>• Hệ thống tự động theo dõi số ngày phòng ở trạng thái <strong>Sẵn sàng (AVAILABLE)</strong> kể từ lần dọn sạch gần nhất.</div>
+                <div>• Nếu phòng để trống từ <strong>{settings.periodicCleaningDays || 5} ngày</strong> trở lên không có khách, hệ thống tự động đưa vào danh sách <strong>Cần dọn</strong> với nhãn <strong>Dọn định kỳ</strong>.</div>
+                <div>• Giúp cơ sở lưu trú luôn chủ động vệ sinh sạch bụi bẩn, ga gối thơm tho để đón khách bất ngờ hoặc khách đặt gấp trong ngày.</div>
               </div>
             </div>
           )}
