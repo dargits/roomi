@@ -12,6 +12,7 @@ import plant.stay.model.*;
 import plant.stay.repository.CashierShiftClosingRepository;
 import plant.stay.repository.CashierShiftRepository;
 import plant.stay.repository.DebtApprovalRepository;
+import plant.stay.repository.DailyLedgerRepository;
 import plant.stay.repository.DepositRepository;
 import plant.stay.repository.InvoiceRepository;
 import plant.stay.repository.PaymentRepository;
@@ -37,6 +38,7 @@ class CashierShiftServiceImplTest {
     @Mock private DepositRepository depositRepository;
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private DebtApprovalRepository debtApprovalRepository;
+    @Mock private DailyLedgerRepository dailyLedgerRepository;
     @Mock private AuditLogService auditLogService;
 
     private CashierShiftServiceImpl cashierShiftService;
@@ -47,7 +49,7 @@ class CashierShiftServiceImplTest {
     void setUp() {
         cashierShiftService = new CashierShiftServiceImpl(
                 shiftRepository, closingRepository, paymentRepository, depositRepository,
-                invoiceRepository, debtApprovalRepository, auditLogService);
+                invoiceRepository, debtApprovalRepository, dailyLedgerRepository, auditLogService);
         receptionist = User.builder().id(1L).name("Lễ tân").role(Role.RECEPTIONIST).build();
         shift = CashierShift.builder()
                 .id(100L).openedBy(receptionist).openedAt(LocalDateTime.now().minusHours(2))

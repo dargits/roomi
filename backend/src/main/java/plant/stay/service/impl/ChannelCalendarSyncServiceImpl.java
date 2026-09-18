@@ -1278,6 +1278,81 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional
+    public ChannelRoomBlockResponse rejectBlock(Long blockId, String reason, User actor) {
+        if (reason == null || reason.trim().isBlank()) {
+            throw new IllegalArgumentException("Lý do từ chối lượt chặn không được để trống");
+        }
+        ChannelRoomBlock block = channelRoomBlockRepository.findById(blockId)
+                .orElseThrow(() -> new plant.stay.exception.ResourceNotFoundException("Không tìm thấy lượt chặn phòng ID: " + blockId));
+
+        if (!"BLOCKED".equals(block.getStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể từ chối lượt chặn đang ở trạng thái BLOCKED");
+        }
+
+        block.setStatus("REJECTED");
+        block.setRejectReason(reason.trim());
+        block.setRoom(null);
+        block.setWarningMessage(null);
+        channelRoomBlockRepository.save(block);
+
+        auditLogService.log("ChannelRoomBlock", block.getId(), "REJECT_CHANNEL_BLOCK", actor,
+                "Từ chối lượt chặn từ kênh " + block.getChannel().getName() + ", lý do: " + reason.trim());
+
+        return toBlockResponse(block);
+    }
+
+    @Override
+    @Transactional
+    public void autoResolveOverbookingConflicts(Long roomTypeId) {
+        if (roomTypeId == null) return;
+        List<ChannelRoomBlock> unresolvedBlocks = channelRoomBlockRepository.findAll().stream()
+                .filter(b -> "BLOCKED".equals(b.getStatus()) && b.getRoom() == null &&
+                        b.getRoomType() != null && roomTypeId.equals(b.getRoomType().getId()) &&
+                        b.getWarningMessage() != null && b.getWarningMessage().contains("Trùng lịch"))
+                .sorted(java.util.Comparator.comparing(ChannelRoomBlock::getId))
+                .toList();
+
+        for (ChannelRoomBlock block : unresolvedBlocks) {
+            Room room = findAvailableRoom(block.getRoomType().getId(), block.getStartDate(), block.getEndDate());
+            if (room != null) {
+                block.setRoom(room);
+                block.setWarningMessage(null);
+                channelRoomBlockRepository.save(block);
+                auditLogService.log("ChannelRoomBlock", block.getId(), "AUTO_RESOLVE_OVERBOOKING", null,
+                        "Cảnh báo trùng phòng tự động đóng do số phòng bị chiếm không còn vượt số phòng thực có. Đã tự động gán phòng " + room.getRoomNumber());
+                log.info("Cảnh báo trùng phòng của lượt chặn #{} tự động đóng do phòng {} đã trống.",
+                        block.getId(), room.getRoomNumber());
+            }
+        }
+    }
+
+    private String buildOverbookingWarningMessage(Channel channel, RoomType roomType, LocalDate startDate, LocalDate endDate) {
+        long totalRooms = roomRepository.countByRoomTypeId(roomType.getId());
+        List<Booking> conflicts = bookingRepository.findActiveOverlappingByRoomTypeAndRange(roomType.getId(), startDate, endDate);
+        List<ChannelRoomBlock> activeBlocks = channelRoomBlockRepository.findActiveBlocksByRoomTypeAndDates(roomType.getId(), startDate, endDate);
+
+        long occupiedDirect = conflicts.size();
+        long occupiedBlocks = activeBlocks.stream().filter(b -> b.getRoom() != null).count();
+        long totalOccupied = occupiedDirect + occupiedBlocks;
+        long totalNeeded = totalOccupied + 1;
+        long missingRooms = Math.max(1, totalNeeded - totalRooms);
+
+        String conflictListStr = conflicts.stream()
+                .map(b -> {
+                    String gName = b.getGuest() != null ? b.getGuest().getName() : "Khách";
+                    return "#" + b.getId() + " (" + gName + ": " + b.getCheckInDate() + " → " + b.getCheckOutDate() + ")";
+                })
+                .collect(Collectors.joining(", "));
+
+        return String.format(
+                "Trùng lịch với đặt phòng: Kênh nguồn [%s], khoảng thời gian %s đến %s, loại phòng '%s'. Số phòng thiếu là %d (Tổng bị chiếm: %d, Thực có: %d). Danh sách đặt phòng đang chiếm chỗ: [%s].",
+                channel.getName(), startDate, endDate, roomType.getName(), missingRooms, totalNeeded, totalRooms,
+                conflictListStr.isBlank() ? "Không có đặt phòng trực tiếp" : conflictListStr
+        );
+    }
+
     /**
      * Thuật toán đồng bộ Inbound: Đọc tệp lịch từ kênh ngoài, trích xuất các khoảng bận,
      * kiểm tra giới hạn phân bổ phòng (allocatedRooms), cảnh báo nếu vượt, và tự động tạo/gỡ chặn phòng.
@@ -1397,6 +1472,26 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                     room = findAvailableRoom(roomType.getId(), ev.getStartDate(), ev.getEndDate());
                 }
 
+                String warningMessage = null;
+                if (isExcess) {
+                    warningMessage = "Vượt số phòng phân bổ (" + allocatedRooms + " phòng)";
+                } else if (room == null) {
+                    warningMessage = buildOverbookingWarningMessage(channel, roomType, ev.getStartDate(), ev.getEndDate());
+
+                    try {
+                        notificationService.createForRoles(
+                                NotificationType.CHANNEL_OVERBOOKING_CONFLICT,
+                                "Cảnh báo trùng phòng kênh OTA: " + channel.getName(),
+                                "Lịch mới từ kênh " + channel.getName() + " (" + ev.getStartDate() + " đến " + ev.getEndDate() + "): " +
+                                        warningMessage + " Cần lễ tân xử lý ngay!",
+                                "BOOKING_CALENDAR",
+                                channel.getId()
+                        );
+                    } catch (Exception ex) {
+                        log.warn("Không thể gửi thông báo cảnh báo trùng phòng: {}", ex.getMessage());
+                    }
+                }
+
                 block = ChannelRoomBlock.builder()
                         .channel(channel)
                         .roomType(roomType)
@@ -1407,7 +1502,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                         .summary(ev.getSummary())
                         .status("BLOCKED")
                         .isExcess(isExcess)
-                        .warningMessage(isExcess ? ("Vượt số phòng phân bổ (" + allocatedRooms + " phòng)") : null)
+                        .warningMessage(warningMessage)
                         .build();
                 channelRoomBlockRepository.save(block);
                 savedCount++;
@@ -1416,14 +1511,36 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                 block.setEndDate(ev.getEndDate());
                 block.setSummary(ev.getSummary());
                 block.setIsExcess(isExcess);
-                block.setWarningMessage(isExcess ? ("Vượt số phòng phân bổ (" + allocatedRooms + " phòng)") : null);
 
-                if (!isExcess && block.getRoom() == null) {
-                    Room room = findAvailableRoom(roomType.getId(), ev.getStartDate(), ev.getEndDate());
-                    block.setRoom(room);
-                } else if (isExcess) {
+                String warningMessage = null;
+                if (isExcess) {
+                    warningMessage = "Vượt số phòng phân bổ (" + allocatedRooms + " phòng)";
                     block.setRoom(null);
+                } else {
+                    if (block.getRoom() == null) {
+                        Room room = findAvailableRoom(roomType.getId(), ev.getStartDate(), ev.getEndDate());
+                        block.setRoom(room);
+                    }
+                    if (block.getRoom() == null) {
+                        warningMessage = buildOverbookingWarningMessage(channel, roomType, ev.getStartDate(), ev.getEndDate());
+
+                        if (block.getWarningMessage() == null || !block.getWarningMessage().contains("Trùng lịch")) {
+                            try {
+                                notificationService.createForRoles(
+                                        NotificationType.CHANNEL_OVERBOOKING_CONFLICT,
+                                        "Cảnh báo trùng phòng kênh OTA: " + channel.getName(),
+                                        "Lịch từ kênh " + channel.getName() + " (" + ev.getStartDate() + " đến " + ev.getEndDate() + "): " +
+                                                warningMessage + " Cần lễ tân xử lý ngay!",
+                                        "BOOKING_CALENDAR",
+                                        channel.getId()
+                                );
+                            } catch (Exception ex) {
+                                log.warn("Không thể gửi thông báo cảnh báo trùng phòng: {}", ex.getMessage());
+                            }
+                        }
+                    }
                 }
+                block.setWarningMessage(warningMessage);
                 channelRoomBlockRepository.save(block);
                 savedCount++;
             }
@@ -1611,6 +1728,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
                 .convertedBookingId(b.getConvertedBooking() != null ? b.getConvertedBooking().getId() : null)
                 .isExcess(b.getIsExcess())
                 .warningMessage(b.getWarningMessage())
+                .rejectReason(b.getRejectReason())
                 .createdAt(b.getCreatedAt())
                 .build();
     }
