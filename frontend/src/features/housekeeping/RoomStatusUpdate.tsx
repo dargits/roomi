@@ -204,6 +204,16 @@ const RoomStatusUpdate: React.FC = () => {
                 <div className="p-3.5 flex-1 space-y-1 text-xs">
                   <p className="text-on-surface font-medium truncate">{room.roomTypeName || 'Tiêu chuẩn'}</p>
                   <p className="text-on-surface-variant">Tầng {room.floor || '—'}</p>
+                  {room.status === 'AVAILABLE' && room.vacantDays !== undefined && (
+                    <p className="text-[11px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200 w-fit mt-1">
+                      Trống: {room.vacantDays} ngày
+                    </p>
+                  )}
+                  {room.cleaningReason === 'PERIODIC_VACANT' && (
+                    <p className="text-[11px] font-semibold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 w-fit mt-1">
+                      Dọn định kỳ ({room.vacantDays || '—'} ngày)
+                    </p>
+                  )}
                   {(room as any).notes && (
                     <p className="text-[11px] text-on-surface-variant/80 italic line-clamp-2 mt-1" title={(room as any).notes}>
                       {(room as any).notes}

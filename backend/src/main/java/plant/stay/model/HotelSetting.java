@@ -63,6 +63,19 @@ public class HotelSetting {
     @Builder.Default
     private Integer lostItemRetentionDays = 30;
 
+    /**
+     * Cấu hình dọn định kỳ cho phòng trống dài ngày:
+     * - periodicCleaningEnabled: Cho phép hệ thống tự động đưa phòng trống lâu ngày vào danh sách cần dọn.
+     * - periodicCleaningDays: Số ngày phòng không có khách sẽ chuyển sang trạng thái DIRTY (mặc định 5 ngày).
+     */
+    @Column(name = "periodic_cleaning_enabled")
+    @Builder.Default
+    private Boolean periodicCleaningEnabled = true;
+
+    @Column(name = "periodic_cleaning_days")
+    @Builder.Default
+    private Integer periodicCleaningDays = 5;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

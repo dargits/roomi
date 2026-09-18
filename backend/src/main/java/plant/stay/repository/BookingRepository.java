@@ -15,6 +15,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByStatus(BookingStatus status);
     List<Booking> findByRoomId(Long roomId);
     List<Booking> findByGroupBookingId(Long groupBookingId);
+    Booking findTopByRoomIdAndStatusOrderByCheckOutDateDesc(Long roomId, BookingStatus status);
 
     @Query("SELECT b FROM Booking b JOIN FETCH b.roomType WHERE b.groupBooking.id = :groupBookingId " +
            "AND b.room IS NULL AND b.status IN ('NEW', 'CONFIRMED') ORDER BY b.id")
