@@ -22,5 +22,8 @@ public class InvoiceResponse {
     private InvoiceStatus status;
     private Long adjustmentOfId;
     private String note;
+    private String cancelReason;
+    private String cancelledByName;
+    private LocalDateTime cancelledAt;
     private LocalDateTime createdAt;
 }

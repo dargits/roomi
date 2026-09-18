@@ -157,3 +157,166 @@ export interface AdrRevparReportResponse {
   roomRows: AdrRevparRoomRow[];
 }
 
+export interface ChannelReportRow {
+  channelKey: string;
+  channelName: string;
+  totalBookings: number;
+  completedBookings: number;
+  activeBookings: number;
+  cancelledBookings: number;
+  cancellationRate: number;
+  noShowBookings: number;
+  noShowRate: number;
+  soldNights: number;
+  revenue: number;
+  adr: number;
+  revenueShare: number;
+  bookingShare: number;
+}
+
+export interface ChannelReportSummary {
+  from: string;
+  to: string;
+  totalRevenue: number;
+  totalBookings: number;
+  totalSoldNights: number;
+  totalCancelled: number;
+  overallCancellationRate: number;
+  totalNoShow: number;
+  overallNoShowRate: number;
+  overallAdr: number;
+  unknownBookings: number;
+  unknownRate: number;
+  dataQualityScore: number;
+}
+
+export interface ChannelReportResponse {
+  summary: ChannelReportSummary;
+  rows: ChannelReportRow[];
+}
+
+export type DebtAgingBucketKey = 'CURRENT' | 'OVERDUE_UNDER_15' | 'OVERDUE_15_TO_30' | 'OVERDUE_OVER_30' | 'IN_TERM' | 'OVERDUE_1_15';
+export type DebtReminderStatus = 'DUE_TODAY' | 'OVERDUE_REMINDER' | 'OVERDUE_NO_REMINDER' | 'REMINDER_SET' | 'UPCOMING' | 'NONE';
+
+export interface DebtCollectionLogResponse {
+  id: number;
+  debtApprovalRequestId: number;
+  channel?: string;
+  contactMethod?: string;
+  contactResult?: string;
+  contactPerson?: string;
+  contactDate?: string;
+  contactedAt?: string;
+  notes: string;
+  promisedDate?: string;
+  nextReminderDate?: string;
+  recordedByName?: string;
+  createdById?: number;
+  createdByName?: string;
+  createdAt?: string;
+}
+
+export interface DebtCollectionLogRequest {
+  channel?: string;
+  contactMethod?: string;
+  contactResult?: string;
+  contactPerson?: string;
+  notes: string;
+  contactDate?: string;
+  contactedAt?: string;
+  promisedDate?: string;
+  nextReminderDate?: string;
+  recipientEmail?: string;
+  sendEmail?: boolean;
+}
+
+export interface DebtAgingBucketDto {
+  bucketKey: DebtAgingBucketKey;
+  bucketLabel?: string;
+  bucketName?: string;
+  severity?: string;
+  invoiceCount: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface CustomerDebtSummaryDto {
+  guestId?: number;
+  guestName: string;
+  guestPhone?: string;
+  stayCount?: number;
+  invoiceCount?: number;
+  totalDebt: number;
+  earliestDueDate?: string;
+  latestDueDate?: string;
+  maxDaysOverdue?: number;
+  highestRiskBucket?: string;
+  hasOverdue?: boolean;
+}
+
+export interface DebtAgingReconciliationDto {
+  periodFrom?: string;
+  periodTo?: string;
+  fromCheckout?: string;
+  toCheckout?: string;
+  agingCheckoutDebt?: number;
+  debtAgingTotal?: number;
+  revenueReportDebt?: number;
+  discrepancy: number;
+  matched: boolean;
+  explanation?: string;
+}
+
+export interface DebtAgingItemResponse {
+  id: number;
+  bookingId: number;
+  invoiceId: number;
+  invoiceNumber: string;
+  guestId?: number;
+  guestName: string;
+  guestPhone: string;
+  guestEmail?: string;
+  roomNumber?: string;
+  debtAmount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  dueDate: string;
+  reason: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  status: string;
+  daysOverdue: number;
+  agingBucket: DebtAgingBucketKey;
+  lastContactedAt?: string;
+  lastContactNote?: string;
+  lastContactResult?: string;
+  promisedDate?: string;
+  nextReminderDate?: string;
+  reminderStatus: DebtReminderStatus;
+  contactCount?: number;
+  collectionCount?: number;
+  checkInDate?: string;
+  checkOutDate?: string;
+}
+
+export interface DebtAgingReportResponse {
+  asOfDate: string;
+  checkoutFrom?: string;
+  checkoutTo?: string;
+  grandTotalDebt?: number;
+  totalDebtAmount?: number;
+  totalInvoices?: number;
+  totalDebtCount?: number;
+  overdueDebtCount?: number;
+  overdueDebtAmount?: number;
+  remindersDueTodayCount?: number;
+  buckets?: DebtAgingBucketDto[];
+  agingBuckets?: DebtAgingBucketDto[];
+  customerSummaries: CustomerDebtSummaryDto[];
+  items: DebtAgingItemResponse[];
+  reconciliation?: DebtAgingReconciliationDto;
+}
+
+
+
+

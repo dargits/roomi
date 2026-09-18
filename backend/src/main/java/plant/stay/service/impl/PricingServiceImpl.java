@@ -249,16 +249,17 @@ public class PricingServiceImpl implements PricingService {
                 .build();
     }
 
+    private static final String[] DAYS_OF_WEEK_VI = {
+            "", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"
+    };
+
     private String formatDayOfWeek(DayOfWeek dow) {
-        return switch (dow) {
-            case MONDAY -> "Thứ Hai";
-            case TUESDAY -> "Thứ Ba";
-            case WEDNESDAY -> "Thứ Tư";
-            case THURSDAY -> "Thứ Năm";
-            case FRIDAY -> "Thứ Sáu";
-            case SATURDAY -> "Thứ Bảy";
-            case SUNDAY -> "Chủ Nhật";
-        };
+        if (dow == null) return "";
+        int val = dow.getValue();
+        if (val >= 1 && val <= 7) {
+            return DAYS_OF_WEEK_VI[val];
+        }
+        return "";
     }
 
     private WeekendPriceConfigResponse toWeekendResponse(WeekendPriceConfig wc) {

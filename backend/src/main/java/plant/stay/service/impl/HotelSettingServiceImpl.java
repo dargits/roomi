@@ -32,8 +32,8 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         if (!request.getDefaultCheckoutTime().isAfter(request.getDefaultCheckinTime())) {
             throw new IllegalArgumentException("Giờ trả phòng phải sau giờ nhận phòng.");
         }
-        
-        // Lấy entity Managed từ DB. 
+
+        // Lấy entity Managed từ DB.
         // Nếu chưa có, tạo đối tượng mới hoàn toàn (không set ID trước, để DB tự sinh)
         HotelSetting setting = repository.findById(1L)
                 .orElseGet(HotelSetting::new);
@@ -50,6 +50,9 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         }
         if (request.getReminderMorningTime() != null) {
             setting.setReminderMorningTime(request.getReminderMorningTime());
+        }
+        if (request.getLostItemRetentionDays() != null) {
+            setting.setLostItemRetentionDays(request.getLostItemRetentionDays());
         }
         setting.setUpdatedBy(updatedBy);
 
@@ -68,8 +71,11 @@ public class HotelSettingServiceImpl implements HotelSettingService {
                 .defaultCheckinTime(setting.getDefaultCheckinTime())
                 .defaultCheckoutTime(setting.getDefaultCheckoutTime())
                 .homeImage(setting.getHomeImage())
-                .reminderEmailEnabled(setting.getReminderEmailEnabled() != null ? setting.getReminderEmailEnabled() : true)
-                .reminderMorningTime(setting.getReminderMorningTime() != null ? setting.getReminderMorningTime() : java.time.LocalTime.of(10, 30))
+                .reminderEmailEnabled(
+                        setting.getReminderEmailEnabled() != null ? setting.getReminderEmailEnabled() : true)
+                .reminderMorningTime(setting.getReminderMorningTime() != null ? setting.getReminderMorningTime()
+                        : java.time.LocalTime.of(10, 30))
+                .lostItemRetentionDays(setting.getLostItemRetentionDays() != null ? setting.getLostItemRetentionDays() : 30)
                 .build();
     }
 }

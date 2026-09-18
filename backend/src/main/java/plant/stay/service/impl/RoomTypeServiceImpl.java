@@ -21,6 +21,14 @@ public class RoomTypeServiceImpl implements RoomTypeService {
 
     @Autowired
     @org.springframework.context.annotation.Lazy
+    private plant.stay.repository.RoomRepository roomRepository;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private plant.stay.repository.BookingRepository bookingRepository;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
     private plant.stay.service.PricingService pricingService;
 
     @Override
@@ -138,6 +146,43 @@ public class RoomTypeServiceImpl implements RoomTypeService {
             }
         }
 
+        Long totalRooms = null;
+        Long availableToday = null;
+        Boolean isAvailableToday = null;
+
+        if (roomRepository != null && bookingRepository != null) {
+            try {
+                List<plant.stay.model.Room> allRooms = roomRepository.findByRoomTypeId(roomType.getId());
+                long totalPhysical = allRooms.size();
+                java.time.LocalDate today = java.time.LocalDate.now();
+                java.time.LocalDate tomorrow = today.plusDays(1);
+                List<plant.stay.model.Booking> activeToday = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
+                        roomType.getId(), today, tomorrow);
+
+                java.util.Set<Long> occupiedRoomIds = new java.util.HashSet<>();
+                int unassignedBookingCount = 0;
+                for (var b : activeToday) {
+                    if (b.getRoom() != null) {
+                        occupiedRoomIds.add(b.getRoom().getId());
+                    } else {
+                        unassignedBookingCount++;
+                    }
+                }
+                for (var r : allRooms) {
+                    if (r.getStatus() == plant.stay.model.RoomStatus.MAINTENANCE || r.getStatus() == plant.stay.model.RoomStatus.OCCUPIED) {
+                        occupiedRoomIds.add(r.getId());
+                    }
+                }
+                long totalOccupied = occupiedRoomIds.size() + unassignedBookingCount;
+                long avail = Math.max(0, totalPhysical - totalOccupied);
+
+                totalRooms = totalPhysical;
+                availableToday = avail;
+                isAvailableToday = totalPhysical > 0 && avail > 0;
+            } catch (Exception ignored) {
+            }
+        }
+
         return RoomTypeResponse.builder()
                 .id(roomType.getId())
                 .name(roomType.getName())
@@ -152,6 +197,9 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 .amenitiesDescription(roomType.getAmenitiesDescription())
                 .imageUrls(roomType.getImageUrls())
                 .active(roomType.isActive())
+                .totalRooms(totalRooms)
+                .availableRoomsToday(availableToday)
+                .isAvailableToday(isAvailableToday)
                 .createdAt(roomType.getCreatedAt())
                 .updatedAt(roomType.getUpdatedAt())
                 .build();
