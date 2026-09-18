@@ -47,26 +47,26 @@ const DailyLedgerPage: React.FC = () => {
 
   const handleClose = async () => {
     const ok = await confirm({
-      title: 'Chot so quy ngay ' + date,
-      message: 'Sau khi chot, cac phieu chot ca trong ngay se bi khoa. Ban chac chan?',
-      confirmText: 'Chot so ngay',
+      title: 'Chốt sổ quỹ ngày ' + date,
+      message: 'Sau khi chốt, các phiếu chốt ca trong ngày sẽ bị khóa và không thể mở lại trừ khi Chủ cơ sở mở lại sổ ngày. Bạn có chắc chắn?',
+      confirmText: 'Chốt sổ ngày',
     });
     if (!ok) return;
     try {
       const data = await dailyLedgerApi.close(date);
       setLedger(data);
-      success('Da chot so quy ngay ' + date);
+      success('Đã chốt sổ quỹ ngày ' + date);
     } catch (e: any) {
-      error(e?.response?.data?.message || 'Khong the chot so ngay.');
+      error(e?.response?.data?.message || 'Không thể chốt sổ ngày.');
     }
   };
 
   const handleReopen = async () => {
-    if (!reopenReason.trim()) { error('Vui long nhap ly do mo lai.'); return; }
+    if (!reopenReason.trim()) { error('Vui lòng nhập lý do mở lại.'); return; }
     const ok = await confirm({
-      title: 'Mo lai so ngay ' + date,
-      message: 'Mo lai so ngay se cho phep chinh sua lai phieu chot ca. Tiep tuc?',
-      confirmText: 'Mo lai',
+      title: 'Mở lại sổ ngày ' + date,
+      message: 'Mở lại sổ ngày sẽ cho phép chỉnh sửa lại các phiếu chốt ca trong ngày đó. Bạn có chắc chắn muốn tiếp tục?',
+      confirmText: 'Mở lại',
     });
     if (!ok) return;
     try {
@@ -74,9 +74,9 @@ const DailyLedgerPage: React.FC = () => {
       setLedger(data);
       setReopenReason('');
       setShowReopenForm(false);
-      success('Da mo lai so ngay ' + date);
+      success('Đã mở lại sổ ngày ' + date);
     } catch (e: any) {
-      error(e?.response?.data?.message || 'Khong the mo lai so ngay.');
+      error(e?.response?.data?.message || 'Không thể mở lại sổ ngày.');
     }
   };
 
@@ -88,11 +88,11 @@ const DailyLedgerPage: React.FC = () => {
     <div className="space-y-5">
       <PageHeader
         icon={IoBookOutline}
-        title="So quy theo ngay"
-        subtitle="Tong hop thu chi tu tat ca ca trong ngay de doi chieu so sach"
+        title="Sổ quỹ theo ngày"
+        subtitle="Tổng hợp thu chi từ tất cả các ca trong ngày để đối chiếu sổ sách và báo cáo doanh thu"
         actions={
           <Button variant="outline" size="sm" icon={IoRefreshOutline} onClick={load}>
-            Tai lai
+            Tải lại
           </Button>
         }
       />
@@ -100,25 +100,25 @@ const DailyLedgerPage: React.FC = () => {
       {/* Date picker */}
       <div className="flex items-center gap-3 flex-wrap">
         <Input
-          label="Ngay"
+          label="Ngày đối soát"
           type="date"
           value={date}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
         />
         {isClosed && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-            <IoCheckmarkCircleOutline size={14} /> Da chot so ngay
+            <IoCheckmarkCircleOutline size={14} /> Đã chốt sổ ngày
           </span>
         )}
         {!isClosed && !hasOpenShifts && hasClosedShifts && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-            San sang chot so
+            Sẵn sàng chốt sổ
           </span>
         )}
       </div>
 
       {loading ? (
-        <div className="p-6 text-sm text-on-surface-variant">Dang tai du lieu so ngay...</div>
+        <div className="p-6 text-sm text-on-surface-variant">Đang tải dữ liệu sổ ngày...</div>
       ) : ledger ? (
         <>
           {/* Canh bao ca con mo */}
@@ -126,11 +126,11 @@ const DailyLedgerPage: React.FC = () => {
             <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-200 bg-amber-50">
               <IoWarningOutline size={20} className="text-amber-600 mt-0.5 shrink-0" />
               <div>
-                <p className="font-semibold text-amber-800 text-sm">Chua the chot so - con {ledger.openShifts.length} ca chua chot:</p>
+                <p className="font-semibold text-amber-800 text-sm">Chưa thể chốt sổ - còn {ledger.openShifts.length} ca chưa chốt:</p>
                 <ul className="mt-1 space-y-0.5">
                   {ledger.openShifts.map(s => (
                     <li key={s.shiftId} className="text-sm text-amber-700">
-                      Ca #{s.shiftId} - {s.openedByName} (mo luc {fmtDate(s.openedAt)})
+                      Ca #{s.shiftId} - {s.openedByName} (mở lúc {fmtDate(s.openedAt)})
                     </li>
                   ))}
                 </ul>
@@ -144,16 +144,16 @@ const DailyLedgerPage: React.FC = () => {
               <table className="w-full text-sm">
                 <thead className="bg-surface-container-low">
                   <tr>
-                    <th className="p-3 text-left">Le tan</th>
-                    <th className="p-3 text-left">Mo ca</th>
-                    <th className="p-3 text-left">Chot ca</th>
-                    <th className="p-3 text-right">Thu HD (TM)</th>
-                    <th className="p-3 text-right">Thu HD (CK)</th>
-                    <th className="p-3 text-right">Thu coc (TM)</th>
-                    <th className="p-3 text-right">Hoan coc (TM)</th>
-                    <th className="p-3 text-right">TM ly thuyet</th>
-                    <th className="p-3 text-right">TM thuc dem</th>
-                    <th className="p-3 text-right">Chenh lech</th>
+                    <th className="p-3 text-left">Lễ tân</th>
+                    <th className="p-3 text-left">Mở ca</th>
+                    <th className="p-3 text-left">Chốt ca</th>
+                    <th className="p-3 text-right">Thu HĐ (TM)</th>
+                    <th className="p-3 text-right">Thu HĐ (CK)</th>
+                    <th className="p-3 text-right">Thu cọc (TM)</th>
+                    <th className="p-3 text-right">Hoàn cọc (TM)</th>
+                    <th className="p-3 text-right">TM lý thuyết</th>
+                    <th className="p-3 text-right">TM thực đếm</th>
+                    <th className="p-3 text-right">Chênh lệch</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -175,7 +175,7 @@ const DailyLedgerPage: React.FC = () => {
                   ))}
                   {/* Footer tong hop */}
                   <tr className="border-t-2 border-border-grey bg-surface-container-low font-bold">
-                    <td className="p-3 text-on-surface" colSpan={3}>Tong ca ngay ({ledger.shifts.length} ca)</td>
+                    <td className="p-3 text-on-surface" colSpan={3}>Tổng cả ngày ({ledger.shifts.length} ca)</td>
                     <td className="p-3 text-right">{money(ledger.totalInvoiceCash)}</td>
                     <td className="p-3 text-right">{money(ledger.totalInvoiceTransfer)}</td>
                     <td className="p-3 text-right">{money(ledger.totalDepositCash)}</td>
@@ -191,7 +191,7 @@ const DailyLedgerPage: React.FC = () => {
             </div>
           ) : (
             <div className="p-8 text-center text-on-surface-variant text-sm border border-border-grey rounded-lg bg-surface-container-lowest">
-              Chua co ca nao duoc chot trong ngay {date}.
+              Chưa có ca nào được chốt trong ngày {date}.
             </div>
           )}
 
@@ -199,15 +199,15 @@ const DailyLedgerPage: React.FC = () => {
           {hasClosedShifts && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 border border-border-grey rounded-lg bg-surface-container-lowest">
-                <p className="text-xs text-on-surface-variant">Tong thu tien mat ly thuyet</p>
+                <p className="text-xs text-on-surface-variant">Tổng thu tiền mặt lý thuyết</p>
                 <p className="mt-1 text-xl font-bold text-primary">{money(ledger.totalExpectedCash)}</p>
               </div>
               <div className="p-4 border border-border-grey rounded-lg bg-surface-container-lowest">
-                <p className="text-xs text-on-surface-variant">Tong thuc dem tien mat (tat ca ca)</p>
+                <p className="text-xs text-on-surface-variant">Tổng thực đếm tiền mặt (tất cả ca)</p>
                 <p className="mt-1 text-xl font-bold text-on-surface">{money(ledger.totalActualCash)}</p>
               </div>
               <div className={`p-4 border rounded-lg ${n(ledger.totalDiscrepancy) !== 0 ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
-                <p className="text-xs text-on-surface-variant">Tong chenh lech ca ngay</p>
+                <p className="text-xs text-on-surface-variant">Tổng chênh lệch cả ngày</p>
                 <p className={`mt-1 text-xl font-bold ${n(ledger.totalDiscrepancy) !== 0 ? 'text-error' : 'text-green-700'}`}>
                   {money(ledger.totalDiscrepancy)}
                 </p>
@@ -220,25 +220,25 @@ const DailyLedgerPage: React.FC = () => {
             <div className="p-4 border border-green-200 bg-green-50 rounded-lg space-y-1">
               <div className="flex items-center gap-2">
                 <IoCheckmarkCircleOutline size={18} className="text-green-600" />
-                <span className="font-semibold text-green-800">So ngay da chot</span>
+                <span className="font-semibold text-green-800">Sổ ngày đã chốt</span>
               </div>
               <p className="text-sm text-green-700">
-                Chot boi <strong>{ledger.closedByName}</strong> luc {fmtDate(ledger.closedAt)}
+                Chốt bởi <strong>{ledger.closedByName}</strong> lúc {fmtDate(ledger.closedAt)}
               </p>
               {ledger.openReason && (
-                <p className="text-sm text-green-700">Ly do mo lai gan nhat: {ledger.openReason}</p>
+                <p className="text-sm text-green-700">Lý do mở lại gần nhất: {ledger.openReason}</p>
               )}
               {isOwner && !showReopenForm && (
                 <Button variant="dangerOutline" size="sm" className="mt-2" onClick={() => setShowReopenForm(true)}>
-                  Mo lai so ngay
+                  Mở lại sổ ngày
                 </Button>
               )}
               {isOwner && showReopenForm && (
                 <div className="mt-3 space-y-3 max-w-md">
-                  <Input label="Ly do mo lai" value={reopenReason} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReopenReason(e.target.value)} required />
+                  <Input label="Lý do mở lại" value={reopenReason} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReopenReason(e.target.value)} required />
                   <div className="flex gap-2">
-                    <Button variant="danger" onClick={handleReopen}>Xac nhan mo lai</Button>
-                    <Button variant="ghost" onClick={() => setShowReopenForm(false)}>Huy</Button>
+                    <Button variant="danger" onClick={handleReopen}>Xác nhận mở lại</Button>
+                    <Button variant="ghost" onClick={() => setShowReopenForm(false)}>Hủy</Button>
                   </div>
                 </div>
               )}
@@ -249,7 +249,7 @@ const DailyLedgerPage: React.FC = () => {
           {!isClosed && !hasOpenShifts && hasClosedShifts && (
             <div className="flex justify-end">
               <Button icon={IoLockClosedOutline} onClick={handleClose}>
-                Chot so quy ngay {date}
+                Chốt sổ quỹ ngày {date}
               </Button>
             </div>
           )}
