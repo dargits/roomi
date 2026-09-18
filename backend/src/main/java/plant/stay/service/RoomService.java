@@ -25,4 +25,7 @@ public interface RoomService {
     // NCL-06-CN-NEW: Phân công nhân viên dọn phòng
     RoomResponse assignCleaner(Long id, Long housekeeperId, User actor);
     RoomResponse unassignCleaner(Long id, User actor);
+
+    // Dọn định kỳ phòng trống dài ngày
+    int triggerPeriodicCleaningCheck(User actor);
 }
