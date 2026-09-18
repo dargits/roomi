@@ -12,6 +12,7 @@ import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.CashierShiftRepository;
 import plant.stay.repository.CashierShiftClosingRepository;
+import plant.stay.repository.DailyLedgerRepository;
 import plant.stay.repository.DepositRepository;
 import plant.stay.repository.InvoiceRepository;
 import plant.stay.repository.PaymentRepository;
@@ -33,6 +34,7 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     private final DepositRepository depositRepository;
     private final InvoiceRepository invoiceRepository;
     private final DebtApprovalRepository debtApprovalRepository;
+    private final DailyLedgerRepository dailyLedgerRepository;
     private final AuditLogService auditLogService;
 
     @Override
@@ -105,6 +107,15 @@ public class CashierShiftServiceImpl implements CashierShiftService {
         CashierShift shift = requireShift(shiftId);
         if (actor.getRole() != Role.OWNER) throw new BusinessException("Chỉ Chủ cơ sở được mở lại ca.");
         if (shift.getStatus() != CashierShiftStatus.CLOSED) throw new BusinessException("Chỉ có thể mở lại ca đã chốt.");
+        // Kiểm tra sổ ngày của ngày chốt ca đó chưa được khoá
+        if (shift.getClosedAt() != null) {
+            java.time.LocalDate shiftDate = shift.getClosedAt().toLocalDate();
+            dailyLedgerRepository.findByDate(shiftDate).ifPresent(ledger -> {
+                if (ledger.getStatus() == DailyLedgerStatus.CLOSED) {
+                    throw new BusinessException("Sổ ngày " + shiftDate + " đã chốt. Vui lòng mở lại sổ ngày trước khi mở lại ca.");
+                }
+            });
+        }
         auditLogService.log("CashierShift", shift.getId(), "SHIFT_REOPENED", actor,
                 "Ly do mo lai: " + request.getReason() + ". So chot cu: ly thuyet=" + shift.getExpectedCash()
                         + ", thuc te=" + shift.getActualCash() + ", chenh lech=" + shift.getDiscrepancy());
