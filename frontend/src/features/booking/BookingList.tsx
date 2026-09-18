@@ -17,8 +17,7 @@ import {
   IoCardOutline,
   IoCloseOutline,
   IoDocumentOutline,
-  IoPeopleOutline,
-  IoDocumentTextOutline
+  IoPeopleOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import AssignRoomModal from './AssignRoomModal';
@@ -550,18 +549,6 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                         >
                           <IoDocumentOutline size={14} /> Chi tiết
                         </Link>
-                        
-                        {/* Nút Bản xác nhận */}
-                        {(booking.status === 'CONFIRMED' || booking.status === 'NEW') && (
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setConfirmationBookingId(booking.id); }}
-                            className="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 cursor-pointer shadow-xs flex items-center gap-1"
-                            title="Xem & gửi bản xác nhận đặt phòng cho khách"
-                          >
-                            <IoDocumentTextOutline size={14} /> Xác nhận
-                          </button>
-                        )}
 
                         {/* Nút Xếp phòng */}
                         {!isAccountant && !booking.roomNumber && !booking.roomId && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
