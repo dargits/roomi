@@ -24,13 +24,16 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
     public void run(String... args) {
         log.info("Checking and applying automatic database schema migrations...");
 
-        // 1. Nâng cấp cột status trong bảng invoices lên VARCHAR(50) để hỗ trợ các status mới
-        // (PENDING_PAYMENT, PENDING_DISCOUNT_APPROVAL, DRAFT, ...)
+        // 1. Nâng cấp cột status trong bảng invoices lên VARCHAR(50) và thêm các cột hủy hóa đơn
+        // (PENDING_PAYMENT, PENDING_DISCOUNT_APPROVAL, DRAFT, CANCELLED, ...)
         try {
             jdbcTemplate.execute("ALTER TABLE invoices MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'PENDING'");
-            log.info("Schema Migration: Successfully ensured 'invoices.status' is VARCHAR(50).");
+            jdbcTemplate.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancel_reason TEXT");
+            jdbcTemplate.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancelled_by BIGINT");
+            jdbcTemplate.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancelled_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'invoices.status' and cancellation columns exist.");
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not alter 'invoices.status' (might already be up-to-date or table not created yet): {}", e.getMessage());
+            log.debug("Schema Migration Notice: Could not alter 'invoices': {}", e.getMessage());
         }
 
         // 2. Đảm bảo cột discount_approval_threshold & temporary_hold_minutes trong hotel_settings sẵn sàng
@@ -130,6 +133,201 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             log.info("Schema Migration: Successfully ensured 'notification_user_prefs' table exists.");
         } catch (Exception e) {
             log.debug("Schema Migration Notice: notification_user_prefs table: {}", e.getMessage());
+        }
+
+        // 10. Tạo bảng booking_confirmation_logs (Nhật ký gửi xác nhận đặt phòng)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS booking_confirmation_logs (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  booking_id BIGINT NOT NULL," +
+                "  channel VARCHAR(30) NOT NULL," +
+                "  recipient VARCHAR(255)," +
+                "  sent_by BIGINT," +
+                "  status VARCHAR(30) NOT NULL," +
+                "  note TEXT," +
+                "  sent_at DATETIME(6) NOT NULL," +
+                "  FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (sent_by) REFERENCES users(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_conf_log_booking ON booking_confirmation_logs(booking_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_conf_log_sent_at ON booking_confirmation_logs(sent_at)");
+            log.info("Schema Migration: Successfully ensured 'booking_confirmation_logs' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: booking_confirmation_logs table: {}", e.getMessage());
+        }
+
+        // 11. Tạo bảng channels (Kênh phân phối phòng & cấu hình feed lịch iCal)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS channels (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  name VARCHAR(100) NOT NULL," +
+                "  channel_code VARCHAR(50) NOT NULL," +
+                "  room_type_id BIGINT NOT NULL," +
+                "  allocated_rooms INT NOT NULL DEFAULT 1," +
+                "  feed_token VARCHAR(128) NOT NULL UNIQUE," +
+                "  sync_interval_minutes INT NOT NULL DEFAULT 15," +
+                "  is_active BOOLEAN NOT NULL DEFAULT TRUE," +
+                "  cached_ics_content LONGTEXT," +
+                "  last_synced_at DATETIME," +
+                "  last_blocked_periods_count INT DEFAULT 0," +
+                "  created_by BIGINT," +
+                "  created_at DATETIME(6) NOT NULL," +
+                "  updated_at DATETIME(6)," +
+                "  FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_channel_token ON channels(feed_token)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_channel_room_type ON channels(room_type_id)");
+            log.info("Schema Migration: Successfully ensured 'channels' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channels table: {}", e.getMessage());
+        }
+
+        // 12. Tạo bảng channel_calendar_sync_logs (Nhật ký sinh tệp lịch)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS channel_calendar_sync_logs (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  channel_id BIGINT NOT NULL," +
+                "  channel_name VARCHAR(100) NOT NULL," +
+                "  room_type_name VARCHAR(100) NOT NULL," +
+                "  triggered_by VARCHAR(50) NOT NULL," +
+                "  blocked_periods_count INT NOT NULL DEFAULT 0," +
+                "  blocked_summary TEXT," +
+                "  status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS'," +
+                "  error_message TEXT," +
+                "  synced_at DATETIME(6) NOT NULL," +
+                "  FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_channel ON channel_calendar_sync_logs(channel_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_synced_at ON channel_calendar_sync_logs(synced_at)");
+            log.info("Schema Migration: Successfully ensured 'channel_calendar_sync_logs' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channel_calendar_sync_logs table: {}", e.getMessage());
+        }
+
+        // 13. Cập nhật bảng channels (external_calendar_url) và tạo bảng channel_room_mappings
+        try {
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS external_calendar_url VARCHAR(500)");
+            jdbcTemplate.execute("ALTER TABLE channels MODIFY COLUMN room_type_id BIGINT NULL");
+            log.info("Schema Migration: Successfully ensured 'channels.external_calendar_url' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channels alter: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS channel_room_mappings (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  channel_id BIGINT NOT NULL," +
+                "  external_room_type_code VARCHAR(100) NOT NULL," +
+                "  room_type_id BIGINT NOT NULL," +
+                "  allocated_rooms INT NOT NULL DEFAULT 1," +
+                "  created_at DATETIME(6) NOT NULL," +
+                "  updated_at DATETIME(6)," +
+                "  FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE," +
+                "  UNIQUE KEY uq_channel_room_type (channel_id, room_type_id)" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crm_channel ON channel_room_mappings(channel_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crm_room_type ON channel_room_mappings(room_type_id)");
+            log.info("Schema Migration: Successfully ensured 'channel_room_mappings' table exists.");
+
+            // Backfill mappings for existing channels
+            jdbcTemplate.execute(
+                "INSERT INTO channel_room_mappings (channel_id, external_room_type_code, room_type_id, allocated_rooms, created_at, updated_at) " +
+                "SELECT c.id, CONCAT(COALESCE(c.channel_code, 'OTA'), '_', c.room_type_id), c.room_type_id, COALESCE(c.allocated_rooms, 1), NOW(), NOW() " +
+                "FROM channels c " +
+                "WHERE c.room_type_id IS NOT NULL " +
+                "AND NOT EXISTS (SELECT 1 FROM channel_room_mappings m WHERE m.channel_id = c.id AND m.room_type_id = c.room_type_id)"
+            );
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channel_room_mappings table: {}", e.getMessage());
+        }
+
+        // 14. Tạo bảng debt_collection_logs (Nhật ký liên hệ đòi nợ)
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS debt_collection_logs (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  debt_approval_request_id BIGINT NOT NULL," +
+                "  contact_date DATETIME NOT NULL," +
+                "  contact_method VARCHAR(20) NOT NULL," +
+                "  contact_result VARCHAR(50)," +
+                "  notes TEXT," +
+                "  promised_date DATE," +
+                "  next_reminder_date DATE," +
+                "  recorded_by BIGINT," +
+                "  created_at DATETIME(6)," +
+                "  FOREIGN KEY (debt_approval_request_id) REFERENCES debt_approval_requests(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dcl_debt_id_date ON debt_collection_logs(debt_approval_request_id, contact_date DESC)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dcl_reminder_date ON debt_collection_logs(next_reminder_date)");
+            log.info("Schema Migration: Successfully ensured 'debt_collection_logs' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: debt_collection_logs table: {}", e.getMessage());
+        }
+
+        // 16. Thêm các cột theo dõi trạng thái đồng bộ và cảnh báo mất kết nối vào bảng channels
+        try {
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS last_sync_status VARCHAR(20) DEFAULT 'NEVER_SYNCED'");
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS last_sync_error_message TEXT");
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS last_success_synced_at DATETIME");
+            jdbcTemplate.execute("ALTER TABLE channels ADD COLUMN IF NOT EXISTS consecutive_failures INT DEFAULT 0");
+            
+            // Cập nhật dữ liệu cũ nếu last_synced_at đã có nhưng last_sync_status chưa có
+            jdbcTemplate.execute("UPDATE channels SET last_sync_status = 'SUCCESS', last_success_synced_at = last_synced_at WHERE last_synced_at IS NOT NULL AND (last_sync_status IS NULL OR last_sync_status = 'NEVER_SYNCED')");
+            log.info("Schema Migration: Successfully ensured sync status & disconnect warning columns in 'channels'.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channels sync status columns: {}", e.getMessage());
+        }
+
+        // 17. Tạo bảng channel_room_blocks (Lượt chặn phòng từ kênh OTA) và thêm channel_id vào bookings
+        try {
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS channel_room_blocks (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  channel_id BIGINT NOT NULL," +
+                "  room_type_id BIGINT NOT NULL," +
+                "  room_id BIGINT NULL," +
+                "  external_uid VARCHAR(255) NOT NULL," +
+                "  start_date DATE NOT NULL," +
+                "  end_date DATE NOT NULL," +
+                "  summary VARCHAR(255)," +
+                "  status VARCHAR(30) NOT NULL DEFAULT 'BLOCKED'," +
+                "  converted_booking_id BIGINT NULL," +
+                "  is_excess BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  warning_message TEXT," +
+                "  created_at DATETIME(6) NOT NULL," +
+                "  updated_at DATETIME(6)," +
+                "  FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL," +
+                "  FOREIGN KEY (converted_booking_id) REFERENCES bookings(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_channel ON channel_room_blocks(channel_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_dates ON channel_room_blocks(start_date, end_date)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_room ON channel_room_blocks(room_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_crb_uid ON channel_room_blocks(channel_id, external_uid)");
+            log.info("Schema Migration: Successfully ensured 'channel_room_blocks' table exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channel_room_blocks table: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS channel_id BIGINT NULL");
+            log.info("Schema Migration: Successfully ensured 'bookings.channel_id' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: bookings.channel_id: {}", e.getMessage());
         }
     }
 }

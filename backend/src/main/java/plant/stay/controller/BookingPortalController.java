@@ -32,6 +32,7 @@ public class BookingPortalController {
 
     private final BookingRequestRepository bookingRequestRepository;
     private final RoomTypeRepository roomTypeRepository;
+    private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
     private final GuestRepository guestRepository;
     private final AuditLogService auditLogService;
@@ -140,6 +141,11 @@ public class BookingPortalController {
                 priceSourceName = singleSourceName != null ? singleSourceName : "Giá ngày áp dụng";
             }
 
+            // Tính số phòng khả dụng thực tế
+            long availableRooms = calculateAvailableRoomsForRange(rt.getId(), from, to);
+            long totalPhysicalRooms = roomRepository.countByRoomTypeId(rt.getId());
+            boolean isAvailable = totalPhysicalRooms > 0 && availableRooms > 0;
+
             Map<String, Object> item = new java.util.HashMap<>();
             item.put("roomTypeId", rt.getId());
             item.put("name", rt.getName());
@@ -154,6 +160,9 @@ public class BookingPortalController {
             item.put("maxCapacity", rt.getMaxCapacity());
             item.put("amenitiesDescription", rt.getAmenitiesDescription() != null ? rt.getAmenitiesDescription() : "");
             item.put("imageUrls", rt.getImageUrls() != null ? rt.getImageUrls() : java.util.List.of());
+            item.put("totalPhysicalRooms", totalPhysicalRooms);
+            item.put("availableRooms", availableRooms);
+            item.put("isAvailable", isAvailable);
             return item;
         }).collect(Collectors.toList()));
     }
@@ -165,6 +174,15 @@ public class BookingPortalController {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
         if (!req.getCheckOutDate().isAfter(req.getCheckInDate())) {
             throw new IllegalArgumentException("Ngày trả phòng phải sau ngày nhận phòng");
+        }
+
+        // Kiểm tra xem loại phòng còn phòng trống cho khoảng ngày này hay không
+        long availableRooms = calculateAvailableRoomsForRange(roomType.getId(), req.getCheckInDate(), req.getCheckOutDate());
+        if (availableRooms <= 0) {
+            throw new IllegalArgumentException(String.format(
+                    "Loại phòng '%s' đã hết phòng trống cho khoảng thời gian từ %s đến %s. Vui lòng chọn ngày khác hoặc loại phòng khác.",
+                    roomType.getName(), req.getCheckInDate(), req.getCheckOutDate()
+            ));
         }
 
         BookingRequest bookingReq = BookingRequest.builder()
@@ -192,6 +210,15 @@ public class BookingPortalController {
         BookingRequest req = findById(id);
         if (req.getStatus() != BookingRequestStatus.PENDING)
             throw new IllegalArgumentException("Yêu cầu này không ở trạng thái chờ duyệt");
+
+        // Kiểm tra xem khi duyệt có còn phòng trống hay không
+        long availableRooms = calculateAvailableRoomsForRange(req.getRoomType().getId(), req.getCheckInDate(), req.getCheckOutDate());
+        if (availableRooms <= 0) {
+            throw new IllegalArgumentException(String.format(
+                    "Không thể duyệt! Loại phòng '%s' đã hết phòng trống cho khoảng thời gian từ %s đến %s.",
+                    req.getRoomType().getName(), req.getCheckInDate(), req.getCheckOutDate()
+            ));
+        }
 
         // Tạo hoặc tìm khách
         Guest guest = guestRepository.findByPhone(req.getPhone()).orElse(null);
@@ -237,6 +264,47 @@ public class BookingPortalController {
         auditLogService.log("BookingRequest", req.getId(), "APPROVE", actor,
                 "Duyệt yêu cầu → Booking #" + booking.getId());
         return ResponseEntity.ok(toResponse(req));
+    }
+
+    private long calculateAvailableRoomsForRange(Long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        List<Room> allRooms = roomRepository.findByRoomTypeId(roomTypeId);
+        if (allRooms.isEmpty()) return 0;
+        long totalPhysicalRooms = allRooms.size();
+        List<Booking> activeBookings = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
+                roomTypeId, checkIn, checkOut);
+        LocalDate today = LocalDate.now();
+
+        long minAvailable = totalPhysicalRooms;
+        for (LocalDate d = checkIn; d.isBefore(checkOut); d = d.plusDays(1)) {
+            final LocalDate cur = d;
+            java.util.Set<Long> occupiedRoomIds = new java.util.HashSet<>();
+            int unassignedBookingCount = 0;
+
+            for (Booking b : activeBookings) {
+                if (!b.getCheckInDate().isAfter(cur) && b.getCheckOutDate().isAfter(cur)) {
+                    if (b.getRoom() != null) {
+                        occupiedRoomIds.add(b.getRoom().getId());
+                    } else {
+                        unassignedBookingCount++;
+                    }
+                }
+            }
+
+            for (Room r : allRooms) {
+                if (r.getStatus() == RoomStatus.MAINTENANCE) {
+                    occupiedRoomIds.add(r.getId());
+                } else if (cur.equals(today) && r.getStatus() == RoomStatus.OCCUPIED) {
+                    occupiedRoomIds.add(r.getId());
+                }
+            }
+
+            long totalOccupied = occupiedRoomIds.size() + unassignedBookingCount;
+            long avail = totalPhysicalRooms - totalOccupied;
+            if (avail < minAvailable) {
+                minAvailable = avail;
+            }
+        }
+        return Math.max(0, minAvailable);
     }
 
     // === STAFF: Từ chối yêu cầu ===

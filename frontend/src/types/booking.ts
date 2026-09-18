@@ -4,7 +4,8 @@ export type BookingStatus =
   | 'CHECKED_IN'
   | 'CHECKED_OUT'
   | 'CANCELLED'
-  | 'NO_SHOW';
+  | 'NO_SHOW'
+  | 'CHANNEL_BLOCKED';
 
 export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   NEW: 'Mới tạo',
@@ -12,7 +13,8 @@ export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   CHECKED_IN: 'Đã nhận phòng',
   CHECKED_OUT: 'Đã trả phòng',
   CANCELLED: 'Đã hủy',
-  NO_SHOW: 'Khách không đến'
+  NO_SHOW: 'Khách không đến',
+  CHANNEL_BLOCKED: 'Kênh giữ chỗ'
 };
 
 export interface BookingResponse {
@@ -45,6 +47,12 @@ export interface BookingResponse {
   roomStatus?: string;
   payLaterCheckout?: boolean;
   reminderSentAt?: string;
+  channelId?: number;
+  channelName?: string;
+  channelCode?: string;
+  isChannelBlock?: boolean;
+  blockId?: number;
+  isExcess?: boolean;
   stayingGuests?: Array<{
     id?: number;
     name?: string;

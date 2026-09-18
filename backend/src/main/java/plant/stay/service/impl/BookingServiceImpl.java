@@ -2,17 +2,16 @@ package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.BookingRequest;
 import plant.stay.dto.request.ExtendStayRequest;
 import plant.stay.dto.request.RescheduleDateRequest;
+import plant.stay.dto.request.SendConfirmationRequest;
 import plant.stay.dto.request.UpgradeRoomRequest;
-import plant.stay.dto.response.BookingResponse;
-import plant.stay.dto.response.CheckInReminderData;
-import plant.stay.dto.response.MessageResponse;
-import plant.stay.dto.response.RescheduleDatePreviewResponse;
+import plant.stay.dto.response.*;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.*;
 import plant.stay.repository.*;
@@ -21,12 +20,15 @@ import plant.stay.service.BookingService;
 import plant.stay.service.EmailService;
 import plant.stay.service.NotificationService;
 import plant.stay.model.NotificationType;
+import org.springframework.context.ApplicationEventPublisher;
+import plant.stay.event.CalendarSyncEvent;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -55,6 +57,12 @@ public class BookingServiceImpl implements BookingService {
     private final EmailService emailService;
     private final HotelSettingRepository hotelSettingRepository;
     private final NotificationService notificationService;
+    private final BookingConfirmationLogRepository bookingConfirmationLogRepository;
+    private final ChannelRoomBlockRepository channelRoomBlockRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    @Value("${app.domain:https://stayaway.io.vn}")
+    private String appDomain;
 
     @Override
     public List<BookingResponse> getAll() {
@@ -113,18 +121,55 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<?> getCalendar(LocalDate from, LocalDate to) {
-        // Trả về danh sách booking cho lịch phòng
-        return bookingRepository.findForCalendar(from, to).stream()
-                .map(b -> Map.of(
-                        "bookingId", b.getId(),
-                        "roomId", b.getRoom() != null ? b.getRoom().getId() : "",
-                        "roomNumber", b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán",
-                        "guestName", b.getGuest().getName(),
-                        "checkInDate", b.getCheckInDate().toString(),
-                        "checkOutDate", b.getCheckOutDate().toString(),
-                        "status", b.getStatus().name()
-                ))
-                .collect(Collectors.toList());
+        // Trả về danh sách đặt phòng và lượt chặn phòng kênh cho lịch phòng
+        List<Map<String, Object>> result = new ArrayList<>();
+        
+        for (Booking b : bookingRepository.findForCalendar(from, to)) {
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("bookingId", b.getId());
+            item.put("id", b.getId());
+            item.put("roomId", b.getRoom() != null ? b.getRoom().getId() : "");
+            item.put("roomNumber", b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán");
+            item.put("guestName", b.getGuest() != null ? b.getGuest().getName() : "Khách");
+            item.put("guestPhone", b.getGuest() != null ? b.getGuest().getPhone() : "");
+            item.put("checkInDate", b.getCheckInDate().toString());
+            item.put("checkOutDate", b.getCheckOutDate().toString());
+            item.put("status", b.getStatus().name());
+            item.put("expectedPrice", b.getExpectedPrice());
+            item.put("isChannelBlock", false);
+            if (b.getChannel() != null) {
+                item.put("channelId", b.getChannel().getId());
+                item.put("channelName", b.getChannel().getName());
+                item.put("channelCode", b.getChannel().getChannelCode());
+            }
+            result.add(item);
+        }
+
+        for (ChannelRoomBlock block : channelRoomBlockRepository.findActiveBlocksBetween(from, to)) {
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("id", "block_" + block.getId());
+            item.put("blockId", block.getId());
+            item.put("bookingId", "block_" + block.getId());
+            item.put("roomId", block.getRoom() != null ? block.getRoom().getId() : "");
+            item.put("roomNumber", block.getRoom() != null ? block.getRoom().getRoomNumber() : "Chưa gán");
+            item.put("guestName", "[" + block.getChannel().getName() + "] Kênh giữ chỗ");
+            item.put("guestPhone", "");
+            item.put("checkInDate", block.getStartDate().toString());
+            item.put("checkOutDate", block.getEndDate().toString());
+            item.put("status", "CHANNEL_BLOCKED");
+            item.put("isChannelBlock", true);
+            item.put("channelId", block.getChannel().getId());
+            item.put("channelName", block.getChannel().getName());
+            item.put("channelCode", block.getChannel().getChannelCode());
+            item.put("roomTypeId", block.getRoomType().getId());
+            item.put("roomTypeName", block.getRoomType().getName());
+            item.put("summary", block.getSummary());
+            item.put("isExcess", block.getIsExcess());
+            item.put("warningMessage", block.getWarningMessage());
+            result.add(item);
+        }
+
+        return result;
     }
 
     @Override
@@ -144,6 +189,8 @@ public class BookingServiceImpl implements BookingService {
             room = roomRepository.findById(request.getRoomId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
             checkRoomConflict(room.getId(), request.getCheckInDate(), request.getCheckOutDate(), -1L);
+        } else {
+            checkRoomTypeCapacity(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate());
         }
 
         int guestCount = request.getGuestCount() != null ? request.getGuestCount() : (roomType.getStandardCapacity() != null ? roomType.getStandardCapacity() : 2);
@@ -161,6 +208,10 @@ public class BookingServiceImpl implements BookingService {
             finalNote = (finalNote != null && !finalNote.isBlank()) ? (finalNote + " " + surchargeNote) : surchargeNote;
         }
 
+        String bookingSource = (request.getSource() != null && !request.getSource().isBlank())
+                ? request.getSource().trim().toUpperCase()
+                : "WALKIN";
+
         Booking booking = Booking.builder()
                 .guest(guest)
                 .roomType(roomType)
@@ -170,12 +221,14 @@ public class BookingServiceImpl implements BookingService {
                 .status(BookingStatus.NEW)
                 .expectedPrice(expectedPrice)
                 .actualPrice(expectedPrice)
+                .source(bookingSource)
                 .note(finalNote)
                 .createdBy(actor)
                 .build();
         booking = bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CREATE", actor,
                 "Tạo đặt phòng cho khách " + guest.getName());
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_CREATED"));
         return toResponse(booking);
     }
 
@@ -284,6 +337,7 @@ public class BookingServiceImpl implements BookingService {
         }
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CANCEL", actor, cancelNote);
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_CANCELLED"));
         return toResponse(booking);
     }
 
@@ -766,6 +820,7 @@ public class BookingServiceImpl implements BookingService {
         auditLogService.log("Booking", booking.getId(), "EXTEND_STAY", actor,
                 "Gia hạn " + req.getAdditionalNights() + " đêm đến " + newCheckOut +
                 ", tiền thêm: " + additionalCost + "đ");
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_RESCHEDULED"));
         return toResponse(booking);
     }
 
@@ -1115,6 +1170,7 @@ public class BookingServiceImpl implements BookingService {
         auditLogService.log("Booking", booking.getId(), "RESCHEDULE", actor,
                 "Dời lịch từ " + oldRange + " sang " + newRange +
                 (req.getReason() != null && !req.getReason().isBlank() ? " | Lý do: " + req.getReason().trim() : ""));
+        eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_RESCHEDULED"));
 
         return toResponse(booking);
     }
@@ -1224,13 +1280,78 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(booking);
     }
 
-    // Kiểm tra chống trùng phòng — gọi query có pessimistic lock (QTN-01)
+    // Kiểm tra chống trùng phòng — gọi query có pessimistic lock (QTN-01) và kiểm tra lượt chặn kênh
     private void checkRoomConflict(Long roomId, LocalDate checkIn, LocalDate checkOut, Long excludeBookingId) {
         List<Booking> conflicts = bookingRepository.findConflictingBookings(
                 roomId, checkIn, checkOut, excludeBookingId);
         if (!conflicts.isEmpty()) {
             throw new IllegalArgumentException("Phòng đã được đặt trong khoảng thời gian này (xung đột với booking #"
                     + conflicts.get(0).getId() + ")");
+        }
+
+        List<ChannelRoomBlock> blockConflicts = channelRoomBlockRepository.findConflictingBlocks(
+                roomId, checkIn, checkOut);
+        if (!blockConflicts.isEmpty()) {
+            ChannelRoomBlock b = blockConflicts.get(0);
+            throw new IllegalArgumentException("Phòng đã bị giữ bởi kênh phân phối '" + b.getChannel().getName()
+                    + "' từ " + b.getStartDate() + " đến " + b.getEndDate() + " (lượt chặn kênh OTA). Vui lòng chọn phòng khác.");
+        }
+    }
+
+    // Kiểm tra sức chứa loại phòng khi đặt không chọn phòng cụ thể
+    private void checkRoomTypeCapacity(Long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        List<Room> allRooms = roomRepository.findByRoomTypeId(roomTypeId);
+        if (allRooms.isEmpty()) {
+            throw new IllegalArgumentException("Loại phòng này hiện chưa có phòng thực tế nào.");
+        }
+        long totalPhysicalRooms = allRooms.size();
+        List<Booking> activeBookings = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
+                roomTypeId, checkIn, checkOut);
+        LocalDate today = LocalDate.now();
+
+        for (LocalDate d = checkIn; d.isBefore(checkOut); d = d.plusDays(1)) {
+            final LocalDate cur = d;
+            java.util.Set<Long> occupiedRoomIds = new java.util.HashSet<>();
+            int unassignedBookingCount = 0;
+
+            for (Booking b : activeBookings) {
+                if (!b.getCheckInDate().isAfter(cur) && b.getCheckOutDate().isAfter(cur)) {
+                    if (b.getRoom() != null) {
+                        occupiedRoomIds.add(b.getRoom().getId());
+                    } else {
+                        unassignedBookingCount++;
+                    }
+                }
+            }
+
+            for (Room r : allRooms) {
+                if (r.getStatus() == RoomStatus.MAINTENANCE) {
+                    occupiedRoomIds.add(r.getId());
+                } else if (cur.equals(today) && r.getStatus() == RoomStatus.OCCUPIED) {
+                    occupiedRoomIds.add(r.getId());
+                }
+            }
+
+            // Đếm thêm các lượt chặn phòng từ kênh đang giữ chỗ trên loại phòng này
+            List<ChannelRoomBlock> activeBlocks = channelRoomBlockRepository.findActiveBlocksByRoomTypeAndDates(
+                    roomTypeId, checkIn, checkOut);
+            for (ChannelRoomBlock block : activeBlocks) {
+                if (!block.getStartDate().isAfter(cur) && block.getEndDate().isAfter(cur)) {
+                    if (block.getRoom() != null) {
+                        occupiedRoomIds.add(block.getRoom().getId());
+                    } else {
+                        unassignedBookingCount++;
+                    }
+                }
+            }
+
+            long totalOccupied = occupiedRoomIds.size() + unassignedBookingCount;
+            if (totalPhysicalRooms - totalOccupied <= 0) {
+                throw new IllegalArgumentException(String.format(
+                        "Loại phòng đã hết phòng trống cho đêm ngày %s. Vui lòng chọn ngày hoặc loại phòng khác.",
+                        cur
+                ));
+            }
         }
     }
 
@@ -1303,6 +1424,9 @@ public class BookingServiceImpl implements BookingService {
                 .payLaterCheckout(payLaterCheckout)
                 .reminderSentAt(b.getReminderSentAt())
                 .stayingGuests(stayingGuestsDto)
+                .channelId(b.getChannel() != null ? b.getChannel().getId() : null)
+                .channelName(b.getChannel() != null ? b.getChannel().getName() : null)
+                .channelCode(b.getChannel() != null ? b.getChannel().getChannelCode() : null)
                 .build();
     }
 
@@ -1428,5 +1552,379 @@ public class BookingServiceImpl implements BookingService {
                 .remainingAmount(remaining)
                 .note(booking.getNote())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse confirmBooking(Long bookingId, User actor) {
+        Booking booking = findById(bookingId);
+        if (booking.getStatus() != BookingStatus.NEW) {
+            throw new IllegalArgumentException("Chỉ có thể xác nhận đặt phòng đang ở trạng thái Mới tạo (NEW). Trạng thái hiện tại: " + booking.getStatus());
+        }
+
+        // Kiểm tra thông tin liên hệ của khách để cảnh báo nhưng KHÔNG chặn nghiệp vụ
+        Guest guest = booking.getGuest();
+        boolean hasPhone = guest != null && guest.getPhone() != null && !guest.getPhone().isBlank();
+        boolean hasEmail = guest != null && guest.getEmail() != null && !guest.getEmail().isBlank();
+        String warningMsg = "";
+        if (!hasPhone && !hasEmail) {
+            warningMsg = " [Cảnh báo: Khách hàng chưa có SĐT và Email liên hệ]";
+            log.warn("[BOOKING] Xác nhận booking #{} nhưng khách hàng '{}' chưa có SĐT hoặc Email", bookingId, guest != null ? guest.getName() : "N/A");
+        } else if (!hasEmail) {
+            log.info("[BOOKING] Xác nhận booking #{} cho khách '{}' (chưa có email, có SĐT: {})", bookingId, guest != null ? guest.getName() : "N/A", guest.getPhone());
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking = bookingRepository.save(booking);
+
+        auditLogService.log("Booking", booking.getId(), "CONFIRM", actor,
+                "Xác nhận đặt phòng cho khách " + (guest != null ? guest.getName() : "") + warningMsg);
+
+        return toResponse(booking);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BookingConfirmationData getBookingConfirmationData(Long bookingId) {
+        Booking booking = findById(bookingId);
+        Guest guest = booking.getGuest();
+        RoomType roomType = booking.getRoomType();
+        Room room = booking.getRoom();
+
+        // 1. Thông tin khách & cảnh báo
+        String guestName = guest != null ? guest.getName() : "Quý khách";
+        String guestPhone = guest != null && guest.getPhone() != null ? guest.getPhone().trim() : "";
+        String guestEmail = guest != null && guest.getEmail() != null ? guest.getEmail().trim() : "";
+        boolean hasPhone = !guestPhone.isBlank();
+        boolean hasEmail = !guestEmail.isBlank();
+        boolean hasContact = hasPhone || hasEmail;
+        String contactWarning = null;
+        if (!hasContact) {
+            contactWarning = "Khách hàng chưa có Số điện thoại hoặc Email liên hệ. Khuyến nghị cập nhật thông tin để gửi bản xác nhận.";
+        } else if (!hasEmail) {
+            contactWarning = "Khách hàng chưa có địa chỉ Email. Bạn có thể kết xuất văn bản để gửi qua kênh nhắn tin (Zalo/SMS).";
+        }
+
+        // 2. Cơ sở lưu trú & giờ checkin/checkout
+        HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
+        String hotelName = setting != null && setting.getPropertyName() != null && !setting.getPropertyName().isBlank()
+                ? setting.getPropertyName() : "STAYAWAY HOTEL";
+        String hotelAddress = setting != null && setting.getAddress() != null ? setting.getAddress() : "";
+        String hotelPhone = setting != null && setting.getPhone() != null ? setting.getPhone() : "";
+        String hotelEmail = setting != null && setting.getEmail() != null ? setting.getEmail() : "";
+        java.time.LocalTime checkInTime = setting != null && setting.getDefaultCheckinTime() != null
+                ? setting.getDefaultCheckinTime() : java.time.LocalTime.of(14, 0);
+        java.time.LocalTime checkOutTime = setting != null && setting.getDefaultCheckoutTime() != null
+                ? setting.getDefaultCheckoutTime() : java.time.LocalTime.of(12, 0);
+
+        // 3. Số đêm lưu trú
+        LocalDate checkInDate = booking.getCheckInDate();
+        LocalDate checkOutDate = booking.getCheckOutDate();
+        long nights = (checkInDate != null && checkOutDate != null)
+                ? ChronoUnit.DAYS.between(checkInDate, checkOutDate) : 1;
+        if (nights <= 0) nights = 1;
+
+        // 4. Chi tiết giá từng đêm qua PricingService
+        int guestCount = (roomType != null && roomType.getStandardCapacity() != null)
+                ? roomType.getStandardCapacity() : 2;
+        var breakdown = (roomType != null && checkInDate != null && checkOutDate != null)
+                ? pricingService.calculateBreakdown(roomType.getId(), checkInDate, checkOutDate, guestCount, 0)
+                : null;
+
+        List<NightlyPriceDetailDto> nightlyDetails = breakdown != null ? breakdown.getNightlyDetails() : new ArrayList<>();
+        BigDecimal totalRoomPrice = breakdown != null ? breakdown.getTotalRoomPrice() : (booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+        BigDecimal extraCharge = breakdown != null ? breakdown.getTotalExtraCharge() : BigDecimal.ZERO;
+        BigDecimal grandTotal = booking.getExpectedPrice() != null ? booking.getExpectedPrice()
+                : (breakdown != null ? breakdown.getGrandTotal() : BigDecimal.ZERO);
+
+        // 5. Tính toán tiền cọc quy định
+        Deposit deposit = depositRepository.findFirstByBookingIdOrderByCreatedAtDesc(booking.getId()).orElse(null);
+        BigDecimal depositPercent = BigDecimal.ZERO;
+        BigDecimal requiredDepositAmount = BigDecimal.ZERO;
+        BigDecimal collectedDepositAmount = deposit != null && deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
+        String depositStatus = deposit != null ? deposit.getStatus().name() : "NONE";
+
+        if (deposit != null && deposit.getRequiredAmount() != null && deposit.getRequiredAmount().compareTo(BigDecimal.ZERO) > 0) {
+            requiredDepositAmount = deposit.getRequiredAmount();
+            if (grandTotal.compareTo(BigDecimal.ZERO) > 0) {
+                depositPercent = requiredDepositAmount.multiply(BigDecimal.valueOf(100))
+                        .divide(grandTotal, 1, RoundingMode.HALF_UP);
+            }
+        } else {
+            DepositPolicy policy = null;
+            if (roomType != null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(roomType.getId()).orElse(null);
+            }
+            if (policy == null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue().orElse(null);
+            }
+            if (policy != null && policy.getDepositPercent() != null) {
+                depositPercent = policy.getDepositPercent();
+                requiredDepositAmount = grandTotal.multiply(depositPercent)
+                        .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            }
+        }
+
+        // 6. Tóm tắt chính sách hủy đang áp dụng
+        CancellationPolicy cancelPolicy = null;
+        if (roomType != null) {
+            cancelPolicy = cancellationPolicyRepository.findFirstByRoomTypeId(roomType.getId()).orElse(null);
+        }
+        if (cancelPolicy == null) {
+            cancelPolicy = cancellationPolicyRepository.findByRoomTypeIsNull().orElse(null);
+        }
+
+        Integer freeCancelHours = cancelPolicy != null ? cancelPolicy.getFreeCancelHours() : 24;
+        BigDecimal penaltyPercent = cancelPolicy != null ? cancelPolicy.getPenaltyPercent() : BigDecimal.valueOf(100);
+        String cancelSummary;
+        java.time.format.DateTimeFormatter df = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        String checkInFormatted = checkInDate != null ? checkInDate.format(df) : "";
+        if (cancelPolicy != null) {
+            String penaltyStr = penaltyPercent.stripTrailingZeros().toPlainString();
+            cancelSummary = "Miễn phí hủy phòng trước " + freeCancelHours + " giờ so với giờ nhận phòng tiêu chuẩn ("
+                    + checkInTime.toString().substring(0, 5) + " ngày " + checkInFormatted
+                    + "). Nếu hủy muộn hơn hoặc không đến (No-show), mức phí phạt là " + penaltyStr + "% tiền phòng/cọc theo quy định.";
+        } else {
+            cancelSummary = "Quý khách được miễn phí hủy phòng trước 24 giờ nhận phòng. Hủy sau thời gian trên hoặc không đến có thể phải chịu phí phạt theo quy định của khách sạn.";
+        }
+
+        // 7. Lịch sử gửi xác nhận
+        List<BookingConfirmationLogResponse> logs = bookingConfirmationLogRepository
+                .findByBookingIdOrderBySentAtDesc(booking.getId())
+                .stream()
+                .map(this::toLogResponse)
+                .collect(Collectors.toList());
+
+        // 8. Định dạng tin nhắn soạn sẵn (Formatted message cho Zalo/SMS)
+        String formattedMessage = buildFormattedMessage(
+                hotelName, hotelAddress, hotelPhone, booking.getId(),
+                guestName, roomType != null ? roomType.getName() : "Tiêu chuẩn",
+                room != null ? room.getRoomNumber() : null,
+                checkInDate, checkOutDate, checkInTime, checkOutTime, nights,
+                grandTotal, requiredDepositAmount, cancelSummary
+        );
+
+        // 9. Thống kê kiểm soát chống spam gửi Email
+        BookingConfirmationLog lastEmailLog = bookingConfirmationLogRepository
+                .findFirstByBookingIdAndChannelOrderBySentAtDesc(booking.getId(), ConfirmationChannel.EMAIL)
+                .orElse(null);
+
+        java.time.LocalDateTime lastEmailSentAt = lastEmailLog != null ? lastEmailLog.getSentAt() : null;
+        String lastEmailRecipient = lastEmailLog != null ? lastEmailLog.getRecipient() : null;
+        String lastEmailSenderName = lastEmailLog != null && lastEmailLog.getSentBy() != null
+                ? lastEmailLog.getSentBy().getName() : (lastEmailLog != null ? "Hệ thống" : null);
+        String lastEmailStatus = lastEmailLog != null ? lastEmailLog.getStatus() : null;
+
+        long emailCooldownSeconds = 0;
+        if (lastEmailSentAt != null && "SUCCESS".equalsIgnoreCase(lastEmailStatus)) {
+            long diffSeconds = ChronoUnit.SECONDS.between(lastEmailSentAt, java.time.LocalDateTime.now());
+            if (diffSeconds < 60) {
+                emailCooldownSeconds = 60 - diffSeconds;
+            }
+        }
+
+        long countEmailToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndStatusAndSentAtGreaterThanEqual(
+                booking.getId(), ConfirmationChannel.EMAIL, "SUCCESS", LocalDate.now().atStartOfDay()
+        );
+
+        return BookingConfirmationData.builder()
+                .bookingId(booking.getId())
+                .bookingCode("#" + booking.getId())
+                .status(booking.getStatus().name())
+                .guestId(guest != null ? guest.getId() : null)
+                .guestName(guestName)
+                .guestPhone(guestPhone)
+                .guestEmail(guestEmail)
+                .hasGuestPhone(hasPhone)
+                .hasGuestEmail(hasEmail)
+                .hasContactInfo(hasContact)
+                .contactWarning(contactWarning)
+                .checkInDate(checkInDate)
+                .checkOutDate(checkOutDate)
+                .standardCheckInTime(checkInTime)
+                .standardCheckOutTime(checkOutTime)
+                .totalNights(nights)
+                .roomTypeId(roomType != null ? roomType.getId() : null)
+                .roomTypeName(roomType != null ? roomType.getName() : "")
+                .roomId(room != null ? room.getId() : null)
+                .roomNumber(room != null ? room.getRoomNumber() : null)
+                .standardCapacity(roomType != null ? roomType.getStandardCapacity() : 2)
+                .maxCapacity(roomType != null ? roomType.getMaxCapacity() : 2)
+                .guestCount(guestCount)
+                .nightlyDetails(nightlyDetails)
+                .totalRoomPrice(totalRoomPrice)
+                .extraPersonCharge(extraCharge)
+                .grandTotalPrice(grandTotal)
+                .depositPercent(depositPercent)
+                .requiredDepositAmount(requiredDepositAmount)
+                .collectedDepositAmount(collectedDepositAmount)
+                .depositStatus(depositStatus)
+                .freeCancelHours(freeCancelHours)
+                .penaltyPercent(penaltyPercent)
+                .cancellationPolicySummary(cancelSummary)
+                .propertyName(hotelName)
+                .hotelAddress(hotelAddress)
+                .hotelPhone(hotelPhone)
+                .hotelEmail(hotelEmail)
+                .emailConfigured(emailService.isEmailConfigured())
+                .formattedMessage(formattedMessage)
+                .lastEmailSentAt(lastEmailSentAt)
+                .lastEmailRecipient(lastEmailRecipient)
+                .lastEmailSenderName(lastEmailSenderName)
+                .lastEmailStatus(lastEmailStatus)
+                .emailSendCountToday((int) countEmailToday)
+                .maxEmailSendQuota(5)
+                .emailCooldownSecondsRemaining(emailCooldownSeconds)
+                .confirmationLogs(logs)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public BookingConfirmationLogResponse sendOrLogConfirmation(Long bookingId, SendConfirmationRequest req, User actor) {
+        BookingConfirmationData data = getBookingConfirmationData(bookingId);
+        Booking booking = findById(bookingId);
+
+        ConfirmationChannel channel = req.getChannel();
+        String recipient = "";
+        String status = "SUCCESS";
+        String note = req.getNote();
+
+        if (channel == ConfirmationChannel.EMAIL) {
+            // 1. Kiểm tra Quota giới hạn trong ngày (tối đa 5 lần gửi thành công)
+            long countToday = bookingConfirmationLogRepository.countByBookingIdAndChannelAndStatusAndSentAtGreaterThanEqual(
+                    booking.getId(), ConfirmationChannel.EMAIL, "SUCCESS", LocalDate.now().atStartOfDay()
+            );
+            if (countToday >= 5) {
+                throw new IllegalArgumentException("Đã đạt giới hạn tối đa 5 lần gửi email xác nhận trong ngày cho mã đặt phòng #" + booking.getId() + ". Vui lòng chuyển sang kênh Tin nhắn (Zalo/SMS) hoặc In ấn / Xuất file để tránh spam khách hàng.");
+            }
+
+            // 2. Kiểm tra Rate Limit / Cooldown (60 giây giữa các lần gửi thành công)
+            var lastEmailLogOpt = bookingConfirmationLogRepository
+                    .findFirstByBookingIdAndChannelAndStatusOrderBySentAtDesc(booking.getId(), ConfirmationChannel.EMAIL, "SUCCESS");
+            if (lastEmailLogOpt.isPresent()) {
+                long diffSeconds = ChronoUnit.SECONDS.between(lastEmailLogOpt.get().getSentAt(), java.time.LocalDateTime.now());
+                if (diffSeconds < 60) {
+                    long waitSec = 60 - diffSeconds;
+                    throw new IllegalArgumentException("Email xác nhận vừa được gửi cách đây " + diffSeconds + " giây. Vui lòng đợi thêm " + waitSec + " giây trước khi gửi lại để tránh spam hòm thư của khách.");
+                }
+            }
+
+            String targetEmail = (req.getCustomEmail() != null && !req.getCustomEmail().isBlank())
+                    ? req.getCustomEmail().trim()
+                    : data.getGuestEmail();
+
+            if (targetEmail == null || targetEmail.isBlank()) {
+                throw new IllegalArgumentException("Không thể gửi email: Khách hàng chưa có địa chỉ email. Vui lòng nhập địa chỉ email hoặc chọn gửi qua tin nhắn.");
+            }
+
+            recipient = targetEmail;
+
+            boolean sentOk = emailService.sendBookingConfirmationEmail(targetEmail, data);
+            if (!sentOk) {
+                status = "FAILED";
+                note = (note != null && !note.isBlank()) ? (note + " (Gửi thất bại qua hệ thống email)") : "Gửi email thất bại qua hệ thống";
+            } else {
+                note = (note != null && !note.isBlank()) ? note : ("Đã gửi email bản xác nhận tới " + targetEmail);
+            }
+        } else if (channel == ConfirmationChannel.MESSAGING_APP) {
+            String targetPhone = (req.getCustomPhone() != null && !req.getCustomPhone().isBlank())
+                    ? req.getCustomPhone().trim()
+                    : data.getGuestPhone();
+            recipient = targetPhone != null && !targetPhone.isBlank() ? targetPhone : data.getGuestName();
+            status = "SUCCESS";
+            note = (note != null && !note.isBlank()) ? note : "Đã kết xuất bản xác nhận để gửi qua kênh tin nhắn (Zalo/SMS/Messenger)";
+        } else if (channel == ConfirmationChannel.PRINT_EXPORT) {
+            recipient = data.getGuestName();
+            status = "SUCCESS";
+            note = (note != null && !note.isBlank()) ? note : "Đã in / xuất bản xác nhận đặt phòng";
+        }
+
+        BookingConfirmationLog logEntry = BookingConfirmationLog.builder()
+                .booking(booking)
+                .channel(channel)
+                .recipient(recipient)
+                .sentBy(actor)
+                .status(status)
+                .note(note)
+                .build();
+
+        logEntry = bookingConfirmationLogRepository.save(logEntry);
+
+        auditLogService.log("BookingConfirmation", booking.getId(), "SEND_CONFIRMATION", actor,
+                "Gửi/kết xuất bản xác nhận đặt phòng qua kênh " + channel.name() + " (" + status + ")");
+
+        return toLogResponse(logEntry);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingConfirmationLogResponse> getConfirmationLogs(Long bookingId) {
+        return bookingConfirmationLogRepository.findByBookingIdOrderBySentAtDesc(bookingId)
+                .stream()
+                .map(this::toLogResponse)
+                .collect(Collectors.toList());
+    }
+
+    private BookingConfirmationLogResponse toLogResponse(BookingConfirmationLog logEntry) {
+        String channelDisplayName = switch (logEntry.getChannel()) {
+            case EMAIL -> "Thư điện tử (Email)";
+            case MESSAGING_APP -> "Kênh tin nhắn (Zalo/SMS)";
+            case PRINT_EXPORT -> "In ấn / Xuất file";
+        };
+
+        return BookingConfirmationLogResponse.builder()
+                .id(logEntry.getId())
+                .bookingId(logEntry.getBooking().getId())
+                .channel(logEntry.getChannel())
+                .channelDisplayName(channelDisplayName)
+                .recipient(logEntry.getRecipient())
+                .sentById(logEntry.getSentBy() != null ? logEntry.getSentBy().getId() : null)
+                .sentByName(logEntry.getSentBy() != null ? logEntry.getSentBy().getName() : "Hệ thống")
+                .status(logEntry.getStatus())
+                .note(logEntry.getNote())
+                .sentAt(logEntry.getSentAt())
+                .build();
+    }
+
+    private String buildFormattedMessage(String hotelName, String hotelAddress, String hotelPhone,
+                                         Long bookingId, String guestName, String roomTypeName, String roomNumber,
+                                         LocalDate checkInDate, LocalDate checkOutDate,
+                                         java.time.LocalTime checkInTime, java.time.LocalTime checkOutTime,
+                                         long nights, BigDecimal grandTotal, BigDecimal depositRequired,
+                                         String cancellationSummary) {
+        java.time.format.DateTimeFormatter df = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        String checkInStr = checkInDate != null ? checkInDate.format(df) : "";
+        String checkOutStr = checkOutDate != null ? checkOutDate.format(df) : "";
+        String checkInTimeStr = checkInTime != null ? checkInTime.toString().substring(0, 5) : "14:00";
+        String checkOutTimeStr = checkOutTime != null ? checkOutTime.toString().substring(0, 5) : "12:00";
+        String roomStr = roomNumber != null && !roomNumber.isBlank()
+                ? (roomTypeName + " (Phòng " + roomNumber + ")")
+                : roomTypeName;
+
+        String totalStr = grandTotal != null ? String.format(java.util.Locale.GERMANY, "%,d đ", grandTotal.longValue()) : "0 đ";
+        String depositStr = depositRequired != null && depositRequired.compareTo(BigDecimal.ZERO) > 0
+                ? String.format(java.util.Locale.GERMANY, "%,d đ", depositRequired.longValue())
+                : "Không yêu cầu đặt cọc trước";
+
+        String link = appDomain + "/p/booking/" + bookingId;
+
+        return "🏨 [XÁC NHẬN ĐẶT PHÒNG - " + hotelName.toUpperCase() + "]\n"
+                + "Kính gửi Quý khách " + guestName + ",\n"
+                + hotelName + " xin gửi thông tin chi tiết xác nhận đặt phòng của Quý khách:\n"
+                + "--------------------------------\n"
+                + "• Mã đặt phòng: #" + bookingId + "\n"
+                + "• Hạng phòng: " + roomStr + "\n"
+                + "• Nhận phòng: " + checkInStr + " (từ " + checkInTimeStr + ")\n"
+                + "• Trả phòng: " + checkOutStr + " (trước " + checkOutTimeStr + ")\n"
+                + "• Thời gian lưu trú: " + nights + " đêm\n"
+                + "• Tổng tiền phòng dự kiến: " + totalStr + "\n"
+                + "• Tiền đặt cọc cần nộp: " + depositStr + "\n"
+                + "• Chính sách hủy: " + cancellationSummary + "\n"
+                + "--------------------------------\n"
+                + "📍 Địa chỉ: " + hotelAddress + "\n"
+                + "☎️ Hotline hỗ trợ: " + hotelPhone + "\n"
+                + "🔗 Tra cứu đặt phòng trực tuyến: " + link + "\n"
+                + "Kính chúc Quý khách có một kỳ nghỉ thật tuyệt vời!";
     }
 }

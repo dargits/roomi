@@ -16,6 +16,7 @@ public interface InvoiceService {
     InvoiceResponse createInvoice(Long bookingId, User actor);
     GroupInvoiceResponse getGroupInvoices(Long groupBookingId);
     GroupInvoiceResponse createGroupInvoices(Long groupBookingId, GroupInvoiceCreateRequest request, User actor);
+    InvoiceResponse cancelDraftInvoice(Long invoiceId, plant.stay.dto.request.InvoiceCancelRequest request, User actor);
     InvoiceResponse adjustInvoice(Long invoiceId, InvoiceAdjustRequest request, User actor);
     PaymentResponse addPayment(Long invoiceId, PaymentRequest request, User actor);
     List<PaymentResponse> getPayments(Long invoiceId);

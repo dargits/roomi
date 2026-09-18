@@ -26,6 +26,9 @@ public class RoomTypeResponse {
     private String amenitiesDescription;
     private java.util.List<String> imageUrls;
     private boolean active;
+    private Long totalRooms;
+    private Long availableRoomsToday;
+    private Boolean isAvailableToday;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

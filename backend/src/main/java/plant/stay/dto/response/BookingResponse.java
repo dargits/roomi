@@ -41,4 +41,7 @@ public class BookingResponse {
     private boolean payLaterCheckout;
     private LocalDateTime reminderSentAt;
     private java.util.List<GuestResponse> stayingGuests;
+    private Long channelId;
+    private String channelName;
+    private String channelCode;
 }
