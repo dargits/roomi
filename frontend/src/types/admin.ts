@@ -1,4 +1,4 @@
-﻿export interface HotelSettingResponse {
+export interface HotelSettingResponse {
   id?: number;
   propertyName: string;
   address: string;
@@ -13,6 +13,8 @@
   bankAccountName?: string;
   reminderEmailEnabled?: boolean;
   reminderMorningTime?: string;
+  periodicCleaningEnabled?: boolean;
+  periodicCleaningDays?: number;
 }
 
 export interface HotelSettingRequest {
@@ -29,6 +31,8 @@ export interface HotelSettingRequest {
   bankAccountName?: string;
   reminderEmailEnabled?: boolean;
   reminderMorningTime?: string;
+  periodicCleaningEnabled?: boolean;
+  periodicCleaningDays?: number;
 }
 
 export interface InventoryItemResponse {

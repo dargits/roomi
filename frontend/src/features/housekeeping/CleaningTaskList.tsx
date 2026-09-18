@@ -43,6 +43,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
   const [processingId, setProcessingId] = useState<number | string | null>(null);
   const [incidentRoom, setIncidentRoom] = useState<any | null>(null);
   const [lostItemRoom, setLostItemRoom] = useState<any | null>(null);
+  const [scanningPeriodic, setScanningPeriodic] = useState(false);
   
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,6 +55,19 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
   const isSupervisor = ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
   const isHousekeeper = user?.role === 'HOUSEKEEPER';
+
+  const handleScanPeriodicCleaning = async () => {
+    setScanningPeriodic(true);
+    try {
+      const res = await roomApi.scanPeriodicCleaning();
+      toast.success(res.message || 'Đã quét phòng trống định kỳ thành công!');
+      fetchRoomsAndStaff();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi khi quét phòng trống.');
+    } finally {
+      setScanningPeriodic(false);
+    }
+  };
 
   const fetchRoomsAndStaff = async () => {
     setLoading(true);
@@ -553,6 +567,18 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
               </button>
             </div>
 
+            {user?.role === 'OWNER' && (
+              <button
+                onClick={handleScanPeriodicCleaning}
+                disabled={scanningPeriodic || loading}
+                className="flex items-center gap-1.5 px-3 py-2 border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors text-teal-900 text-xs font-semibold shadow-xs cursor-pointer"
+                title="Quét các phòng trống quá chu kỳ để tự động đưa vào danh sách cần dọn"
+              >
+                <IoSparklesOutline size={14} className={scanningPeriodic ? 'animate-spin text-teal-600' : 'text-teal-600'} />
+                <span>Quét dọn định kỳ</span>
+              </button>
+            )}
+
             <button
               onClick={fetchRoomsAndStaff}
               disabled={loading}
@@ -694,13 +720,21 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                       </div>
 
                       <div className="flex flex-col items-end gap-1">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
-                          isDirty 
-                            ? 'bg-orange-100 text-orange-900 border-orange-300' 
-                            : 'bg-purple-100 text-purple-900 border-purple-300'
-                        }`}>
-                          {isDirty ? 'Cần dọn' : 'Chờ duyệt'}
-                        </span>
+                        <div className="flex items-center gap-1 flex-wrap justify-end">
+                          {room.cleaningReason === 'PERIODIC_VACANT' && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-teal-100 text-teal-900 border-teal-300 flex items-center gap-0.5">
+                              <IoSparklesOutline size={10} className="text-teal-700" />
+                              Định kỳ
+                            </span>
+                          )}
+                          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+                            isDirty 
+                              ? 'bg-orange-100 text-orange-900 border-orange-300' 
+                              : 'bg-purple-100 text-purple-900 border-purple-300'
+                          }`}>
+                            {isDirty ? 'Cần dọn' : 'Chờ duyệt'}
+                          </span>
+                        </div>
                         <span className="text-[10px] text-on-surface-variant font-semibold">
                           Tầng {room.floor || '—'}
                         </span>
@@ -711,6 +745,12 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                     <div className="p-3.5 flex-1 space-y-2.5 text-xs">
                       {/* Priority Badge */}
                       <div>
+                        {room.cleaningReason === 'PERIODIC_VACANT' && (
+                          <div className="mb-1.5 flex items-center gap-1.5 px-2 py-1 bg-teal-50 border border-teal-200 text-teal-900 font-semibold text-[11px]">
+                            <IoSparklesOutline size={14} className="text-teal-600 shrink-0" />
+                            <span>Phòng trống {room.vacantDays ? `${room.vacantDays} ngày` : 'lâu ngày'} — Cần lau bụi định kỳ</span>
+                          </div>
+                        )}
                         {isUrgent ? (
                           <div className="flex items-center gap-1.5 px-2 py-1 bg-red-100/80 border border-red-300 text-red-800 font-bold text-[11px]">
                             <IoFlameOutline size={15} className="text-red-600 animate-pulse" />

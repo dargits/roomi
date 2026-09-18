@@ -134,6 +134,18 @@ public class RoomController {
         return ResponseEntity.ok(roomService.setMaintenance(id, actor));
     }
 
+    // Kích hoạt quét dọn định kỳ phòng trống dài ngày (Chỉ OWNER)
+    @PostMapping("/scan-periodic-cleaning")
+    public ResponseEntity<MessageResponse> scanPeriodicCleaning(HttpServletRequest request) {
+        User actor = checkOwner(request);
+        int count = roomService.triggerPeriodicCleaningCheck(actor);
+        return ResponseEntity.ok(new MessageResponse(
+                count > 0
+                        ? "Đã quét thành công: Chuyển " + count + " phòng trống lâu ngày sang trạng thái Cần dọn."
+                        : "Đã quét xong: Hiện không có phòng trống nào vượt quá chu kỳ ngày cài đặt."
+        ));
+    }
+
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null) throw new UnauthorizedException("Vui lòng đăng nhập");
