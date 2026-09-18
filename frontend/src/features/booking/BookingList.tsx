@@ -17,7 +17,8 @@ import {
   IoCardOutline,
   IoCloseOutline,
   IoDocumentOutline,
-  IoPeopleOutline
+  IoPeopleOutline,
+  IoDocumentTextOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import AssignRoomModal from './AssignRoomModal';
@@ -550,6 +551,18 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                           <IoDocumentOutline size={14} /> Chi tiết
                         </Link>
 
+                        {/* Nút Bản xác nhận */}
+                        {(booking.status === 'CONFIRMED' || booking.status === 'NEW') && (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setConfirmationBookingId(booking.id); }}
+                            className="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold transition-colors border border-blue-200 cursor-pointer shadow-xs flex items-center gap-1"
+                            title="Xem & gửi bản xác nhận đặt phòng cho khách"
+                          >
+                            <IoDocumentTextOutline size={14} /> XÁC NHẬN
+                          </button>
+                        )}
+
                         {/* Nút Xếp phòng */}
                         {!isAccountant && !booking.roomNumber && !booking.roomId && (booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
                           <button 
@@ -557,7 +570,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                             onClick={(e) => { e.stopPropagation(); setAssigningBooking(booking); }}
                             className="px-2.5 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-semibold transition-colors border border-indigo-200 cursor-pointer shadow-xs"
                           >
-                            Xếp phòng
+                            XẾP PHÒNG
                           </button>
                         )}
 
@@ -568,7 +581,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                             onClick={(e) => { e.stopPropagation(); openActionModal('CHECK_IN', booking); }}
                             className="px-2.5 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded text-xs font-semibold transition-colors border border-green-200 cursor-pointer shadow-xs flex items-center gap-1"
                           >
-                            <IoLogInOutline size={14} /> Nhận phòng
+                            <IoLogInOutline size={14} /> NHẬN PHÒNG
                           </button>
                         )}
 
@@ -578,7 +591,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                             onClick={(e) => { e.stopPropagation(); openActionModal('NO_SHOW', booking); }}
                             className="px-2.5 py-1.5 bg-orange-50 text-orange-700 hover:bg-orange-100 rounded text-xs font-semibold transition-colors border border-orange-200 cursor-pointer shadow-xs"
                           >
-                            Không đến
+                            KHÔNG ĐẾN
                           </button>
                         )}
 
@@ -612,7 +625,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                             onClick={(e) => { e.stopPropagation(); openActionModal('CANCEL', booking); }} 
                             className="px-2.5 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded text-xs font-semibold transition-colors border border-red-200 cursor-pointer shadow-xs"
                           >
-                            Hủy
+                            HỦY
                           </button>
                         )}
                       </div>
@@ -643,11 +656,8 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
           onClose={() => setAssigningBooking(null)}
           booking={assigningBooking}
           onAssigned={() => {
-            const bookedId = assigningBooking.id;
             fetchBookings();
             setAssigningBooking(null);
-            // Tự động mở Bản xác nhận đặt phòng ngay sau khi xếp phòng thành công
-            setConfirmationBookingId(bookedId);
           }}
         />
       )}
