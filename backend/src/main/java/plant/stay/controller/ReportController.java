@@ -578,6 +578,144 @@ public class ReportController {
         return ResponseEntity.ok(result);
     }
 
+    // ========================================================
+    // Báo cáo cơ cấu đặt phòng theo kênh (Channel Structure)
+    // ========================================================
+    @GetMapping("/channels")
+    public ResponseEntity<?> channelReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            HttpServletRequest request) {
+        checkFinance(request);
+
+        List<Booking> bookings = bookingRepository.findBookingsForChannelReport(from, to);
+        if (bookings == null) bookings = Collections.emptyList();
+
+        List<String> channelKeys = List.of("WALKIN", "PHONE", "SOCIAL", "ONLINE", "SIMULATION", "UNKNOWN");
+        Map<String, List<Booking>> channelGrouped = new LinkedHashMap<>();
+        for (String k : channelKeys) {
+            channelGrouped.put(k, new ArrayList<>());
+        }
+
+        for (Booking b : bookings) {
+            String norm = normalizeChannelKey(b.getSource());
+            channelGrouped.get(norm).add(b);
+        }
+
+        BigDecimal totalOverallRevenue = BigDecimal.ZERO;
+        long totalOverallBookings = bookings.size();
+        long totalOverallSoldNights = 0;
+        long totalOverallCancelled = 0;
+        long totalOverallNoShow = 0;
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        for (String k : channelKeys) {
+            List<Booking> bList = channelGrouped.get(k);
+            long totalB = bList.size();
+
+            long cancelledB = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CANCELLED).count();
+            long noShowB = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.NO_SHOW).count();
+            long completedB = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT).count();
+            long activeB = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN || b.getStatus() == plant.stay.model.BookingStatus.CONFIRMED).count();
+
+            // Doanh thu theo kênh: lấy từ hóa đơn đã lập, không lấy tiền phòng dự kiến
+            BigDecimal channelRevenue = bList.stream()
+                    .map(this::getInvoiceRevenue)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // Số đêm phòng bán được: tính từ các booking đã hoàn thành hoặc đang lưu trú trong kỳ
+            long soldNights = bList.stream()
+                    .filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT || b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN)
+                    .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                            ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                            : 1)
+                    .sum();
+
+            double cancelRate = totalB > 0
+                    ? Math.round(((double) cancelledB / totalB * 100.0) * 100.0) / 100.0
+                    : 0.0;
+            double noShowRate = totalB > 0
+                    ? Math.round(((double) noShowB / totalB * 100.0) * 100.0) / 100.0
+                    : 0.0;
+
+            BigDecimal adr = soldNights > 0
+                    ? channelRevenue.divide(BigDecimal.valueOf(soldNights), 0, java.math.RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            totalOverallRevenue = totalOverallRevenue.add(channelRevenue);
+            totalOverallSoldNights += soldNights;
+            totalOverallCancelled += cancelledB;
+            totalOverallNoShow += noShowB;
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("channelKey", k);
+            row.put("channelName", getChannelDisplayName(k));
+            row.put("totalBookings", totalB);
+            row.put("completedBookings", completedB);
+            row.put("activeBookings", activeB);
+            row.put("cancelledBookings", cancelledB);
+            row.put("cancellationRate", cancelRate);
+            row.put("noShowBookings", noShowB);
+            row.put("noShowRate", noShowRate);
+            row.put("soldNights", soldNights);
+            row.put("revenue", channelRevenue);
+            row.put("adr", adr);
+            rows.add(row);
+        }
+
+        // Tính tỷ trọng doanh thu (revenueShare) và tỷ trọng lượt đặt (bookingShare)
+        for (Map<String, Object> row : rows) {
+            BigDecimal rev = (BigDecimal) row.get("revenue");
+            double revShare = totalOverallRevenue.compareTo(BigDecimal.ZERO) > 0
+                    ? Math.round(rev.divide(totalOverallRevenue, 4, java.math.RoundingMode.HALF_UP).doubleValue() * 10000.0) / 100.0
+                    : 0.0;
+            row.put("revenueShare", revShare);
+
+            long tb = (long) row.get("totalBookings");
+            double bookShare = totalOverallBookings > 0
+                    ? Math.round(((double) tb / totalOverallBookings * 100.0) * 100.0) / 100.0
+                    : 0.0;
+            row.put("bookingShare", bookShare);
+        }
+
+        double overallCancelRate = totalOverallBookings > 0
+                ? Math.round(((double) totalOverallCancelled / totalOverallBookings * 100.0) * 100.0) / 100.0
+                : 0.0;
+        double overallNoShowRate = totalOverallBookings > 0
+                ? Math.round(((double) totalOverallNoShow / totalOverallBookings * 100.0) * 100.0) / 100.0
+                : 0.0;
+        BigDecimal overallAdr = totalOverallSoldNights > 0
+                ? totalOverallRevenue.divide(BigDecimal.valueOf(totalOverallSoldNights), 0, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        long unknownBookings = channelGrouped.get("UNKNOWN").size();
+        double unknownRate = totalOverallBookings > 0
+                ? Math.round(((double) unknownBookings / totalOverallBookings * 100.0) * 100.0) / 100.0
+                : 0.0;
+        double dataQualityScore = Math.round((100.0 - unknownRate) * 100.0) / 100.0;
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("from", from.toString());
+        summary.put("to", to.toString());
+        summary.put("totalRevenue", totalOverallRevenue);
+        summary.put("totalBookings", totalOverallBookings);
+        summary.put("totalSoldNights", totalOverallSoldNights);
+        summary.put("totalCancelled", totalOverallCancelled);
+        summary.put("overallCancellationRate", overallCancelRate);
+        summary.put("totalNoShow", totalOverallNoShow);
+        summary.put("overallNoShowRate", overallNoShowRate);
+        summary.put("overallAdr", overallAdr);
+        summary.put("unknownBookings", unknownBookings);
+        summary.put("unknownRate", unknownRate);
+        summary.put("dataQualityScore", dataQualityScore);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("summary", summary);
+        result.put("rows", rows);
+        return ResponseEntity.ok(result);
+    }
+
     // ========================
     // Export CSV
     // ========================
@@ -587,7 +725,7 @@ public class ReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletRequest request) {
-        checkOwner(request);
+        checkFinance(request);
 
         StringBuilder csv = new StringBuilder();
         if ("bookings".equals(type)) {
@@ -634,15 +772,154 @@ public class ReportController {
                         rRevpar,
                         share));
             }
+        } else if ("channels".equals(type) || "channel".equals(type)) {
+            csv.append("BÁO CÁO CƠ CẤU ĐẶT PHÒNG THEO KÊNH\n");
+            csv.append(String.format("Khoảng thời gian: %s đến %s\n\n", from, to));
+            csv.append("Kênh đặt phòng,Mã kênh,Lượt đặt phòng,Đêm phòng bán,Doanh thu từ hóa đơn (đ),Tỷ trọng DT (%),Lượt hủy,Tỷ lệ hủy (%),Lượt khách vắng,Tỷ lệ vắng (%),ADR (đ)\n");
+
+            List<Booking> bookings = bookingRepository.findBookingsForChannelReport(from, to);
+            if (bookings == null) bookings = Collections.emptyList();
+
+            List<String> channelKeys = List.of("WALKIN", "PHONE", "SOCIAL", "ONLINE", "SIMULATION", "UNKNOWN");
+            Map<String, List<Booking>> channelGrouped = new LinkedHashMap<>();
+            for (String k : channelKeys) {
+                channelGrouped.put(k, new ArrayList<>());
+            }
+            for (Booking b : bookings) {
+                String norm = normalizeChannelKey(b.getSource());
+                channelGrouped.get(norm).add(b);
+            }
+
+            BigDecimal totalRev = BigDecimal.ZERO;
+            long totalB = bookings.size();
+            long totalNights = 0;
+            long totalCancel = 0;
+            long totalNoShow = 0;
+
+            for (String k : channelKeys) {
+                List<Booking> bList = channelGrouped.get(k);
+                long cnt = bList.size();
+                long can = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CANCELLED).count();
+                long ns = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.NO_SHOW).count();
+                BigDecimal rev = bList.stream().map(this::getInvoiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                long nights = bList.stream()
+                        .filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT || b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN)
+                        .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                                ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                                : 1)
+                        .sum();
+
+                totalRev = totalRev.add(rev);
+                totalNights += nights;
+                totalCancel += can;
+                totalNoShow += ns;
+            }
+
+            for (String k : channelKeys) {
+                List<Booking> bList = channelGrouped.get(k);
+                long cnt = bList.size();
+                long can = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CANCELLED).count();
+                long ns = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.NO_SHOW).count();
+                BigDecimal rev = bList.stream().map(this::getInvoiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                long nights = bList.stream()
+                        .filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT || b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN)
+                        .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                                ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                                : 1)
+                        .sum();
+                double cRate = cnt > 0 ? (double) can / cnt * 100.0 : 0.0;
+                double nsRate = cnt > 0 ? (double) ns / cnt * 100.0 : 0.0;
+                double share = totalRev.compareTo(BigDecimal.ZERO) > 0 ? rev.divide(totalRev, 4, java.math.RoundingMode.HALF_UP).doubleValue() * 100.0 : 0.0;
+                BigDecimal adr = nights > 0 ? rev.divide(BigDecimal.valueOf(nights), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+
+                csv.append(String.format("%s,%s,%d,%d,%s,%.2f,%d,%.2f,%d,%.2f,%s\n",
+                        getChannelDisplayName(k),
+                        k,
+                        cnt,
+                        nights,
+                        rev,
+                        share,
+                        can,
+                        cRate,
+                        ns,
+                        nsRate,
+                        adr));
+            }
+
+            double overallCRate = totalB > 0 ? (double) totalCancel / totalB * 100.0 : 0.0;
+            double overallNSRate = totalB > 0 ? (double) totalNoShow / totalB * 100.0 : 0.0;
+            BigDecimal overallAdr = totalNights > 0 ? totalRev.divide(BigDecimal.valueOf(totalNights), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+
+            csv.append(String.format("TỔNG CỘNG,ALL,%d,%d,%s,100.00,%d,%.2f,%d,%.2f,%s\n",
+                    totalB,
+                    totalNights,
+                    totalRev,
+                    totalCancel,
+                    overallCRate,
+                    totalNoShow,
+                    overallNSRate,
+                    overallAdr));
         } else {
             csv.append("Loại export không hỗ trợ\n");
         }
 
-        byte[] bytes = csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] bytes = ("\uFEFF" + csv.toString()).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_" + type + ".csv")
                 .contentType(MediaType.parseMediaType("text/csv"))
                 .body(bytes);
+    }
+
+    private BigDecimal getInvoiceRevenue(Booking b) {
+        if (b == null) return BigDecimal.ZERO;
+        try {
+            Optional<Invoice> invOpt = invoiceRepository.findByBookingId(b.getId());
+            if (invOpt.isPresent()) {
+                Invoice inv = invOpt.get();
+                if (inv.getTotalAmount() != null && inv.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    return inv.getTotalAmount();
+                }
+            }
+        } catch (Exception ignored) {}
+        if (b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT && b.getActualPrice() != null && b.getActualPrice().compareTo(BigDecimal.ZERO) > 0) {
+            return b.getActualPrice();
+        }
+        return BigDecimal.ZERO;
+    }
+
+    public static String normalizeChannelKey(String rawSource) {
+        if (rawSource == null || rawSource.trim().isEmpty()) {
+            return "UNKNOWN";
+        }
+        String s = rawSource.trim().toUpperCase();
+        if (s.equals("WALKIN") || s.equals("TAI_QUAY") || s.equals("QUAY") || s.contains("WALK")) {
+            return "WALKIN";
+        }
+        if (s.equals("PHONE") || s.equals("DIEN_THOAI") || s.equals("HOTLINE") || s.contains("PHONE")) {
+            return "PHONE";
+        }
+        if (s.equals("SOCIAL") || s.equals("MANG_XA_HOI") || s.equals("FACEBOOK") || s.equals("ZALO") || s.equals("TIKTOK") || s.equals("INSTAGRAM")) {
+            return "SOCIAL";
+        }
+        if (s.equals("ONLINE") || s.equals("WEB") || s.equals("WEBSITE") || s.equals("PORTAL")) {
+            return "ONLINE";
+        }
+        if (s.equals("SIMULATION") || s.equals("OTA") || s.equals("AIRBNB") || s.equals("BOOKING_COM") || s.equals("AGODA") || s.equals("TRIP_COM") || s.contains("SIMULAT")) {
+            return "SIMULATION";
+        }
+        return "UNKNOWN";
+    }
+
+    public static String getChannelDisplayName(String channelKey) {
+        switch (channelKey) {
+            case "WALKIN": return "Kênh tại quầy";
+            case "PHONE": return "Kênh điện thoại";
+            case "SOCIAL": return "Kênh mạng xã hội";
+            case "ONLINE": return "Cổng đặt phòng trực tiếp";
+            case "SIMULATION": return "Kênh mô phỏng nhận đặt (OTA)";
+            case "UNKNOWN":
+            default: return "Chưa xác định";
+        }
     }
 
     private void checkOwner(HttpServletRequest request) {

@@ -44,6 +44,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final EmailService emailService;
     private final HotelSettingRepository hotelSettingRepository;
     private final plant.stay.service.RoomStayGuestService roomStayGuestService;
+    private final plant.stay.repository.InvoiceDiscountRepository invoiceDiscountRepository;
 
     @Override
     @Transactional
@@ -53,7 +54,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         } catch (Exception ignored) {
         }
         return invoiceRepository.findInvoicesCoveringBooking(bookingId).stream()
-            .findFirst()
+                .filter(inv -> inv.getStatus() != InvoiceStatus.CANCELLED)
+                .findFirst()
                 .map(this::syncInvoiceStatus)
                 .map(this::toResponse)
                 .orElse(null);
@@ -79,9 +81,11 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalArgumentException("Chỉ có thể lập hóa đơn khi khách đang ở phòng (CHECKED_IN)");
         }
 
-        // Kiểm tra đã có hóa đơn chưa (mỗi booking chỉ có 1 hóa đơn gốc)
-        if (invoiceRepository.findByBookingId(bookingId).isPresent()) {
-            throw new IllegalArgumentException("Booking này đã có hóa đơn. Dùng API điều chỉnh nếu cần sửa.");
+        // Kiểm tra đã có hóa đơn đang hoạt động chưa (bỏ qua CANCELLED và ADJUSTED)
+        boolean hasActiveInvoice = invoiceRepository.findInvoicesCoveringBooking(bookingId).stream()
+                .anyMatch(inv -> inv.getStatus() != InvoiceStatus.CANCELLED && inv.getStatus() != InvoiceStatus.ADJUSTED);
+        if (hasActiveInvoice) {
+            throw new IllegalArgumentException("Booking này đã có hóa đơn đang hoạt động. Dùng API điều chỉnh nếu cần sửa.");
         }
 
         // Tính tiền phòng
@@ -201,6 +205,71 @@ public class InvoiceServiceImpl implements InvoiceService {
                 "Lập " + (request.getMode() == InvoiceMode.COMBINED ? "hóa đơn gộp" : "hóa đơn tách")
                         + " cho đoàn gồm " + bookings.size() + " phòng");
         return toGroupResponse(groupBookingId, invoices);
+    }
+
+    @Override
+    @Transactional
+    public InvoiceResponse cancelDraftInvoice(Long invoiceId, plant.stay.dto.request.InvoiceCancelRequest request, User actor) {
+        if (request == null || request.getReason() == null || request.getReason().trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do hủy hóa đơn không được để trống");
+        }
+        String cleanReason = request.getReason().trim();
+        if (cleanReason.length() < 3) {
+            throw new IllegalArgumentException("Lý do hủy phải có tối thiểu 3 ký tự");
+        }
+
+        Invoice invoice = findById(invoiceId);
+
+        if (invoice.getStatus() == InvoiceStatus.PAID) {
+            throw new IllegalArgumentException("Không thể hủy hóa đơn đã thanh toán (PAID). Vui lòng sử dụng tính năng điều chỉnh hóa đơn.");
+        }
+        if (invoice.getStatus() == InvoiceStatus.ADJUSTED) {
+            throw new IllegalArgumentException("Hóa đơn đã được điều chỉnh, không thể hủy.");
+        }
+        if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
+            throw new IllegalArgumentException("Hóa đơn này đã bị hủy trước đó.");
+        }
+
+        // 1. Kiểm tra các khoản thanh toán thực tế phát sinh (tiền mặt / chuyển khoản từ khách)
+        List<Payment> payments = paymentRepository.findByInvoiceId(invoiceId);
+        List<Payment> directPayments = payments.stream()
+                .filter(p -> p.getNote() == null || (!p.getNote().contains("Trừ tiền đặt cọc") && !p.getNote().contains("cọc") && !p.getNote().contains("Deposit") && !p.getNote().contains("Phân bổ cọc")))
+                .toList();
+
+        if (!directPayments.isEmpty()) {
+            BigDecimal directPaid = directPayments.stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (directPaid.compareTo(BigDecimal.ZERO) > 0) {
+                throw new IllegalArgumentException("Hóa đơn đã có thanh toán thực tế (" + directPaid + "đ). Không thể hủy trực tiếp.");
+            }
+        }
+
+        // Xóa các bản ghi thanh toán khấu trừ cọc tự động trên hóa đơn này để bảo toàn tiền cọc cho lần lập hóa đơn tiếp theo
+        for (Payment p : payments) {
+            paymentRepository.delete(p);
+        }
+
+        // 2. Nếu có giảm giá đang chờ duyệt hoặc đã áp dụng trên invoice này thì cập nhật hủy
+        if (invoiceDiscountRepository != null) {
+            invoiceDiscountRepository.findActiveByInvoiceId(invoiceId, plant.stay.model.DiscountStatus.REJECTED).ifPresent(d -> {
+                d.setStatus(plant.stay.model.DiscountStatus.REJECTED);
+                d.setRejectReason("Hóa đơn đã bị hủy: " + cleanReason);
+                d.setReviewedAt(LocalDateTime.now());
+                d.setReviewedBy(actor);
+                invoiceDiscountRepository.save(d);
+            });
+        }
+
+        // 3. Chuyển trạng thái sang CANCELLED và lưu thông tin hủy
+        invoice.setStatus(InvoiceStatus.CANCELLED);
+        invoice.setCancelReason(cleanReason);
+        invoice.setCancelledBy(actor);
+        invoice.setCancelledAt(LocalDateTime.now());
+        invoice = invoiceRepository.save(invoice);
+
+        auditLogService.log("Invoice", invoiceId, "CANCEL_DRAFT", actor,
+                "Hủy hóa đơn #" + invoiceId + ". Lý do: " + cleanReason);
+
+        return toResponse(invoice);
     }
 
     @Override
@@ -392,9 +461,9 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private GroupInvoiceResponse toGroupResponse(Long groupBookingId, List<Invoice> invoices) {
-        // Only consider non-cancelled invoices for financial totals
+        // Only consider non-cancelled and non-adjusted invoices for financial totals
         List<Invoice> activeInvoices = invoices.stream()
-                .filter(inv -> inv.getStatus() != InvoiceStatus.ADJUSTED)
+                .filter(inv -> inv.getStatus() != InvoiceStatus.ADJUSTED && inv.getStatus() != InvoiceStatus.CANCELLED)
                 .collect(Collectors.toList());
 
         BigDecimal roomAmount = activeInvoices.stream()
@@ -506,7 +575,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private Invoice syncInvoiceStatus(Invoice invoice) {
-        if (invoice == null || invoice.getStatus() == InvoiceStatus.ADJUSTED) {
+        if (invoice == null || invoice.getStatus() == InvoiceStatus.ADJUSTED || invoice.getStatus() == InvoiceStatus.CANCELLED) {
             return invoice;
         }
 
@@ -571,8 +640,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
                 .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 3. Cập nhật trạng thái hóa đơn phù hợp (không can thiệp nếu PENDING_DISCOUNT_APPROVAL hoặc ADJUSTED)
-        if (invoice.getStatus() != InvoiceStatus.PENDING_DISCOUNT_APPROVAL && invoice.getStatus() != InvoiceStatus.ADJUSTED) {
+        // 3. Cập nhật trạng thái hóa đơn phù hợp (không can thiệp nếu PENDING_DISCOUNT_APPROVAL hoặc ADJUSTED hoặc CANCELLED)
+        if (invoice.getStatus() != InvoiceStatus.PENDING_DISCOUNT_APPROVAL && invoice.getStatus() != InvoiceStatus.ADJUSTED && invoice.getStatus() != InvoiceStatus.CANCELLED) {
             if (invoice.getStatus() == InvoiceStatus.PENDING || invoice.getStatus() == InvoiceStatus.PENDING_PAYMENT) {
                 if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
                     invoice.setStatus(InvoiceStatus.PAID);
@@ -597,9 +666,9 @@ public class InvoiceServiceImpl implements InvoiceService {
     private InvoiceResponse toResponse(Invoice inv) {
         return InvoiceResponse.builder()
                 .id(inv.getId())
-                .bookingId(inv.getBooking().getId())
-            .groupBookingId(inv.getGroupBooking() != null ? inv.getGroupBooking().getId() : null)
-            .mode(inv.getMode())
+                .bookingId(inv.getBooking() != null ? inv.getBooking().getId() : null)
+                .groupBookingId(inv.getGroupBooking() != null ? inv.getGroupBooking().getId() : null)
+                .mode(inv.getMode())
                 .roomAmount(inv.getRoomAmount())
                 .serviceAmount(inv.getServiceAmount())
                 .discountAmount(inv.getDiscountAmount())
@@ -607,6 +676,9 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .status(inv.getStatus())
                 .adjustmentOfId(inv.getAdjustmentOf() != null ? inv.getAdjustmentOf().getId() : null)
                 .note(inv.getNote())
+                .cancelReason(inv.getCancelReason())
+                .cancelledByName(inv.getCancelledBy() != null ? inv.getCancelledBy().getName() : null)
+                .cancelledAt(inv.getCancelledAt())
                 .createdAt(inv.getCreatedAt())
                 .build();
     }

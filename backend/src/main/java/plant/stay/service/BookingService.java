@@ -49,4 +49,16 @@ public interface BookingService {
 
     // Gửi email nhắc nhận phòng thủ công cho 1 booking cụ thể
     plant.stay.dto.response.MessageResponse sendCheckInReminderManually(Long bookingId, User actor);
+
+    // Xác nhận đặt phòng (chuyển sang trạng thái CONFIRMED)
+    BookingResponse confirmBooking(Long bookingId, User actor);
+
+    // Sinh dữ liệu bản xác nhận đặt phòng đầy đủ
+    plant.stay.dto.response.BookingConfirmationData getBookingConfirmationData(Long bookingId);
+
+    // Gửi hoặc ghi nhật ký kết xuất bản xác nhận đặt phòng
+    plant.stay.dto.response.BookingConfirmationLogResponse sendOrLogConfirmation(Long bookingId, plant.stay.dto.request.SendConfirmationRequest req, User actor);
+
+    // Lấy danh sách lịch sử các lần gửi bản xác nhận
+    List<plant.stay.dto.response.BookingConfirmationLogResponse> getConfirmationLogs(Long bookingId);
 }

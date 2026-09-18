@@ -51,6 +51,9 @@ const RoomsPage: React.FC = () => {
           originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
           badge: hasSpecialPrice ? (room.priceSourceName || 'Giá ưu đãi') : undefined,
           imageUrls: room.imageUrls || [],
+          totalPhysicalRooms: (room as any).totalRooms,
+          availableRooms: (room as any).availableRoomsToday,
+          isAvailable: (room as any).isAvailableToday,
           primaryButton: true
         };
       });
@@ -87,6 +90,9 @@ const RoomsPage: React.FC = () => {
           originalPrice: hasSpecialPrice ? new Intl.NumberFormat('vi-VN').format(room.basePrice || 0) + ' ₫' : undefined,
           badge: hasSpecialPrice ? (room.priceSourceName || (room.isAveragePrice ? 'Giá trung bình' : 'Giá ngày áp dụng')) : undefined,
           imageUrls: room.imageUrls || [],
+          totalPhysicalRooms: room.totalPhysicalRooms,
+          availableRooms: room.availableRooms,
+          isAvailable: room.isAvailable,
           primaryButton: true
         };
       });
@@ -99,6 +105,10 @@ const RoomsPage: React.FC = () => {
   };
 
   const handleBookNow = (room: RoomCardData) => {
+    if (room.isAvailable === false || (room.availableRooms !== undefined && room.availableRooms <= 0)) {
+      toastWarning("Rất tiếc, loại phòng này đã hết phòng trống cho khoảng thời gian này!");
+      return;
+    }
     if (!checkInDate || !checkOutDate) {
       toastWarning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt!");
       return;
@@ -108,6 +118,10 @@ const RoomsPage: React.FC = () => {
   };
 
   const handleGroupBook = (room: RoomCardData) => {
+    if (room.isAvailable === false || (room.availableRooms !== undefined && room.availableRooms <= 0)) {
+      toastWarning("Rất tiếc, loại phòng này đã hết phòng trống cho khoảng thời gian này!");
+      return;
+    }
     if (!checkInDate || !checkOutDate) {
       toastWarning("Vui lòng chọn ngày Nhận phòng và Trả phòng trước khi đặt đoàn.");
       return;

@@ -19,7 +19,8 @@ import {
   IoCashOutline,
   IoCalendarOutline,
   IoPeopleOutline,
-  IoMailOutline
+  IoMailOutline,
+  IoDocumentTextOutline
 } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -28,6 +29,7 @@ import { roomApi } from '../../services/roomApi';
 import BookingServicesTab from './BookingServicesTab';
 import BookingInvoiceTab from './BookingInvoiceTab';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
+import BookingConfirmationModal from './BookingConfirmationModal';
 import DepositTab from './DepositTab';
 import ExtendStayModal from './ExtendStayModal';
 import StayingGuestsModal from './StayingGuestsModal';
@@ -90,6 +92,7 @@ const BookingDetailPage: React.FC = () => {
   const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
   const [showStayingGuestsModal, setShowStayingGuestsModal] = useState(false);
   const [sendingReminder, setSendingReminder] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -264,6 +267,18 @@ const BookingDetailPage: React.FC = () => {
           </div>
           {/* Quick Action Buttons */}
           <div className="flex gap-2 flex-wrap justify-end">
+            {/* Nút Bản xác nhận đặt phòng */}
+            {(booking.status === 'CONFIRMED' || booking.status === 'NEW') && (
+              <Button
+                size="sm"
+                variant="outline"
+                icon={IoDocumentTextOutline}
+                onClick={() => setShowConfirmationModal(true)}
+                className="border-blue-400 text-blue-700 hover:bg-blue-50"
+              >
+                Bản xác nhận
+              </Button>
+            )}
             {booking.status === 'CONFIRMED' && booking.roomId && (
               <Button
                 size="sm"
@@ -729,6 +744,16 @@ const BookingDetailPage: React.FC = () => {
           onUpdated={() => {
             fetchBookingDetails();
           }}
+        />
+      )}
+
+      {/* Modal Bản xác nhận đặt phòng */}
+      {showConfirmationModal && (
+        <BookingConfirmationModal
+          isOpen={showConfirmationModal}
+          onClose={() => setShowConfirmationModal(false)}
+          bookingId={Number(bookingId)}
+          onBookingConfirmed={fetchBookingDetails}
         />
       )}
     </div>

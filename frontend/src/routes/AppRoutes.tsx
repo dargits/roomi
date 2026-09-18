@@ -33,6 +33,7 @@ import InventoryManagement from '../features/admin/InventoryManagement';
 import LoyaltyTierManagement from '../features/admin/LoyaltyTierManagement';
 import DepositPolicyPage from '../features/admin/DepositPolicyPage';
 import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
+import ChannelCalendarPage from '../features/admin/ChannelCalendarPage';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
@@ -42,6 +43,7 @@ import InHouseGuestPage from '../features/booking/InHouseGuestPage';
 
 // Housekeeping
 import HousekeepingPage from '../features/housekeeping/HousekeepingPage';
+import LostAndFoundPage from '../features/housekeeping/LostAndFoundPage';
 
 // Reports & Backup
 import ReportsPage from '../features/reports/ReportsPage';
@@ -85,6 +87,7 @@ const AppRoutes: React.FC = () => {
               <Route path="/dashboard" element={<Navigate to="/manage/dashboard" replace />} />
               <Route path="/bookings" element={<Navigate to="/manage/bookings" replace />} />
               <Route path="/housekeeping" element={<Navigate to="/manage/housekeeping" replace />} />
+              <Route path="/lost-and-found" element={<Navigate to="/manage/lost-and-found" replace />} />
               <Route path="/reports" element={<Navigate to="/manage/reports" replace />} />
               <Route path="/manage" element={<Navigate to="/manage/dashboard" replace />} />
 
@@ -121,6 +124,7 @@ const AppRoutes: React.FC = () => {
 
                   {/* Buồng phòng — OWNER / HOUSEKEEPER / RECEPTIONIST */}
                   <Route path="/manage/housekeeping" element={<HousekeepingPage />} />
+                  <Route path="/manage/lost-and-found" element={<LostAndFoundPage />} />
 
                   {/* Báo cáo — OWNER / ACCOUNTANT */}
                   <Route path="/manage/reports" element={<ReportsPage />} />
@@ -152,6 +156,9 @@ const AppRoutes: React.FC = () => {
 
                   {/* Kiểm soát đồng thời & Minh chứng — NCL-03 */}
                   <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />
+
+                  {/* Đồng bộ lịch kênh phân phối (iCal / OTA) */}
+                  <Route path="/manage/channels" element={<ChannelCalendarPage />} />
 
                   {/* Hồ sơ cá nhân */}
                   <Route path="/manage/profile" element={<ProfileSettings />} />

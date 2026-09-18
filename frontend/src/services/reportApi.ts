@@ -1,5 +1,11 @@
 import api from './api';
-import { RevenueReportResponse, OccupancyReportResponse, DashboardStatsResponse, AdrRevparReportResponse } from '../types';
+import {
+  RevenueReportResponse,
+  OccupancyReportResponse,
+  DashboardStatsResponse,
+  AdrRevparReportResponse,
+  ChannelReportResponse
+} from '../types';
 
 const reportApi = {
   /**
@@ -39,6 +45,29 @@ const reportApi = {
    */
   getAdrRevparReport: async (from?: string, to?: string, groupBy = 'day'): Promise<AdrRevparReportResponse> => {
     const response = await api.get<AdrRevparReportResponse>('/reports/adr-revpar', { params: { from, to, groupBy } });
+    return response.data;
+  },
+
+  /**
+   * Báo cáo cơ cấu đặt phòng theo kênh (Channel Structure)
+   * GET /api/v1/reports/channels?from=&to=
+   * Role: OWNER / ACCOUNTANT / ADMIN
+   */
+  getChannelReport: async (from?: string, to?: string): Promise<ChannelReportResponse> => {
+    const response = await api.get<ChannelReportResponse>('/reports/channels', { params: { from, to } });
+    return response.data;
+  },
+
+  /**
+   * Xuất báo cáo cơ cấu kênh ra file CSV (UTF-8 BOM hỗ trợ Excel tiếng Việt)
+   * GET /api/v1/reports/export?type=channels&from=&to=
+   * Role: OWNER / ACCOUNTANT / ADMIN
+   */
+  exportChannelReport: async (from?: string, to?: string): Promise<Blob> => {
+    const response = await api.get('/reports/export', {
+      params: { type: 'channels', from, to },
+      responseType: 'blob'
+    });
     return response.data;
   },
 

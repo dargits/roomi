@@ -12,11 +12,13 @@ import {
   IoCheckmarkCircleOutline,
   IoTimeOutline,
   IoCallOutline,
-  IoBedOutline
+  IoBedOutline,
+  IoGlobeOutline
 } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
 import AssignRoomModal from './AssignRoomModal';
+import ConvertBlockModal from './ConvertBlockModal';
 import { formatStayDateTime, formatDate, calculateNights } from '../../utils/formatDate';
 import LoadingScreen from '../../components/common/LoadingScreen';
 
@@ -43,6 +45,11 @@ const getStatusBadge = (status: string) => {
       label: 'Đã đi', 
       bg: 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200',
       pill: 'bg-slate-200 text-slate-700'
+    };
+    case 'CHANNEL_BLOCKED': return { 
+      label: 'Kênh giữ chỗ', 
+      bg: 'bg-purple-700 text-white border-purple-800 shadow-xs font-semibold hover:bg-purple-800 ring-1 ring-purple-400/50',
+      pill: 'bg-purple-900/60 text-purple-100'
     };
     default: return { 
       label: status, 
@@ -95,6 +102,31 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
 
   // Modal states
   const [assigningBooking, setAssigningBooking] = useState<any>(null);
+  const [convertingBlock, setConvertingBlock] = useState<any>(null);
+
+  const handleBookingClick = (booking: any) => {
+    if (booking.isChannelBlock || booking.status === 'CHANNEL_BLOCKED') {
+      setConvertingBlock({
+        id: booking.blockId || booking.bookingId || booking.id,
+        channelId: booking.channelId,
+        channelName: booking.channelName,
+        channelCode: booking.channelCode,
+        roomTypeId: booking.roomTypeId,
+        roomTypeName: booking.roomTypeName,
+        roomId: booking.roomId,
+        roomNumber: booking.roomNumber,
+        startDate: booking.checkInDate,
+        endDate: booking.checkOutDate,
+        summary: booking.guestName,
+        note: booking.note,
+        isExcess: booking.isExcess
+      });
+    } else {
+      navigate(`/manage/bookings/${booking.bookingId || booking.id}?tab=info`, {
+        state: { from: '/manage/bookings/calendar' }
+      });
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -260,28 +292,44 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
         </div>
       </div>
 
-      {/* ── Cảnh báo nếu có đặt phòng chưa xếp phòng ── */}
+      {/* ── Cảnh báo nếu có đặt phòng chưa xếp phòng hoặc lượt chặn kênh ── */}
       {unassignedBookings.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2.5 text-amber-900 text-sm">
             <IoAlertCircleOutline size={22} className="text-amber-600 shrink-0" />
             <div>
-              <strong>Có {unassignedBookings.length} đặt phòng chưa xếp phòng</strong> trong khoảng thời gian này.
+              <strong>Có {unassignedBookings.length} lượt đặt phòng / chặn kênh chưa xếp phòng</strong> trong khoảng thời gian này.
               <div className="text-xs text-amber-800/80 mt-0.5">
-                Vui lòng gán phòng cụ thể để hiển thị trên sơ đồ lịch.
+                Vui lòng gán phòng hoặc nhập thông tin khách từ kênh để chuyển thành đặt phòng chính thức.
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {unassignedBookings.map(b => (
-              <button
-                key={b.bookingId}
-                onClick={() => setAssigningBooking(b)}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
-              >
-                Xếp phòng: {b.guestName}
-              </button>
-            ))}
+            {unassignedBookings.map((b, idx) => {
+              const isChannel = b.isChannelBlock || b.status === 'CHANNEL_BLOCKED';
+              return isChannel ? (
+                <button
+                  key={b.blockId ? `block-unassigned-${b.blockId}` : `channel-${idx}`}
+                  onClick={() => handleBookingClick(b)}
+                  className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                  title={b.isExcess ? 'Lượt chặn vượt quá số phòng phân bổ kênh' : 'Lượt chặn từ kênh OTA'}
+                >
+                  <IoGlobeOutline size={14} className="text-purple-200" />
+                  <span>
+                    {b.isExcess ? '⚠️ Vượt phân bổ: ' : 'Chặn kênh: '}
+                    [{b.channelName || 'OTA'}] {b.guestName?.replace(/\[.*?\]\s*/, '') || 'Giữ chỗ'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  key={b.bookingId || idx}
+                  onClick={() => setAssigningBooking(b)}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  Xếp phòng: {b.guestName}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -358,30 +406,58 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
                           {matchedBookings.length > 0 ? (
                             <div className="space-y-1 h-full flex flex-col justify-center">
                               {matchedBookings.map((booking) => {
+                                const isChannel = booking.isChannelBlock || booking.status === 'CHANNEL_BLOCKED';
                                 const isFirstDay = booking.checkInDate === d.dateStr;
                                 const isLastDay = booking.checkOutDate === d.dateStr;
                                 const isOneDayStay = booking.checkInDate === booking.checkOutDate;
                                 const badgeStyle = getStatusBadge(booking.status);
 
                                 let eventLabel = badgeStyle.label;
-                                if (isOneDayStay) {
-                                  eventLabel = 'Trong ngày';
-                                } else if (isFirstDay) {
-                                  eventLabel = 'Nhận (14h)';
-                                } else if (isLastDay) {
-                                  eventLabel = booking.status === 'CHECKED_IN' ? 'Hạn trả' : 'Trả (12h)';
+                                if (isChannel) {
+                                  if (isOneDayStay) {
+                                    eventLabel = 'Kênh (1 ngày)';
+                                  } else if (isFirstDay) {
+                                    eventLabel = 'Kênh nhận';
+                                  } else if (isLastDay) {
+                                    eventLabel = 'Kênh trả';
+                                  } else {
+                                    eventLabel = 'Kênh giữ';
+                                  }
+                                } else {
+                                  if (isOneDayStay) {
+                                    eventLabel = 'Trong ngày';
+                                  } else if (isFirstDay) {
+                                    eventLabel = 'Nhận (14h)';
+                                  } else if (isLastDay) {
+                                    eventLabel = booking.status === 'CHECKED_IN' ? 'Hạn trả' : 'Trả (12h)';
+                                  }
                                 }
+
+                                const tooltip = isChannel
+                                  ? `🌐 [Kênh ${booking.channelName || 'OTA'}] Kênh giữ chỗ\n📅 Nhận: ${formatDate(booking.checkInDate)}\n📅 Trả: ${formatDate(booking.checkOutDate)}\n🏷️ Trạng thái: Chặn từ kênh\n👉 Nhấp để nhập thông tin khách và chuyển thành Đặt phòng chính thức`
+                                  : `👤 Khách: ${booking.guestName}\n📅 Nhận: ${formatDate(booking.checkInDate)} (14:00)\n📅 Trả: ${formatDate(booking.checkOutDate)} (12:00)\n🏷️ Trạng thái: ${badgeStyle.label}\n👉 Nhấp để xem Chi tiết & Hóa đơn`;
 
                                 return (
                                   <div
-                                    key={booking.bookingId}
-                                    onClick={() => navigate(`/manage/bookings/${booking.bookingId}?tab=info`, { state: { from: '/manage/bookings/calendar' } })}
+                                    key={booking.blockId ? `block-${booking.blockId}` : `booking-${booking.bookingId || booking.id}`}
+                                    onClick={() => handleBookingClick(booking)}
                                     className={`w-full rounded-md p-1.5 flex flex-col justify-center items-start text-left border cursor-pointer transition-all duration-150 hover:shadow-md hover:scale-[1.02] ${badgeStyle.bg}`}
-                                    title={`👤 Khách: ${booking.guestName}\n📅 Nhận: ${formatDate(booking.checkInDate)} (14:00)\n📅 Trả: ${formatDate(booking.checkOutDate)} (12:00)\n🏷️ Trạng thái: ${badgeStyle.label}\n👉 Nhấp để xem Chi tiết & Hóa đơn`}
+                                    title={tooltip}
                                   >
                                     <div className="font-bold text-xs truncate w-full flex items-center gap-1">
-                                      <IoPersonOutline size={11} className="shrink-0" />
-                                      <span className="truncate">{booking.guestName}</span>
+                                      {isChannel ? (
+                                        <>
+                                          <IoGlobeOutline size={12} className="shrink-0 text-purple-200" />
+                                          <span className="truncate">
+                                            [{booking.channelName || 'OTA'}] {booking.guestName?.replace(/\[.*?\]\s*/, '') || 'Kênh giữ'}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <IoPersonOutline size={11} className="shrink-0" />
+                                          <span className="truncate">{booking.guestName}</span>
+                                        </>
+                                      )}
                                     </div>
                                     <div className="text-[10px] flex items-center justify-between w-full mt-0.5">
                                       <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${badgeStyle.pill}`}>
@@ -426,12 +502,16 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
               <span className="font-semibold text-amber-800">Mới</span>
             </div>
             <div className="flex items-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded bg-purple-700 border border-purple-800 inline-block shadow-2xs"></span>
+              <span className="font-bold text-purple-900">Chặn từ kênh (OTA)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300 inline-block"></span>
               <span className="font-medium text-slate-700">Đã đi / Lịch sử</span>
             </div>
           </div>
           <div className="text-on-surface-variant text-[11px] italic">
-            💡 Nhấp vào khối phòng của khách để mở ngay trang Chi tiết & Hóa đơn.
+            💡 Nhấp vào ô màu tím (Chặn từ kênh) để nhập thông tin khách và chuyển thành Đặt phòng chính thức.
           </div>
         </div>
       </div>
@@ -446,6 +526,19 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
           onAssigned={() => {
             loadData();
             setAssigningBooking(null);
+          }}
+        />
+      )}
+
+      {/* ── Modal Chuyển lượt chặn từ kênh thành Đặt phòng chính thức ── */}
+      {convertingBlock && (
+        <ConvertBlockModal
+          isOpen={true}
+          onClose={() => setConvertingBlock(null)}
+          block={convertingBlock}
+          onSuccess={() => {
+            loadData();
+            setConvertingBlock(null);
           }}
         />
       )}

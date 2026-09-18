@@ -108,4 +108,39 @@ describe('BookingInvoiceTab Component', () => {
       expect(screen.getByText('Chốt & Lập Hóa Đơn (Tự động trừ cọc)')).toBeInTheDocument();
     });
   });
+
+  it('renders cancel draft invoice button when invoice is in pending/draft status', async () => {
+    const { invoiceApi } = await import('../../../services/invoiceApi');
+    vi.mocked(invoiceApi.getInvoiceByBooking).mockResolvedValueOnce({
+      id: 2,
+      bookingId: 12,
+      roomAmount: 800000,
+      serviceAmount: 0,
+      discountAmount: 0,
+      totalAmount: 800000,
+      status: 'PENDING_PAYMENT',
+    });
+    vi.mocked(invoiceApi.getPayments).mockResolvedValueOnce([]);
+
+    const mockBooking = {
+      id: 12,
+      expectedPrice: 800000,
+      actualPrice: 800000,
+      status: 'CHECKED_IN',
+    };
+
+    render(
+      <BookingInvoiceTab 
+        bookingId={12} 
+        status="CHECKED_IN" 
+        booking={mockBooking} 
+        onPrintInvoice={vi.fn()} 
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Hủy hóa đơn nháp')).toBeInTheDocument();
+      expect(screen.getByText('Thêm lượt thanh toán')).toBeInTheDocument();
+    });
+  });
 });

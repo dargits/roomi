@@ -45,4 +45,20 @@ public interface EmailService {
      * @return true nếu gửi thành công, false nếu thất bại
      */
     boolean sendCheckInReminderEmail(String toEmail, plant.stay.dto.response.CheckInReminderData data);
+
+    /**
+     * Gửi email bản xác nhận đặt phòng cho khách hàng
+     *
+     * @param toEmail Email người nhận
+     * @param data    Dữ liệu bản xác nhận đặt phòng
+     * @return true nếu gửi thành công, false nếu thất bại
+     */
+    boolean sendBookingConfirmationEmail(String toEmail, plant.stay.dto.response.BookingConfirmationData data);
+
+    /**
+     * Kiểm tra hệ thống cơ sở đã cấu hình thư điện tử (API Key) hay chưa
+     *
+     * @return true nếu đã cấu hình, false nếu chưa
+     */
+    boolean isEmailConfigured();
 }
