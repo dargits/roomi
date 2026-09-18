@@ -60,6 +60,8 @@ public class BookingServiceImpl implements BookingService {
     private final BookingConfirmationLogRepository bookingConfirmationLogRepository;
     private final ChannelRoomBlockRepository channelRoomBlockRepository;
     private final ApplicationEventPublisher eventPublisher;
+    @org.springframework.context.annotation.Lazy
+    private final plant.stay.service.ChannelCalendarSyncService channelCalendarSyncService;
 
     @Value("${app.domain:https://stayaway.io.vn}")
     private String appDomain;
@@ -143,6 +145,18 @@ public class BookingServiceImpl implements BookingService {
                 item.put("channelCode", b.getChannel().getChannelCode());
             }
             result.add(item);
+        }
+
+        // Tự động kiểm tra và giải quyết các cảnh báo trùng phòng nếu hiện tại đã có phòng trống
+        List<ChannelRoomBlock> activeBlocks = channelRoomBlockRepository.findActiveBlocksBetween(from, to);
+        for (ChannelRoomBlock block : activeBlocks) {
+            if ("BLOCKED".equals(block.getStatus()) && block.getRoom() == null &&
+                    block.getWarningMessage() != null && block.getWarningMessage().contains("Trùng lịch") &&
+                    block.getRoomType() != null) {
+                try {
+                    channelCalendarSyncService.autoResolveOverbookingConflicts(block.getRoomType().getId());
+                } catch (Exception ignored) {}
+            }
         }
 
         for (ChannelRoomBlock block : channelRoomBlockRepository.findActiveBlocksBetween(from, to)) {
@@ -341,6 +355,13 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CANCEL", actor, cancelNote);
         eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_CANCELLED"));
+        if (booking.getRoomType() != null) {
+            try {
+                channelCalendarSyncService.autoResolveOverbookingConflicts(booking.getRoomType().getId());
+            } catch (Exception ex) {
+                log.warn("Không thể auto resolve overbooking sau khi hủy phòng: {}", ex.getMessage());
+            }
+        }
         return toResponse(booking);
     }
 
@@ -381,6 +402,13 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CHANGE_ROOM", actor,
                 "Đổi từ phòng " + oldRoomNumber + " sang " + newRoom.getRoomNumber() + " (Cùng loại: " + newRoom.getRoomType().getName() + ")");
+        if (booking.getRoomType() != null) {
+            try {
+                channelCalendarSyncService.autoResolveOverbookingConflicts(booking.getRoomType().getId());
+            } catch (Exception ex) {
+                log.warn("Không thể auto resolve overbooking sau khi đổi phòng: {}", ex.getMessage());
+            }
+        }
         return toResponse(booking);
     }
 
@@ -872,6 +900,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponse upgradeRoom(Long bookingId, UpgradeRoomRequest req, User actor) {
         Booking booking = findById(bookingId);
+        Long oldRoomTypeId = booking.getRoomType() != null ? booking.getRoomType().getId() : null;
         if (booking.getStatus() != BookingStatus.CHECKED_IN) {
             throw new IllegalArgumentException("Chỉ có thể nâng/hạ hạng khi khách đang lưu trú (CHECKED_IN)");
         }
@@ -974,6 +1003,13 @@ public class BookingServiceImpl implements BookingService {
         auditLogService.log("Booking", booking.getId(), "UPGRADE_ROOM", actor,
                 upgradeType + " từ phòng " + oldRoomNumber + " sang " + newRoom.getRoomNumber() +
                 " (Loại: " + newRoomType.getName() + "), chênh lệch: " + priceDiff + "đ");
+        if (oldRoomTypeId != null && !oldRoomTypeId.equals(newRoomType.getId())) {
+            try {
+                channelCalendarSyncService.autoResolveOverbookingConflicts(oldRoomTypeId);
+            } catch (Exception ex) {
+                log.warn("Không thể auto resolve overbooking sau khi nâng hạng: {}", ex.getMessage());
+            }
+        }
         return toResponse(booking);
     }
 
