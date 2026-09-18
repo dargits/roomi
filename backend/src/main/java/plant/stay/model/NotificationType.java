@@ -19,7 +19,9 @@ public enum NotificationType {
     /** Nhắc kế toán đến hạn liên hệ đòi nợ theo lịch hẹn ghi nhận trước đó */
     DEBT_REMINDER(false, Set.of(Role.ACCOUNTANT, Role.OWNER, Role.ADMIN)),
     /** Cảnh báo kênh phân phối OTA bị mất kết nối hoặc ngừng cập nhật */
-    CHANNEL_DISCONNECT_WARNING(true, Set.of(Role.OWNER, Role.ADMIN));
+    CHANNEL_DISCONNECT_WARNING(true, Set.of(Role.OWNER, Role.ADMIN)),
+    /** Cảnh báo trùng phòng phát hiện khi đồng bộ lịch kênh OTA với đặt phòng hiện có */
+    CHANNEL_OVERBOOKING_CONFLICT(true, Set.of(Role.RECEPTIONIST, Role.OWNER, Role.ADMIN));
 
 
     private final boolean mandatory;

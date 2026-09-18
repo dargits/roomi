@@ -15,6 +15,7 @@ import {
   IoTrophyOutline,
   IoDocumentTextOutline,
   IoCashOutline,
+  IoBookOutline,
   IoBedOutline,
   IoLayersOutline,
   IoSparklesOutline,
@@ -98,7 +99,8 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoStatsChartOutline,
     items: [
       { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
-      { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'RECEPTIONIST'] }
+      { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'RECEPTIONIST'] },
+      { path: '/manage/daily-ledger', label: 'Sổ quỹ ngày', icon: IoBookOutline, allowedRoles: ['OWNER', 'ACCOUNTANT'] }
     ]
   },
   {
@@ -148,6 +150,7 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/loyalty': { title: 'Khách Thân Thiết', group: 'Khách & Dịch vụ' },
   '/manage/reports': { title: 'Báo Cáo Doanh Thu & Công Suất', group: 'Tài chính' },
   '/manage/cashier-shifts': { title: 'Chốt Ca & Đối Soát Tiền Mặt', group: 'Tài chính' },
+  '/manage/daily-ledger': { title: 'Sổ Quỹ Theo Ngày', group: 'Tài chính' },
   '/manage/staff': { title: 'Quản Lý Nhân Sự', group: 'Hệ thống' },
   '/manage/inventory': { title: 'Kho Đồ Dùng', group: 'Hệ thống' },
   '/manage/concurrency': { title: 'Kiểm Soát Đồng Thời', group: 'Hệ thống' },
