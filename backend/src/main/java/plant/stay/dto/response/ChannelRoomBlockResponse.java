@@ -29,5 +29,6 @@ public class ChannelRoomBlockResponse {
     private Long convertedBookingId;
     private Boolean isExcess;
     private String warningMessage;
+    private String rejectReason;
     private LocalDateTime createdAt;
 }

@@ -119,7 +119,9 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
         endDate: booking.checkOutDate,
         summary: booking.guestName,
         note: booking.note,
-        isExcess: booking.isExcess
+        isExcess: booking.isExcess,
+        warningMessage: booking.warningMessage,
+        hasConflict: booking.hasConflict,
       });
     } else {
       navigate(`/manage/bookings/${booking.bookingId || booking.id}?tab=info`, {
@@ -293,43 +295,85 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
       </div>
 
       {/* ── Cảnh báo nếu có đặt phòng chưa xếp phòng hoặc lượt chặn kênh ── */}
-      {unassignedBookings.length > 0 && (
+      {/* ── Cảnh báo trùng phòng phát hiện khi đồng bộ kênh OTA (Overbooking Conflict Alert) ── */}
+      {unassignedBookings.filter(b => b.hasConflict || (b.warningMessage && (b.warningMessage.includes('Trùng lịch') || b.warningMessage.includes('không còn phòng trống')))).length > 0 && (
+        <div className="bg-red-50 border-2 border-red-500 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3 text-red-950 text-sm">
+            <div className="p-2 bg-red-600 text-white rounded-lg shrink-0 mt-0.5 sm:mt-0 shadow-xs">
+              <IoAlertCircleOutline size={22} />
+            </div>
+            <div>
+              <div className="font-bold text-red-900 flex items-center gap-2">
+                <span>🚨 CẢNH BÁO TRÙNG PHÒNG ĐỒNG BỘ: Phát hiện {unassignedBookings.filter(b => b.hasConflict || (b.warningMessage && (b.warningMessage.includes('Trùng lịch') || b.warningMessage.includes('không còn phòng trống')))).length} lịch từ kênh OTA trùng với đặt phòng đã có!</span>
+              </div>
+              <div className="text-xs text-red-800 mt-0.5">
+                Lễ tân cần xử lý đổi phòng hoặc liên hệ khách ngay để tránh tình trạng hai nhóm khách cùng đứng ở quầy nhận phòng.
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {unassignedBookings
+              .filter(b => b.hasConflict || (b.warningMessage && (b.warningMessage.includes('Trùng lịch') || b.warningMessage.includes('không còn phòng trống'))))
+              .map((b, idx) => (
+                <button
+                  key={b.blockId ? `conflict-block-${b.blockId}` : `conflict-${idx}`}
+                  onClick={() => handleBookingClick(b)}
+                  className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs hover:shadow-md flex items-center gap-2"
+                  title={b.warningMessage || 'Trùng phòng từ kênh OTA'}
+                >
+                  <IoGlobeOutline size={15} className="text-red-200 shrink-0" />
+                  <span className="truncate max-w-[240px]">
+                    [{b.channelName || 'OTA'}] {b.guestName?.replace(/\[.*?\]\s*/, '') || 'Giữ chỗ'} ({b.checkInDate} → {b.checkOutDate})
+                  </span>
+                  <span className="px-1.5 py-0.5 bg-red-800 text-red-100 rounded text-[10px] font-extrabold uppercase shrink-0">
+                    Xử lý ngay
+                  </span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Cảnh báo nếu có đặt phòng chưa xếp phòng hoặc lượt chặn kênh bình thường ── */}
+      {unassignedBookings.filter(b => !b.hasConflict && (!b.warningMessage || (!b.warningMessage.includes('Trùng lịch') && !b.warningMessage.includes('không còn phòng trống')))).length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2.5 text-amber-900 text-sm">
             <IoAlertCircleOutline size={22} className="text-amber-600 shrink-0" />
             <div>
-              <strong>Có {unassignedBookings.length} lượt đặt phòng / chặn kênh chưa xếp phòng</strong> trong khoảng thời gian này.
+              <strong>Có {unassignedBookings.filter(b => !b.hasConflict && (!b.warningMessage || (!b.warningMessage.includes('Trùng lịch') && !b.warningMessage.includes('không còn phòng trống')))).length} lượt đặt phòng / chặn kênh chưa xếp phòng</strong> trong khoảng thời gian này.
               <div className="text-xs text-amber-800/80 mt-0.5">
                 Vui lòng gán phòng hoặc nhập thông tin khách từ kênh để chuyển thành đặt phòng chính thức.
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {unassignedBookings.map((b, idx) => {
-              const isChannel = b.isChannelBlock || b.status === 'CHANNEL_BLOCKED';
-              return isChannel ? (
-                <button
-                  key={b.blockId ? `block-unassigned-${b.blockId}` : `channel-${idx}`}
-                  onClick={() => handleBookingClick(b)}
-                  className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
-                  title={b.isExcess ? 'Lượt chặn vượt quá số phòng phân bổ kênh' : 'Lượt chặn từ kênh OTA'}
-                >
-                  <IoGlobeOutline size={14} className="text-purple-200" />
-                  <span>
-                    {b.isExcess ? '⚠️ Vượt phân bổ: ' : 'Chặn kênh: '}
-                    [{b.channelName || 'OTA'}] {b.guestName?.replace(/\[.*?\]\s*/, '') || 'Giữ chỗ'}
-                  </span>
-                </button>
-              ) : (
-                <button
-                  key={b.bookingId || idx}
-                  onClick={() => setAssigningBooking(b)}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
-                >
-                  Xếp phòng: {b.guestName}
-                </button>
-              );
-            })}
+            {unassignedBookings
+              .filter(b => !b.hasConflict && (!b.warningMessage || (!b.warningMessage.includes('Trùng lịch') && !b.warningMessage.includes('không còn phòng trống'))))
+              .map((b, idx) => {
+                const isChannel = b.isChannelBlock || b.status === 'CHANNEL_BLOCKED';
+                return isChannel ? (
+                  <button
+                    key={b.blockId ? `block-unassigned-${b.blockId}` : `channel-${idx}`}
+                    onClick={() => handleBookingClick(b)}
+                    className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                    title={b.isExcess ? 'Lượt chặn vượt quá số phòng phân bổ kênh' : 'Lượt chặn từ kênh OTA'}
+                  >
+                    <IoGlobeOutline size={14} className="text-purple-200" />
+                    <span>
+                      {b.isExcess ? '⚠️ Vượt phân bổ: ' : 'Chặn kênh: '}
+                      [{b.channelName || 'OTA'}] {b.guestName?.replace(/\[.*?\]\s*/, '') || 'Giữ chỗ'}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    key={b.bookingId || idx}
+                    onClick={() => setAssigningBooking(b)}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  >
+                    Xếp phòng: {b.guestName}
+                  </button>
+                );
+              })}
           </div>
         </div>
       )}

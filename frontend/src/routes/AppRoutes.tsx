@@ -48,6 +48,7 @@ import LostAndFoundPage from '../features/housekeeping/LostAndFoundPage';
 // Reports & Backup
 import ReportsPage from '../features/reports/ReportsPage';
 import CashierShiftPage from '../features/reports/CashierShiftPage';
+import DailyLedgerPage from '../features/reports/DailyLedgerPage';
 import BackupDataPage from '../features/admin/BackupDataPage';
 import PersonalDataAuditLogPage from '../features/booking/PersonalDataAuditLogPage';
 
@@ -129,6 +130,7 @@ const AppRoutes: React.FC = () => {
                   {/* Báo cáo — OWNER / ACCOUNTANT */}
                   <Route path="/manage/reports" element={<ReportsPage />} />
                   <Route path="/manage/cashier-shifts" element={<CashierShiftPage />} />
+                  <Route path="/manage/daily-ledger" element={<DailyLedgerPage />} />
 
                   {/* Lịch sử hoạt động — OWNER / ADMIN */}
                   <Route path="/manage/audit-logs" element={<ActivityLog />} />

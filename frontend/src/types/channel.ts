@@ -117,9 +117,10 @@ export interface ChannelRoomBlock {
   endDate: string;
   summary?: string;
   description?: string;
-  status: 'BLOCKED' | 'CONVERTED' | 'CANCELLED';
+  status: 'BLOCKED' | 'CONVERTED' | 'CANCELLED' | 'REJECTED';
   isExcess: boolean;
   warningMessage?: string;
+  rejectReason?: string;
   convertedBookingId?: number;
   createdAt: string;
   updatedAt?: string;
