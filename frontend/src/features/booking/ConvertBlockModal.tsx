@@ -64,9 +64,13 @@ const ConvertBlockModal: React.FC<ConvertBlockModalProps> = ({
   const [availableRooms, setAvailableRooms] = useState<RoomResponse[]>([]);
   const [loadingRooms, setLoadingRooms] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [rejectMode, setRejectMode] = useState<boolean>(false);
+  const [rejectReason, setRejectReason] = useState<string>('');
 
   useEffect(() => {
     if (isOpen && block) {
+      setRejectMode(false);
+      setRejectReason('');
       // Tự điền tên khách nếu tệp lịch kênh có tên khách hợp lệ
       const cleanSummary = block.summary && !block.summary.includes('Reserved') && !block.summary.includes('Block')
         ? block.summary.replace(/\[.*?\]\s*/, '')
@@ -87,6 +91,26 @@ const ConvertBlockModal: React.FC<ConvertBlockModalProps> = ({
       }
     }
   }, [isOpen, block]);
+
+  const handleReject = async () => {
+    if (!block) return;
+    if (!rejectReason.trim()) {
+      toastError('Vui lòng nhập lý do từ chối lượt chặn');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await channelApi.rejectBlock(block.id, rejectReason.trim());
+      toastSuccess('Đã từ chối lượt chặn phòng từ kênh kèm ghi chú lý do');
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Có lỗi xảy ra khi từ chối lượt chặn';
+      toastError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const loadAvailableRooms = async (
     roomTypeId: number,
@@ -383,25 +407,82 @@ const ConvertBlockModal: React.FC<ConvertBlockModalProps> = ({
           </div>
         </div>
 
+        {/* Vùng từ chối lượt chặn nếu đang bật rejectMode */}
+        {rejectMode && (
+          <div className="bg-red-50 border border-red-300 rounded-xl p-4 space-y-3 shadow-xs">
+            <div className="flex items-center gap-2 text-red-900 font-bold text-sm">
+              <IoAlertCircleOutline size={20} className="text-red-600" />
+              <span>Từ chối lượt chặn từ kênh phân phối (NCL-15-CN-004)</span>
+            </div>
+            <p className="text-xs text-red-800">
+              Lễ tân sử dụng chức năng này để từ chối lượt chặn kèm ghi chú lý do (ví dụ: không thỏa thuận được đổi ngày, kênh hủy trước hoặc không còn phòng). Thao tác này sẽ đóng cảnh báo trùng phòng và lưu nhật ký.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-red-950 mb-1">
+                Lý do từ chối <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Nhập lý do chi tiết từ chối lượt chặn..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-red-300 rounded-lg focus:ring-2 focus:ring-red-400 outline-none bg-white text-red-950"
+              />
+            </div>
+            <div className="flex justify-end items-center gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRejectMode(false)}
+                disabled={submitting}
+              >
+                Quay lại
+              </Button>
+              <Button
+                type="button"
+                onClick={handleReject}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-1.5 shadow-xs"
+                disabled={submitting}
+              >
+                <IoCloseOutline size={18} />
+                {submitting ? 'Đang từ chối...' : 'Xác nhận từ chối lượt chặn'}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Nút hành động */}
-        <div className="flex justify-end items-center gap-2 pt-2 border-t border-border-grey">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={submitting}
-          >
-            Hủy bỏ
-          </Button>
-          <Button
-            type="submit"
-            className="bg-purple-700 hover:bg-purple-800 text-white font-bold flex items-center gap-1.5 shadow-xs"
-            disabled={submitting}
-          >
-            <IoCheckmarkCircleOutline size={18} />
-            {submitting ? 'Đang chuyển đổi...' : 'Xác nhận chuyển thành Đặt phòng'}
-          </Button>
-        </div>
+        {!rejectMode && (
+          <div className="flex justify-between items-center gap-2 pt-2 border-t border-border-grey">
+            <Button
+              type="button"
+              variant="outline"
+              className="text-red-700 border-red-300 hover:bg-red-50 hover:border-red-400"
+              onClick={() => setRejectMode(true)}
+              disabled={submitting}
+            >
+              Từ chối kèm ghi chú
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                type="submit"
+                className="bg-purple-700 hover:bg-purple-800 text-white font-bold flex items-center gap-1.5 shadow-xs"
+                disabled={submitting}
+              >
+                <IoCheckmarkCircleOutline size={18} />
+                {submitting ? 'Đang chuyển đổi...' : 'Xác nhận chuyển thành Đặt phòng'}
+              </Button>
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   );

@@ -329,5 +329,12 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: bookings.channel_id: {}", e.getMessage());
         }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE channel_room_blocks ADD COLUMN IF NOT EXISTS reject_reason TEXT");
+            log.info("Schema Migration: Successfully ensured 'channel_room_blocks.reject_reason' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: channel_room_blocks.reject_reason: {}", e.getMessage());
+        }
     }
 }
