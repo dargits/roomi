@@ -35,4 +35,10 @@ public class HotelSettingRequest {
     private Boolean reminderEmailEnabled;
     private LocalTime reminderMorningTime;
     private Integer lostItemRetentionDays;
+
+    private Boolean periodicCleaningEnabled;
+
+    @jakarta.validation.constraints.Min(value = 1, message = "Số ngày phòng trống tối thiểu là 1 ngày")
+    @jakarta.validation.constraints.Max(value = 90, message = "Số ngày phòng trống tối đa là 90 ngày")
+    private Integer periodicCleaningDays;
 }
