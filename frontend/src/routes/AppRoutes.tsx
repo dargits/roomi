@@ -1,8 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '../context/AuthContext';
-import { AppConfigProvider } from '../context/AppConfigContext';
-import { ToastProvider } from '../context/ToastContext';
+import AppProviders from '../providers/AppProviders';
 
 // Public pages
 import LandingPage from '../features/landing/LandingPage';
@@ -58,10 +56,8 @@ import NotificationPreferences from '../features/notifications/NotificationPrefe
 
 const AppRoutes: React.FC = () => {
   return (
-    <AppConfigProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <BrowserRouter>
+    <AppProviders>
+      <BrowserRouter>
             <Routes>
               {/* === Public routes === */}
               <Route path="/" element={<LandingPage />} />
@@ -182,9 +178,7 @@ const AppRoutes: React.FC = () => {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
-        </ToastProvider>
-      </AuthProvider>
-    </AppConfigProvider>
+    </AppProviders>
   );
 };
 
