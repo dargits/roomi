@@ -360,3 +360,19 @@
   background: rgba(0, 0, 0, 0.18);
 }
 
+/* ==========================================================================
+   PRINT STYLES (Quy chuẩn in ấn và xuất chứng từ)
+   ========================================================================== */
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print,
+  .print\\:hidden,
+  [class*="print:hidden"] {
+    display: none !important;
+  }
+}
+
