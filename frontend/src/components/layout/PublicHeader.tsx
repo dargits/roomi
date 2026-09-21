@@ -2,7 +2,10 @@ import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
 import AuthContext from '../../context/AuthContext';
-import { IoMenu, IoClose } from 'react-icons/io5';
+import { IoMenu, IoClose, IoReceiptOutline, IoSearchOutline } from 'react-icons/io5';
+import Modal from '../ui/Modal';
+import Input from '../ui/Input';
+import Button from '../ui/Button';
 
 export const PUBLIC_NAV_LINKS = [
   { path: '/', label: 'Trang chủ' },
@@ -21,6 +24,10 @@ const PublicHeader: React.FC = () => {
   const user = authContext?.user;
   const isAuthenticated = !!authContext?.isAuthenticated;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLookupOpen, setIsLookupOpen] = useState(false);
+  const [lookupBookingCode, setLookupBookingCode] = useState('');
+  const [lookupPhone, setLookupPhone] = useState('');
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   // Gliding active indicator state cho Desktop Header Nav
   const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
@@ -113,6 +120,14 @@ const PublicHeader: React.FC = () => {
 
         {/* Right side: User Profile / Login Button & Mobile Toggle */}
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => { setLookupError(null); setIsLookupOpen(true); }}
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover px-3 py-1.5 rounded-lg border border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer"
+          >
+            <IoReceiptOutline size={15} /> Tra cứu hóa đơn
+          </button>
+
           {isAuthenticated && user ? (
             <Link
               to="/manage"
@@ -164,6 +179,14 @@ const PublicHeader: React.FC = () => {
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden bg-surface-container-lowest border-b border-border-grey px-6 py-4 space-y-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
+          <button
+            type="button"
+            onClick={() => { setMobileMenuOpen(false); setLookupError(null); setIsLookupOpen(true); }}
+            className="w-full flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm text-primary font-semibold bg-primary/5 border border-primary/20 mb-2 cursor-pointer"
+          >
+            <IoReceiptOutline size={18} /> Tra cứu hóa đơn & đặt phòng
+          </button>
+
           {isAuthenticated && user && (
             <Link
               to="/manage"
@@ -207,6 +230,71 @@ const PublicHeader: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* Modal tra cứu hóa đơn & đặt phòng trực tuyến (NCL-09-CN-008) */}
+      <Modal
+        isOpen={isLookupOpen}
+        onClose={() => setIsLookupOpen(false)}
+        title="Tra cứu Hóa đơn & Đặt phòng trực tuyến"
+        maxWidth="max-w-md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const cleanCode = lookupBookingCode.trim().replace(/[^0-9]/g, '');
+            const cleanPhone = lookupPhone.trim();
+            if (!cleanCode) {
+              setLookupError('Vui lòng nhập mã đặt phòng (chỉ gồm các chữ số).');
+              return;
+            }
+            if (!cleanPhone) {
+              setLookupError('Vui lòng nhập số điện thoại đã đăng ký khi đặt phòng.');
+              return;
+            }
+            setLookupError(null);
+            setIsLookupOpen(false);
+            navigate(`/booking-detail/${cleanCode}?tab=invoice&phone=${encodeURIComponent(cleanPhone)}`);
+          }}
+          className="space-y-4 p-2"
+        >
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            Nhập <strong>Mã đặt phòng</strong> và <strong>Số điện thoại</strong> Quý khách đã đăng ký khi đặt phòng để xem bảng kê chi tiết và tải hóa đơn thanh toán.
+          </p>
+
+          <Input
+            label="Mã đặt phòng *"
+            placeholder="Ví dụ: 101"
+            value={lookupBookingCode}
+            onChange={(e) => { setLookupBookingCode(e.target.value); setLookupError(null); }}
+            required
+            autoFocus
+          />
+
+          <Input
+            label="Số điện thoại đăng ký *"
+            placeholder="Ví dụ: 0912345678"
+            type="tel"
+            value={lookupPhone}
+            onChange={(e) => { setLookupPhone(e.target.value); setLookupError(null); }}
+            required
+          />
+
+          {lookupError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg font-medium">
+              {lookupError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
+            <Button type="button" variant="ghost" onClick={() => setIsLookupOpen(false)}>
+              Hủy
+            </Button>
+            <Button type="submit" variant="primary" icon={IoSearchOutline}>
+              Tra cứu hóa đơn
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </nav>
   );
 };

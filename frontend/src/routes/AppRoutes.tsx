@@ -32,6 +32,7 @@ import LoyaltyTierManagement from '../features/admin/LoyaltyTierManagement';
 import DepositPolicyPage from '../features/admin/DepositPolicyPage';
 import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 import ChannelCalendarPage from '../features/admin/ChannelCalendarPage';
+import SessionManagementPage from '../features/admin/SessionManagementPage';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
@@ -134,8 +135,9 @@ const AppRoutes: React.FC = () => {
                   {/* Nhật ký truy cập dữ liệu cá nhân — NCL-12 */}
                   <Route path="/manage/personal-data-audit" element={<PersonalDataAuditLogPage />} />
 
-                  {/* Nhân sự — OWNER / ADMIN */}
+                  {/* Nhân sự & Phiên đăng nhập — OWNER / ADMIN */}
                   <Route path="/manage/staff" element={<StaffManagement />} />
+                  <Route path="/manage/sessions" element={<SessionManagementPage />} />
 
                   {/* Cài đặt khách sạn — OWNER */}
                   <Route path="/manage/settings" element={<HotelSettings />} />

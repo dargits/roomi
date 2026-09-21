@@ -24,6 +24,14 @@ const LoginPage: React.FC = () => {
   const [pendingChangeAccount, setPendingChangeAccount] = useState('');
 
   useEffect(() => {
+    const forcedReason = sessionStorage.getItem('stayaway_logout_reason');
+    if (forcedReason) {
+      setErrorMsg(forcedReason);
+      sessionStorage.removeItem('stayaway_logout_reason');
+    }
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated) {
       if (user?.mustChangePassword) {
         setPendingChangeAccount(user.account);

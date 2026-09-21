@@ -15,6 +15,10 @@ export interface HotelSettingResponse {
   reminderMorningTime?: string;
   periodicCleaningEnabled?: boolean;
   periodicCleaningDays?: number;
+  sessionTimeoutMinutes?: number;
+  maxConcurrentSessions?: number;
+  maxSessionLifetimeHours?: number;
+  publicInvoiceLookupEnabled?: boolean;
 }
 
 export interface HotelSettingRequest {
@@ -33,6 +37,10 @@ export interface HotelSettingRequest {
   reminderMorningTime?: string;
   periodicCleaningEnabled?: boolean;
   periodicCleaningDays?: number;
+  sessionTimeoutMinutes?: number;
+  maxConcurrentSessions?: number;
+  maxSessionLifetimeHours?: number;
+  publicInvoiceLookupEnabled?: boolean;
 }
 
 export interface InventoryItemResponse {
