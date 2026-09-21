@@ -38,6 +38,24 @@ public class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Một người dùng có thể đăng nhập nhiều lần tạo nhiều session hợp lệ")
+    void testMultipleLoginsAllowed() {
+        LoginRequest request = new LoginRequest();
+        request.setAccount("letan");
+        request.setPassword("pass@123");
+
+        LoginResponse resp1 = userService.login(request);
+        LoginResponse resp2 = userService.login(request);
+        LoginResponse resp3 = userService.login(request);
+
+        assertNotNull(resp1.getToken());
+        assertNotNull(resp2.getToken());
+        assertNotNull(resp3.getToken());
+        assertNotEquals(resp1.getToken(), resp2.getToken());
+        assertNotEquals(resp2.getToken(), resp3.getToken());
+    }
+
+    @Test
     @DisplayName("Đăng nhập thất bại khi sai mật khẩu")
     void testLoginWrongPassword() {
         LoginRequest request = new LoginRequest();

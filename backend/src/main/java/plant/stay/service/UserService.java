@@ -22,4 +22,11 @@ public interface UserService {
     void changeUserRole(Long id, plant.stay.model.Role role);
     void lockUser(Long id);
     void unlockUser(Long id);
+
+    // --- NCL-10-CN-007: Quản lý phiên đăng nhập và buộc đăng xuất từ xa ---
+    LoginResponse login(LoginRequest request, jakarta.servlet.http.HttpServletRequest httpRequest);
+    void logout(String token);
+    java.util.List<plant.stay.dto.response.UserSessionResponse> getActiveSessions(String search, plant.stay.model.User currentUser, String currentToken);
+    void forceLogoutSession(Long sessionId, String reason, plant.stay.model.User actor, String currentToken);
+    void forceLogoutAllUserSessions(Long userId, String reason, plant.stay.model.User actor, String currentToken);
 }

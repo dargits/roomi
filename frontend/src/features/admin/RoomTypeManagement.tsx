@@ -181,15 +181,20 @@ const RoomTypeManagement: React.FC = () => {
   };
 
   return (
-    <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
-      <div className="px-4 py-3 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-lowest">
-        <div className="flex items-center gap-2">
-          <IoBedOutline size={22} className="text-primary" /> 
-          <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
-            Quản lý Loại phòng & Cấu hình giá
-          </h2>
+    <div className="bg-white rounded-2xl shadow-2xs border border-border-grey overflow-hidden mb-8">
+      <div className="px-6 py-4 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-[#F2F6ED] text-[#4F5E37] flex items-center justify-center">
+            <IoBedOutline size={20} />
+          </div>
+          <div>
+            <h2 className="font-bold text-base sm:text-lg text-[#1A2411]">
+              Quản lý Loại phòng & Cấu hình giá
+            </h2>
+            <p className="text-xs text-[#606D56]">Thiết lập các hạng phòng, giá tiêu chuẩn, phụ thu và bảng giá mùa</p>
+          </div>
         </div>
-        <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
+        <Button variant="primary" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
           Thêm Loại phòng
         </Button>
       </div>
@@ -197,19 +202,19 @@ const RoomTypeManagement: React.FC = () => {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-surface-container-low border-b-2 border-border-grey font-label-md text-on-surface-variant uppercase tracking-wider">
-              <th className="p-4 w-14 text-center font-semibold">ID</th>
-              <th className="p-4 font-semibold">Ảnh</th>
-              <th className="p-4 font-semibold">Tên loại phòng</th>
-              <th className="p-4 text-center font-semibold">Sức chứa (TC / TĐ)</th>
-              <th className="p-4 text-right font-semibold">Phụ thu thêm khách</th>
-              <th className="p-4 text-right font-semibold">Giá cơ bản</th>
-              <th className="p-4 text-center font-semibold">Trạng thái</th>
-              <th className="p-4 text-center font-semibold">Bảng giá</th>
-              <th className="p-4 text-center w-28 font-semibold">Thao tác</th>
+            <tr className="bg-[#F7F9F5] border-b border-border-grey text-[11px] font-bold text-[#606D56] uppercase tracking-wider">
+              <th className="p-4 w-14 text-center">ID</th>
+              <th className="p-4">Ảnh</th>
+              <th className="p-4">Tên loại phòng</th>
+              <th className="p-4 text-center">Sức chứa (TC / TĐ)</th>
+              <th className="p-4 text-right">Phụ thu thêm khách</th>
+              <th className="p-4 text-right">Giá cơ bản</th>
+              <th className="p-4 text-center">Trạng thái</th>
+              <th className="p-4 text-center">Bảng giá</th>
+              <th className="p-4 text-center w-28">Thao tác</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border-grey text-xs">
             {loading ? (
               <tr>
                 <td colSpan={9} className="p-8 text-center">
@@ -217,50 +222,54 @@ const RoomTypeManagement: React.FC = () => {
                 </td>
               </tr>
             ) : roomTypes.length === 0 ? (
-              <tr><td colSpan={9} className="p-8 text-center text-on-surface-variant">Chưa có dữ liệu loại phòng.</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-[#606D56]">Chưa có dữ liệu loại phòng.</td></tr>
             ) : (
               roomTypes.map(room => (
                 <React.Fragment key={room.id}>
-                  <tr className="border-b border-border-grey hover:bg-surface-container-low transition-colors group">
-                    <td className="p-4 text-center text-on-surface-variant font-body-sm">{room.id}</td>
+                  <tr className="hover:bg-[#F7F9F4] transition-colors group">
+                    <td className="p-4 text-center text-[#606D56] font-mono">{room.id}</td>
                     <td className="p-4">
                       {room.imageUrls && room.imageUrls.length > 0 ? (
-                        <img src={room.imageUrls[0]} alt={room.name} className="w-16 h-12 object-cover rounded shadow-sm border border-border-grey" />
+                        <img src={room.imageUrls[0]} alt={room.name} className="w-16 h-12 object-cover rounded-xl shadow-2xs border border-border-grey" />
                       ) : (
-                        <div className="w-16 h-12 bg-surface-container rounded flex items-center justify-center text-outline text-xs">No img</div>
+                        <div className="w-16 h-12 bg-[#F2F6ED] rounded-xl border border-border-grey flex items-center justify-center text-[#86967B] text-xs font-semibold">No img</div>
                       )}
                     </td>
-                    <td className="p-4 font-title-sm text-on-surface group-hover:text-primary transition-colors font-medium">
-                      <div>{room.name}</div>
+                    <td className="p-4 group-hover:text-primary transition-colors">
+                      <div className="font-bold text-sm text-[#1A2411]">{room.name}</div>
                       {room.maxChildAgeFree !== undefined && (
-                        <div className="text-xs text-on-surface-variant mt-0.5">Miễn phụ thu trẻ ≤ {room.maxChildAgeFree} tuổi</div>
+                        <div className="text-[11px] text-[#606D56] mt-0.5">Miễn phụ thu trẻ ≤ {room.maxChildAgeFree} tuổi</div>
                       )}
                     </td>
-                    <td className="p-4 text-center font-body-sm">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-surface-container border border-border-grey text-on-surface font-semibold">
+                    <td className="p-4 text-center">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F2F6ED] border border-border-grey text-[#4F5E37] font-bold text-xs">
                         {room.standardCapacity || 2} / {room.maxCapacity} người
                       </span>
                     </td>
-                    <td className="p-4 text-right font-body-sm text-on-surface">
+                    <td className="p-4 text-right">
                       {(room.extraPersonChargePerNight ?? 0) > 0 ? (
-                        <span className="text-amber-700 font-medium">+{formatPrice(room.extraPersonChargePerNight)}/đêm</span>
+                        <span className="text-amber-800 font-bold">+{formatPrice(room.extraPersonChargePerNight)}/đêm</span>
                       ) : (
-                        <span className="text-on-surface-variant text-xs">0 ₫</span>
+                        <span className="text-[#86967B] text-xs">0 ₫</span>
                       )}
                     </td>
-                    <td className="p-4 text-right font-body-md text-primary font-semibold">{formatPrice(room.basePrice)}</td>
+                    <td className="p-4 text-right font-bold text-sm text-[#1A2411]">{formatPrice(room.basePrice)}</td>
                     <td className="p-4 text-center">
-                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-label-md ${room.active ? 'bg-surface-container border border-border-grey text-green-600' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                        room.active 
+                          ? 'bg-[#EAF5CD] text-[#3F4F24] border border-[#D5EBA3]' 
+                          : 'bg-gray-100 text-gray-600 border border-gray-200'
+                      }`}>
                         {room.active ? 'Hoạt động' : 'Tạm ẩn'}
                       </span>
                     </td>
                     <td className="p-4 text-center">
                       <button
                         onClick={() => setExpandedRoomTypeId(expandedRoomTypeId === room.id ? null : room.id)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                           expandedRoomTypeId === room.id
-                            ? 'bg-primary text-on-primary border-primary'
-                            : 'hover:bg-surface-container border-border-grey text-on-surface'
+                            ? 'bg-primary text-white border-primary shadow-xs'
+                            : 'hover:bg-[#F2F6ED] border-border-grey text-[#1A2411] bg-white'
                         }`}
                         title="Cấu hình giá mùa, cuối tuần & ngày lễ"
                       >
@@ -270,20 +279,20 @@ const RoomTypeManagement: React.FC = () => {
                       </button>
                     </td>
                     <td className="p-4">
-                      <div className="flex justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-center gap-1.5">
                         <button 
                           onClick={() => openEditModal(room)}
-                          className="text-primary p-1.5 rounded-md hover:bg-surface-blue-light hover:shadow-sm transition-all cursor-pointer"
+                          className="w-8 h-8 rounded-xl hover:bg-[#F2F6ED] text-[#606D56] hover:text-primary transition-colors flex items-center justify-center border border-transparent hover:border-border-grey cursor-pointer"
                           title="Sửa"
                         >
-                          <IoPencilOutline size={18} />
+                          <IoPencilOutline size={16} />
                         </button>
                         <button 
                           onClick={() => openDeleteModal(room)}
-                          className="text-error p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm transition-all cursor-pointer"
+                          className="w-8 h-8 rounded-xl hover:bg-rose-50 text-[#606D56] hover:text-error transition-colors flex items-center justify-center border border-transparent hover:border-rose-200 cursor-pointer"
                           title="Xóa"
                         >
-                          <IoTrashOutline size={18} />
+                          <IoTrashOutline size={16} />
                         </button>
                       </div>
                     </td>
@@ -497,7 +506,7 @@ const RoomTypeManagement: React.FC = () => {
           </div>
         </form>
         <div className="flex justify-end gap-3 pt-6 border-t border-border-grey mt-6">
-          <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+          <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Hủy</Button>
           <Button type="submit" form="roomTypeForm">Lưu dữ liệu</Button>
         </div>
       </Modal>
@@ -512,7 +521,7 @@ const RoomTypeManagement: React.FC = () => {
           <p className="font-body-md text-on-surface-variant">Bạn có chắc chắn muốn xóa loại phòng <strong>{itemToDelete?.name}</strong> không? Hành động này không thể hoàn tác.</p>
         </div>
         <div className="flex gap-3 pt-6 border-t border-border-grey">
-          <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)} className="flex-1">Hủy bỏ</Button>
+          <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)} className="flex-1">Hủy bỏ</Button>
           <Button variant="danger" onClick={confirmDelete} className="flex-1">Xóa cứng</Button>
         </div>
       </Modal>

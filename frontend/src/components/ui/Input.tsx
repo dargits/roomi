@@ -23,29 +23,29 @@ const Input: React.FC<InputProps> = ({
   return (
     <div className={containerClassName}>
       {label && (
-        <label className="block font-label-md text-on-surface-variant mb-1.5">
+        <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider mb-1.5">
           {label} {required && <span className="text-error">*</span>}
         </label>
       )}
 
       <div className="relative">
         {Icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Icon size={20} strokeWidth={1.5} className="text-on-surface-variant/70" />
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <Icon size={18} strokeWidth={1.5} className="text-[#606D56]" />
           </div>
         )}
 
         <input
-          className={`w-full py-2.5 bg-surface border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all ${
-            Icon ? 'pl-10 pr-4' : 'px-4'
-          } ${error ? 'border-error' : 'border-border-grey'} ${className}`}
+          className={`w-full py-2.5 px-3.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] placeholder:text-[#8E9B86] transition-all ${
+            Icon ? 'pl-10 pr-4' : 'px-3.5'
+          } ${error ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-[#CCD8C2]'} ${className}`}
           required={required}
           {...props}
         />
       </div>
 
-      {error && <p className="text-error text-xs mt-1.5">{error}</p>}
-      {!error && helperText && <p className="text-on-surface-variant text-xs mt-1.5">{helperText}</p>}
+      {error && <p className="text-error text-xs mt-1.5 font-medium">{error}</p>}
+      {!error && helperText && <p className="text-[#606D56] text-xs mt-1.5">{helperText}</p>}
     </div>
   );
 };

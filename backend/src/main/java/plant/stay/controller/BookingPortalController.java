@@ -22,11 +22,13 @@ import plant.stay.util.AuthUtil;
 
 import java.time.LocalDate;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
 @CrossOrigin("*")
+@Slf4j
 @RequiredArgsConstructor
 public class BookingPortalController {
 
@@ -43,6 +45,8 @@ public class BookingPortalController {
     private final InvoiceService invoiceService;
     private final DepositRepository depositRepository;
     private final plant.stay.service.PricingService pricingService;
+    private final InvoiceRepository invoiceRepository;
+    private final HotelSettingRepository hotelSettingRepository;
 
     // === PUBLIC: Lấy thông tin đặt phòng chi tiết để chia sẻ ===
     @GetMapping("/api/v1/public/bookings/{id}")
@@ -56,24 +60,132 @@ public class BookingPortalController {
         return ResponseEntity.ok(usageService.getByBooking(id));
     }
 
-    // === PUBLIC: Lấy hóa đơn & các khoản thanh toán của đặt phòng ===
+    // === PUBLIC (NCL-09-CN-008): Lấy hóa đơn & các khoản thanh toán của đặt phòng ===
     @GetMapping("/api/v1/public/bookings/{id}/invoice")
-    public ResponseEntity<?> getPublicBookingInvoice(@PathVariable Long id) {
-        try {
-            InvoiceResponse invoice = invoiceService.getByBooking(id);
-            List<PaymentResponse> payments = (invoice != null && invoice.getId() != null)
-                    ? invoiceService.getPayments(invoice.getId())
-                    : List.of();
-            return ResponseEntity.ok(java.util.Map.of(
-                    "invoice", invoice != null ? invoice : java.util.Map.of(),
-                    "payments", payments
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.ok(java.util.Map.of(
-                    "invoice", java.util.Map.of(),
-                    "payments", List.of()
+    public ResponseEntity<?> getPublicBookingInvoice(
+            @PathVariable Long id,
+            @RequestParam(required = false) String phone) {
+        HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
+        if (setting != null && Boolean.FALSE.equals(setting.getPublicInvoiceLookupEnabled())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "message", "Chức năng tra cứu hóa đơn trực tuyến hiện đang tạm tắt theo chính sách của cơ sở lưu trú.",
+                    "disabled", true
             ));
         }
+
+        Booking booking = bookingRepository.findById(id).orElse(null);
+        if (booking == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "message", "Không tìm thấy thông tin đặt phòng #" + id
+            ));
+        }
+
+        if (phone != null && !phone.trim().isEmpty()) {
+            String guestPhone = booking.getGuest() != null ? booking.getGuest().getPhone() : "";
+            if (!isPhoneMatch(guestPhone, phone.trim())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                        "message", "Số điện thoại không khớp với thông tin đăng ký của đặt phòng này."
+                ));
+            }
+        }
+
+        // Lấy tất cả hóa đơn liên quan đến booking này
+        List<Invoice> allInvoices = invoiceRepository.findInvoicesCoveringBooking(id);
+
+        // NCL-09-CN-008-TC-02: Lọc bỏ hoàn toàn hóa đơn nháp (DRAFT) và đã hủy (CANCELLED)
+        List<Invoice> eligibleInvoices = allInvoices.stream()
+                .filter(inv -> inv.getStatus() != InvoiceStatus.DRAFT && inv.getStatus() != InvoiceStatus.CANCELLED)
+                .collect(Collectors.toList());
+
+        if (eligibleInvoices.isEmpty()) {
+            Map<String, Object> emptyResp = new java.util.HashMap<>();
+            emptyResp.put("invoice", null);
+            emptyResp.put("invoices", List.of());
+            emptyResp.put("payments", List.of());
+            emptyResp.put("message", "Chưa có hóa đơn chính thức cho đợt lưu trú này.");
+            return ResponseEntity.ok(emptyResp);
+        }
+
+        // Hóa đơn chính (ưu tiên hóa đơn mới nhất)
+        Invoice primary = eligibleInvoices.get(0);
+        InvoiceResponse primaryResp = toInvoiceResponse(primary);
+
+        List<InvoiceResponse> invoiceResponses = eligibleInvoices.stream()
+                .map(this::toInvoiceResponse)
+                .collect(Collectors.toList());
+
+        // Hóa đơn gốc (nếu primary là hóa đơn điều chỉnh) hoặc hóa đơn điều chỉnh (nếu có)
+        InvoiceResponse originalInvoice = null;
+        InvoiceResponse adjustmentInvoice = null;
+        if (primary.getAdjustmentOf() != null) {
+            originalInvoice = toInvoiceResponse(primary.getAdjustmentOf());
+            adjustmentInvoice = primaryResp;
+        } else if (eligibleInvoices.size() > 1) {
+            for (Invoice inv : eligibleInvoices) {
+                if (inv.getAdjustmentOf() != null && inv.getAdjustmentOf().getId().equals(primary.getId())) {
+                    adjustmentInvoice = toInvoiceResponse(inv);
+                    originalInvoice = primaryResp;
+                    break;
+                }
+            }
+        }
+
+        List<PaymentResponse> payments = (primary.getId() != null)
+                ? invoiceService.getPayments(primary.getId())
+                : List.of();
+
+        // NCL-09-CN-008-TC-04: Ghi nhật ký truy cập dữ liệu cá nhân
+        try {
+            auditLogService.log("Invoice", primary.getId(), "VIEW_PUBLIC_INVOICE", null,
+                    "Khách truy cập công khai xem hóa đơn #" + primary.getId() + " của đặt phòng #" + id);
+        } catch (Exception e) {
+            log.warn("Không thể ghi audit log xem hóa đơn công khai: {}", e.getMessage());
+        }
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("invoice", primaryResp);
+        result.put("invoices", invoiceResponses);
+        result.put("originalInvoice", originalInvoice);
+        result.put("adjustmentInvoice", adjustmentInvoice);
+        result.put("payments", payments);
+        result.put("bookingId", id);
+        return ResponseEntity.ok(result);
+    }
+
+    // === PUBLIC (NCL-09-CN-008): Tra cứu hóa đơn bằng mã đặt phòng và số điện thoại ===
+    @GetMapping("/api/v1/public/invoices/lookup")
+    public ResponseEntity<?> lookupInvoice(
+            @RequestParam String bookingCode,
+            @RequestParam String phone) {
+        if (bookingCode == null || bookingCode.trim().isEmpty() || phone == null || phone.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng nhập đầy đủ mã đặt phòng và số điện thoại."));
+        }
+
+        String numStr = bookingCode.trim().replaceAll("[^0-9]", "");
+        if (numStr.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Mã đặt phòng không hợp lệ. Vui lòng nhập số mã đặt phòng."));
+        }
+        try {
+            Long bookingId = Long.parseLong(numStr);
+            return getPublicBookingInvoice(bookingId, phone);
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Mã đặt phòng không hợp lệ."));
+        }
+    }
+
+    // === PUBLIC (NCL-09-CN-008-TC-04): Ghi nhật ký in/tải hóa đơn công khai ===
+    @PostMapping("/api/v1/public/invoices/{invoiceId}/log-access")
+    public ResponseEntity<?> logPublicInvoiceAccess(
+            @PathVariable Long invoiceId,
+            @RequestParam(defaultValue = "PRINT") String actionType) {
+        Invoice inv = invoiceRepository.findById(invoiceId).orElse(null);
+        if (inv == null || inv.getStatus() == InvoiceStatus.DRAFT || inv.getStatus() == InvoiceStatus.CANCELLED) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Hóa đơn không tồn tại hoặc không hợp lệ."));
+        }
+        String act = "EXPORT".equalsIgnoreCase(actionType) ? "EXPORT_PUBLIC_INVOICE" : "PRINT_PUBLIC_INVOICE";
+        String desc = "Khách thực hiện " + ("EXPORT".equalsIgnoreCase(actionType) ? "kết xuất/tải về" : "in") + " hóa đơn #" + invoiceId;
+        auditLogService.log("Invoice", invoiceId, act, null, desc);
+        return ResponseEntity.ok(Map.of("message", "Đã ghi nhận nhật ký truy cập hóa đơn."));
     }
 
     // === PUBLIC: Lấy thông tin cọc của đặt phòng ===
@@ -356,5 +468,36 @@ public class BookingPortalController {
                 .expectedPrice(expectedPrice)
                 .createdAt(r.getCreatedAt())
                 .build();
+    }
+
+    private InvoiceResponse toInvoiceResponse(Invoice inv) {
+        if (inv == null) return null;
+        return InvoiceResponse.builder()
+                .id(inv.getId())
+                .bookingId(inv.getBooking() != null ? inv.getBooking().getId() : null)
+                .groupBookingId(inv.getGroupBooking() != null ? inv.getGroupBooking().getId() : null)
+                .mode(inv.getMode())
+                .roomAmount(inv.getRoomAmount())
+                .serviceAmount(inv.getServiceAmount())
+                .discountAmount(inv.getDiscountAmount())
+                .totalAmount(inv.getTotalAmount())
+                .status(inv.getStatus())
+                .adjustmentOfId(inv.getAdjustmentOf() != null ? inv.getAdjustmentOf().getId() : null)
+                .note(inv.getNote())
+                .cancelReason(inv.getCancelReason())
+                .cancelledByName(inv.getCancelledBy() != null ? inv.getCancelledBy().getName() : null)
+                .cancelledAt(inv.getCancelledAt())
+                .createdAt(inv.getCreatedAt())
+                .build();
+    }
+
+    private boolean isPhoneMatch(String registered, String input) {
+        if (registered == null || input == null) return false;
+        String regClean = registered.replaceAll("[^0-9]", "");
+        String inClean = input.replaceAll("[^0-9]", "");
+        if (regClean.equals(inClean)) return true;
+        if (regClean.startsWith("84") && inClean.equals("0" + regClean.substring(2))) return true;
+        if (inClean.startsWith("84") && regClean.equals("0" + inClean.substring(2))) return true;
+        return false;
     }
 }
