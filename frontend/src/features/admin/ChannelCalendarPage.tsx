@@ -630,8 +630,8 @@ const ChannelCalendarPage: React.FC = () => {
 
     if (status === 'PAUSED' || !channel.isActive) {
       return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-          <IoPauseCircleOutline className="mr-1 text-gray-500" size={14} />
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#F4F6F0] text-[#606D56] border border-border-grey">
+          <IoPauseCircleOutline className="mr-1 text-[#606D56]" size={14} />
           Tạm ngưng
         </span>
       );
@@ -640,14 +640,14 @@ const ChannelCalendarPage: React.FC = () => {
     if (status === 'DISCONNECTED') {
       return (
         <div className="flex flex-col items-start gap-1">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-            <IoAlertCircleOutline className="mr-1 text-rose-600" size={15} />
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] animate-pulse">
+            <IoAlertCircleOutline className="mr-1 text-[#DC2626]" size={15} />
             Mất kết nối
           </span>
           <button
             type="button"
             onClick={() => setSelectedErrorChannel(channel)}
-            className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 underline flex items-center"
+            className="text-[11px] font-semibold text-[#DC2626] hover:text-[#991B1B] underline flex items-center"
           >
             <IoEyeOutline className="mr-0.5" size={13} />
             Xem lỗi chi tiết
@@ -659,11 +659,11 @@ const ChannelCalendarPage: React.FC = () => {
     if (status === 'STALE') {
       return (
         <div className="flex flex-col items-start gap-1">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-            <IoWarningOutline className="mr-1 text-amber-600" size={14} />
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-[#FFFBEB] text-[#D97706] border border-[#FDE68A]">
+            <IoWarningOutline className="mr-1 text-[#D97706]" size={14} />
             Ngừng cập nhật / Trễ
           </span>
-          <span className="text-[10px] text-amber-700 font-medium max-w-[140px] truncate" title="Quá hạn đồng bộ - Nguy cơ trùng phòng">
+          <span className="text-[10px] text-[#D97706] font-medium max-w-[140px] truncate" title="Quá hạn đồng bộ - Nguy cơ trùng phòng">
             Nguy cơ trùng phòng
           </span>
         </div>
@@ -671,8 +671,8 @@ const ChannelCalendarPage: React.FC = () => {
     }
 
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-        <IoCheckmarkCircleOutline className="mr-1 text-emerald-600" size={14} />
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#ECFDF5] text-[#16A34A] border border-[#A7F3D0]">
+        <IoCheckmarkCircleOutline className="mr-1 text-[#16A34A]" size={14} />
         Kết nối tốt
       </span>
     );
