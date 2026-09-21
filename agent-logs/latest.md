@@ -4,4 +4,4 @@
 * **Vòng hiện tại**: Round 5 Hoàn tất
 * **Mục tiêu vòng này**: Rà soát & Chuẩn hóa toàn diện Báo Cáo Doanh Thu / Công Suất & Lịch Kênh Phân Phối (`/manage/reports/*`, `/manage/channels/calendar`)
 * **Thời gian bắt đầu**: 2026-09-22 00:38
-* **Commit trước**: 428c167 (feat(design-system): Round 4)
+* **Commit trước**: 16451e1 (feat(design-system): Round 5)
