@@ -72,6 +72,40 @@ const reportApi = {
   },
 
   /**
+   * Báo cáo So sánh chỉ số với kỳ trước (CLTSN3-431)
+   * GET /api/v1/reports/period-comparison?from=&to=&periodType=&compareTarget=
+   * Role: OWNER / ACCOUNTANT / ADMIN
+   */
+  getPeriodComparison: async (
+    from: string,
+    to: string,
+    periodType: 'month' | 'quarter' | 'year' | 'custom' = 'month',
+    compareTarget: 'both' | 'previous_period' | 'same_period_last_year' = 'both'
+  ): Promise<import('../types').PeriodComparisonReportResponse> => {
+    const response = await api.get<import('../types').PeriodComparisonReportResponse>('/reports/period-comparison', {
+      params: { from, to, periodType, compareTarget }
+    });
+    return response.data;
+  },
+
+  /**
+   * Xuất báo cáo so sánh chỉ số với kỳ trước ra file CSV UTF-8 BOM
+   * GET /api/v1/reports/export?type=period_comparison&from=&to=&periodType=
+   * Role: OWNER / ACCOUNTANT / ADMIN
+   */
+  exportPeriodComparison: async (
+    from: string,
+    to: string,
+    periodType: 'month' | 'quarter' | 'year' | 'custom' = 'month'
+  ): Promise<Blob> => {
+    const response = await api.get('/reports/export', {
+      params: { type: 'period_comparison', from, to, periodType },
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  /**
    * Lấy danh sách check-in/out hôm nay
    * GET /api/v1/notifications/today-checkinout
    * Role: OWNER / RECEPTIONIST
