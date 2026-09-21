@@ -55,40 +55,40 @@ const QuickLoginDropdown: React.FC<QuickLoginDropdownProps> = ({ onSelectRole })
   };
 
   return (
-    <div className="w-full border border-border-grey border-dashed rounded-md mt-4 bg-surface-container-lowest overflow-hidden shadow-sm">
+    <div className="w-full border border-border-grey rounded-xl mt-3 bg-surface-container-lowest overflow-hidden shadow-2xs">
       <button 
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-2 bg-surface-container-low hover:bg-surface-container transition-colors border-b border-border-grey"
+        className="w-full flex items-center justify-between p-3 bg-[#F4F6F0] hover:bg-[#EAEFE3] transition-colors border-b border-border-grey cursor-pointer"
       >
-        <div className="flex items-center gap-1.5 text-on-surface font-label-md text-label-md">
+        <div className="flex items-center gap-2 text-[#1A2411] text-xs font-semibold">
           <IoSettingsOutline className="text-primary" size={16} strokeWidth={1.5} />
-          Tài khoản Demo (môi trường phát triển)
+          Tài khoản Demo (môi trường thử nghiệm)
         </div>
-        <IoChevronDownOutline className="text-outline transition-transform duration-200" size={18} strokeWidth={1.5} style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+        <IoChevronDownOutline className="text-[#606D56] transition-transform duration-200" size={16} strokeWidth={1.5} style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
       </button>
 
       {isOpen && (
-        <div className="p-2 flex flex-col gap-1.5 bg-surface-container-lowest">
+        <div className="p-2.5 flex flex-col gap-2 bg-surface-container-lowest">
           {roles.map((role) => (
             <div 
               key={role.id}
               onClick={() => handleSelect(role.name)}
-              className="flex items-center gap-2.5 p-2 border border-border-grey rounded-md cursor-pointer hover:border-primary hover:bg-surface-blue-light transition-all group shadow-sm hover:shadow"
+              className="flex items-center gap-3 p-2.5 border border-border-grey rounded-xl cursor-pointer hover:border-primary/50 hover:bg-[#F4F6F0] transition-all group shadow-2xs hover:shadow-xs"
             >
-              <div className={`px-1.5 py-0.5 rounded border font-bold text-[10px] ${role.tagColor}`}>
+              <div className={`px-2 py-0.5 rounded-full border font-bold text-[10px] ${role.tagColor}`}>
                 {role.id}
               </div>
               <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-title-sm text-on-surface group-hover:text-primary transition-colors">{role.name}</h4>
-                  <span className="text-[10px] font-mono text-outline font-medium">{role.username}</span>
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold text-xs text-[#1A2411] group-hover:text-primary transition-colors">{role.name}</h4>
+                  <span className="text-[10px] font-mono text-[#606D56] font-medium">{role.username}</span>
                 </div>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 leading-tight">{role.desc}</p>
+                <p className="text-[11px] text-[#606D56] mt-0.5 leading-tight">{role.desc}</p>
               </div>
             </div>
           ))}
-          <p className="text-[10px] text-primary font-semibold text-center mt-1 pb-1">⚡ Nhấn vào tài khoản để đăng nhập tự động ngay</p>
+          <p className="text-[11px] text-primary font-semibold text-center mt-1 pb-1">⚡ Nhấn vào tài khoản để đăng nhập tự động ngay</p>
         </div>
       )}
     </div>
