@@ -21,6 +21,15 @@ const authApi = {
   register: async (data: RegisterRequest): Promise<MessageResponse> => {
     const response = await api.post<MessageResponse>('/auth/register', data);
     return response.data;
+  },
+
+  /**
+   * Đăng xuất (Logout)
+   * Endpoint: POST /api/v1/auth/logout
+   */
+  logout: async (): Promise<MessageResponse> => {
+    const response = await api.post<MessageResponse>('/auth/logout');
+    return response.data;
   }
 };
 

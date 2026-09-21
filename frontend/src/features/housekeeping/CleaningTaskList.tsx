@@ -17,12 +17,15 @@ import {
   IoCloseCircleOutline,
   IoTimeOutline,
   IoFlameOutline,
+  IoFlame,
   IoFlashOutline,
   IoPersonRemoveOutline,
   IoInformationCircleOutline,
   IoAlertCircleOutline,
   IoWarningOutline,
-  IoCubeOutline
+  IoCubeOutline,
+  IoCallOutline,
+  IoBedOutline
 } from 'react-icons/io5';
 import RoomIncidentModal from './RoomIncidentModal';
 import LostItemCreateModal from './LostItemCreateModal';
@@ -52,6 +55,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
   const [selectedStaffFilter, setSelectedStaffFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('PRIORITY');
   const [housekeeperTaskFilter, setHousekeeperTaskFilter] = useState('ALL');
+  const [quickFilter, setQuickFilter] = useState<'ALL' | 'URGENT' | 'UNASSIGNED' | 'PERIODIC'>('ALL');
 
   const isSupervisor = ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
   const isHousekeeper = user?.role === 'HOUSEKEEPER';
@@ -282,9 +286,12 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
       };
     });
 
+    const urgentCount = currentTabRooms.filter(r => r.priorityLevel === 'URGENT').length;
+
     return {
       unassignedCount,
       staffCounts,
+      urgentCount,
       totalCount: currentTabRooms.length,
       totalPendingAcrossTabs: dirtyRooms.length + inspectingRooms.length
     };
@@ -351,6 +358,11 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
       // Lọc tầng
       const matchFloor = !selectedFloor || room.floor?.toString() === selectedFloor.toString();
 
+      // Quick filter
+      if (quickFilter === 'URGENT' && room.priorityLevel !== 'URGENT') return false;
+      if (quickFilter === 'UNASSIGNED' && room.assignedHousekeeperId) return false;
+      if (quickFilter === 'PERIODIC' && room.cleaningReason !== 'PERIODIC_VACANT') return false;
+
       // Lọc nhân viên phụ trách (dành cho Supervisor)
       let matchStaff = true;
       if (isSupervisor) {
@@ -391,84 +403,173 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
       }
       return 0;
     });
-  }, [roleFilteredList, searchTerm, selectedFloor, selectedStaffFilter, housekeeperTaskFilter, sortBy, isSupervisor, isHousekeeper, user?.id]);
+  }, [roleFilteredList, searchTerm, selectedFloor, selectedStaffFilter, housekeeperTaskFilter, quickFilter, sortBy, isSupervisor, isHousekeeper, user?.id]);
 
   return (
-    <div className="space-y-4">
-      {/* 1. THANH TỔNG HỢP CÂN BẰNG KHỐI LƯỢNG CÔNG VIỆC (Dành cho Lễ tân / Chủ cơ sở) */}
+    <div className="space-y-5">
+      {/* 1. THANH TỔNG HỢP CÂN BẰNG KHỐI LƯỢNG CÔNG VIỆC (Dành cho Lễ tân / Quản lý) */}
       {isSupervisor && (
-        <div className="bg-surface-container-lowest border border-border-grey p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-            <div className="flex items-center gap-2">
-              <IoPersonOutline className="text-primary" size={18} />
-              <h3 className="font-title-md text-on-surface font-bold text-sm">
-                Phân bổ {activeSubTab === 'DIRTY' ? 'phòng cần dọn' : 'phòng chờ duyệt'} ({workloadStats.totalCount} phòng)
-              </h3>
+        <div className="space-y-3">
+          {/* 4 Thẻ KPI Tác vụ */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div 
+              onClick={() => { setActiveSubTab('DIRTY'); setSelectedStaffFilter('ALL'); setQuickFilter('ALL'); }}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                activeSubTab === 'DIRTY' && quickFilter === 'ALL'
+                  ? 'bg-orange-50/80 border-orange-300 ring-2 ring-orange-400/20 shadow-xs'
+                  : 'bg-white border-border-grey hover:border-orange-200 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-orange-950">Phòng cần dọn</span>
+                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold">
+                  <IoBrushOutline size={16} />
+                </div>
+              </div>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-on-surface">{dirtyRooms.length}</span>
+                <span className="text-[11px] text-orange-700 font-medium">chờ vệ sinh</span>
+              </div>
             </div>
-            <span className="text-[11px] text-on-surface-variant italic">
-              Nhấp vào nhân viên để lọc riêng danh sách phòng của từng người
-            </span>
+
+            <div 
+              onClick={() => { setActiveSubTab('INSPECTING'); setSelectedStaffFilter('ALL'); setQuickFilter('ALL'); }}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                activeSubTab === 'INSPECTING' && quickFilter === 'ALL'
+                  ? 'bg-purple-50/80 border-purple-300 ring-2 ring-purple-400/20 shadow-xs'
+                  : 'bg-white border-border-grey hover:border-purple-200 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-purple-950">Chờ nghiệm thu</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                  <IoSparklesOutline size={16} />
+                </div>
+              </div>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-on-surface">{inspectingRooms.length}</span>
+                <span className="text-[11px] text-purple-700 font-medium">chờ duyệt sạch</span>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setQuickFilter(prev => prev === 'URGENT' ? 'ALL' : 'URGENT')}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                quickFilter === 'URGENT'
+                  ? 'bg-red-50/80 border-red-300 ring-2 ring-red-400/20 shadow-xs'
+                  : 'bg-white border-border-grey hover:border-red-200 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-red-950">Khách nhận hôm nay</span>
+                <div className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center font-bold">
+                  <IoFlame size={16} className="animate-pulse" />
+                </div>
+              </div>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-red-700">{workloadStats.urgentCount}</span>
+                <span className="text-[11px] text-red-600 font-medium">ưu tiên đón khách</span>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setSelectedStaffFilter(prev => prev === 'UNASSIGNED' ? 'ALL' : 'UNASSIGNED')}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                selectedStaffFilter === 'UNASSIGNED'
+                  ? 'bg-amber-50/80 border-amber-300 ring-2 ring-amber-400/20 shadow-xs'
+                  : 'bg-white border-border-grey hover:border-amber-200 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-950">Chưa phân công</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                  <IoAlertCircleOutline size={16} />
+                </div>
+              </div>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-amber-800">{workloadStats.unassignedCount}</span>
+                <span className="text-[11px] text-amber-700 font-medium">cần điều phối</span>
+              </div>
+            </div>
           </div>
 
-          {/* Workload Chips */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Chip Tất cả */}
-            <button
-              onClick={() => setSelectedStaffFilter('ALL')}
-              className={`px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
-                selectedStaffFilter === 'ALL'
-                  ? 'bg-primary text-white border-primary shadow-xs'
-                  : 'bg-surface border-border-grey text-on-surface hover:border-primary'
-              }`}
-            >
-              Tất cả ({workloadStats.totalCount})
-            </button>
+          {/* Thanh phân bổ nhân sự */}
+          <div className="bg-white rounded-2xl border border-border-grey p-4 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <IoPersonOutline className="text-[#626F47]" size={17} />
+                <h3 className="font-bold text-on-surface text-xs tracking-normal">
+                  Khối lượng công việc nhân viên buồng phòng ({workloadStats.totalCount} phòng {activeSubTab === 'DIRTY' ? 'cần dọn' : 'chờ duyệt'})
+                </h3>
+              </div>
+              <span className="text-[11px] text-on-surface-variant">
+                Bấm vào nhân viên để lọc nhanh danh sách phòng phụ trách
+              </span>
+            </div>
 
-            {/* Chip Chưa phân công */}
-            <button
-              onClick={() => setSelectedStaffFilter(prev => prev === 'UNASSIGNED' ? 'ALL' : 'UNASSIGNED')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
-                selectedStaffFilter === 'UNASSIGNED'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                  : workloadStats.unassignedCount > 0
-                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-                  : 'bg-surface border-border-grey text-on-surface-variant hover:border-primary'
-              }`}
-            >
-              <IoAlertCircleOutline size={14} className={workloadStats.unassignedCount > 0 ? 'text-amber-600' : ''} />
-              Chưa phân công ({workloadStats.unassignedCount})
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Nút tất cả */}
+              <button
+                onClick={() => setSelectedStaffFilter('ALL')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                  selectedStaffFilter === 'ALL'
+                    ? 'bg-[#626F47] text-white border-[#626F47] shadow-xs'
+                    : 'bg-white border-border-grey text-on-surface hover:border-[#626F47]'
+                }`}
+              >
+                Tất cả ({workloadStats.totalCount})
+              </button>
 
-            {/* Chips từng nhân viên buồng phòng */}
-            {workloadStats.staffCounts.map(st => {
-              const isSelected = selectedStaffFilter === String(st.id);
-              return (
-                <button
-                  key={st.id}
-                  onClick={() => setSelectedStaffFilter(prev => prev === String(st.id) ? 'ALL' : String(st.id))}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                      : st.assignedCount > 0
-                      ? 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100'
-                      : 'bg-surface border-border-grey text-on-surface-variant hover:border-primary'
-                  }`}
-                  title={isSelected ? 'Bấm để hủy lọc' : `Lọc phòng của ${st.name}`}
-                >
-                  <IoPersonOutline size={13} />
-                  <span>{st.name}</span>
-                  <span className={`px-1.5 py-0.2 text-[10px] font-bold ${
-                    isSelected
-                      ? 'bg-white/20 text-white'
-                      : st.assignedCount > 0
-                      ? 'bg-blue-200 text-blue-900'
-                      : 'bg-surface-container text-on-surface-variant'
-                  }`}>
-                    {st.assignedCount} phòng
-                  </span>
-                </button>
-              );
-            })}
+              {/* Nút Chưa gán */}
+              <button
+                onClick={() => setSelectedStaffFilter(prev => prev === 'UNASSIGNED' ? 'ALL' : 'UNASSIGNED')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                  selectedStaffFilter === 'UNASSIGNED'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : workloadStats.unassignedCount > 0
+                    ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                    : 'bg-white border-border-grey text-on-surface-variant hover:border-[#626F47]'
+                }`}
+              >
+                <IoAlertCircleOutline size={14} className={workloadStats.unassignedCount > 0 ? 'text-amber-600' : ''} />
+                <span>Chưa phân công ({workloadStats.unassignedCount})</span>
+              </button>
+
+              {/* Chips từng nhân viên buồng phòng */}
+              {workloadStats.staffCounts.map(st => {
+                const isSelected = selectedStaffFilter === String(st.id);
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => setSelectedStaffFilter(prev => prev === String(st.id) ? 'ALL' : String(st.id))}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#1A2411] text-white border-[#1A2411] shadow-xs font-bold'
+                        : st.assignedCount > 0
+                        ? 'bg-blue-50/70 text-blue-950 border-blue-200 hover:bg-blue-100 font-medium'
+                        : 'bg-white border-border-grey text-on-surface-variant hover:border-[#626F47]'
+                    }`}
+                    title={isSelected ? 'Bấm để hủy lọc' : `Lọc phòng của ${st.name}`}
+                  >
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-blue-200 text-blue-900'
+                    }`}>
+                      {st.name?.slice(0, 1) || 'N'}
+                    </div>
+                    <span>{st.name}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : st.assignedCount > 0
+                        ? 'bg-blue-200 text-blue-900'
+                        : 'bg-neutral-100 text-neutral-600'
+                    }`}>
+                      {st.assignedCount} phòng
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -515,20 +616,20 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
       )}
 
       {/* 3. KHU VỰC DANH SÁCH PHÒNG CHÍNH */}
-      <div className="bg-surface-container-lowest border border-border-grey overflow-hidden shadow-sm">
+      <div className="bg-white rounded-2xl border border-border-grey overflow-hidden shadow-2xs">
         {/* Header toolbar */}
-        <div className="p-4 border-b border-border-grey flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-low/30">
+        <div className="p-5 border-b border-border-grey flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#FBFDF9]">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 flex items-center justify-center border ${
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center border shrink-0 ${
               activeSubTab === 'DIRTY' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-purple-50 text-purple-600 border-purple-200'
             }`}>
-              {activeSubTab === 'DIRTY' ? <IoBrushOutline size={20} /> : <IoSparklesOutline size={20} />}
+              {activeSubTab === 'DIRTY' ? <IoBrushOutline size={22} /> : <IoSparklesOutline size={22} />}
             </div>
             <div>
               <h2 className="font-title-lg text-on-surface font-bold text-base">
                 {activeSubTab === 'DIRTY' ? 'Danh sách phòng cần dọn dẹp' : 'Phòng chờ kiểm tra & duyệt sạch'}
               </h2>
-              <p className="text-on-surface-variant text-xs">
+              <p className="text-on-surface-variant text-xs mt-0.5">
                 {selectedStaffLabel ? (
                   <span>
                     Đang lọc: <strong className="text-on-surface">{selectedStaffLabel}</strong> — {filteredAndSortedRooms.length} phòng {activeSubTab === 'DIRTY' ? 'cần dọn' : 'chờ duyệt'}
@@ -544,12 +645,12 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
           {/* SubTab switcher & Refresh */}
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex bg-surface-container-low p-1 border border-border-grey">
+            <div className="flex bg-[#F4F6F0] p-1 rounded-xl border border-border-grey">
               <button
                 onClick={() => { setActiveSubTab('DIRTY'); setSelectedFloor(''); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   activeSubTab === 'DIRTY'
-                    ? 'bg-white text-orange-600 font-bold border border-orange-200'
+                    ? 'bg-white text-orange-600 font-bold border border-orange-200 shadow-xs'
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
@@ -557,9 +658,9 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
               </button>
               <button
                 onClick={() => { setActiveSubTab('INSPECTING'); setSelectedFloor(''); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   activeSubTab === 'INSPECTING'
-                    ? 'bg-white text-purple-600 font-bold border border-purple-200'
+                    ? 'bg-white text-purple-600 font-bold border border-purple-200 shadow-xs'
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
@@ -571,7 +672,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
               <button
                 onClick={handleScanPeriodicCleaning}
                 disabled={scanningPeriodic || loading}
-                className="flex items-center gap-1.5 px-3 py-2 border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors text-teal-900 text-xs font-semibold shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors text-teal-900 text-xs font-semibold shadow-xs cursor-pointer"
                 title="Quét các phòng trống quá chu kỳ để tự động đưa vào danh sách cần dọn"
               >
                 <IoSparklesOutline size={14} className={scanningPeriodic ? 'animate-spin text-teal-600' : 'text-teal-600'} />
@@ -582,7 +683,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
             <button
               onClick={fetchRoomsAndStaff}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-2 border border-border-grey bg-white hover:bg-surface-container-low transition-colors text-on-surface-variant text-xs font-semibold shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border-grey bg-white hover:bg-surface-container-low transition-colors text-on-surface-variant text-xs font-semibold shadow-xs cursor-pointer"
             >
               <IoRefreshOutline size={15} className={loading ? 'animate-spin' : ''} />
               Làm mới
@@ -592,7 +693,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
         {/* Active Filter Notification */}
         {selectedStaffLabel && (
-          <div className="flex items-center justify-between px-4 py-2 bg-blue-50/80 border-b border-blue-200 text-xs text-blue-950">
+          <div className="flex items-center justify-between px-5 py-2.5 bg-blue-50/80 border-b border-blue-200 text-xs text-blue-950">
             <div className="flex items-center gap-2">
               <IoPersonOutline className="text-blue-600" size={14} />
               <span>
@@ -610,62 +711,118 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
         )}
 
         {/* Filter & Search Bar */}
-        <div className="p-4 bg-surface-container-low/40 border-b border-border-grey flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[220px]">
-            <IoSearchOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/70" size={16} />
-            <input
-              type="text"
-              placeholder="Tìm theo số phòng, loại phòng, nhân viên, khách..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-border-grey text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary shadow-xs"
-            />
-          </div>
+        <div className="p-4 bg-[#FBFDF9] border-b border-border-grey space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[220px]">
+              <IoSearchOutline className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70" size={16} />
+              <input
+                type="text"
+                placeholder="Tìm theo số phòng, loại phòng, nhân viên, khách..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl text-xs bg-white border border-border-grey text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary shadow-xs"
+              />
+            </div>
 
-          {/* Floor filter */}
-          {floors.length > 0 && (
+            {/* Floor filter */}
+            {floors.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <IoFilterOutline size={15} className="text-on-surface-variant" />
+                <select
+                  value={selectedFloor}
+                  onChange={(e) => setSelectedFloor(e.target.value)}
+                  className="px-3 py-2 rounded-xl text-xs bg-white border border-border-grey text-on-surface focus:outline-none focus:border-primary shadow-xs"
+                >
+                  <option value="">Tất cả tầng ({filteredAndSortedRooms.length})</option>
+                  {floors.map(floor => (
+                    <option key={floor} value={floor}>Tầng {floor}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Sort By */}
             <div className="flex items-center gap-1.5">
-              <IoFilterOutline size={15} className="text-on-surface-variant" />
+              <span className="text-xs text-on-surface-variant">Sắp xếp:</span>
               <select
-                value={selectedFloor}
-                onChange={(e) => setSelectedFloor(e.target.value)}
-                className="px-3 py-2 text-xs bg-white border border-border-grey text-on-surface focus:outline-none focus:border-primary shadow-xs"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 rounded-xl text-xs bg-white border border-border-grey text-on-surface focus:outline-none focus:border-primary shadow-xs"
               >
-                <option value="">Tất cả tầng ({filteredAndSortedRooms.length})</option>
-                {floors.map(floor => (
-                  <option key={floor} value={floor}>Tầng {floor}</option>
-                ))}
+                <option value="PRIORITY">Độ ưu tiên đón khách</option>
+                <option value="ROOM_NUMBER">Số phòng (A-Z)</option>
+                <option value="FLOOR">Tầng (Thấp → Cao)</option>
               </select>
             </div>
-          )}
+          </div>
 
-          {/* Sort By */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-on-surface-variant">Sắp xếp:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 text-xs bg-white border border-border-grey text-on-surface focus:outline-none focus:border-primary shadow-xs"
+          {/* Quick Filter Chips */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 text-xs">
+            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider shrink-0 mr-1">
+              Lọc nhanh:
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuickFilter('ALL')}
+              className={`px-3 py-1 rounded-full border transition-all cursor-pointer whitespace-nowrap text-xs font-semibold ${
+                quickFilter === 'ALL'
+                  ? 'bg-[#1A2411] text-white border-[#1A2411] shadow-xs'
+                  : 'bg-white border-border-grey text-on-surface hover:border-[#626F47]'
+              }`}
             >
-              <option value="PRIORITY">Độ ưu tiên đón khách</option>
-              <option value="ROOM_NUMBER">Số phòng (A-Z)</option>
-              <option value="FLOOR">Tầng (Thấp → Cao)</option>
-            </select>
+              Tất cả ({roleFilteredList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickFilter(prev => prev === 'URGENT' ? 'ALL' : 'URGENT')}
+              className={`px-3 py-1 rounded-full border transition-all cursor-pointer whitespace-nowrap text-xs font-semibold flex items-center gap-1 ${
+                quickFilter === 'URGENT'
+                  ? 'bg-red-600 text-white border-red-600 shadow-xs'
+                  : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+              }`}
+            >
+              <IoFlame size={13} className={quickFilter === 'URGENT' ? '' : 'text-red-500'} />
+              <span>Khách nhận hôm nay ({roleFilteredList.filter(r => r.priorityLevel === 'URGENT').length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickFilter(prev => prev === 'UNASSIGNED' ? 'ALL' : 'UNASSIGNED')}
+              className={`px-3 py-1 rounded-full border transition-all cursor-pointer whitespace-nowrap text-xs font-semibold flex items-center gap-1 ${
+                quickFilter === 'UNASSIGNED'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                  : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+              }`}
+            >
+              <IoAlertCircleOutline size={13} className={quickFilter === 'UNASSIGNED' ? '' : 'text-amber-600'} />
+              <span>Chưa phân công ({roleFilteredList.filter(r => !r.assignedHousekeeperId).length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickFilter(prev => prev === 'PERIODIC' ? 'ALL' : 'PERIODIC')}
+              className={`px-3 py-1 rounded-full border transition-all cursor-pointer whitespace-nowrap text-xs font-semibold flex items-center gap-1 ${
+                quickFilter === 'PERIODIC'
+                  ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                  : 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100'
+              }`}
+            >
+              <IoSparklesOutline size={13} className={quickFilter === 'PERIODIC' ? '' : 'text-teal-600'} />
+              <span>Định kỳ ({roleFilteredList.filter(r => r.cleaningReason === 'PERIODIC_VACANT').length})</span>
+            </button>
           </div>
         </div>
 
         {/* Room Cards Grid */}
-        <div className="p-4">
+        <div className="p-5">
           {loading && filteredAndSortedRooms.length === 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-48 bg-surface-container-low animate-pulse border border-border-grey" />
+                <div key={i} className="h-48 bg-surface-container-low animate-pulse rounded-2xl border border-border-grey" />
               ))}
             </div>
           ) : filteredAndSortedRooms.length === 0 ? (
             <div className="py-16 text-center">
-              <div className="w-14 h-14 bg-green-100 flex items-center justify-center mx-auto mb-3 text-green-600 border border-green-200">
+              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-green-600 border border-green-200">
                 <IoCheckmarkCircleOutline size={30} />
               </div>
               <h3 className="font-title-lg text-on-surface font-bold text-base mb-1">
@@ -690,95 +847,115 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                 return (
                   <div
                     key={room.id}
-                    className={`flex flex-col bg-white border transition-all duration-200 ${
+                    className={`flex flex-col bg-white border rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-200 ${
                       isUrgent
-                        ? 'border-red-400 shadow-sm ring-1 ring-red-400/30'
+                        ? 'border-red-400 ring-1 ring-red-400/30'
                         : isDirty 
                         ? 'border-orange-200 hover:border-orange-300' 
                         : 'border-purple-200 hover:border-purple-300'
                     }`}
                   >
                     {/* Top Accent Stripe based on Priority & Status */}
-                    <div className={`h-1 w-full ${
-                      isUrgent ? 'bg-red-500' : isHigh ? 'bg-amber-500' : isDirty ? 'bg-orange-400' : 'bg-purple-500'
+                    <div className={`h-1.5 w-full bg-gradient-to-r ${
+                      isUrgent ? 'from-red-500 to-rose-400' : isHigh ? 'from-amber-500 to-orange-400' : isDirty ? 'from-[#E28E3A] to-amber-400' : 'from-purple-600 to-indigo-500'
                     }`} />
 
                     {/* Room card top */}
-                    <div className={`p-3.5 border-b flex items-start justify-between ${
-                      isUrgent ? 'bg-red-50/40 border-red-100' : isDirty ? 'bg-orange-50/40 border-orange-100' : 'bg-purple-50/40 border-purple-100'
-                    }`}>
+                    <div className="p-4 border-b border-border-grey/70 bg-[#FDFEFA] flex items-start justify-between">
                       <div>
-                        <span className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant">
-                          Phòng
+                        <span className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant/80">
+                          PHÒNG
                         </span>
-                        <h3 className="font-headline-sm text-on-surface font-extrabold text-2xl leading-none mt-0.5">
+                        <h3 className="font-extrabold text-2xl text-on-surface leading-tight mt-0.5 tracking-normal">
                           {room.roomNumber}
                         </h3>
-                        <p className="text-xs text-on-surface-variant font-medium mt-1">
-                          {room.roomTypeName || 'Tiêu chuẩn'}
+                        <p className="text-xs text-on-surface-variant font-medium mt-0.5">
+                          {room.roomTypeName || 'Phòng Tiêu Chuẩn'}
                         </p>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1 flex-wrap justify-end">
+                      <div className="flex flex-col items-end gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
                           {room.cleaningReason === 'PERIODIC_VACANT' && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-teal-100 text-teal-900 border-teal-300 flex items-center gap-0.5">
-                              <IoSparklesOutline size={10} className="text-teal-700" />
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-teal-50 text-teal-800 border-teal-200 flex items-center gap-1">
+                              <IoSparklesOutline size={11} className="text-teal-600" />
                               Định kỳ
                             </span>
                           )}
-                          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 shadow-2xs ${
                             isDirty 
-                              ? 'bg-orange-100 text-orange-900 border-orange-300' 
-                              : 'bg-purple-100 text-purple-900 border-purple-300'
+                              ? 'bg-orange-50 text-orange-800 border-orange-200' 
+                              : 'bg-purple-50 text-purple-800 border-purple-200'
                           }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isDirty ? 'bg-orange-500' : 'bg-purple-500'}`} />
                             {isDirty ? 'Cần dọn' : 'Chờ duyệt'}
                           </span>
                         </div>
-                        <span className="text-[10px] text-on-surface-variant font-semibold">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] bg-[#F4F6F0] text-on-surface-variant font-semibold border border-border-grey/60">
                           Tầng {room.floor || '—'}
                         </span>
                       </div>
                     </div>
 
                     {/* Room card body */}
-                    <div className="p-3.5 flex-1 space-y-2.5 text-xs">
-                      {/* Priority Badge */}
+                    <div className="p-4 flex-1 space-y-3 text-xs">
+                      {/* Specs chips */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md bg-[#F4F6F0] text-on-surface-variant text-[11px] font-medium border border-border-grey/60 flex items-center gap-1">
+                          <IoTimeOutline size={12} /> ~30 - 45 phút
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#F4F6F0] text-on-surface-variant text-[11px] font-medium border border-border-grey/60 flex items-center gap-1">
+                          <IoBrushOutline size={11} /> {room.cleaningReason === 'PERIODIC_VACANT' ? 'Dọn định kỳ' : 'Dọn sau trả phòng'}
+                        </span>
+                      </div>
+
+                      {/* Priority & Guest Info Banner */}
                       <div>
-                        {room.cleaningReason === 'PERIODIC_VACANT' && (
-                          <div className="mb-1.5 flex items-center gap-1.5 px-2 py-1 bg-teal-50 border border-teal-200 text-teal-900 font-semibold text-[11px]">
-                            <IoSparklesOutline size={14} className="text-teal-600 shrink-0" />
-                            <span>Phòng trống {room.vacantDays ? `${room.vacantDays} ngày` : 'lâu ngày'} — Cần lau bụi định kỳ</span>
+                        {room.cleaningReason === 'PERIODIC_VACANT' ? (
+                          <div className="p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-950 font-semibold text-[11px] flex items-start gap-2">
+                            <IoSparklesOutline size={15} className="text-teal-600 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold">Phòng trống {room.vacantDays ? `${room.vacantDays} ngày` : 'lâu ngày'}</p>
+                              <p className="text-teal-800 text-[10px] font-normal">Cần khử khuẩn và kiểm tra trang thiết bị</p>
+                            </div>
                           </div>
-                        )}
-                        {isUrgent ? (
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-red-100/80 border border-red-300 text-red-800 font-bold text-[11px]">
-                            <IoFlameOutline size={15} className="text-red-600 animate-pulse" />
-                            <span>🔥 Khách nhận hôm nay ({room.nextCheckInDate})</span>
+                        ) : isUrgent ? (
+                          <div className="p-2.5 rounded-xl bg-red-50/90 border border-red-200 text-red-950 text-[11px]">
+                            <div className="flex items-center gap-1.5 font-bold text-red-700">
+                              <IoFlame size={15} className="animate-pulse text-red-600" />
+                              <span>Khách nhận hôm nay ({room.nextCheckInDate || 'Hôm nay'})</span>
+                            </div>
+                            {room.nextGuestName && (
+                              <p className="text-[11px] text-red-900/90 mt-1">
+                                Khách đặt: <strong className="font-bold">{room.nextGuestName}</strong>
+                              </p>
+                            )}
                           </div>
                         ) : isHigh ? (
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100/80 border border-amber-300 text-amber-900 font-bold text-[11px]">
-                            <IoFlashOutline size={15} className="text-amber-600" />
-                            <span>⚡ Khách nhận ngày mai ({room.nextCheckInDate})</span>
+                          <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-950 text-[11px]">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                              <IoFlashOutline size={15} className="text-amber-600" />
+                              <span>Khách nhận ngày mai ({room.nextCheckInDate})</span>
+                            </div>
+                            {room.nextGuestName && (
+                              <p className="text-[11px] text-amber-900/90 mt-1">
+                                Khách đặt: <strong>{room.nextGuestName}</strong>
+                              </p>
+                            )}
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-surface-container-low border border-border-grey text-on-surface-variant text-[11px]">
-                            <IoTimeOutline size={13} />
+                          <div className="p-2 rounded-xl bg-[#F4F6F0]/70 border border-border-grey/70 text-on-surface-variant text-[11px] flex items-center gap-1.5">
+                            <IoTimeOutline size={13} className="text-on-surface-variant/70" />
                             <span>Ưu tiên: Tiêu chuẩn</span>
                           </div>
-                        )}
-                        {room.nextGuestName && (
-                          <p className="text-[11px] text-on-surface-variant mt-0.5 italic">
-                            Khách sắp tới: <strong>{room.nextGuestName}</strong>
-                          </p>
                         )}
                       </div>
 
                       {/* Phân công nhân viên */}
                       <div className="pt-2 border-t border-border-grey/60 space-y-1.5">
                         <div className="flex items-center justify-between text-on-surface-variant">
-                          <span className="flex items-center gap-1 font-semibold">
-                            <IoPersonOutline size={13} className="text-primary" /> Phụ trách:
+                          <span className="flex items-center gap-1 font-semibold text-[11px]">
+                            <IoPersonOutline size={13} className="text-[#626F47]" /> Phụ trách:
                           </span>
                           
                           {/* Nút gỡ phân công cho Supervisor */}
@@ -787,7 +964,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               type="button"
                               onClick={() => handleUnassignCleaner(room)}
                               disabled={processingId === room.id}
-                              className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-0.5 hover:underline cursor-pointer"
+                              className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-0.5 hover:underline cursor-pointer font-medium"
                               title="Hủy phân công"
                             >
                               <IoPersonRemoveOutline size={12} /> Gỡ
@@ -802,10 +979,10 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               value={room.assignedHousekeeperId || ''}
                               onChange={(e) => handleAssignCleaner(room, e.target.value)}
                               disabled={processingId === room.id}
-                              className={`w-full px-2.5 py-1.5 text-xs border font-medium focus:outline-none focus:border-primary ${
+                              className={`w-full px-3 py-2 rounded-xl text-xs border font-medium focus:outline-none focus:border-[#626F47] transition-colors cursor-pointer ${
                                 isAssigned 
-                                  ? 'bg-blue-50/50 border-blue-300 text-blue-950 font-bold' 
-                                  : 'bg-amber-50/40 border-amber-300 text-amber-900'
+                                  ? 'bg-blue-50/70 border-blue-300 text-blue-950 font-semibold' 
+                                  : 'bg-amber-50/50 border-amber-300 text-amber-900'
                               }`}
                             >
                               <option value="">— Chưa phân công —</option>
@@ -822,7 +999,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                           </div>
                         ) : (
                           /* Giao diện cho Housekeeper: Chỉ hiển thị tên */
-                          <div className={`p-1.5 border text-xs font-semibold ${
+                          <div className={`p-2 rounded-xl border text-xs font-semibold ${
                             room.assignedHousekeeperId && user?.id && String(room.assignedHousekeeperId) === String(user.id)
                               ? 'bg-green-50 border-green-300 text-green-900'
                               : 'bg-surface-container-low border-border-grey text-on-surface-variant'
@@ -836,15 +1013,15 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
                       {/* Ghi chú */}
                       {room.notes && (
-                        <div className="pt-1.5 border-t border-dashed border-border-grey flex items-start gap-1.5 text-on-surface-variant text-[11px]">
-                          <IoDocumentTextOutline size={13} className="text-orange-500 shrink-0 mt-0.5" />
+                        <div className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/80 flex items-start gap-1.5 text-amber-950 text-[11px]">
+                          <IoDocumentTextOutline size={13} className="text-amber-600 shrink-0 mt-0.5" />
                           <span className="italic line-clamp-2" title={room.notes}>{room.notes}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Room card actions */}
-                    <div className="p-3.5 pt-0 space-y-2 mt-auto">
+                    <div className="p-4 pt-0 space-y-2 mt-auto">
                       {isDirty ? (
                         <>
                           {/* Housekeeper: Gửi kiểm tra sau khi dọn xong */}
@@ -852,7 +1029,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                             <button
                               onClick={() => handleSubmitInspection(room)}
                               disabled={processingId === room.id}
-                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-700 hover:bg-purple-800 active:bg-purple-900 disabled:bg-purple-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 active:bg-purple-900 disabled:bg-purple-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                             >
                               {processingId === room.id ? (
                                 <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
@@ -868,7 +1045,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                             <button
                               onClick={() => handleMarkClean(room)}
                               disabled={processingId === room.id}
-                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#626F47] hover:bg-[#525E3B] active:bg-[#434E2E] disabled:bg-[#626F47]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                             >
                               {processingId === room.id ? (
                                 <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
@@ -887,7 +1064,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               <button
                                 onClick={() => handleApproveClean(room)}
                                 disabled={processingId === room.id}
-                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#626F47] hover:bg-[#525E3B] active:bg-[#434E2E] disabled:bg-[#626F47]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                               >
                                 {processingId === room.id ? (
                                   <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
@@ -900,13 +1077,13 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               <button
                                 onClick={() => handleRejectClean(room)}
                                 disabled={processingId === room.id}
-                                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-800 border border-red-300 text-xs font-semibold transition-colors cursor-pointer"
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-800 border border-red-300 text-xs font-semibold transition-colors cursor-pointer"
                               >
                                 <IoCloseCircleOutline size={14} /> Yêu cầu dọn lại
                               </button>
                             </>
                           ) : (
-                            <div className="p-2 bg-purple-50 border border-purple-200 text-purple-900 text-xs font-semibold text-center">
+                            <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-semibold text-center">
                               ⏳ Đang chờ quản lý nghiệm thu
                             </div>
                           )}
@@ -914,11 +1091,11 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                       )}
 
                       {/* Nút báo sự cố phòng khi dọn */}
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setIncidentRoom(room)}
-                          className="flex items-center justify-center gap-1 px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-semibold transition-colors cursor-pointer"
+                          className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-semibold transition-colors cursor-pointer"
                         >
                           <IoWarningOutline size={14} className="text-amber-600 shrink-0" />
                           <span>Sự cố</span>
@@ -927,7 +1104,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                         <button
                           type="button"
                           onClick={() => setLostItemRoom(room)}
-                          className="flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-xs font-semibold transition-colors cursor-pointer"
+                          className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-xs font-semibold transition-colors cursor-pointer"
                         >
                           <IoCubeOutline size={14} className="text-blue-600 shrink-0" />
                           <span>Đồ để quên</span>

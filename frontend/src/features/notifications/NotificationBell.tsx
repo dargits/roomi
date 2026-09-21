@@ -14,6 +14,7 @@ const TYPE_ICON: Record<NotificationType, { emoji: string; bg: string; text: str
   ROOM_INCIDENT_HEAVY:        { emoji: '🚨', bg: 'bg-red-100',     text: 'text-red-700'     },
   STAY_MILESTONE:             { emoji: '📅', bg: 'bg-purple-100',  text: 'text-purple-700'  },
   INVOICE_DISCOUNT_APPROVAL:  { emoji: '💰', bg: 'bg-rose-100',    text: 'text-rose-700'    },
+  CHANNEL_OVERBOOKING_CONFLICT: { emoji: '🚨', bg: 'bg-red-100',     text: 'text-red-700'     },
 };
 
 // ─── Hiển thị thời gian tương đối ──────────────────────────────────────────
@@ -30,6 +31,9 @@ function relativeTime(dateStr: string): string {
 
 // ─── Deep-link routing ───────────────────────────────────────────────────────
 function buildLink(item: NotificationItem): string | null {
+  if (item.type === 'CHANNEL_OVERBOOKING_CONFLICT' || item.refType === 'BOOKING_CALENDAR' || item.refType === 'CHANNEL') {
+    return `/manage/bookings/calendar`;
+  }
   if (!item.refId) return null;
   switch (item.refType) {
     case 'BOOKING': return `/manage/bookings`;
@@ -137,14 +141,14 @@ const NotificationBell: React.FC = () => {
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 top-full mt-2 w-[360px] max-w-[calc(100vw-16px)] bg-white rounded-2xl shadow-xl border border-slate-200/80 z-50 overflow-hidden animate-fade-in"
+          className="absolute right-0 top-full mt-2 w-[360px] max-w-[calc(100vw-16px)] bg-white rounded-2xl shadow-xl border border-border-grey z-50 overflow-hidden animate-fade-in"
           style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.13)' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-grey">
             <div className="flex items-center gap-2">
               <IoNotificationsOutline size={17} className="text-primary" />
-              <span className="font-bold text-slate-800 text-sm">Thông báo</span>
+              <span className="font-bold text-[#1A2411] text-sm">Thông báo</span>
               {unreadCount > 0 && (
                 <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
                   {unreadCount}
@@ -165,13 +169,13 @@ const NotificationBell: React.FC = () => {
           </div>
 
           {/* List */}
-          <div className="max-h-[400px] overflow-y-auto divide-y divide-slate-50">
+          <div className="max-h-[400px] overflow-y-auto divide-y divide-[#F4F6F0]">
             {loading && latest.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm">Đang tải...</div>
+              <div className="py-10 text-center text-[#8E9B86] text-sm">Đang tải...</div>
             ) : latest.length === 0 ? (
               <div className="py-10 text-center">
-                <IoNotificationsOutline size={32} className="mx-auto text-slate-300 mb-2" />
-                <p className="text-slate-400 text-sm">Chưa có thông báo nào</p>
+                <IoNotificationsOutline size={32} className="mx-auto text-[#8E9B86]/50 mb-2" />
+                <p className="text-[#8E9B86] text-sm">Chưa có thông báo nào</p>
               </div>
             ) : (
               latest.map(item => (
@@ -188,11 +192,11 @@ const NotificationBell: React.FC = () => {
           </div>
 
           {/* Footer – xem tất cả */}
-          <div className="border-t border-slate-100">
+          <div className="border-t border-border-grey">
             <button
               type="button"
               onClick={() => { navigate('/manage/notifications'); setOpen(false); }}
-              className="w-full flex items-center justify-center gap-1.5 py-3 text-[12.5px] font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 py-3 text-[12.5px] font-semibold text-primary hover:bg-[#F4F6F0] transition-colors cursor-pointer"
             >
               Xem tất cả thông báo
               <IoChevronForwardOutline size={13} />

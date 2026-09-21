@@ -423,7 +423,15 @@ public class ResendEmailServiceImpl implements EmailService {
         long nights = d.getNumberOfNights() > 0 ? d.getNumberOfNights() : 1;
 
         String portalUrl = (appDomain != null && !appDomain.isBlank()) ? appDomain : "https://stayaway.io.vn";
-        String lookupUrl = d.getBookingId() != null ? (portalUrl + "/booking-detail/" + d.getBookingId()) : portalUrl;
+        String lookupUrl;
+        if (d.getBookingId() != null) {
+            String phoneParam = (d.getCustomerPhone() != null && !d.getCustomerPhone().isBlank() && !d.getCustomerPhone().equals("---"))
+                    ? ("&phone=" + java.net.URLEncoder.encode(d.getCustomerPhone().trim(), java.nio.charset.StandardCharsets.UTF_8))
+                    : "";
+            lookupUrl = portalUrl + "/booking-detail/" + d.getBookingId() + "?tab=invoice" + phoneParam;
+        } else {
+            lookupUrl = portalUrl;
+        }
 
         // Dựng danh sách dịch vụ nếu có
         StringBuilder servicesHtml = new StringBuilder();

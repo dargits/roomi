@@ -317,6 +317,109 @@ export interface DebtAgingReportResponse {
   reconciliation?: DebtAgingReconciliationDto;
 }
 
+// ========================================================
+// Types cho So sánh chỉ số với kỳ trước (CLTSN3-431)
+// ========================================================
 
+export type PeriodComparisonType = 'month' | 'quarter' | 'year' | 'custom';
+export type CompareTargetType = 'both' | 'previous_period' | 'same_period_last_year';
 
+export interface PeriodInfo {
+  label: string;
+  from: string;
+  to: string;
+  days: number;
+}
 
+export interface PeriodMetrics {
+  roomRevenue: number;
+  penaltyRevenue: number;
+  totalRevenue: number;
+  collectedRevenue: number;
+  debtRevenue: number;
+  totalBookings: number;
+  soldRoomNights: number;
+  availableRoomNights: number;
+  occupancyRate: number;
+  adr: number;
+  revpar: number;
+}
+
+export interface MetricComparisonSummary {
+  totalRevenueDiff: number;
+  totalRevenueGrowthRate: number;
+  roomRevenueDiff: number;
+  roomRevenueGrowthRate: number;
+  occupancyRateDiff: number; // Điểm phần trăm %pts
+  occupancyGrowthRate: number;
+  adrDiff: number;
+  adrGrowthRate: number;
+  revparDiff: number;
+  revparGrowthRate: number;
+  soldNightsDiff: number;
+  soldNightsGrowthRate: number;
+  bookingsDiff: number;
+  bookingsGrowthRate: number;
+}
+
+export interface ComparisonTimelinePoint {
+  dayIndex: number;
+  currentDate: string;
+  currentRevenue: number;
+  currentOccupancyRate: number;
+  previousDate: string;
+  previousRevenue: number;
+  previousOccupancyRate: number;
+  samePeriodLastYearDate: string;
+  samePeriodLastYearRevenue: number;
+  samePeriodLastYearOccupancyRate: number;
+}
+
+export interface RoomTypeComparisonDto {
+  roomTypeId: number;
+  roomTypeName: string;
+  basePrice: number;
+  totalRooms: number;
+
+  // Kỳ hiện tại
+  currentRevenue: number;
+  currentSoldNights: number;
+  currentOccupancyRate: number;
+  currentAdr: number;
+  currentRevpar: number;
+  currentBookings: number;
+
+  // Kỳ liền trước (PoP)
+  previousRevenue: number;
+  previousSoldNights: number;
+  previousOccupancyRate: number;
+  previousAdr: number;
+  previousRevpar: number;
+  previousBookings: number;
+  popRevenueGrowth: number;
+  popOccupancyDiff: number;
+
+  // Cùng kỳ năm trước (YoY)
+  yoyRevenue: number;
+  yoySoldNights: number;
+  yoyOccupancyRate: number;
+  yoyAdr: number;
+  yoyRevpar: number;
+  yoyBookings: number;
+  yoyRevenueGrowth: number;
+  yoyOccupancyDiff: number;
+}
+
+export interface PeriodComparisonReportResponse {
+  currentPeriod: PeriodInfo;
+  previousPeriod: PeriodInfo;
+  samePeriodLastYear: PeriodInfo;
+  currentMetrics: PeriodMetrics;
+  previousMetrics: PeriodMetrics;
+  samePeriodLastYearMetrics: PeriodMetrics;
+  popComparison: MetricComparisonSummary;
+  yoyComparison: MetricComparisonSummary;
+  timeline: ComparisonTimelinePoint[];
+  roomTypes: RoomTypeComparisonDto[];
+  executiveInsights: string[];
+}

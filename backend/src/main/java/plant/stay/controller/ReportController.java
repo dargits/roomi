@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import plant.stay.dto.response.PeriodComparisonReportResponse;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Booking;
 import plant.stay.model.DepositStatus;
@@ -716,14 +717,512 @@ public class ReportController {
         return ResponseEntity.ok(result);
     }
 
+    // ========================================================
+    // Báo cáo So sánh chỉ số với kỳ trước (CLTSN3-431)
+    // ========================================================
+    @GetMapping("/period-comparison")
+    public ResponseEntity<PeriodComparisonReportResponse> periodComparison(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue = "custom") String periodType,
+            @RequestParam(defaultValue = "both") String compareTarget,
+            HttpServletRequest request) {
+        checkFinance(request);
+
+        // 1. Xác định các mốc thời gian kỳ trước và cùng kỳ năm trước
+        long currentDays = Math.max(1, ChronoUnit.DAYS.between(from, to) + 1);
+        LocalDate prevFrom;
+        LocalDate prevTo;
+        String currentLabel;
+        String prevLabel;
+        String yoyLabel;
+
+        if ("month".equalsIgnoreCase(periodType)) {
+            if (from.getDayOfMonth() == 1 && to.getDayOfMonth() == to.lengthOfMonth()) {
+                prevFrom = from.minusMonths(1).withDayOfMonth(1);
+                prevTo = prevFrom.withDayOfMonth(prevFrom.lengthOfMonth());
+            } else {
+                prevFrom = from.minusMonths(1);
+                prevTo = to.minusMonths(1);
+            }
+            currentLabel = "Tháng " + from.format(DateTimeFormatter.ofPattern("MM/yyyy"));
+            prevLabel = "Tháng " + prevFrom.format(DateTimeFormatter.ofPattern("MM/yyyy"));
+            yoyLabel = "Cùng kỳ năm " + from.minusYears(1).getYear();
+        } else if ("quarter".equalsIgnoreCase(periodType)) {
+            prevFrom = from.minusMonths(3);
+            prevTo = to.minusMonths(3);
+            int q = (from.getMonthValue() - 1) / 3 + 1;
+            currentLabel = "Quý " + q + "/" + from.getYear();
+            int prevQ = (prevFrom.getMonthValue() - 1) / 3 + 1;
+            prevLabel = "Quý " + prevQ + "/" + prevFrom.getYear();
+            yoyLabel = "Quý " + q + "/" + (from.getYear() - 1);
+        } else if ("year".equalsIgnoreCase(periodType)) {
+            prevFrom = from.minusYears(1);
+            prevTo = to.minusYears(1);
+            currentLabel = "Năm " + from.getYear();
+            prevLabel = "Năm " + prevFrom.getYear();
+            yoyLabel = "Năm " + (from.getYear() - 1);
+        } else {
+            prevTo = from.minusDays(1);
+            prevFrom = prevTo.minusDays(currentDays - 1);
+            currentLabel = "Kỳ này (" + from.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " - " + to.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")";
+            prevLabel = "Kỳ trước (" + prevFrom.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " - " + prevTo.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")";
+            yoyLabel = "Cùng kỳ năm ngoái (" + from.minusYears(1).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " - " + to.minusYears(1).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")";
+        }
+
+        LocalDate yoyFrom = from.minusYears(1);
+        LocalDate yoyTo = to.minusYears(1);
+        long prevDays = Math.max(1, ChronoUnit.DAYS.between(prevFrom, prevTo) + 1);
+        long yoyDays = Math.max(1, ChronoUnit.DAYS.between(yoyFrom, yoyTo) + 1);
+
+        PeriodComparisonReportResponse.PeriodInfo currentInfo = PeriodComparisonReportResponse.PeriodInfo.builder()
+                .label(currentLabel)
+                .from(from.toString())
+                .to(to.toString())
+                .days(currentDays)
+                .build();
+
+        PeriodComparisonReportResponse.PeriodInfo prevInfo = PeriodComparisonReportResponse.PeriodInfo.builder()
+                .label(prevLabel)
+                .from(prevFrom.toString())
+                .to(prevTo.toString())
+                .days(prevDays)
+                .build();
+
+        PeriodComparisonReportResponse.PeriodInfo yoyInfo = PeriodComparisonReportResponse.PeriodInfo.builder()
+                .label(yoyLabel)
+                .from(yoyFrom.toString())
+                .to(yoyTo.toString())
+                .days(yoyDays)
+                .build();
+
+        // 2. Tải dữ liệu booking và phòng cho cả 3 kỳ
+        List<plant.stay.model.Room> allRooms = roomRepository.findAllWithRoomType();
+        if (allRooms == null) allRooms = Collections.emptyList();
+
+        List<plant.stay.model.RoomType> allRoomTypes = roomTypeRepository.findAll();
+        if (allRoomTypes == null) allRoomTypes = Collections.emptyList();
+
+        List<Booking> curBookings = bookingRepository.findCheckedOutBetween(from, to);
+        if (curBookings == null) curBookings = Collections.emptyList();
+
+        List<Booking> prevBookings = bookingRepository.findCheckedOutBetween(prevFrom, prevTo);
+        if (prevBookings == null) prevBookings = Collections.emptyList();
+
+        List<Booking> yoyBookings = bookingRepository.findCheckedOutBetween(yoyFrom, yoyTo);
+        if (yoyBookings == null) yoyBookings = Collections.emptyList();
+
+        // 3. Tính toán các chỉ số cho từng kỳ
+        PeriodComparisonReportResponse.PeriodMetrics curMetrics = calculatePeriodMetrics(from, to, curBookings, allRooms);
+        PeriodComparisonReportResponse.PeriodMetrics prevMetrics = calculatePeriodMetrics(prevFrom, prevTo, prevBookings, allRooms);
+        PeriodComparisonReportResponse.PeriodMetrics yoyMetrics = calculatePeriodMetrics(yoyFrom, yoyTo, yoyBookings, allRooms);
+
+        // 4. Tính toán độ chênh lệch Delta và % Tăng trưởng
+        PeriodComparisonReportResponse.MetricComparisonSummary popComp = buildComparisonSummary(curMetrics, prevMetrics);
+        PeriodComparisonReportResponse.MetricComparisonSummary yoyComp = buildComparisonSummary(curMetrics, yoyMetrics);
+
+        // 5. Tính chuỗi Timeline so sánh theo tiến trình ngày (Day 1..N)
+        List<PeriodComparisonReportResponse.ComparisonTimelinePoint> timeline = new ArrayList<>();
+        long totalRoomsCount = allRooms.size();
+        for (int i = 0; i < currentDays; i++) {
+            LocalDate curDay = from.plusDays(i);
+            LocalDate prDay = (i < prevDays) ? prevFrom.plusDays(i) : null;
+            LocalDate yyDay = (i < yoyDays) ? yoyFrom.plusDays(i) : null;
+
+            BigDecimal cRev = curBookings.stream()
+                    .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(curDay))
+                    .map(this::getEffectiveRevenue)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            long cNights = curBookings.stream()
+                    .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(curDay))
+                    .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                            ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                            : 1)
+                    .sum();
+            double cOcc = totalRoomsCount > 0 ? Math.round(((double) cNights / totalRoomsCount * 100.0) * 100.0) / 100.0 : 0.0;
+
+            BigDecimal pRev = BigDecimal.ZERO;
+            double pOcc = 0.0;
+            if (prDay != null) {
+                pRev = prevBookings.stream()
+                        .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(prDay))
+                        .map(this::getEffectiveRevenue)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                long pNights = prevBookings.stream()
+                        .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(prDay))
+                        .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                                ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                                : 1)
+                        .sum();
+                pOcc = totalRoomsCount > 0 ? Math.round(((double) pNights / totalRoomsCount * 100.0) * 100.0) / 100.0 : 0.0;
+            }
+
+            BigDecimal yRev = BigDecimal.ZERO;
+            double yOcc = 0.0;
+            if (yyDay != null) {
+                yRev = yoyBookings.stream()
+                        .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(yyDay))
+                        .map(this::getEffectiveRevenue)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                long yNights = yoyBookings.stream()
+                        .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(yyDay))
+                        .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                                ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                                : 1)
+                        .sum();
+                yOcc = totalRoomsCount > 0 ? Math.round(((double) yNights / totalRoomsCount * 100.0) * 100.0) / 100.0 : 0.0;
+            }
+
+            timeline.add(PeriodComparisonReportResponse.ComparisonTimelinePoint.builder()
+                    .dayIndex(i + 1)
+                    .currentDate(curDay.toString())
+                    .currentRevenue(cRev)
+                    .currentOccupancyRate(cOcc)
+                    .previousDate(prDay != null ? prDay.toString() : "")
+                    .previousRevenue(pRev)
+                    .previousOccupancyRate(pOcc)
+                    .samePeriodLastYearDate(yyDay != null ? yyDay.toString() : "")
+                    .samePeriodLastYearRevenue(yRev)
+                    .samePeriodLastYearOccupancyRate(yOcc)
+                    .build());
+        }
+
+        // 6. Tính phân rã theo Loại phòng (Room Type Comparison)
+        List<PeriodComparisonReportResponse.RoomTypeComparisonDto> roomTypeDtos = new ArrayList<>();
+        for (plant.stay.model.RoomType rt : allRoomTypes) {
+            long rtRoomsCount = allRooms.stream()
+                    .filter(r -> r.getRoomType() != null && r.getRoomType().getId() != null && r.getRoomType().getId().equals(rt.getId()))
+                    .count();
+
+            // Kỳ hiện tại
+            long curAvail = rtRoomsCount * currentDays;
+            List<Booking> rtCurBookings = curBookings.stream()
+                    .filter(b -> b.getRoomType() != null && b.getRoomType().getId() != null && b.getRoomType().getId().equals(rt.getId()))
+                    .collect(Collectors.toList());
+            BigDecimal curRev = rtCurBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            long curSold = rtCurBookings.stream()
+                    .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                            ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                            : 1)
+                    .sum();
+            double curOcc = curAvail > 0 ? Math.round(((double) curSold / curAvail * 100.0) * 100.0) / 100.0 : 0.0;
+            BigDecimal curAdr = curSold > 0 ? curRev.divide(BigDecimal.valueOf(curSold), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal curRevpar = curAvail > 0 ? curRev.divide(BigDecimal.valueOf(curAvail), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+
+            // Kỳ liền trước
+            long prevAvail = rtRoomsCount * prevDays;
+            List<Booking> rtPrevBookings = prevBookings.stream()
+                    .filter(b -> b.getRoomType() != null && b.getRoomType().getId() != null && b.getRoomType().getId().equals(rt.getId()))
+                    .collect(Collectors.toList());
+            BigDecimal prevRev = rtPrevBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            long prevSold = rtPrevBookings.stream()
+                    .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                            ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                            : 1)
+                    .sum();
+            double prevOcc = prevAvail > 0 ? Math.round(((double) prevSold / prevAvail * 100.0) * 100.0) / 100.0 : 0.0;
+            BigDecimal prevAdr = prevSold > 0 ? prevRev.divide(BigDecimal.valueOf(prevSold), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal prevRevpar = prevAvail > 0 ? prevRev.divide(BigDecimal.valueOf(prevAvail), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+
+            double popGrowth = calculateGrowthRate(curRev, prevRev);
+            double popOccDiff = Math.round((curOcc - prevOcc) * 100.0) / 100.0;
+
+            // Cùng kỳ năm trước
+            long yoyAvail = rtRoomsCount * yoyDays;
+            List<Booking> rtYoyBookings = yoyBookings.stream()
+                    .filter(b -> b.getRoomType() != null && b.getRoomType().getId() != null && b.getRoomType().getId().equals(rt.getId()))
+                    .collect(Collectors.toList());
+            BigDecimal yyRev = rtYoyBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            long yySold = rtYoyBookings.stream()
+                    .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                            ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                            : 1)
+                    .sum();
+            double yyOcc = yoyAvail > 0 ? Math.round(((double) yySold / yoyAvail * 100.0) * 100.0) / 100.0 : 0.0;
+            BigDecimal yyAdr = yySold > 0 ? yyRev.divide(BigDecimal.valueOf(yySold), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal yyRevpar = yoyAvail > 0 ? yyRev.divide(BigDecimal.valueOf(yoyAvail), 0, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+
+            double yoyGrowth = calculateGrowthRate(curRev, yyRev);
+            double yoyOccDiff = Math.round((curOcc - yyOcc) * 100.0) / 100.0;
+
+            roomTypeDtos.add(PeriodComparisonReportResponse.RoomTypeComparisonDto.builder()
+                    .roomTypeId(rt.getId())
+                    .roomTypeName(rt.getName() != null ? rt.getName() : "Chưa đặt tên")
+                    .basePrice(rt.getBasePrice() != null ? rt.getBasePrice() : BigDecimal.ZERO)
+                    .totalRooms(rtRoomsCount)
+                    .currentRevenue(curRev)
+                    .currentSoldNights(curSold)
+                    .currentOccupancyRate(curOcc)
+                    .currentAdr(curAdr)
+                    .currentRevpar(curRevpar)
+                    .currentBookings(rtCurBookings.size())
+                    .previousRevenue(prevRev)
+                    .previousSoldNights(prevSold)
+                    .previousOccupancyRate(prevOcc)
+                    .previousAdr(prevAdr)
+                    .previousRevpar(prevRevpar)
+                    .previousBookings(rtPrevBookings.size())
+                    .popRevenueGrowth(popGrowth)
+                    .popOccupancyDiff(popOccDiff)
+                    .yoyRevenue(yyRev)
+                    .yoySoldNights(yySold)
+                    .yoyOccupancyRate(yyOcc)
+                    .yoyAdr(yyAdr)
+                    .yoyRevpar(yyRevpar)
+                    .yoyBookings(rtYoyBookings.size())
+                    .yoyRevenueGrowth(yoyGrowth)
+                    .yoyOccupancyDiff(yoyOccDiff)
+                    .build());
+        }
+
+        roomTypeDtos.sort((a, b) -> (b.getCurrentRevenue() != null ? b.getCurrentRevenue() : BigDecimal.ZERO)
+                .compareTo(a.getCurrentRevenue() != null ? a.getCurrentRevenue() : BigDecimal.ZERO));
+
+        // 7. Sinh nhận định và đánh giá kinh doanh tự động (Executive Insights)
+        List<String> executiveInsights = generateExecutiveInsights(
+                currentInfo, curMetrics, prevMetrics, yoyMetrics, popComp, yoyComp, roomTypeDtos);
+
+        PeriodComparisonReportResponse response = PeriodComparisonReportResponse.builder()
+                .currentPeriod(currentInfo)
+                .previousPeriod(prevInfo)
+                .samePeriodLastYear(yoyInfo)
+                .currentMetrics(curMetrics)
+                .previousMetrics(prevMetrics)
+                .samePeriodLastYearMetrics(yoyMetrics)
+                .popComparison(popComp)
+                .yoyComparison(yoyComp)
+                .timeline(timeline)
+                .roomTypes(roomTypeDtos)
+                .executiveInsights(executiveInsights)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    private PeriodComparisonReportResponse.PeriodMetrics calculatePeriodMetrics(
+            LocalDate f, LocalDate t, List<Booking> bookings, List<plant.stay.model.Room> allRooms) {
+        long days = Math.max(1, ChronoUnit.DAYS.between(f, t) + 1);
+        long totalRooms = allRooms.size();
+        long availableRoomNights = totalRooms * days;
+
+        BigDecimal roomRevenue = BigDecimal.ZERO;
+        BigDecimal collectedRevenue = BigDecimal.ZERO;
+        long soldRoomNights = 0;
+
+        for (Booking b : bookings) {
+            BigDecimal rev = getEffectiveRevenue(b);
+            roomRevenue = roomRevenue.add(rev != null ? rev : BigDecimal.ZERO);
+            BigDecimal paid = getBookingPaidAmount(b);
+            collectedRevenue = collectedRevenue.add(paid != null ? paid : BigDecimal.ZERO);
+
+            long nights = (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                    ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                    : 1;
+            soldRoomNights += nights;
+        }
+
+        BigDecimal debtRevenue = roomRevenue.subtract(collectedRevenue).max(BigDecimal.ZERO);
+
+        List<DepositStatus> penaltyStatuses = List.of(DepositStatus.FORFEITED, DepositStatus.PARTIALLY_REFUNDED);
+        List<plant.stay.model.Deposit> penaltyDeposits = depositRepository.findPenaltyDepositsBetween(penaltyStatuses, f, t);
+        BigDecimal penaltyRevenue = penaltyDeposits.stream()
+                .map(d -> d.getPenaltyAmount() != null ? d.getPenaltyAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalRevenue = roomRevenue.add(penaltyRevenue);
+
+        double occupancyRate = availableRoomNights > 0
+                ? Math.round(((double) soldRoomNights / availableRoomNights * 100.0) * 100.0) / 100.0
+                : 0.0;
+
+        BigDecimal adr = soldRoomNights > 0
+                ? roomRevenue.divide(BigDecimal.valueOf(soldRoomNights), 0, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        BigDecimal revpar = availableRoomNights > 0
+                ? roomRevenue.divide(BigDecimal.valueOf(availableRoomNights), 0, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        return PeriodComparisonReportResponse.PeriodMetrics.builder()
+                .roomRevenue(roomRevenue)
+                .penaltyRevenue(penaltyRevenue)
+                .totalRevenue(totalRevenue)
+                .collectedRevenue(collectedRevenue)
+                .debtRevenue(debtRevenue)
+                .totalBookings(bookings.size())
+                .soldRoomNights(soldRoomNights)
+                .availableRoomNights(availableRoomNights)
+                .occupancyRate(occupancyRate)
+                .adr(adr)
+                .revpar(revpar)
+                .build();
+    }
+
+    private double calculateGrowthRate(BigDecimal current, BigDecimal prior) {
+        if (prior == null || prior.compareTo(BigDecimal.ZERO) == 0) {
+            return (current != null && current.compareTo(BigDecimal.ZERO) > 0) ? 100.0 : 0.0;
+        }
+        BigDecimal cur = current != null ? current : BigDecimal.ZERO;
+        return Math.round(cur.subtract(prior).divide(prior, 4, java.math.RoundingMode.HALF_UP).doubleValue() * 10000.0) / 100.0;
+    }
+
+    private double calculateGrowthRate(double current, double prior) {
+        if (prior == 0.0) {
+            return current > 0 ? 100.0 : 0.0;
+        }
+        return Math.round(((current - prior) / prior * 100.0) * 100.0) / 100.0;
+    }
+
+    private double calculateGrowthRate(long current, long prior) {
+        if (prior == 0) {
+            return current > 0 ? 100.0 : 0.0;
+        }
+        return Math.round(((double) (current - prior) / prior * 100.0) * 100.0) / 100.0;
+    }
+
+    private PeriodComparisonReportResponse.MetricComparisonSummary buildComparisonSummary(
+            PeriodComparisonReportResponse.PeriodMetrics current,
+            PeriodComparisonReportResponse.PeriodMetrics prior) {
+        if (current == null || prior == null) {
+            return new PeriodComparisonReportResponse.MetricComparisonSummary();
+        }
+
+        BigDecimal totalRevDiff = current.getTotalRevenue().subtract(prior.getTotalRevenue());
+        double totalRevGrowth = calculateGrowthRate(current.getTotalRevenue(), prior.getTotalRevenue());
+
+        BigDecimal roomRevDiff = current.getRoomRevenue().subtract(prior.getRoomRevenue());
+        double roomRevGrowth = calculateGrowthRate(current.getRoomRevenue(), prior.getRoomRevenue());
+
+        double occDiff = Math.round((current.getOccupancyRate() - prior.getOccupancyRate()) * 100.0) / 100.0;
+        double occGrowth = calculateGrowthRate(current.getOccupancyRate(), prior.getOccupancyRate());
+
+        BigDecimal adrDiff = current.getAdr().subtract(prior.getAdr());
+        double adrGrowth = calculateGrowthRate(current.getAdr(), prior.getAdr());
+
+        BigDecimal revparDiff = current.getRevpar().subtract(prior.getRevpar());
+        double revparGrowth = calculateGrowthRate(current.getRevpar(), prior.getRevpar());
+
+        long soldNightsDiff = current.getSoldRoomNights() - prior.getSoldRoomNights();
+        double soldNightsGrowth = calculateGrowthRate(current.getSoldRoomNights(), prior.getSoldRoomNights());
+
+        long bookingsDiff = current.getTotalBookings() - prior.getTotalBookings();
+        double bookingsGrowth = calculateGrowthRate(current.getTotalBookings(), prior.getTotalBookings());
+
+        return PeriodComparisonReportResponse.MetricComparisonSummary.builder()
+                .totalRevenueDiff(totalRevDiff)
+                .totalRevenueGrowthRate(totalRevGrowth)
+                .roomRevenueDiff(roomRevDiff)
+                .roomRevenueGrowthRate(roomRevGrowth)
+                .occupancyRateDiff(occDiff)
+                .occupancyGrowthRate(occGrowth)
+                .adrDiff(adrDiff)
+                .adrGrowthRate(adrGrowth)
+                .revparDiff(revparDiff)
+                .revparGrowthRate(revparGrowth)
+                .soldNightsDiff(soldNightsDiff)
+                .soldNightsGrowthRate(soldNightsGrowth)
+                .bookingsDiff(bookingsDiff)
+                .bookingsGrowthRate(bookingsGrowth)
+                .build();
+    }
+
+    private List<String> generateExecutiveInsights(
+            PeriodComparisonReportResponse.PeriodInfo currentInfo,
+            PeriodComparisonReportResponse.PeriodMetrics current,
+            PeriodComparisonReportResponse.PeriodMetrics previous,
+            PeriodComparisonReportResponse.PeriodMetrics yoy,
+            PeriodComparisonReportResponse.MetricComparisonSummary pop,
+            PeriodComparisonReportResponse.MetricComparisonSummary yoyComp,
+            List<PeriodComparisonReportResponse.RoomTypeComparisonDto> roomTypes) {
+        List<String> insights = new ArrayList<>();
+
+        // 1. Nhận định Doanh thu & Tăng trưởng PoP
+        String revTrend = pop.getTotalRevenueGrowthRate() >= 0 ? "tăng trưởng" : "suy giảm";
+        String revSign = pop.getTotalRevenueGrowthRate() >= 0 ? "+" : "";
+        insights.add(String.format("Tổng doanh thu %s đạt %,d đ, %s %s%.1f%% (%s%,d đ) so với kỳ liền trước.",
+                currentInfo.getLabel().toLowerCase(),
+                current.getTotalRevenue().longValue(),
+                revTrend,
+                revSign,
+                pop.getTotalRevenueGrowthRate(),
+                pop.getTotalRevenueDiff().compareTo(BigDecimal.ZERO) >= 0 ? "+" : "",
+                pop.getTotalRevenueDiff().longValue()));
+
+        // 2. Nhận định Công suất phòng & ADR
+        String occSign = pop.getOccupancyRateDiff() >= 0 ? "+" : "";
+        String adrSign = pop.getAdrGrowthRate() >= 0 ? "+" : "";
+        insights.add(String.format("Công suất phòng đạt %.1f%% (%s%.1f điểm %% so với kỳ trước). Giá bán bình quân (ADR) đạt %,d đ/đêm (%s%.1f%%), chỉ số RevPAR đạt %,d đ/phòng.",
+                current.getOccupancyRate(),
+                occSign,
+                pop.getOccupancyRateDiff(),
+                current.getAdr().longValue(),
+                adrSign,
+                pop.getAdrGrowthRate(),
+                current.getRevpar().longValue()));
+
+        // 3. Phân tích nguyên nhân tăng trưởng
+        if (pop.getTotalRevenueGrowthRate() > 0) {
+            if (pop.getOccupancyRateDiff() > 0 && pop.getAdrGrowthRate() > 0) {
+                insights.add("Tăng trưởng tích cực và toàn diện khi cả công suất lấp đầy phòng và giá bán trung bình (ADR) đều tăng so với kỳ trước.");
+            } else if (pop.getOccupancyRateDiff() > 0) {
+                insights.add("Động lực tăng trưởng doanh thu kỳ này chủ yếu đến từ việc gia tăng số lượng đêm phòng bán được và công suất phòng.");
+            } else {
+                insights.add("Doanh thu tăng chủ yếu nhờ tối ưu hóa giá bán bình quân (ADR) cao hơn dù công suất phòng không tăng.");
+            }
+        } else if (pop.getTotalRevenueGrowthRate() < 0) {
+            if (pop.getOccupancyRateDiff() < 0 && pop.getAdrGrowthRate() < 0) {
+                insights.add("Doanh thu suy giảm do cả tỷ lệ lấp đầy và giá bán bình quân đều thấp hơn kỳ trước. Cần rà soát chính sách giá và chương trình khuyến mãi.");
+            } else if (pop.getOccupancyRateDiff() < 0) {
+                insights.add("Doanh thu giảm do tỷ lệ lấp đầy phòng sụt giảm. Cần đẩy mạnh các kênh bán hàng để lấp đầy phòng trống.");
+            } else {
+                insights.add("Tỷ lệ lấp đầy phòng được duy trì nhưng giá bán bình quân giảm, ảnh hưởng đến tổng doanh thu.");
+            }
+        } else {
+            insights.add("Doanh thu và hiệu quả khai thác phòng kỳ này duy trì ổn định tương đương kỳ liền trước.");
+        }
+
+        // 4. Đánh giá cùng kỳ năm trước (YoY)
+        if (yoy != null && yoy.getTotalRevenue().compareTo(BigDecimal.ZERO) > 0) {
+            String yoySign = yoyComp.getTotalRevenueGrowthRate() >= 0 ? "+" : "";
+            insights.add(String.format("So với cùng kỳ năm trước, doanh thu %s %s%.1f%% và công suất phòng %s (%s%.1f điểm %%).",
+                    yoyComp.getTotalRevenueGrowthRate() >= 0 ? "tăng" : "giảm",
+                    yoySign,
+                    yoyComp.getTotalRevenueGrowthRate(),
+                    yoyComp.getOccupancyRateDiff() >= 0 ? "cải thiện" : "sụt giảm",
+                    yoyComp.getOccupancyRateDiff() >= 0 ? "+" : "",
+                    yoyComp.getOccupancyRateDiff()));
+        }
+
+        // 5. Loại phòng nổi bật
+        if (roomTypes != null && !roomTypes.isEmpty()) {
+            roomTypes.stream()
+                    .filter(rt -> rt.getCurrentRevenue() != null && rt.getCurrentRevenue().compareTo(BigDecimal.ZERO) > 0)
+                    .max(Comparator.comparing(PeriodComparisonReportResponse.RoomTypeComparisonDto::getCurrentRevenue))
+                    .ifPresent(topRt -> insights.add(String.format("Hạng phòng đóng góp doanh thu lớn nhất là '%s' với %,d đ (chiếm %.1f%% tổng doanh thu phòng, công suất %.1f%%).",
+                            topRt.getRoomTypeName(),
+                            topRt.getCurrentRevenue().longValue(),
+                            current.getRoomRevenue().compareTo(BigDecimal.ZERO) > 0
+                                    ? topRt.getCurrentRevenue().divide(current.getRoomRevenue(), 4, java.math.RoundingMode.HALF_UP).doubleValue() * 100.0
+                                    : 0.0,
+                            topRt.getCurrentOccupancyRate())));
+        }
+
+        return insights;
+    }
+
     // ========================
     // Export CSV
     // ========================
+    public ResponseEntity<byte[]> export(String type, LocalDate from, LocalDate to, HttpServletRequest request) {
+        return export(type, from, to, "custom", request);
+    }
+
     @GetMapping("/export")
     public ResponseEntity<byte[]> export(
             @RequestParam String type,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false, defaultValue = "custom") String periodType,
             HttpServletRequest request) {
         checkFinance(request);
 
@@ -859,6 +1358,76 @@ public class ReportController {
                     totalNoShow,
                     overallNSRate,
                     overallAdr));
+        } else if ("period_comparison".equals(type) || "comparison".equals(type)) {
+            csv.append("BÁO CÁO SO SÁNH CHỈ SỐ VỚI KỲ TRƯỚC VÀ CÙNG KỲ NĂM TRƯỚC\n");
+            csv.append(String.format("Khoảng thời gian phân tích: %s đến %s\n\n", from, to));
+
+            // Gọi logic tính toán so sánh
+            PeriodComparisonReportResponse report = (PeriodComparisonReportResponse) periodComparison(from, to, periodType, "both", request).getBody();
+            if (report != null) {
+                csv.append(String.format("Kỳ hiện tại: %s (%s đến %s)\n", report.getCurrentPeriod().getLabel(), report.getCurrentPeriod().getFrom(), report.getCurrentPeriod().getTo()));
+                csv.append(String.format("Kỳ liền trước: %s (%s đến %s)\n", report.getPreviousPeriod().getLabel(), report.getPreviousPeriod().getFrom(), report.getPreviousPeriod().getTo()));
+                csv.append(String.format("Cùng kỳ năm trước: %s (%s đến %s)\n\n", report.getSamePeriodLastYear().getLabel(), report.getSamePeriodLastYear().getFrom(), report.getSamePeriodLastYear().getTo()));
+
+                csv.append("1. BẢNG ĐỐI CHIẾU CHỈ SỐ HIỆU SUẤT TỔNG HỢP\n");
+                csv.append("Chỉ số đo lường,Kỳ hiện tại,Kỳ liền trước,Chênh lệch PoP,Tăng trưởng PoP (%),Cùng kỳ năm trước,Chênh lệch YoY,Tăng trưởng YoY (%)\n");
+
+                PeriodComparisonReportResponse.PeriodMetrics c = report.getCurrentMetrics();
+                PeriodComparisonReportResponse.PeriodMetrics p = report.getPreviousMetrics();
+                PeriodComparisonReportResponse.PeriodMetrics y = report.getSamePeriodLastYearMetrics();
+                PeriodComparisonReportResponse.MetricComparisonSummary pop = report.getPopComparison();
+                PeriodComparisonReportResponse.MetricComparisonSummary yoy = report.getYoyComparison();
+
+                csv.append(String.format("Tổng doanh thu (đ),%s,%s,%s,%.2f%%,%s,%s,%.2f%%\n",
+                        c.getTotalRevenue(), p.getTotalRevenue(), pop.getTotalRevenueDiff(), pop.getTotalRevenueGrowthRate(),
+                        y.getTotalRevenue(), yoy.getTotalRevenueDiff(), yoy.getTotalRevenueGrowthRate()));
+                csv.append(String.format("Doanh thu phòng (đ),%s,%s,%s,%.2f%%,%s,%s,%.2f%%\n",
+                        c.getRoomRevenue(), p.getRoomRevenue(), pop.getRoomRevenueDiff(), pop.getRoomRevenueGrowthRate(),
+                        y.getRoomRevenue(), yoy.getRoomRevenueDiff(), yoy.getRoomRevenueGrowthRate()));
+                csv.append(String.format("Phí phạt hủy/giữ cọc (đ),%s,%s,%s,0.00%%,%s,%s,0.00%%\n",
+                        c.getPenaltyRevenue(), p.getPenaltyRevenue(), c.getPenaltyRevenue().subtract(p.getPenaltyRevenue()),
+                        y.getPenaltyRevenue(), c.getPenaltyRevenue().subtract(y.getPenaltyRevenue())));
+                csv.append(String.format("Công suất phòng (%%),%.2f%%,%.2f%%,%+.2f%%pts,%.2f%%,%.2f%%,%+.2f%%pts,%.2f%%\n",
+                        c.getOccupancyRate(), p.getOccupancyRate(), pop.getOccupancyRateDiff(), pop.getOccupancyGrowthRate(),
+                        y.getOccupancyRate(), yoy.getOccupancyRateDiff(), yoy.getOccupancyGrowthRate()));
+                csv.append(String.format("Giá bán bình quân ADR (đ),%s,%s,%s,%.2f%%,%s,%s,%.2f%%\n",
+                        c.getAdr(), p.getAdr(), pop.getAdrDiff(), pop.getAdrGrowthRate(),
+                        y.getAdr(), yoy.getAdrDiff(), yoy.getAdrGrowthRate()));
+                csv.append(String.format("Doanh thu/phòng RevPAR (đ),%s,%s,%s,%.2f%%,%s,%s,%.2f%%\n",
+                        c.getRevpar(), p.getRevpar(), pop.getRevparDiff(), pop.getRevparGrowthRate(),
+                        y.getRevpar(), yoy.getRevparDiff(), yoy.getRevparGrowthRate()));
+                csv.append(String.format("Đêm phòng bán được,%d,%d,%+d,%.2f%%,%d,%+d,%.2f%%\n",
+                        c.getSoldRoomNights(), p.getSoldRoomNights(), pop.getSoldNightsDiff(), pop.getSoldNightsGrowthRate(),
+                        y.getSoldRoomNights(), yoy.getSoldNightsDiff(), yoy.getSoldNightsGrowthRate()));
+                csv.append(String.format("Tổng lượt đặt phòng,%d,%d,%+d,%.2f%%,%d,%+d,%.2f%%\n",
+                        c.getTotalBookings(), p.getTotalBookings(), pop.getBookingsDiff(), pop.getBookingsGrowthRate(),
+                        y.getTotalBookings(), yoy.getBookingsDiff(), yoy.getBookingsGrowthRate()));
+
+                // Bảng 2: Phân rã theo từng loại phòng
+                csv.append("\n2. ĐỐI CHIẾU THEO TỪNG HẠNG PHÒNG\n");
+                csv.append("Hạng phòng,Số phòng,Doanh thu Kỳ này (đ),Doanh thu Kỳ trước (đ),Tăng trưởng DT PoP (%),Công suất Kỳ này (%),Công suất Kỳ trước (%),Lệch CS PoP (%pts),ADR Kỳ này (đ),ADR Kỳ trước (đ),DT Cùng kỳ năm trước (đ),Tăng trưởng DT YoY (%)\n");
+                for (PeriodComparisonReportResponse.RoomTypeComparisonDto rt : report.getRoomTypes()) {
+                    csv.append(String.format("%s,%d,%s,%s,%.2f%%,%.2f%%,%.2f%%,%+.2f%%pts,%s,%s,%s,%.2f%%\n",
+                            rt.getRoomTypeName(),
+                            rt.getTotalRooms(),
+                            rt.getCurrentRevenue(),
+                            rt.getPreviousRevenue(),
+                            rt.getPopRevenueGrowth(),
+                            rt.getCurrentOccupancyRate(),
+                            rt.getPreviousOccupancyRate(),
+                            rt.getPopOccupancyDiff(),
+                            rt.getCurrentAdr(),
+                            rt.getPreviousAdr(),
+                            rt.getYoyRevenue(),
+                            rt.getYoyRevenueGrowth()));
+                }
+
+                // Bảng 3: Nhận định đánh giá
+                csv.append("\n3. NHẬN ĐỊNH VÀ ĐÁNH GIÁ KINH DOANH TỰ ĐỘNG\n");
+                for (int idx = 0; idx < report.getExecutiveInsights().size(); idx++) {
+                    csv.append(String.format("Insight %d:,\"%s\"\n", idx + 1, report.getExecutiveInsights().get(idx).replace("\"", "\"\"")));
+                }
+            }
         } else {
             csv.append("Loại export không hỗ trợ\n");
         }

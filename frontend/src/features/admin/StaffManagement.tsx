@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import authApi from '../../services/authApi';
 import userApi from '../../services/userApi';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,7 @@ import { UserResponse, Role } from '../../types';
 
 const StaffManagement: React.FC = () => {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const { pendingCount: pendingResetCount } = usePasswordResetNotification();
@@ -248,6 +249,15 @@ const StaffManagement: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/manage/sessions')}
+            icon={IoKeyOutline}
+            className="shrink-0 text-primary border-primary/40 hover:bg-primary/5"
+          >
+            Theo dõi phiên
+          </Button>
+          <Button
             variant={pendingResetCount > 0 ? "primary" : "outline"}
             size="sm"
             onClick={() => setShowPasswordResetModal(true)}
@@ -393,17 +403,17 @@ const StaffManagement: React.FC = () => {
       <Modal isOpen={showCreateModal} onClose={handleCloseModal} title="Tạo Tài khoản mới" maxWidth="max-w-2xl">
         <form onSubmit={handleCreateSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <Input label="Tên nhân viên" icon={IoInformationCircleOutline} name="name" value={formData.name || ''} onChange={handleChange} required error={errors.name} />
-            <Input label="Tên đăng nhập" icon={IoPersonOutline} name="account" value={formData.account || ''} onChange={handleChange} required minLength={4} error={errors.account} />
-            <Input label="Mật khẩu khởi tạo" icon={IoKeyOutline} type="password" name="password" value={formData.password || ''} onChange={handleChange} required minLength={6} error={errors.password} />
-            <Select label="Vai trò" icon={IoShieldOutline} name="role" value={formData.role || 'RECEPTIONIST'} onChange={handleChange} options={roles} required />
-            <Input label="Số điện thoại" icon={IoCallOutline} name="phone" value={formData.phone || ''} onChange={handleChange} error={errors.phone} />
-            <Input label="Email" icon={IoMailOutline} type="email" name="email" value={formData.email || ''} onChange={handleChange} error={errors.email} />
+            <Input label="Tên nhân viên" name="name" value={formData.name || ''} onChange={handleChange} required error={errors.name} autoComplete="off" />
+            <Input label="Tên đăng nhập" name="account" value={formData.account || ''} onChange={handleChange} required minLength={4} error={errors.account} autoComplete="off" />
+            <Input label="Mật khẩu khởi tạo" type="password" name="password" value={formData.password || ''} onChange={handleChange} required minLength={6} error={errors.password} autoComplete="new-password" />
+            <Select label="Vai trò" name="role" value={formData.role || 'RECEPTIONIST'} onChange={handleChange} options={roles} required />
+            <Input label="Số điện thoại" name="phone" value={formData.phone || ''} onChange={handleChange} error={errors.phone} autoComplete="off" />
+            <Input label="Email" type="email" name="email" value={formData.email || ''} onChange={handleChange} error={errors.email} autoComplete="off" />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-            <Button variant="ghost" onClick={handleCloseModal}>Hủy</Button>
-            <Button type="submit" isLoading={isSaving}>Tạo tài khoản</Button>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey">
+            <Button variant="secondary" onClick={handleCloseModal}>Hủy</Button>
+            <Button type="submit" variant="primary" isLoading={isSaving}>Tạo tài khoản</Button>
           </div>
         </form>
       </Modal>
@@ -413,14 +423,14 @@ const StaffManagement: React.FC = () => {
         <Modal isOpen={showEditModal} onClose={handleCloseModal} title="Cập nhật thông tin" maxWidth="max-w-xl">
           <form onSubmit={handleEditSubmit} className="space-y-6">
             <div className="space-y-4">
-              <Input label="Tên hiển thị" icon={IoInformationCircleOutline} name="name" value={formData.name || ''} onChange={handleChange} required error={errors.name} />
-              <Input label="Số điện thoại" icon={IoCallOutline} name="phone" value={formData.phone || ''} onChange={handleChange} error={errors.phone} />
-              <Input label="Email" icon={IoMailOutline} type="email" name="email" value={formData.email || ''} onChange={handleChange} error={errors.email} />
+              <Input label="Tên hiển thị" name="name" value={formData.name || ''} onChange={handleChange} required error={errors.name} autoComplete="off" />
+              <Input label="Số điện thoại" name="phone" value={formData.phone || ''} onChange={handleChange} error={errors.phone} autoComplete="off" />
+              <Input label="Email" type="email" name="email" value={formData.email || ''} onChange={handleChange} error={errors.email} autoComplete="off" />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-              <Button variant="ghost" onClick={handleCloseModal}>Hủy</Button>
-              <Button type="submit" isLoading={isSaving}>Lưu thay đổi</Button>
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey">
+              <Button variant="secondary" onClick={handleCloseModal}>Hủy</Button>
+              <Button type="submit" variant="primary" isLoading={isSaving}>Lưu thay đổi</Button>
             </div>
           </form>
         </Modal>
@@ -435,9 +445,9 @@ const StaffManagement: React.FC = () => {
               <Select label="Chọn vai trò mới" icon={IoShieldOutline} name="role" value={formData.role || ''} onChange={handleChange} options={roles} required />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-              <Button variant="ghost" onClick={handleCloseModal}>Hủy</Button>
-              <Button type="submit" isLoading={isSaving}>Xác nhận</Button>
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey">
+              <Button variant="secondary" onClick={handleCloseModal}>Hủy</Button>
+              <Button type="submit" variant="primary" isLoading={isSaving}>Xác nhận</Button>
             </div>
           </form>
         </Modal>

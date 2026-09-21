@@ -370,20 +370,21 @@ public class DataSeeder implements CommandLineRunner {
         }
 
         // 7. Seed NotificationRoleDefault (Cấu hình nhận thông báo theo vai trò mặc định)
-        if (notificationRoleDefaultRepository.count() == 0) {
-            log.info("Bắt đầu khởi tạo dữ liệu mẫu cho Cấu hình thông báo theo vai trò...");
-            List<NotificationRoleDefault> roleDefaults = new ArrayList<>();
-            for (NotificationType type : NotificationType.values()) {
-                for (Role role : type.getDefaultRoles()) {
-                    roleDefaults.add(NotificationRoleDefault.builder()
+        List<NotificationRoleDefault> newRoleDefaults = new ArrayList<>();
+        for (NotificationType type : NotificationType.values()) {
+            for (Role role : type.getDefaultRoles()) {
+                if (!notificationRoleDefaultRepository.existsByTypeAndRole(type, role)) {
+                    newRoleDefaults.add(NotificationRoleDefault.builder()
                             .type(type)
                             .role(role)
                             .isMandatory(type.isMandatory())
                             .build());
                 }
             }
-            notificationRoleDefaultRepository.saveAll(roleDefaults);
-            log.info("Đã tạo thành công {} cấu hình phân quyền thông báo mặc định.", roleDefaults.size());
+        }
+        if (!newRoleDefaults.isEmpty()) {
+            notificationRoleDefaultRepository.saveAll(newRoleDefaults);
+            log.info("Đã bổ sung {} cấu hình phân quyền thông báo mặc định.", newRoleDefaults.size());
         }
 
         boolean isTest = false;

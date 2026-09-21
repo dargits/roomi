@@ -219,7 +219,7 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
               </button>
             </div>
 
-            <Button size="sm" variant="ghost" onClick={fetchIncidents} icon={IoRefreshOutline} disabled={loading}>
+            <Button size="sm" variant="secondary" onClick={fetchIncidents} icon={IoRefreshOutline} disabled={loading}>
               Làm mới
             </Button>
           </div>
@@ -529,7 +529,7 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
               />
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-              <Button variant="ghost" onClick={() => setResolvingItem(null)} disabled={actionLoading}>
+              <Button variant="secondary" onClick={() => setResolvingItem(null)} disabled={actionLoading}>
                 Hủy
               </Button>
               <Button type="submit" disabled={actionLoading}>

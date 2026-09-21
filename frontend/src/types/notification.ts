@@ -1,18 +1,19 @@
-﻿export type NotificationType =
+export type NotificationType =
   | 'CHECKIN_TODAY'
   | 'CHECKOUT_TODAY'
   | 'ROOM_DIRTY'
   | 'ROOM_INCIDENT_LIGHT'
   | 'ROOM_INCIDENT_HEAVY'
   | 'STAY_MILESTONE'
-  | 'INVOICE_DISCOUNT_APPROVAL';
+  | 'INVOICE_DISCOUNT_APPROVAL'
+  | 'CHANNEL_OVERBOOKING_CONFLICT';
 
 export interface NotificationItem {
   id: number;
   type: NotificationType;
   title: string;
   body: string | null;
-  refType: 'BOOKING' | 'ROOM' | 'INVOICE' | 'ROOM_INCIDENT' | null;
+  refType: 'BOOKING' | 'ROOM' | 'INVOICE' | 'ROOM_INCIDENT' | 'BOOKING_CALENDAR' | 'CHANNEL' | null;
   refId: number | null;
   isRead: boolean;
   createdAt: string;
@@ -39,4 +40,5 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   ROOM_INCIDENT_HEAVY: 'Sự cố phòng (nặng)',
   STAY_MILESTONE: 'Nhắc lưu trú',
   INVOICE_DISCOUNT_APPROVAL: 'Hóa đơn chờ duyệt giảm giá',
+  CHANNEL_OVERBOOKING_CONFLICT: 'Cảnh báo trùng phòng kênh OTA',
 };

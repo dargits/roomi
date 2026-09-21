@@ -95,7 +95,7 @@ const Tabs: React.FC<TabsProps> = ({
     <div
       className={`relative flex items-center overflow-x-auto ${
         isPill
-          ? `p-1 bg-surface-container-low rounded-xl border border-border-grey w-fit ${className}`
+          ? `p-1.5 bg-[#F4F6F0] rounded-2xl border border-border-grey w-fit shadow-2xs ${className}`
           : `border-b border-border-grey ${className}`
       }`}
     >
@@ -104,7 +104,7 @@ const Tabs: React.FC<TabsProps> = ({
         <span
           className={`absolute pointer-events-none ${
             isPill
-              ? 'rounded-lg bg-white shadow-xs border border-slate-100 z-0'
+              ? 'rounded-xl bg-white shadow-xs border border-border-grey/60 z-0'
               : 'bottom-0 h-[2.5px] bg-primary rounded-t z-0'
           }`}
           style={{
@@ -134,9 +134,9 @@ const Tabs: React.FC<TabsProps> = ({
             onClick={() => handleTabChange(tab.id)}
             className={`flex items-center gap-2 focus:outline-none transition-colors duration-200 relative whitespace-nowrap cursor-pointer z-10 ${
               isPill
-                ? `px-4 py-2 rounded-lg text-xs font-semibold ${
+                ? `px-4 py-2 rounded-xl text-xs font-semibold ${
                     isActive
-                      ? 'text-primary font-bold'
+                      ? 'text-[#1A2411] font-bold'
                       : 'text-on-surface-variant hover:text-on-surface'
                   }`
                 : `py-3 px-5 font-semibold text-sm ${
