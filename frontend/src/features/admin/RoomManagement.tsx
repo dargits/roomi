@@ -279,37 +279,37 @@ const RoomManagement: React.FC = () => {
   const STATUS_MAP: Record<RoomStatus, StatusConfig> = {
     AVAILABLE: {
       label: 'Trống',
-      badge: 'bg-emerald-50 text-emerald-700 border-emerald-300',
-      accentBg: 'bg-emerald-500',
+      badge: 'bg-[#ECFDF5] text-[#16A34A] border-[#A7F3D0]',
+      accentBg: 'bg-[#16A34A]',
       cardBorder: 'border-emerald-200 hover:border-emerald-400',
       icon: IoCheckmarkCircleOutline
     },
     OCCUPIED: {
       label: 'Đang ở',
-      badge: 'bg-blue-50 text-blue-700 border-blue-300',
-      accentBg: 'bg-blue-600',
+      badge: 'bg-[#EFF6FF] text-[#2563EB] border-[#BFDBFE]',
+      accentBg: 'bg-[#2563EB]',
       cardBorder: 'border-blue-200 hover:border-blue-400',
       icon: IoBedOutline
     },
     DIRTY: {
       label: 'Chưa dọn',
-      badge: 'bg-amber-50 text-amber-700 border-amber-300',
-      accentBg: 'bg-amber-500',
-      cardBorder: 'border-amber-200 hover:border-amber-400',
+      badge: 'bg-[#FFF7ED] text-[#EA580C] border-[#FED7AA]',
+      accentBg: 'bg-[#EA580C]',
+      cardBorder: 'border-orange-200 hover:border-orange-400',
       icon: IoBrushOutline
     },
     INSPECTING: {
       label: 'Chờ duyệt',
-      badge: 'bg-purple-50 text-purple-700 border-purple-300',
-      accentBg: 'bg-purple-600',
+      badge: 'bg-[#FAF5FF] text-[#9333EA] border-[#E9D5FF]',
+      accentBg: 'bg-[#9333EA]',
       cardBorder: 'border-purple-200 hover:border-purple-400',
       icon: IoSparklesOutline
     },
     MAINTENANCE: {
       label: 'Bảo trì',
-      badge: 'bg-rose-50 text-rose-700 border-rose-300',
-      accentBg: 'bg-rose-600',
-      cardBorder: 'border-rose-200 hover:border-rose-400',
+      badge: 'bg-[#FFFBEB] text-[#D97706] border-[#FDE68A]',
+      accentBg: 'bg-[#D97706]',
+      cardBorder: 'border-amber-200 hover:border-amber-400',
       icon: IoConstructOutline
     }
   };
