@@ -47,8 +47,16 @@ const PublicBookingDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<any[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [invoiceData, setInvoiceData] = useState<{ invoice: any | null; payments: any[] }>({ invoice: null, payments: [] });
+  const [invoiceData, setInvoiceData] = useState<{
+    invoice: any | null;
+    invoices?: any[];
+    originalInvoice?: any | null;
+    adjustmentInvoice?: any | null;
+    payments: any[];
+    message?: string;
+  }>({ invoice: null, payments: [] });
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceDisabledNotice, setInvoiceDisabledNotice] = useState<string | null>(null);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [depositLoading, setDepositLoading] = useState(false);
   const [printingInvoice, setPrintingInvoice] = useState<any | null>(null);
@@ -101,14 +109,32 @@ const PublicBookingDetailPage: React.FC = () => {
   const fetchInvoice = async () => {
     if (!bookingId) return;
     setInvoiceLoading(true);
+    setInvoiceDisabledNotice(null);
     try {
-      const data = await publicBookingApi.getPublicBookingInvoice(bookingId);
+      const phoneParam = searchParams.get('phone') || booking?.guestPhone;
+      const data = await publicBookingApi.getPublicBookingInvoice(bookingId, phoneParam);
       setInvoiceData(data || { invoice: null, payments: [] });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi tải hóa đơn", error);
+      if (error?.response?.status === 403 || error?.response?.data?.disabled) {
+        setInvoiceDisabledNotice(error?.response?.data?.message || "Chức năng tra cứu hóa đơn trực tuyến hiện đang tạm tắt theo chính sách của cơ sở lưu trú.");
+      } else if (error?.response?.status === 400) {
+        toastError(error?.response?.data?.message || "Số điện thoại không khớp với thông tin đặt phòng.");
+      } else {
+        toastError("Không thể tải thông tin hóa đơn.");
+      }
     } finally {
       setInvoiceLoading(false);
     }
+  };
+
+  const handlePrintInvoice = (inv: any) => {
+    if (inv?.id) {
+      publicBookingApi.logPublicInvoiceAccess(inv.id, 'PRINT').catch(err => {
+        console.warn("Không thể ghi nhận nhật ký in công khai:", err);
+      });
+    }
+    setPrintingInvoice(inv);
   };
 
   const fetchDeposits = async () => {
@@ -500,7 +526,7 @@ const PublicBookingDetailPage: React.FC = () => {
                     {invoice && (
                       <button
                         type="button"
-                        onClick={() => setPrintingInvoice(invoice)}
+                        onClick={() => handlePrintInvoice(invoice)}
                         className="px-3.5 py-1.5 bg-surface-container-low hover:bg-surface-container border border-border-grey text-on-surface rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                       >
                         <IoPrintOutline size={15} /> In / Xem hóa đơn
@@ -518,8 +544,39 @@ const PublicBookingDetailPage: React.FC = () => {
 
                 {invoiceLoading ? (
                   <LoadingScreen size="sm" message="Đang tải bảng kê hóa đơn..." />
+                ) : invoiceDisabledNotice ? (
+                  <div className="bg-amber-50 border border-amber-300 p-6 rounded-2xl text-amber-900 flex items-start gap-4">
+                    <IoAlertCircleOutline size={28} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-base">Thông báo tra cứu hóa đơn</h4>
+                      <p className="text-sm mt-1">{invoiceDisabledNotice}</p>
+                      <p className="text-xs text-amber-700 mt-2">Vui lòng liên hệ trực tiếp lễ tân khách sạn để nhận bản in hoặc tệp hóa đơn thanh toán.</p>
+                    </div>
+                  </div>
+                ) : (!invoice && (!invoiceData.invoices || invoiceData.invoices.length === 0)) ? (
+                  <div className="bg-surface-container-low p-8 rounded-2xl border border-border-grey text-center space-y-2">
+                    <IoDocumentOutline size={40} className="text-on-surface-variant/40 mx-auto" />
+                    <h4 className="font-semibold text-on-surface">Chưa có hóa đơn chính thức</h4>
+                    <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+                      Hóa đơn cho đợt lưu trú này hiện đang được xử lý hoặc chưa được phát hành chính thức. (Chỉ các hóa đơn đã lập chính thức hoặc đã thanh toán mới hiển thị trên cổng trực tuyến).
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* Banner nếu có hóa đơn điều chỉnh */}
+                    {invoiceData.originalInvoice && invoiceData.adjustmentInvoice && (
+                      <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-900 text-sm flex items-start gap-3">
+                        <IoInformationCircleOutline size={22} className="text-blue-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold">Đợt lưu trú này có Hóa đơn điều chỉnh</div>
+                          <div className="text-xs text-blue-700 mt-0.5">
+                            Hóa đơn điều chỉnh #{invoiceData.adjustmentInvoice.id} tham chiếu hóa đơn gốc #{invoiceData.originalInvoice.id}.
+                            {invoiceData.adjustmentInvoice.note && ` — Lý do: ${invoiceData.adjustmentInvoice.note}`}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Thẻ tóm tắt tài chính */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="bg-surface-container-low p-4 rounded-xl border border-border-grey">
