@@ -39,12 +39,62 @@ const formatMoney = (amount?: number) => new Intl.NumberFormat('vi-VN', {
 const DebtAcknowledgementPrintTemplate: React.FC<DebtAcknowledgementPrintTemplateProps> = ({ data, onClose, onPrint }) => {
   const handlePrint = () => {
     onPrint?.();
-    window.print();
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'visible';
+    setTimeout(() => {
+      window.print();
+      document.body.style.overflow = originalOverflow;
+    }, 50);
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 p-4 print:bg-white print:p-0">
-      <style>{`@media print { body * { visibility: hidden; } #debt-acknowledgement, #debt-acknowledgement * { visibility: visible; } #debt-acknowledgement { position:absolute; inset:0; width:100%; } .no-print { display:none !important; } }`}</style>
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 p-4 print:bg-white print:p-0 debt-modal-container">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 12mm 15mm;
+          }
+          #root, .no-print, .print\\:hidden, [class*="print:hidden"] {
+            display: none !important;
+          }
+          html, body {
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 100% !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .debt-modal-container {
+            position: static !important;
+            display: block !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          #debt-acknowledgement {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          #debt-acknowledgement * {
+            visibility: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `}</style>
       <div className="no-print mx-auto mb-4 flex max-w-3xl justify-end gap-2">
         <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
         <Button onClick={handlePrint} icon={IoPrintOutline}>In / Lưu PDF</Button>
