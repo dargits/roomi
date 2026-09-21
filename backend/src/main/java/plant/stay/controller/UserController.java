@@ -136,4 +136,48 @@ public class UserController {
         userService.unlockUser(id);
         return ResponseEntity.ok(new MessageResponse("Mở khóa tài khoản thành công"));
     }
+
+    // =========================================================================
+    // NCL-10-CN-007: THEO DÕI PHIÊN ĐĂNG NHẬP VÀ BUỘC ĐĂNG XUẤT TỪ XA
+    // =========================================================================
+
+    /**
+     * Lấy danh sách các phiên đăng nhập đang hoạt động (TC-01).
+     */
+    @GetMapping("/sessions")
+    public ResponseEntity<java.util.List<plant.stay.dto.response.UserSessionResponse>> getActiveSessions(
+            @RequestParam(required = false) String search,
+            HttpServletRequest request) {
+        User currentUser = checkAdminOrOwner(request);
+        String currentToken = authUtil.extractToken(request);
+        return ResponseEntity.ok(userService.getActiveSessions(search, currentUser, currentToken));
+    }
+
+    /**
+     * Buộc đăng xuất một phiên bất kỳ (TC-02, TC-04).
+     */
+    @DeleteMapping("/sessions/{sessionId}")
+    public ResponseEntity<MessageResponse> forceLogoutSession(
+            @PathVariable Long sessionId,
+            @RequestParam(required = false) String reason,
+            HttpServletRequest request) {
+        User currentUser = checkAdminOrOwner(request);
+        String currentToken = authUtil.extractToken(request);
+        userService.forceLogoutSession(sessionId, reason, currentUser, currentToken);
+        return ResponseEntity.ok(new MessageResponse("Đã buộc đăng xuất phiên làm việc thành công."));
+    }
+
+    /**
+     * Buộc đăng xuất toàn bộ phiên của một tài khoản (TC-02, TC-04).
+     */
+    @DeleteMapping("/{userId}/sessions")
+    public ResponseEntity<MessageResponse> forceLogoutAllUserSessions(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String reason,
+            HttpServletRequest request) {
+        User currentUser = checkAdminOrOwner(request);
+        String currentToken = authUtil.extractToken(request);
+        userService.forceLogoutAllUserSessions(userId, reason, currentUser, currentToken);
+        return ResponseEntity.ok(new MessageResponse("Đã buộc đăng xuất toàn bộ phiên của người dùng thành công."));
+    }
 }

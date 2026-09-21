@@ -25,4 +25,8 @@ public class HotelSettingResponse {
     private Integer lostItemRetentionDays;
     private Boolean periodicCleaningEnabled;
     private Integer periodicCleaningDays;
+    private Integer sessionTimeoutMinutes;
+    private Integer maxConcurrentSessions;
+    private Integer maxSessionLifetimeHours;
+    private Boolean publicInvoiceLookupEnabled;
 }

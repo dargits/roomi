@@ -336,5 +336,68 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: channel_room_blocks.reject_reason: {}", e.getMessage());
         }
+
+        // 18. NCL-10-CN-007: Mở rộng bảng sessions theo dõi phiên đăng nhập & thời gian chờ
+        try {
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_active_at DATETIME");
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ip_address VARCHAR(50)");
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_agent VARCHAR(500)");
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS device_info VARCHAR(200)");
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE'");
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS revoked_reason VARCHAR(500)");
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS revoked_at DATETIME");
+            jdbcTemplate.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS revoked_by BIGINT");
+            
+            // Đảm bảo có non-unique index trên user_id trước khi drop unique index (đáp ứng foreign key constraint)
+            try {
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)");
+            } catch (Exception ignored) {}
+
+            // Tự động tìm và xóa MỌI unique index trên cột user_id của bảng sessions (do Hibernate tự sinh hash như UKll67hfsoxbb4aj85oexrpq39l)
+            try {
+                java.util.List<String> uniqueIndexNames = jdbcTemplate.query(
+                    "SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS " +
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sessions' " +
+                    "AND COLUMN_NAME = 'user_id' AND NON_UNIQUE = 0 AND INDEX_NAME != 'PRIMARY'",
+                    (rs, rowNum) -> rs.getString("INDEX_NAME")
+                );
+                for (String idxName : uniqueIndexNames) {
+                    try {
+                        jdbcTemplate.execute("ALTER TABLE sessions DROP INDEX " + idxName);
+                        log.info("Schema Migration: Successfully dropped unique index '{}' on sessions(user_id)", idxName);
+                    } catch (Exception ex) {
+                        log.debug("Notice dropping index {}: {}", idxName, ex.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Schema Migration Notice: Could not query information_schema for sessions unique index: {}", e.getMessage());
+            }
+
+            // Xóa unique constraint cũ theo tên phổ biến nếu có
+            try {
+                jdbcTemplate.execute("ALTER TABLE sessions DROP INDEX UK_user_id");
+            } catch (Exception ignored) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE sessions DROP INDEX user_id");
+            } catch (Exception ignored) {}
+            
+            // Cập nhật trạng thái cho các bản ghi cũ
+            jdbcTemplate.execute("UPDATE sessions SET status = 'ACTIVE' WHERE status IS NULL");
+            jdbcTemplate.execute("UPDATE sessions SET last_active_at = create_at WHERE last_active_at IS NULL");
+            
+            log.info("Schema Migration: Successfully ensured 'sessions' columns and removed unique constraint for NCL-10-CN-007.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: sessions table migration: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS session_timeout_minutes INT DEFAULT 120");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS max_concurrent_sessions INT DEFAULT 0");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS max_session_lifetime_hours INT DEFAULT 24");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS public_invoice_lookup_enabled TINYINT(1) DEFAULT 1");
+            log.info("Schema Migration: Successfully ensured 'hotel_settings' session and public invoice lookup configuration columns exist.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: hotel_settings configuration columns: {}", e.getMessage());
+        }
     }
 }

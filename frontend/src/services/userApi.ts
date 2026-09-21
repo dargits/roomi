@@ -60,6 +60,27 @@ const userApi = {
   unlockUser: async (id: number): Promise<MessageResponse> => {
     const response = await api.put<MessageResponse>(`/users/${id}/unlock`);
     return response.data;
+  },
+
+  /** NCL-10-CN-007: Lấy danh sách các phiên đăng nhập đang hoạt động */
+  getActiveSessions: async (search?: string): Promise<import('../types').UserSessionResponse[]> => {
+    const params = search ? { search } : {};
+    const response = await api.get<import('../types').UserSessionResponse[]>('/users/sessions', { params });
+    return response.data;
+  },
+
+  /** NCL-10-CN-007: Buộc đăng xuất một phiên làm việc */
+  forceLogoutSession: async (sessionId: number, reason?: string): Promise<MessageResponse> => {
+    const params = reason ? { reason } : {};
+    const response = await api.delete<MessageResponse>(`/users/sessions/${sessionId}`, { params });
+    return response.data;
+  },
+
+  /** NCL-10-CN-007: Buộc đăng xuất toàn bộ phiên của một tài khoản */
+  forceLogoutAllSessions: async (userId: number, reason?: string): Promise<MessageResponse> => {
+    const params = reason ? { reason } : {};
+    const response = await api.delete<MessageResponse>(`/users/${userId}/sessions`, { params });
+    return response.data;
   }
 };
 

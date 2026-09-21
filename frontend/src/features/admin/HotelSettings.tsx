@@ -19,7 +19,8 @@ import {
   IoBrushOutline,
   IoSparklesOutline,
   IoRefreshOutline,
-  IoCalendarOutline
+  IoCalendarOutline,
+  IoKeyOutline
 } from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -40,7 +41,9 @@ const HotelSettings: React.FC = () => {
     reminderEmailEnabled: true,
     reminderMorningTime: '10:30',
     periodicCleaningEnabled: true,
-    periodicCleaningDays: 5
+    periodicCleaningDays: 5,
+    sessionTimeoutMinutes: 120,
+    publicInvoiceLookupEnabled: true
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,6 +74,8 @@ const HotelSettings: React.FC = () => {
         rest.reminderMorningTime = rest.reminderMorningTime || '10:30';
         rest.periodicCleaningEnabled = rest.periodicCleaningEnabled !== false;
         rest.periodicCleaningDays = rest.periodicCleaningDays || 5;
+        rest.sessionTimeoutMinutes = rest.sessionTimeoutMinutes || 120;
+        rest.publicInvoiceLookupEnabled = rest.publicInvoiceLookupEnabled !== false;
         setSettings(rest);
       }
     } catch (error) {
@@ -135,6 +140,9 @@ const HotelSettings: React.FC = () => {
         reminderMorningTime: settings.reminderMorningTime && settings.reminderMorningTime.length === 5 ? `${settings.reminderMorningTime}:00` : settings.reminderMorningTime,
         periodicCleaningEnabled: settings.periodicCleaningEnabled !== false,
         periodicCleaningDays: Number(settings.periodicCleaningDays) || 5,
+        sessionTimeoutMinutes: Number(settings.sessionTimeoutMinutes) || 120,
+        maxConcurrentSessions: Number(settings.maxConcurrentSessions) >= 0 ? Number(settings.maxConcurrentSessions) : 0,
+        maxSessionLifetimeHours: Number(settings.maxSessionLifetimeHours) || 24,
       };
 
       await hotelSettingApi.updateSetting(payload);
@@ -438,6 +446,108 @@ const HotelSettings: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Cấu hình chính sách phiên đăng nhập & thời gian chờ (NCL-10-CN-007) */}
+        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
+          <div className="flex items-center gap-2 border-b border-border-grey pb-3">
+            <IoKeyOutline size={20} className="text-primary" />
+            <div>
+              <h3 className="font-title-md text-on-surface font-semibold">
+                Chính sách Phiên đăng nhập & Bảo mật tài khoản
+              </h3>
+              <p className="text-xs text-on-surface-variant">
+                Cấu hình thời gian chờ không thao tác, giới hạn thiết bị đăng nhập đồng thời và thời hạn tối đa của phiên.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+            <Input
+              label="Thời gian chờ không thao tác (phút) *"
+              type="number"
+              name="sessionTimeoutMinutes"
+              min={5}
+              max={1440}
+              value={settings.sessionTimeoutMinutes !== undefined ? String(settings.sessionTimeoutMinutes) : '120'}
+              onChange={handleChange}
+              error={errors.sessionTimeoutMinutes || undefined}
+              icon={IoTimeOutline}
+              helperText="Mặc định: 120 phút. Tự động kết thúc khi treo máy."
+              required
+            />
+
+            <Input
+              label="Số phiên đồng thời tối đa *"
+              type="number"
+              name="maxConcurrentSessions"
+              min={0}
+              max={50}
+              value={settings.maxConcurrentSessions !== undefined ? String(settings.maxConcurrentSessions) : '0'}
+              onChange={handleChange}
+              error={errors.maxConcurrentSessions || undefined}
+              icon={IoKeyOutline}
+              helperText="0 = Không giới hạn. 1 = Chỉ 1 thiết bị (đăng nhập mới tự hủy phiên cũ)."
+              required
+            />
+
+            <Input
+              label="Thời hạn tối đa của phiên (giờ) *"
+              type="number"
+              name="maxSessionLifetimeHours"
+              min={1}
+              max={720}
+              value={settings.maxSessionLifetimeHours !== undefined ? String(settings.maxSessionLifetimeHours) : '24'}
+              onChange={handleChange}
+              error={errors.maxSessionLifetimeHours || undefined}
+              icon={IoTimeOutline}
+              helperText="Mặc định: 24 giờ. Hết hạn phiên tuyệt đối."
+              required
+            />
+          </div>
+
+          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-800 space-y-1.5">
+            <div className="font-semibold flex items-center gap-1.5">
+              <IoKeyOutline size={15} /> Cơ chế kiểm soát phiên:
+            </div>
+            <div>• <strong>Chế độ 1 phiên duy nhất (Giá trị = 1):</strong> Nếu bật tính năng này, khi nhân viên đăng nhập trên máy tính hoặc điện thoại mới, phiên cũ sẽ tự động bị thu hồi ngay lập tức kèm thông báo lý do rõ ràng.</div>
+            <div>• <strong>Thời gian chờ (Timeout):</strong> Nếu nhân viên rời khỏi quầy quá số phút quy định không có thao tác chuột/bàn phím, hệ thống tự động khóa phiên để ngăn chặn truy cập trái phép.</div>
+            <div>• <strong>Thời hạn tối đa:</strong> Bắt buộc làm mới xác thực sau khoảng thời gian này kể từ khi đăng nhập.</div>
+          </div>
+        </div>
+
+        {/* NCL-09-CN-008: Cấu hình Cổng tra cứu hóa đơn trực tuyến */}
+        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
+          <div className="flex items-center gap-2 border-b border-border-grey pb-3">
+            <IoSparklesOutline size={20} className="text-primary" />
+            <div>
+              <h3 className="font-title-md text-on-surface font-semibold">
+                Cổng Tra Cứu Hóa Đơn Trực Tuyến Cho Khách (NCL-09-CN-008)
+              </h3>
+              <p className="text-xs text-on-surface-variant">
+                Quyết định việc cho phép khách lưu trú tự xem và tải hóa đơn của mình qua liên kết hoặc mã đặt phòng.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-border-grey">
+            <div className="space-y-1">
+              <span className="text-sm font-bold text-on-surface">Cho phép khách xem & tải hóa đơn trực tuyến</span>
+              <p className="text-xs text-on-surface-variant max-w-xl">
+                Khi bật, khách có thể dùng mã đặt phòng và số điện thoại đã đăng ký để xem và tải bản in hóa đơn thanh toán trực tuyến. Khi tắt, chức năng này sẽ tạm khóa để bảo mật theo chính sách nội bộ.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer ml-4">
+              <input
+                type="checkbox"
+                name="publicInvoiceLookupEnabled"
+                checked={settings.publicInvoiceLookupEnabled !== false}
+                onChange={(e) => setSettings(prev => ({ ...prev, publicInvoiceLookupEnabled: e.target.checked }))}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
         </div>
 
         <div className="pt-4 border-t border-border-grey flex justify-end">
