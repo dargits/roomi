@@ -113,8 +113,32 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="bg-surface text-on-surface h-screen overflow-hidden flex flex-col md:flex-row antialiased relative">
-      {/* Left Side: Image (50%) */}
-      <div className="hidden md:flex md:w-1/2 relative bg-surface-container-high h-full min-h-screen">
+      {/* ── PORTAL VIEW REVEALED AS FABRIC TEARS ── */}
+      {isSuccess && (
+        <div className="absolute inset-0 bg-[#0F172A] z-0 flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-200">
+          <div className="w-20 h-20 rounded-3xl bg-primary/30 border-2 border-[#D4F63D] flex items-center justify-center text-[#D4F63D] shadow-[0_0_50px_rgba(212,246,61,0.7)] mb-5 animate-pulse">
+            <span className="font-bold text-4xl font-mono">S</span>
+          </div>
+          <h2 className="font-display-lg text-3xl md:text-5xl font-extrabold text-white tracking-wide">
+            {hotelSetting?.propertyName || 'STAY AWAY'} PMS
+          </h2>
+          <p className="text-sm font-mono text-[#D4F63D] mt-3 tracking-widest uppercase">
+            Đang mở cổng tiến vào trang chủ điều hành...
+          </p>
+        </div>
+      )}
+
+      {/* Left Side: Image (50%) - Tears and moves to LEFT */}
+      <div
+        className={`hidden md:flex md:w-1/2 relative bg-surface-container-high h-full min-h-screen z-10 overflow-hidden ${
+          isSuccess ? 'shadow-2xl' : ''
+        }`}
+        style={
+          isSuccess
+            ? { animation: 'tearLeft 0.75s cubic-bezier(0.85, 0, 0.15, 1) forwards' }
+            : undefined
+        }
+      >
         <div
           className="absolute inset-0 bg-cover bg-center w-full h-full"
           style={{
@@ -133,8 +157,17 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Side: Login Form (50%) */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 lg:p-10 h-full bg-surface-container-lowest overflow-y-auto">
+      {/* Right Side: Login Form (50%) - Tears and moves to RIGHT */}
+      <div
+        className={`w-full md:w-1/2 flex items-center justify-center p-6 lg:p-10 h-full bg-surface-container-lowest overflow-y-auto z-10 ${
+          isSuccess ? 'shadow-2xl' : ''
+        }`}
+        style={
+          isSuccess
+            ? { animation: 'tearRight 0.75s cubic-bezier(0.85, 0, 0.15, 1) forwards' }
+            : undefined
+        }
+      >
         <div className="w-full max-w-md flex flex-col items-center">
           {/* Logo */}
           <div
@@ -269,125 +302,100 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── CINEMATIC ROCKET SCREEN-SPLIT ANIMATION ── */}
+      {/* ── CINEMATIC VERTICAL ROCKET FABRIC-TEAR SCREEN SPLIT ANIMATION ── */}
       {isSuccess && (
         <div className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden select-none">
-          {/* Top Half Curtain (Splits Upwards) */}
+          {/* Jagged Fabric Tear Line Along Center Seam (Splits the two pages) */}
           <div
-            className="absolute top-0 left-0 right-0 h-1/2 bg-[#1A2411] border-b-2 border-[#D4F63D] z-20 shadow-2xl flex flex-col justify-end items-center pb-6 overflow-hidden"
-            style={{
-              animation: 'screenSplitTop 0.52s cubic-bezier(0.85, 0, 0.15, 1) 0.22s forwards'
-            }}
+            className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[4px] z-30 pointer-events-none"
+            style={{ animation: 'tearLineRip 0.75s ease-out forwards' }}
           >
-            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#D4F63D_1px,transparent_1px)] [background-size:16px_16px]" />
-            <div className="text-center relative z-10 opacity-80">
-              <span className="font-mono text-[10px] tracking-[0.3em] text-[#D4F63D] uppercase">
-                StayGo PMS Hyper-Drive Activated
-              </span>
-            </div>
-          </div>
-
-          {/* Bottom Half Curtain (Splits Downwards) */}
-          <div
-            className="absolute bottom-0 left-0 right-0 h-1/2 bg-[#1A2411] border-t-2 border-[#D4F63D] z-20 shadow-2xl flex flex-col justify-start items-center pt-6 overflow-hidden"
-            style={{
-              animation: 'screenSplitBottom 0.52s cubic-bezier(0.85, 0, 0.15, 1) 0.22s forwards'
-            }}
-          >
-            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#D4F63D_1px,transparent_1px)] [background-size:16px_16px]" />
-            <div className="text-center relative z-10 opacity-80">
-              <span className="font-mono text-[10px] tracking-[0.3em] text-white uppercase">
-                Entering Hospitality Command Center
-              </span>
-            </div>
-          </div>
-
-          {/* Laser Cut Beam at Center (Splits the Screen) */}
-          <div
-            className="absolute top-1/2 left-0 h-[3px] bg-gradient-to-r from-transparent via-[#D4F63D] to-white shadow-[0_0_20px_#D4F63D,0_0_40px_#D4F63D] z-30 transform -translate-y-1/2"
-            style={{
-              animation: 'laserCutBeam 0.75s ease-out forwards'
-            }}
-          />
-
-          {/* The Flying Rocket */}
-          <div
-            className="absolute top-1/2 z-40 flex items-center"
-            style={{
-              animation: 'rocketFlyAcross 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
-            }}
-          >
-            {/* Jet Exhaust Flame & Particles Trail */}
-            <div className="flex items-center -mr-2">
-              <div className="w-56 h-[2px] bg-gradient-to-l from-[#D4F63D] via-[#F97316]/80 to-transparent" />
-              <div className="relative w-16 h-8 flex items-center justify-end">
-                <div className="w-14 h-4 rounded-l-full bg-gradient-to-l from-white via-[#D4F63D] to-[#F97316] blur-[1px] animate-pulse" />
-                <div className="absolute right-0 w-8 h-2 rounded-l-full bg-white blur-[0.5px]" />
-                <div className="absolute -left-2 w-3 h-3 rounded-full bg-[#D4F63D] animate-ping opacity-75" />
-              </div>
-            </div>
-
-            {/* Stylized Space Rocket SVG */}
+            {/* Glowing neon rip beam */}
+            <div className="w-full h-full bg-gradient-to-b from-[#D4F63D] via-white to-[#F97316] shadow-[0_0_25px_#D4F63D,0_0_50px_#D4F63D]" />
+            {/* Jagged rip threads along the seam */}
             <svg
-              viewBox="0 0 120 60"
-              className="w-24 h-12 drop-shadow-[0_0_15px_rgba(212,246,61,0.9)] filter"
+              className="absolute inset-0 w-8 -left-2 h-full opacity-80"
+              preserveAspectRatio="none"
+              viewBox="0 0 20 100"
+            >
+              <path
+                d="M10 0 L14 10 L6 20 L15 30 L5 40 L14 50 L6 60 L15 70 L6 80 L13 90 L10 100"
+                stroke="#D4F63D"
+                strokeWidth="2.5"
+                fill="none"
+              />
+            </svg>
+          </div>
+
+          {/* Vertical Flying Rocket Launching Up Along Center Seam */}
+          <div
+            className="absolute bottom-0 left-1/2 z-40 flex flex-col items-center"
+            style={{
+              animation: 'rocketShootUp 0.8s cubic-bezier(0.2, 0.85, 0.25, 1) forwards'
+            }}
+          >
+            {/* Sonic Shockwave Ring around Rocket Nose */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-12 rounded-full border-2 border-white/80 opacity-80 animate-ping -mt-4" />
+
+            {/* Stylized Space Rocket SVG (Facing UP) */}
+            <svg
+              viewBox="0 0 60 120"
+              className="w-16 h-32 drop-shadow-[0_0_25px_rgba(212,246,61,0.95)] filter"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
               {/* Rocket Body */}
               <path
-                d="M110 30 C95 18, 55 16, 25 20 L25 40 C55 44, 95 42, 110 30 Z"
-                fill="url(#rocketBodyGrad)"
+                d="M30 10 C18 25, 16 65, 20 95 L40 95 C44 65, 42 25, 30 10 Z"
+                fill="url(#rocketBodyVert)"
               />
               {/* Rocket Nosecone Tip */}
               <path
-                d="M110 30 C105 24, 90 20, 80 20 L80 40 C90 40, 105 36, 110 30 Z"
+                d="M30 10 C24 15, 20 30, 20 40 L40 40 C40 30, 36 15, 30 10 Z"
                 fill="#D4F63D"
               />
               {/* Cockpit Glass */}
-              <ellipse cx="70" cy="30" rx="8" ry="4" fill="#38BDF8" opacity="0.9" />
-              <ellipse cx="71" cy="29" rx="5" ry="2" fill="#FFFFFF" opacity="0.8" />
-              {/* Top Wing Fin */}
+              <ellipse cx="30" cy="50" rx="4" ry="8" fill="#38BDF8" opacity="0.95" />
+              <ellipse cx="29" cy="49" rx="2" ry="5" fill="#FFFFFF" opacity="0.85" />
+              {/* Left Wing Fin */}
               <path
-                d="M45 18 L20 6 L30 20 Z"
+                d="M18 75 L6 100 L20 90 Z"
                 fill="#626F47"
               />
-              {/* Bottom Wing Fin */}
+              {/* Right Wing Fin */}
               <path
-                d="M45 42 L20 54 L30 40 Z"
+                d="M42 75 L54 100 L40 90 Z"
                 fill="#626F47"
               />
               {/* Center Fin Accent */}
               <path
-                d="M38 27 L18 29 L18 31 L38 33 Z"
+                d="M27 82 L29 102 L31 102 L33 82 Z"
                 fill="#BEDF2E"
               />
               {/* Thruster Nozzle */}
-              <rect x="20" y="24" width="6" height="12" rx="2" fill="#334155" />
+              <rect x="24" y="94" width="12" height="6" rx="2" fill="#334155" />
               <defs>
-                <linearGradient id="rocketBodyGrad" x1="25" y1="30" x2="110" y2="30" gradientUnits="userSpaceOnUse">
+                <linearGradient id="rocketBodyVert" x1="30" y1="10" x2="30" y2="95" gradientUnits="userSpaceOnUse">
                   <stop stopColor="#FFFFFF" />
                   <stop offset="0.6" stopColor="#F4F6F0" />
-                  <stop offset="1" stopColor="#E2E8F0" />
+                  <stop offset="1" stopColor="#CBD5E1" />
                 </linearGradient>
               </defs>
             </svg>
 
-            {/* Sonic Shockwave Ring around Rocket Nose */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-16 rounded-full border-2 border-white/60 opacity-60 animate-ping -mr-3" />
-          </div>
-
-          {/* Underlying Portal Revealed as Screen Splits */}
-          <div className="absolute inset-0 bg-[#0F172A] z-10 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-primary/30 border border-[#D4F63D] flex items-center justify-center text-[#D4F63D] shadow-[0_0_30px_#D4F63D] mb-4">
-              <span className="font-bold text-3xl font-mono">S</span>
+            {/* Downward Jet Exhaust Flame & Particles Trail */}
+            <div className="flex flex-col items-center -mt-2">
+              <div className="relative w-8 h-20 flex flex-col items-center">
+                <div className="w-6 h-20 rounded-b-full bg-gradient-to-b from-white via-[#D4F63D] to-[#F97316] blur-[1px] animate-pulse" />
+                <div className="absolute top-0 w-3 h-10 rounded-b-full bg-white blur-[0.5px]" />
+                <div className="absolute -bottom-2 w-4 h-4 rounded-full bg-[#D4F63D] animate-ping opacity-85" />
+              </div>
+              <div className="w-[3px] h-72 bg-gradient-to-b from-[#D4F63D] via-[#F97316]/75 to-transparent shadow-[0_0_15px_#D4F63D]" />
             </div>
-            <h2 className="font-display-lg text-2xl md:text-3xl font-extrabold text-white tracking-wide">
-              {hotelSetting?.propertyName || 'STAY AWAY'} PMS
-            </h2>
-            <p className="text-xs font-mono text-[#D4F63D] mt-2 tracking-widest uppercase animate-pulse">
-              Đang mở cổng điều hành khách sạn...
-            </p>
+
+            {/* Spark Bursts along the Tear Seam */}
+            <div className="absolute top-20 -left-6 w-3 h-3 rounded-full bg-[#D4F63D] animate-ping opacity-90" />
+            <div className="absolute top-24 -right-6 w-3 h-3 rounded-full bg-amber-400 animate-ping opacity-90" />
           </div>
         </div>
       )}
