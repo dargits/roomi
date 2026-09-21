@@ -60,6 +60,18 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         if (request.getPeriodicCleaningDays() != null) {
             setting.setPeriodicCleaningDays(request.getPeriodicCleaningDays());
         }
+        if (request.getSessionTimeoutMinutes() != null) {
+            setting.setSessionTimeoutMinutes(request.getSessionTimeoutMinutes());
+        }
+        if (request.getMaxConcurrentSessions() != null) {
+            setting.setMaxConcurrentSessions(request.getMaxConcurrentSessions());
+        }
+        if (request.getMaxSessionLifetimeHours() != null) {
+            setting.setMaxSessionLifetimeHours(request.getMaxSessionLifetimeHours());
+        }
+        if (request.getPublicInvoiceLookupEnabled() != null) {
+            setting.setPublicInvoiceLookupEnabled(request.getPublicInvoiceLookupEnabled());
+        }
         setting.setUpdatedBy(updatedBy);
 
         // Với @Transactional và Managed Entity, save() sẽ hoạt động đúng và an toàn
@@ -84,6 +96,10 @@ public class HotelSettingServiceImpl implements HotelSettingService {
                 .lostItemRetentionDays(setting.getLostItemRetentionDays() != null ? setting.getLostItemRetentionDays() : 30)
                 .periodicCleaningEnabled(setting.getPeriodicCleaningEnabled() != null ? setting.getPeriodicCleaningEnabled() : true)
                 .periodicCleaningDays(setting.getPeriodicCleaningDays() != null ? setting.getPeriodicCleaningDays() : 5)
+                .sessionTimeoutMinutes(setting.getSessionTimeoutMinutes() != null ? setting.getSessionTimeoutMinutes() : 120)
+                .maxConcurrentSessions(setting.getMaxConcurrentSessions() != null ? setting.getMaxConcurrentSessions() : 0)
+                .maxSessionLifetimeHours(setting.getMaxSessionLifetimeHours() != null ? setting.getMaxSessionLifetimeHours() : 24)
+                .publicInvoiceLookupEnabled(setting.getPublicInvoiceLookupEnabled() != null ? setting.getPublicInvoiceLookupEnabled() : true)
                 .build();
     }
 }

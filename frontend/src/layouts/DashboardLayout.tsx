@@ -109,6 +109,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoSettingsOutline,
     items: [
       { path: '/manage/staff',               label: 'Nhân sự',                    icon: IoPersonOutline,           allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER'] },
       { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        icon: IoLockClosedOutline,       allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         icon: IoTimeOutline,             allowedRoles: ['OWNER', 'ADMIN'] },
@@ -152,6 +153,7 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/cashier-shifts': { title: 'Chốt Ca & Đối Soát Tiền Mặt', group: 'Tài chính' },
   '/manage/daily-ledger': { title: 'Sổ Quỹ Theo Ngày', group: 'Tài chính' },
   '/manage/staff': { title: 'Quản Lý Nhân Sự', group: 'Hệ thống' },
+  '/manage/sessions': { title: 'Theo Dõi Phiên Đăng Nhập', group: 'Hệ thống' },
   '/manage/inventory': { title: 'Kho Đồ Dùng', group: 'Hệ thống' },
   '/manage/concurrency': { title: 'Kiểm Soát Đồng Thời', group: 'Hệ thống' },
   '/manage/audit-logs': { title: 'Lịch Sử Hoạt Động', group: 'Hệ thống' },
@@ -218,11 +220,11 @@ const SubmenuNav: React.FC<{
           : 'mt-1 pl-4 pr-1 space-y-1 border-l-2 border-primary/20 ml-5'
       }`}
     >
-      {/* Gliding Submenu Pill */}
+      {/* Gliding Submenu Pill (Lodgify Lime Active) */}
       {pill.opacity > 0 && (
         <div
-          className={`absolute z-0 rounded-lg bg-primary shadow-xs pointer-events-none ${
-            isPopover ? 'left-0 right-0' : 'left-4 right-1'
+          className={`absolute z-0 rounded-xl bg-[#D4F63D] shadow-xs pointer-events-none ${
+            isPopover ? 'left-0 right-0' : 'left-3 right-1'
           }`}
           style={{
             top: `${pill.top}px`,
@@ -247,10 +249,10 @@ const SubmenuNav: React.FC<{
             to={item.path}
             ref={(el) => { subRefs.current[item.path] = el; }}
             className={`
-              relative z-10 flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-150
+              relative z-10 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors duration-150
               ${active
-                ? 'text-white font-bold'
-                : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                ? 'text-[#1A2411] font-bold'
+                : 'text-[#586650] hover:bg-[#F2F6EC] hover:text-[#1A2411]'
               }
             `}
           >
@@ -258,7 +260,7 @@ const SubmenuNav: React.FC<{
               {ItemIcon && (
                 <ItemIcon
                   size={isPopover ? 15 : 16}
-                  className={`shrink-0 transition-colors duration-150 ${active ? 'text-white' : 'text-slate-400'}`}
+                  className={`shrink-0 transition-colors duration-150 ${active ? 'text-[#1A2411]' : 'text-[#73826B]'}`}
                 />
               )}
               <span className="truncate">{item.label}</span>
@@ -266,7 +268,7 @@ const SubmenuNav: React.FC<{
             {isStaffReset && (
               <span
                 className={`px-1.5 py-0.2 text-[9px] font-bold rounded-full transition-colors ${
-                  active ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700 border border-red-200'
+                  active ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700 border border-red-200'
                 }`}
               >
                 {pendingResetCount}
@@ -417,7 +419,7 @@ const DashboardLayout: React.FC = () => {
   const currentRouteMeta = ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#f8fafc] text-on-surface flex flex-col antialiased">
+    <div className="h-screen w-screen overflow-hidden bg-[#F4F6F0] text-on-surface flex flex-col antialiased">
       <div className="flex flex-1 h-full overflow-hidden relative">
         
         {/* Mobile Backdrop */}
@@ -433,31 +435,41 @@ const DashboardLayout: React.FC = () => {
         <aside
           className={`
             fixed lg:static top-0 bottom-0 left-0 z-50
-            flex flex-col bg-white border-r border-slate-200/80 shadow-[1px_0_12px_rgba(0,0,0,0.02)]
+            flex flex-col bg-white border-r border-border-grey shadow-[1px_0_12px_rgba(0,0,0,0.02)]
             transition-all duration-300 ease-in-out select-none
             ${mobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'}
             ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}
           `}
         >
           {/* Sidebar Header: Brand & Logo */}
-          <div className="h-16 px-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+          <div className="h-16 px-3.5 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
             <Link
               to="/"
               className={`flex items-center gap-3 overflow-hidden group py-1 ${isCollapsed ? 'justify-center w-full' : ''}`}
-              title={isCollapsed ? (hotelSetting?.propertyName || 'StayGo') : 'Về trang chủ'}
+              title={isCollapsed ? (hotelSetting?.propertyName || 'Lodgify') : 'Về trang chủ'}
             >
-              {/* Brand Emblem */}
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary via-primary to-blue-600 text-white shadow-md shadow-primary/20 ring-2 ring-primary/15 flex items-center justify-center font-bold font-logo text-lg shrink-0 transition-transform group-hover:scale-105">
-                {hotelSetting?.propertyName?.[0] || 'S'}
+              {/* Brand Emblem: Lodgify 4-pill grid icon */}
+              <div className="w-10 h-10 rounded-xl bg-[#1A2411] text-[#D4F63D] shadow-sm flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
+                <div className="grid grid-cols-2 gap-1 p-1.5">
+                  <span className="w-2 h-3.5 rounded-full bg-[#D4F63D]"></span>
+                  <span className="w-2 h-2.5 rounded-full bg-[#A4B465]"></span>
+                  <span className="w-2 h-2.5 rounded-full bg-[#A4B465]"></span>
+                  <span className="w-2 h-3.5 rounded-full bg-[#D4F63D]"></span>
+                </div>
               </div>
 
               {/* Brand text when expanded */}
               <div className={`flex flex-col min-w-0 transition-opacity duration-200 ${isCollapsed ? 'lg:hidden' : ''}`}>
-                <span className="font-logo font-extrabold text-[17px] tracking-tight text-slate-800 uppercase truncate leading-tight group-hover:text-primary transition-colors">
-                  {hotelSetting?.propertyName || 'STAYGO'}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-logo font-extrabold text-[17px] tracking-tight text-[#1A2411] uppercase truncate leading-tight group-hover:text-primary transition-colors">
+                    {hotelSetting?.propertyName || 'Lodgify'}
+                  </span>
+                  <span className="px-1.5 py-0.2 text-[9px] font-extrabold bg-[#D4F63D] text-[#1A2411] rounded-full border border-[#BEDF2E]">
+                    0.1%
+                  </span>
+                </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary/80">PMS</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#606D56]">Hotel Management</span>
                 </div>
               </div>
             </Link>
@@ -481,7 +493,7 @@ const DashboardLayout: React.FC = () => {
             {/* Gliding Active Indicator Pill (Collapsed Mode) */}
             {isCollapsed && pillStyle.opacity > 0 && (
               <div
-                className="absolute z-0 rounded-xl bg-primary shadow-md shadow-primary/30 pointer-events-none"
+                className="absolute z-0 rounded-xl bg-[#D4F63D] shadow-md shadow-[#D4F63D]/30 pointer-events-none"
                 style={{
                   top: `${pillStyle.top}px`,
                   left: '50%',
@@ -524,13 +536,13 @@ const DashboardLayout: React.FC = () => {
                         ${isCollapsed
                           ? `w-11 h-11 rounded-xl justify-center ${
                               active
-                                ? 'text-white font-bold'
-                                : 'text-slate-500 hover:text-primary hover:bg-slate-100/70'
+                                ? 'text-[#1A2411] font-bold'
+                                : 'text-[#586650] hover:text-primary hover:bg-[#F2F6EC]'
                             }`
                           : `w-full gap-3 px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
                               active
-                                ? 'bg-primary text-white font-semibold shadow-sm'
-                                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                                ? 'bg-[#D4F63D] text-[#1A2411] font-bold shadow-xs'
+                                : 'text-[#586650] hover:bg-[#F2F6EC] hover:text-[#1A2411]'
                             }`
                         }
                       `}
@@ -539,7 +551,7 @@ const DashboardLayout: React.FC = () => {
                       <ItemIcon
                         size={20}
                         className={`shrink-0 transition-colors duration-200 ${
-                          active ? 'text-white' : (isCollapsed ? 'text-slate-600 group-hover/tooltip:text-primary' : 'text-slate-500')
+                          active ? 'text-[#1A2411]' : (isCollapsed ? 'text-[#586650] group-hover/tooltip:text-primary' : 'text-[#73826B]')
                         }`}
                       />
                       {!isCollapsed && <span className="truncate">{singleItem.label}</span>}
@@ -547,7 +559,7 @@ const DashboardLayout: React.FC = () => {
 
                     {/* Tooltip on collapsed desktop mode */}
                     {isCollapsed && (
-                      <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity z-50">
+                      <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-[#1A2411] text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity z-50">
                         {singleItem.label}
                       </div>
                     )}
@@ -564,7 +576,6 @@ const DashboardLayout: React.FC = () => {
                     ref={(el) => { itemRefs.current[group.id] = el; }}
                     onClick={() => {
                       if (isCollapsed) {
-                        // Khi đang thu menu và click vào menu có menu con: Tự động mở to menu ra
                         setIsCollapsed(false);
                         try {
                           localStorage.setItem('staygo_sidebar_collapsed', 'false');
@@ -579,15 +590,15 @@ const DashboardLayout: React.FC = () => {
                       ${isCollapsed
                         ? `w-11 h-11 rounded-xl flex items-center justify-center ${
                             isGroupActive
-                              ? 'text-white font-bold'
-                              : 'text-slate-500 hover:text-primary hover:bg-slate-100/70'
+                              ? 'text-[#1A2411] font-bold'
+                              : 'text-[#586650] hover:text-primary hover:bg-[#F2F6EC]'
                           }`
                         : `w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-[13.5px] ${
                             isGroupActive && !isGroupOpen
-                              ? 'bg-primary/10 text-primary font-bold'
+                              ? 'bg-[#EEFAB8] text-[#1A2411] font-bold'
                               : isGroupOpen
-                              ? 'bg-slate-100/80 text-slate-900 font-semibold'
-                              : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                              ? 'bg-[#F2F6EC] text-[#1A2411] font-semibold'
+                              : 'text-[#586650] hover:bg-[#F2F6EC] hover:text-[#1A2411]'
                           }`
                       }
                     `}
@@ -597,7 +608,7 @@ const DashboardLayout: React.FC = () => {
                       <GroupIcon
                         size={20}
                         className={`shrink-0 transition-colors duration-200 ${
-                          isCollapsed && isGroupActive ? 'text-white' : (isGroupActive ? 'text-primary' : 'text-slate-500')
+                          isCollapsed && isGroupActive ? 'text-[#1A2411]' : (isGroupActive ? 'text-[#5E7144]' : 'text-[#73826B]')
                         }`}
                       />
                       {!isCollapsed && (
@@ -632,8 +643,8 @@ const DashboardLayout: React.FC = () => {
 
                   {/* Floating Popover when Collapsed on Desktop */}
                   {isCollapsed && (
-                    <div className="hidden lg:block absolute left-full top-0 ml-3 w-56 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl p-2 opacity-0 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:pointer-events-auto transition-all duration-150 z-50">
-                      <div className="px-3 py-2 mb-1.5 border-b border-slate-100 font-bold text-xs text-primary flex items-center justify-between">
+                    <div className="hidden lg:block absolute left-full top-0 ml-3 w-56 bg-white/95 backdrop-blur-md border border-border-grey rounded-2xl shadow-2xl p-2 opacity-0 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:pointer-events-auto transition-all duration-150 z-50">
+                      <div className="px-3 py-2 mb-1.5 border-b border-border-grey font-bold text-xs text-[#1A2411] flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <GroupIcon size={16} />
                           <span>{group.label}</span>
@@ -655,17 +666,39 @@ const DashboardLayout: React.FC = () => {
                 </div>
               );
             })}
+
+            {/* Lodgify Assistant / Hotel Helper Card (Expanded mode) */}
+            {!isCollapsed && (
+              <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-[#F5ECD5]/70 via-[#F7F9F2] to-[#EEFAB8]/60 border border-[#E2E8D8] shadow-2xs">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-md bg-[#D4F63D] text-[#1A2411] flex items-center justify-center font-bold text-[10px] shadow-2xs">
+                    ✦
+                  </div>
+                  <span className="text-xs font-bold text-[#1A2411] tracking-tight">Lodgify Smart PMS</span>
+                </div>
+                <p className="text-[11px] text-[#5E6D54] leading-relaxed">
+                  Tối ưu công suất phòng và doanh thu tự động hôm nay.
+                </p>
+                <Link
+                  to="/manage/bookings"
+                  className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-[#1A2411] bg-white hover:bg-[#D4F63D] px-2.5 py-1 rounded-lg border border-[#DCE4D2] transition-colors shadow-2xs"
+                >
+                  <span>Xem lịch phòng</span>
+                  <span>&rarr;</span>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* ── Sidebar Footer: Profile & Collapse Toggle ── */}
           {/* Collapsed Mode Footer */}
           {isCollapsed && (
-            <div className="hidden lg:flex flex-col items-center gap-3 py-3 px-2 border-t border-slate-100 bg-white shrink-0">
+            <div className="hidden lg:flex flex-col items-center gap-3 py-3 px-2 border-t border-border-grey bg-white shrink-0">
               {/* Toggle expand button */}
               <button
                 type="button"
                 onClick={toggleCollapse}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 transition-all cursor-pointer border border-transparent hover:border-slate-200 group/toggle"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-[#606D56] hover:text-primary hover:bg-[#F2F6ED] transition-all cursor-pointer border border-transparent hover:border-border-grey group/toggle"
                 title="Mở rộng menu"
               >
                 <IoChevronForwardOutline size={18} className="group-hover/toggle:translate-x-0.5 transition-transform" />
@@ -676,7 +709,7 @@ const DashboardLayout: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/manage/profile')}
-                  className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-slate-200 hover:ring-primary shadow-xs hover:scale-105 transition-all cursor-pointer flex items-center justify-center bg-primary/10"
+                  className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-border-grey hover:ring-primary shadow-xs hover:scale-105 transition-all cursor-pointer flex items-center justify-center bg-primary/10"
                   title="Cài đặt hồ sơ cá nhân"
                 >
                   {user?.avatarImage ? (
@@ -694,10 +727,10 @@ const DashboardLayout: React.FC = () => {
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white pointer-events-none" />
 
                 {/* Floating tooltip popover on hover */}
-                <div className="absolute left-full bottom-0 ml-3 w-48 bg-slate-900 text-white text-xs rounded-xl shadow-2xl p-2.5 opacity-0 pointer-events-none group-hover/user:opacity-100 transition-opacity z-50">
+                <div className="absolute left-full bottom-0 ml-3 w-48 bg-[#1A2411] text-white text-xs rounded-xl shadow-2xl p-2.5 opacity-0 pointer-events-none group-hover/user:opacity-100 transition-opacity z-50 border border-white/10">
                   <p className="font-bold text-sm truncate">{user?.name || 'Tài khoản'}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{roleLabel}</p>
-                  <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] text-primary-hover font-semibold flex items-center justify-between">
+                  <p className="text-[11px] text-[#A4B465] mt-0.5">{roleLabel}</p>
+                  <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-[#D4F63D] font-semibold flex items-center justify-between">
                     <span>Xem hồ sơ</span>
                     <span>&rarr;</span>
                   </div>
@@ -707,26 +740,26 @@ const DashboardLayout: React.FC = () => {
           )}
 
           {/* Expanded Mode Footer */}
-          <div className={`p-3 border-t border-slate-100 bg-white flex flex-col gap-2 shrink-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
+          <div className={`p-3 border-t border-border-grey bg-white flex flex-col gap-2 shrink-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
             {/* Desktop Collapse Toggle */}
             <button
               type="button"
               onClick={toggleCollapse}
-              className="hidden lg:flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer group/btn"
+              className="hidden lg:flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#606D56] hover:bg-[#F2F6ED] hover:text-[#1A2411] transition-colors cursor-pointer group/btn"
               title="Thu gọn menu"
             >
               <div className="flex items-center gap-2">
                 <IoChevronBackOutline size={16} className="group-hover/btn:-translate-x-0.5 transition-transform" />
                 <span>Thu gọn thanh menu</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">Alt + M</span>
+              <span className="text-[10px] text-[#8E9B86] font-mono">Alt + M</span>
             </button>
 
             {/* User Profile Card */}
             <button
               type="button"
               onClick={() => navigate('/manage/profile')}
-              className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 transition-all cursor-pointer text-left border border-slate-200/60 group/profile"
+              className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F6ED] transition-all cursor-pointer text-left border border-border-grey group/profile"
               title="Cài đặt hồ sơ cá nhân"
             >
               <div className="relative shrink-0">
@@ -738,16 +771,16 @@ const DashboardLayout: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="font-bold text-primary text-xs uppercase">
+                    <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
                       {user?.name?.[0] || 'U'}
-                    </span>
+                    </div>
                   )}
                 </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white pointer-events-none" />
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-800 truncate group-hover/profile:text-primary transition-colors leading-tight">
+                <p className="text-xs font-bold text-[#1A2411] truncate group-hover/profile:text-primary transition-colors leading-tight">
                   {user?.name || 'Tài khoản'}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -872,7 +905,7 @@ const DashboardLayout: React.FC = () => {
           </header>
 
           {/* Main Scrollable Content */}
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-[#f8fafc] w-full">
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-[#F4F6F0] w-full">
             <div key={location.pathname} className="max-w-screen-2xl mx-auto animate-page-enter">
               <Outlet />
             </div>

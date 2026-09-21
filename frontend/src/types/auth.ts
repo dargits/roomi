@@ -118,3 +118,19 @@ export interface ResetPasswordWithTokenRequest {
   newPassword: string;
   confirmPassword: string;
 }
+
+export interface UserSessionResponse {
+  id: number;
+  userId: number;
+  account: string;
+  name: string;
+  role: Role;
+  loginAt: string;
+  lastActiveAt: string;
+  ipAddress: string;
+  deviceInfo: string;
+  userAgent?: string;
+  status: string;
+  isCurrentSession: boolean;
+}
+

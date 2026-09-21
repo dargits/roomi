@@ -81,16 +81,16 @@ const LostItemDisposeModal: React.FC<LostItemDisposeModalProps> = ({
         </div>
 
         {/* Tóm tắt món đồ */}
-        <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400">Món đồ xử lý:</div>
-          <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+        <div className="bg-[#F4F6F0] p-3.5 rounded-xl border border-border-grey space-y-1">
+          <div className="text-xs text-[#606D56]">Món đồ xử lý:</div>
+          <div className="font-bold text-[#1A2411] text-sm">
             {item.itemName}
           </div>
-          <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-3">
-            <span>Phòng: <strong className="text-emerald-600">P.{item.roomNumber}</strong></span>
+          <div className="text-xs text-[#606D56] flex items-center gap-3">
+            <span>Phòng: <strong className="text-[#16A34A]">P.{item.roomNumber}</strong></span>
             <span>Ngày phát hiện: <strong>{item.foundDate}</strong></span>
             {item.retentionExpiryDate && (
-              <span className="text-rose-600 dark:text-rose-400">
+              <span className="text-error font-semibold">
                 Hạn lưu giữ: <strong>{item.retentionExpiryDate}</strong>
               </span>
             )}
@@ -99,8 +99,8 @@ const LostItemDisposeModal: React.FC<LostItemDisposeModalProps> = ({
 
         {/* Hình thức xử lý */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
-            Hình thức xử lý <span className="text-rose-500">*</span>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-[#606D56] mb-1">
+            Hình thức xử lý <span className="text-error">*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             {DISPOSAL_METHODS.map((method) => (
@@ -108,15 +108,15 @@ const LostItemDisposeModal: React.FC<LostItemDisposeModalProps> = ({
                 key={method}
                 type="button"
                 onClick={() => setDisposalMethod(method)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border text-left flex items-center gap-2 transition ${
+                className={`px-3 py-2 rounded-xl text-xs font-medium border text-left flex items-center gap-2 transition cursor-pointer ${
                   disposalMethod === method
-                    ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-400 text-rose-700 dark:text-rose-300 font-semibold shadow-xs'
-                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    ? 'bg-rose-50 border-rose-400 text-rose-700 font-semibold shadow-xs'
+                    : 'bg-white border-border-grey text-[#1A2411] hover:border-border-grey/80'
                 }`}
               >
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    disposalMethod === method ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-600'
+                    disposalMethod === method ? 'bg-rose-500' : 'bg-neutral-300'
                   }`}
                 />
                 {method}
@@ -127,31 +127,30 @@ const LostItemDisposeModal: React.FC<LostItemDisposeModalProps> = ({
 
         {/* Ghi chú lý do / Biên bản */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-[#606D56] mb-1">
             Lý do / Biên bản xử lý chi tiết
           </label>
           <div className="relative">
-            <IoDocumentTextOutline className="absolute left-3 top-3 text-slate-400 w-4 h-4" />
+            <IoDocumentTextOutline className="absolute left-3 top-3 text-[#8E9B86] w-4 h-4" />
             <textarea
               rows={3}
               placeholder="VD: Quá 30 ngày không liên lạc được với khách, cơ sở thực hiện tiêu hủy theo quy chế..."
               value={disposalNote}
               onChange={(e) => setDisposalNote(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47]"
             />
           </div>
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-grey">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
             Hủy
           </Button>
           <Button
             type="submit"
             variant="danger"
             isLoading={submitting}
-            className="bg-rose-600 hover:bg-rose-700 text-white"
           >
             <IoTrashOutline className="w-4 h-4 mr-1.5" />
             Xác nhận xử lý quá hạn

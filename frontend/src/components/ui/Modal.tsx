@@ -62,34 +62,34 @@ const Modal: React.FC<ModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-backdrop-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#1A2411]/50 backdrop-blur-xs animate-backdrop-in"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
       <div
-        className={`bg-surface rounded-none shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col animate-modal-pop`}
+        className={`bg-white rounded-2xl shadow-2xl border border-border-grey w-full ${maxWidth} max-h-[90vh] flex flex-col overflow-hidden animate-modal-pop`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {title && (
-          <div className="p-6 border-b border-border-grey flex justify-between items-center bg-surface-container-lowest shrink-0 rounded-none">
-            <h2 className="font-headline-md text-on-surface">{title}</h2>
+          <div className="px-6 py-5 border-b border-border-grey flex justify-between items-center bg-white shrink-0">
+            <h2 className="text-lg font-bold text-[#1A2411] tracking-normal leading-normal">{title}</h2>
             {showCloseButton && onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1.5 transition-colors cursor-pointer"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-[#606D56] hover:text-[#1A2411] hover:bg-[#F2F6ED] transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
                 title="Đóng"
               >
-                <IoCloseOutline size={20} strokeWidth={2} />
+                <IoCloseOutline size={22} strokeWidth={2} />
               </button>
             )}
           </div>
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1 p-6">{children}</div>
+        <div className="overflow-y-auto flex-1 p-6 bg-white text-on-surface">{children}</div>
       </div>
     </div>
   );

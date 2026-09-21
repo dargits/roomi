@@ -40,7 +40,7 @@ const HousekeepingPage: React.FC = () => {
       />
 
       {/* Tabs */}
-      <Tabs tabs={TABS} paramKey="tab" defaultTab="tasks" className="mt-0" />
+      <Tabs tabs={TABS} paramKey="tab" defaultTab="tasks" variant="pill" className="mt-0" />
 
       {tab === 'tasks' && (
         <CleaningTaskList

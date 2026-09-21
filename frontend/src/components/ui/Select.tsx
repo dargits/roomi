@@ -58,29 +58,29 @@ const Select: React.FC<SelectProps> = ({
   return (
     <div className={containerClassName} ref={containerRef}>
       {label && (
-        <label className="block font-label-md text-on-surface-variant mb-1.5">
+        <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider mb-1.5">
           {label} {required && <span className="text-error">*</span>}
         </label>
       )}
 
       <div className="relative">
         <div
-          className={`w-full py-2.5 bg-surface border rounded-lg cursor-pointer flex items-center justify-between transition-all select-none ${
-            Icon ? 'pl-10 pr-10' : 'px-4 pr-10'
+          className={`w-full py-2.5 px-3.5 bg-white border rounded-xl cursor-pointer flex items-center justify-between transition-all select-none ${
+            Icon ? 'pl-10 pr-10' : 'px-3.5 pr-10'
           } ${error ? 'border-error' : 'border-border-grey'} ${
-            isOpen ? 'ring-2 ring-primary/20 border-primary' : 'hover:border-primary/50'
+            isOpen ? 'ring-2 ring-[#D4F63D] border-[#626F47]' : 'hover:border-[#CCD8C2]'
           } ${className}`}
           onClick={() => setIsOpen(!isOpen)}
         >
           {Icon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon size={20} strokeWidth={1.5} className="text-on-surface-variant/70" />
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <Icon size={18} strokeWidth={1.5} className="text-[#606D56]" />
             </div>
           )}
 
           <span
-            className={`block truncate font-body-md ${
-              !selectedOption ? 'text-on-surface-variant/70' : 'text-on-surface'
+            className={`block truncate text-sm ${
+              !selectedOption ? 'text-[#8E9B86]' : 'text-[#1A2411] font-medium'
             }`}
           >
             {selectedOption ? selectedOption.label : placeholder}
@@ -88,30 +88,30 @@ const Select: React.FC<SelectProps> = ({
 
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
             <IoChevronDownOutline
-              size={20}
+              size={18}
               strokeWidth={1.5}
-              className={`text-on-surface-variant/70 transition-transform duration-200 ${
-                isOpen ? 'rotate-180' : ''
+              className={`text-[#606D56] transition-transform duration-200 ${
+                isOpen ? 'rotate-180 text-primary' : ''
               }`}
             />
           </div>
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-surface border border-border-grey rounded-lg shadow-xl max-h-52 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-            <ul className="py-1 m-0 divide-y divide-border-grey/30">
+          <div className="absolute z-50 w-full mt-1.5 bg-white border border-border-grey rounded-xl shadow-xl max-h-56 overflow-y-auto p-1 animate-in fade-in zoom-in-95 duration-100">
+            <ul className="space-y-0.5 m-0">
               {options.map((option) => (
                 <li
                   key={String(option.value)}
                   title={option.label}
-                  className={`px-3.5 py-2 cursor-pointer flex items-center justify-between hover:bg-surface-blue-light transition-colors font-body-sm text-sm ${
-                    option.value === value ? 'text-primary font-medium bg-surface-blue-light/60' : 'text-on-surface'
+                  className={`px-3 py-2 rounded-lg cursor-pointer flex items-center justify-between hover:bg-[#F2F6EC] transition-colors text-xs ${
+                    option.value === value ? 'text-[#1A2411] font-bold bg-[#D4F63D]/35' : 'text-[#1A2411] font-medium'
                   }`}
                   onClick={() => handleSelect(option.value)}
                 >
                   <span className="truncate pr-2">{option.label}</span>
                   {option.value === value && (
-                    <IoCheckmarkOutline size={16} strokeWidth={2} className="shrink-0 text-primary" />
+                    <IoCheckmarkOutline size={16} strokeWidth={2.5} className="shrink-0 text-[#1A2411]" />
                   )}
                 </li>
               ))}
@@ -120,7 +120,7 @@ const Select: React.FC<SelectProps> = ({
         )}
       </div>
 
-      {error && <p className="text-error text-xs mt-1.5">{error}</p>}
+      {error && <p className="text-error text-xs mt-1.5 font-medium">{error}</p>}
     </div>
   );
 };

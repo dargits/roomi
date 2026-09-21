@@ -36,8 +36,23 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = userService.login(request);
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        LoginResponse response = (httpRequest != null)
+                ? userService.login(request, httpRequest)
+                : userService.login(request);
         return ResponseEntity.ok(response);
+    }
+
+    public ResponseEntity<LoginResponse> login(LoginRequest request) {
+        return login(request, null);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<MessageResponse> logout(HttpServletRequest httpRequest) {
+        String token = authUtil.extractToken(httpRequest);
+        if (token != null && !token.isEmpty()) {
+            userService.logout(token);
+        }
+        return ResponseEntity.ok(new MessageResponse("Đăng xuất thành công"));
     }
 }
