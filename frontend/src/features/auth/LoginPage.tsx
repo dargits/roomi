@@ -1,9 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuickLoginDropdown from './QuickLoginDropdown';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { IoEyeOffOutline, IoEyeOutline, IoLockClosedOutline, IoPersonOutline } from 'react-icons/io5';
+import {
+  IoEyeOffOutline,
+  IoEyeOutline,
+  IoLockClosedOutline,
+  IoPersonOutline,
+  IoCheckmarkCircle
+} from 'react-icons/io5';
+import Button from '../../components/ui/Button';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import ForceChangePasswordModal from './ForceChangePasswordModal';
 
@@ -17,6 +24,10 @@ const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successUser, setSuccessUser] = useState<any>(null);
+
+  const isLoggingInRef = useRef(false);
 
   // Modals state
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -32,7 +43,7 @@ const LoginPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isLoggingInRef.current) {
       if (user?.mustChangePassword) {
         setPendingChangeAccount(user.account);
         setShowForceChangeModal(true);
@@ -48,6 +59,7 @@ const LoginPage: React.FC = () => {
       return;
     }
 
+    isLoggingInRef.current = true;
     setIsLoading(true);
     setErrorMsg('');
 
@@ -59,11 +71,18 @@ const LoginPage: React.FC = () => {
       if (result.user?.mustChangePassword) {
         setPendingChangeAccount(result.user.account);
         setShowForceChangeModal(true);
+        isLoggingInRef.current = false;
       } else {
-        navigate('/manage/dashboard');
+        // Trigger fast creative success animation (0.4s)
+        setIsSuccess(true);
+        setSuccessUser(result.user);
+        setTimeout(() => {
+          navigate('/manage/dashboard');
+        }, 400);
       }
     } else {
-      setErrorMsg(result.message || 'Đăng nhập thất bại.');
+      isLoggingInRef.current = false;
+      setErrorMsg(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản.');
     }
   };
 
@@ -93,18 +112,24 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-surface text-on-surface h-screen overflow-hidden flex flex-col md:flex-row antialiased">
+    <div className="bg-surface text-on-surface h-screen overflow-hidden flex flex-col md:flex-row antialiased relative">
       {/* Left Side: Image (50%) */}
-      <div className="hidden md:flex md:w-1/2 relative bg-surface-container-high h-full">
+      <div className="hidden md:flex md:w-1/2 relative bg-surface-container-high h-full min-h-screen">
         <div
           className="absolute inset-0 bg-cover bg-center w-full h-full"
-          style={{ backgroundImage: `url('${hotelSetting?.homeImage || 'https://lh3.googleusercontent.com/aida-public/AB6AXuDAGYGh5uSprtLZ0Ajn5eQ1MUjb5Bu_6qCP-B4gML3wMngrGNe2n7GTKkdAPKZrGFAmCHJdzb11z-zz-xfLMdSJ5PyjbDRnIIRrZ5S0frR4TCZC1fBgR7czsFRpndcEEOdKagyWx7UOpmprA3mH7SceN64aoJLHWZv3NZP6-1ncGvfOeHB5PA62Yp_1ifx34PnKPFXe_-xr_1xcfcCjGequX0Hlnw045H36w1BHc-i3afi9FwcoW0IfsA'}')` }}
+          style={{
+            backgroundImage: `url('${hotelSetting?.homeImage || 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=2000&q=85'}')`
+          }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-on-surface to-transparent opacity-80"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
         </div>
         <div className="relative z-10 flex flex-col justify-end p-12 h-full w-full">
-          <h1 className="font-display-lg text-display-lg text-on-primary max-w-lg mb-4">Trải nghiệm dịch vụ đẳng cấp cùng {hotelSetting?.propertyName || 'StayGO'}</h1>
-          <p className="font-body-lg text-body-lg text-on-primary opacity-80">Hệ thống quản lý vận hành chuyên nghiệp.</p>
+          <h1 className="font-display-lg text-4xl text-white font-bold max-w-lg mb-3 leading-tight">
+            Trải nghiệm dịch vụ đẳng cấp cùng {hotelSetting?.propertyName || 'Stay Away'}
+          </h1>
+          <p className="font-body-lg text-base text-white/80">
+            Hệ thống quản lý vận hành chuyên nghiệp.
+          </p>
         </div>
       </div>
 
@@ -116,7 +141,9 @@ const LoginPage: React.FC = () => {
             className="flex flex-col items-center cursor-pointer select-none mb-6"
             onClick={() => navigate('/')}
           >
-            <span className="font-logo font-medium text-[48px] tracking-wide text-[#4a4a4a] leading-none uppercase">{hotelSetting?.propertyName || 'STAYGO'}</span>
+            <span className="font-logo font-medium text-[44px] tracking-wide text-[#4a4a4a] leading-none uppercase">
+              {hotelSetting?.propertyName || 'STAY AWAY'}
+            </span>
             <div className="flex gap-2 mt-2">
               <div className="w-3 h-3 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]"></div>
               <div className="w-3 h-3 rounded-full bg-[#FDD835] animate-bounce [animation-delay:150ms]"></div>
@@ -125,10 +152,13 @@ const LoginPage: React.FC = () => {
               <div className="w-3 h-3 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]"></div>
             </div>
           </div>
-          <h2 className="font-headline-md text-headline-md text-on-surface mb-6 text-center w-full">Đăng nhập hệ thống quản lý khách sạn {hotelSetting?.propertyName || 'StayGO'}</h2>
+
+          <h2 className="font-headline-md text-base text-on-surface mb-6 text-center w-full font-semibold">
+            Đăng nhập hệ thống quản lý khách sạn {hotelSetting?.propertyName || 'Stay Away'}
+          </h2>
 
           {errorMsg && (
-            <div className="w-full mb-4 p-3 bg-[#ffebee] border border-[#ffcdd2] text-[#c62828] rounded-md text-sm">
+            <div className="w-full mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-medium">
               {errorMsg}
             </div>
           )}
@@ -137,37 +167,39 @@ const LoginPage: React.FC = () => {
           <form className="w-full space-y-4" onSubmit={handleLogin}>
             {/* Username */}
             <div className="relative">
-              <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Tài khoản</label>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Tài khoản</label>
               <div className="relative flex items-center">
-                <IoPersonOutline className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
+                <IoPersonOutline className="absolute left-3.5 text-outline" size={18} strokeWidth={1.5} />
                 <input
-                  className="w-full pl-10 pr-4 py-2.5 border border-border-grey rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors"
+                  className="w-full pl-10 pr-4 py-2.5 border border-border-grey rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-sm text-on-surface transition-colors"
                   placeholder="Nhập tài khoản"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  disabled={isLoading || isSuccess}
                 />
               </div>
             </div>
 
             {/* Password */}
             <div className="relative">
-              <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Mật khẩu</label>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Mật khẩu</label>
               <div className="relative flex items-center">
-                <IoLockClosedOutline className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
+                <IoLockClosedOutline className="absolute left-3.5 text-outline" size={18} strokeWidth={1.5} />
                 <input
-                  className="w-full pl-10 pr-10 py-2.5 border border-border-grey rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors"
+                  className="w-full pl-10 pr-10 py-2.5 border border-border-grey rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-sm text-on-surface transition-colors"
                   placeholder="Nhập mật khẩu"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading || isSuccess}
                 />
                 <button
-                  className="absolute right-3 text-outline hover:text-primary transition-colors focus:outline-none"
+                  className="absolute right-3.5 text-outline hover:text-primary transition-colors focus:outline-none cursor-pointer"
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <IoEyeOffOutline size={20} strokeWidth={1.5} /> : <IoEyeOutline size={20} strokeWidth={1.5} />}
+                  {showPassword ? <IoEyeOffOutline size={18} strokeWidth={1.5} /> : <IoEyeOutline size={18} strokeWidth={1.5} />}
                 </button>
               </div>
             </div>
@@ -175,48 +207,84 @@ const LoginPage: React.FC = () => {
             {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <input className="w-4 h-4 border-border-grey rounded-sm text-primary focus:ring-primary" id="remember" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
-                <label className="ml-2 font-body-md text-body-md text-on-surface-variant cursor-pointer" htmlFor="remember">Ghi nhớ đăng nhập</label>
+                <input
+                  className="w-4 h-4 border-border-grey rounded text-primary focus:ring-primary cursor-pointer accent-primary"
+                  id="remember"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isLoading || isSuccess}
+                />
+                <label className="ml-2 text-xs font-medium text-on-surface-variant cursor-pointer select-none" htmlFor="remember">
+                  Ghi nhớ đăng nhập
+                </label>
               </div>
               <button
                 type="button"
                 onClick={() => setShowForgotPasswordModal(true)}
-                className="text-xs text-agoda-blue hover:underline font-medium"
+                className="text-xs text-primary hover:underline font-semibold cursor-pointer"
               >
                 Quên mật khẩu?
               </button>
             </div>
 
-            {/* Login Button */}
-            <button
-              className="w-full bg-agoda-blue hover:bg-primary-container text-on-primary font-title-lg text-title-lg py-2.5 rounded-DEFAULT shadow-sm hover:shadow-md transition-all disabled:opacity-70 flex justify-center items-center gap-2"
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading && (
-                <span className="inline-block w-4.5 h-4.5 border-2 border-white border-t-transparent border-l-transparent animate-square-spin" />
-              )}
-              {isLoading ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP'}
-            </button>
+            {/* Login Button with Success Transition */}
+            {isSuccess ? (
+              <div className="w-full bg-emerald-600 text-white font-semibold text-sm py-2.5 rounded-xl shadow-sm flex items-center justify-center gap-2 animate-in zoom-in-95 duration-200">
+                <IoCheckmarkCircle size={19} className="animate-bounce" />
+                <span>Đăng nhập thành công!</span>
+              </div>
+            ) : (
+              <Button
+                className="w-full py-2.5 text-sm font-semibold rounded-xl"
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={isLoading}
+              >
+                Đăng nhập
+              </Button>
+            )}
           </form>
 
-          <div className="w-full my-6 border-t border-border-grey relative">
-            <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-surface-container-lowest px-4 font-label-md text-label-md text-outline">Hoặc</span>
+          <div className="w-full my-5 border-t border-border-grey relative">
+            <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-surface-container-lowest px-4 text-xs font-medium text-outline">
+              Hoặc
+            </span>
           </div>
 
           {/* Quick Login Section */}
           <QuickLoginDropdown onSelectRole={handleRoleSelect} />
 
           {/* Back to Booking */}
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="md"
             onClick={() => navigate('/')}
-            className="mt-6 w-full border border-agoda-blue text-agoda-blue hover:bg-surface-blue-light font-title-lg text-title-lg py-2.5 rounded-DEFAULT transition-colors"
+            className="mt-4 w-full text-sm font-semibold"
           >
-            cổng đặt phòng
-          </button>
+            Cổng đặt phòng
+          </Button>
         </div>
       </div>
+
+      {/* Creative Rapid 0.4s Success Flash Effect */}
+      {isSuccess && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center animate-in fade-in duration-100">
+          <div className="absolute inset-0 bg-primary/15 backdrop-blur-[2px] transition-opacity duration-300" />
+          <div className="relative z-10 flex flex-col items-center justify-center transform animate-in zoom-in-75 duration-300 ease-out">
+            <div className="w-20 h-20 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xl ring-8 ring-emerald-400/40 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+              <IoCheckmarkCircle size={52} className="relative z-10 animate-in zoom-in spin-in-90 duration-300" />
+            </div>
+            <div className="mt-3 px-5 py-1.5 rounded-full bg-white border border-border-grey text-[#1A2411] text-xs font-bold shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Đăng nhập thành công!</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Forgot Password Request Modal */}
       <ForgotPasswordModal

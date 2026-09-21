@@ -7,6 +7,7 @@ import {
   IoInformationCircleOutline,
   IoPeopleOutline
 } from 'react-icons/io5';
+import Button from '../ui/Button';
 
 export interface RoomCardData {
   id?: number | string;
@@ -37,34 +38,34 @@ export interface RoomCardProps {
 const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => {
   const isSoldOut = room.isAvailable === false || (room.availableRooms !== undefined && room.availableRooms <= 0);
   return (
-    <div className="bg-surface-container-lowest border border-border-grey rounded flex flex-col md:flex-row overflow-hidden hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group">
+    <div className="bg-surface-container-lowest border border-border-grey rounded-2xl flex flex-col md:flex-row overflow-hidden hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group shadow-xs">
       {/* Image Gallery */}
-      <div className="w-full md:w-1/3 p-2 flex flex-col gap-1">
-        <div className="overflow-hidden rounded h-40 bg-surface-container">
+      <div className="w-full md:w-1/3 p-3 flex flex-col gap-1.5">
+        <div className="overflow-hidden rounded-xl h-44 bg-surface-container">
           <div
-            className="bg-cover bg-center w-full h-full rounded transition-transform duration-500 ease-out group-hover:scale-105"
+            className="bg-cover bg-center w-full h-full rounded-xl transition-transform duration-500 ease-out group-hover:scale-105"
             style={{ backgroundImage: `url('${room.imageUrls?.[0] || 'https://placehold.co/600x400?text=No+Image'}')` }}
           />
         </div>
         {room.imageUrls && room.imageUrls.length > 1 && (
-          <div className="flex gap-1 h-16">
+          <div className="flex gap-1.5 h-16">
             <div
-              className="bg-cover bg-center flex-1 h-full rounded bg-surface-container"
+              className="bg-cover bg-center flex-1 h-full rounded-lg bg-surface-container"
               style={{ backgroundImage: `url('${room.imageUrls[1]}')` }}
             />
             {room.imageUrls.length > 2 && (
               <div
-                className="bg-cover bg-center flex-1 h-full rounded bg-surface-container"
+                className="bg-cover bg-center flex-1 h-full rounded-lg bg-surface-container"
                 style={{ backgroundImage: `url('${room.imageUrls[2]}')` }}
               />
             )}
             {room.imageUrls.length > 3 && (
               <div
-                className="bg-cover bg-center flex-1 h-full rounded relative bg-surface-container"
+                className="bg-cover bg-center flex-1 h-full rounded-lg relative bg-surface-container"
                 style={{ backgroundImage: `url('${room.imageUrls[3]}')` }}
               >
                 {room.imageUrls.length > 4 && (
-                  <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
                     <span className="text-white font-label-md text-label-md">+{room.imageUrls.length - 4}</span>
                   </div>
                 )}
@@ -75,54 +76,54 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
       </div>
 
       {/* Details & Action */}
-      <div className="w-full md:w-2/3 p-4 flex flex-col justify-between">
-        <div className="flex justify-between items-start mb-2">
+      <div className="w-full md:w-2/3 p-5 flex flex-col justify-between">
+        <div className="flex justify-between items-start mb-3 gap-2">
           <div>
-            <h3 className="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors">
+            <h3 className="font-title-lg text-title-lg text-on-surface group-hover:text-primary transition-colors font-bold">
               {room.name}
             </h3>
-            <div className="flex items-center gap-1 text-primary text-sm mt-1 font-label-md">
+            <div className="flex items-center gap-1.5 text-primary text-xs mt-1 font-semibold">
               <IoCheckmarkCircleOutline className="text-[16px]" size={16} strokeWidth={1.5} />
               Xác nhận tức thời
             </div>
           </div>
-          <div className="text-right flex flex-col items-end gap-1">
+          <div className="text-right flex flex-col items-end gap-1.5 shrink-0">
             {isSoldOut ? (
-              <span className="bg-red-50 border border-red-200 text-red-600 font-label-sm px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-2xs">
-                <IoCloseCircle className="text-red-500 text-[14px]" size={14} />
+              <span className="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-semibold shadow-2xs">
+                <IoCloseCircle className="text-rose-600 text-[14px]" size={14} />
                 Hết phòng
               </span>
             ) : (
-              <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 font-label-sm px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-2xs">
+              <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-semibold shadow-2xs">
                 <IoCheckmarkCircle className="text-emerald-600 text-[14px]" size={14} />
                 {room.availableRooms !== undefined ? `Còn ${room.availableRooms} phòng` : 'Còn phòng'}
               </span>
             )}
-            <span className="bg-surface-container border border-border-grey text-on-surface font-label-sm px-2 py-1 rounded flex items-center gap-1">
+            <span className="bg-[#F4F6F0] border border-border-grey text-[#1A2411] text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-medium">
               <IoFlashOutline className="text-primary text-[14px]" size={14} strokeWidth={1.5} />
               Đặt nhanh chóng
             </span>
           </div>
         </div>
 
-        <div className="flex gap-2 mb-4 flex-col">
+        <div className="flex gap-2.5 mb-4 flex-col">
           <div className="flex gap-2">
-            <span className="inline-flex items-center gap-1 bg-surface-container px-2 py-1 border border-border-grey rounded font-body-md text-body-md text-on-surface w-max">
-              <IoPeopleOutline className="text-primary text-[16px]" size={16} strokeWidth={1.5} /> {room.maxCapacity} người
+            <span className="inline-flex items-center gap-1.5 bg-[#F4F6F0] px-3 py-1 border border-border-grey rounded-full text-xs font-semibold text-[#1A2411] w-max">
+              <IoPeopleOutline className="text-primary text-[15px]" size={15} strokeWidth={1.5} /> {room.maxCapacity} người
             </span>
           </div>
           {room.amenitiesDescription && (
-            <div className="flex items-start gap-2 bg-surface-container-low p-3 border border-border-grey rounded text-body-md text-on-surface-variant leading-relaxed">
-              <IoInformationCircleOutline className="mt-0.5 text-primary opacity-80 text-[18px]" size={18} strokeWidth={1.5} />
+            <div className="flex items-start gap-2 bg-[#F4F6F0] p-3.5 border border-border-grey rounded-xl text-xs text-[#606D56] leading-relaxed">
+              <IoInformationCircleOutline className="mt-0.5 text-primary opacity-80 text-[18px] shrink-0" size={18} strokeWidth={1.5} />
               <p>{room.amenitiesDescription}</p>
             </div>
           )}
         </div>
 
-        <div className="flex justify-between items-end border-t border-border-grey pt-4">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 border-t border-border-grey pt-4">
           <div>
             {room.badge && (
-              <span className="bg-red-100 text-alert-red font-label-md text-label-md px-2 py-1 rounded">
+              <span className="bg-red-100 text-alert-red font-label-md text-label-md px-2.5 py-1 rounded-full text-xs font-semibold">
                 {room.badge}
               </span>
             )}
@@ -133,45 +134,37 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
             )}
           </div>
           <div className="text-right">
-            <div className="font-headline-md text-headline-md text-on-surface">
-              {room.price} <span className="font-body-md text-body-md text-on-surface-variant font-normal">{room.isAveragePrice ? '/đêm (TB)' : '/đêm'}</span>
+            <div className="font-headline-md text-2xl font-bold text-[#1A2411]">
+              {room.price} <span className="font-body-md text-sm text-[#606D56] font-normal">{room.isAveragePrice ? '/đêm (TB)' : '/đêm'}</span>
             </div>
             {room.nights != null && room.nights > 1 && room.totalPrice != null ? (
-              <div className="text-xs text-on-surface-variant mb-2">
-                Tổng {room.nights} đêm: <strong className="text-on-surface">{new Intl.NumberFormat('vi-VN').format(room.totalPrice)} ₫</strong>
+              <div className="text-xs text-[#606D56] mb-2.5">
+                Tổng {room.nights} đêm: <strong className="text-[#1A2411] font-bold">{new Intl.NumberFormat('vi-VN').format(room.totalPrice)} ₫</strong>
               </div>
             ) : (
               <div className="mb-2" />
             )}
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-3">
               {onGroupBook && (
-                <button
+                <Button
                   type="button"
-                  onClick={isSoldOut ? undefined : onGroupBook}
+                  variant="secondary"
+                  size="md"
                   disabled={isSoldOut}
-                  className={`border px-4 py-2 font-label-md text-label-md transition-colors ${
-                    isSoldOut
-                      ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed select-none'
-                      : 'border-primary bg-surface-container-lowest text-primary hover:bg-surface-blue-light cursor-pointer'
-                  }`}
+                  onClick={isSoldOut ? undefined : onGroupBook}
                 >
                   Đặt theo đoàn
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 type="button"
-                onClick={isSoldOut ? undefined : onBookNow}
+                variant="primary"
+                size="md"
                 disabled={isSoldOut}
-                className={
-                  isSoldOut
-                    ? 'bg-gray-200 text-gray-400 border border-gray-300 font-label-md text-label-md px-6 py-2 rounded cursor-not-allowed select-none'
-                    : room.primaryButton
-                      ? 'btn-shimmer bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded shadow-sm hover:bg-primary-container hover:text-on-primary-container hover:shadow-md active:scale-95 transition-all cursor-pointer'
-                      : 'btn-shimmer bg-surface-container-lowest text-primary border border-primary font-label-md text-label-md px-6 py-2 rounded hover:bg-surface-blue-light hover:shadow-sm active:scale-95 transition-all cursor-pointer'
-                }
+                onClick={isSoldOut ? undefined : onBookNow}
               >
                 {isSoldOut ? 'Hết phòng' : 'Đặt phòng ngay'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -179,5 +172,6 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
     </div>
   );
 };
+
 
 export default RoomCard;
