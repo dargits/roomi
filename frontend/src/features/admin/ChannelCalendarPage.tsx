@@ -630,8 +630,8 @@ const ChannelCalendarPage: React.FC = () => {
 
     if (status === 'PAUSED' || !channel.isActive) {
       return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-          <IoPauseCircleOutline className="mr-1 text-gray-500" size={14} />
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#F4F6F0] text-[#606D56] border border-border-grey">
+          <IoPauseCircleOutline className="mr-1 text-[#606D56]" size={14} />
           Tạm ngưng
         </span>
       );
@@ -640,14 +640,14 @@ const ChannelCalendarPage: React.FC = () => {
     if (status === 'DISCONNECTED') {
       return (
         <div className="flex flex-col items-start gap-1">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-            <IoAlertCircleOutline className="mr-1 text-rose-600" size={15} />
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] animate-pulse">
+            <IoAlertCircleOutline className="mr-1 text-[#DC2626]" size={15} />
             Mất kết nối
           </span>
           <button
             type="button"
             onClick={() => setSelectedErrorChannel(channel)}
-            className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 underline flex items-center"
+            className="text-[11px] font-semibold text-[#DC2626] hover:text-[#991B1B] underline flex items-center"
           >
             <IoEyeOutline className="mr-0.5" size={13} />
             Xem lỗi chi tiết
@@ -659,11 +659,11 @@ const ChannelCalendarPage: React.FC = () => {
     if (status === 'STALE') {
       return (
         <div className="flex flex-col items-start gap-1">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-            <IoWarningOutline className="mr-1 text-amber-600" size={14} />
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-[#FFFBEB] text-[#D97706] border border-[#FDE68A]">
+            <IoWarningOutline className="mr-1 text-[#D97706]" size={14} />
             Ngừng cập nhật / Trễ
           </span>
-          <span className="text-[10px] text-amber-700 font-medium max-w-[140px] truncate" title="Quá hạn đồng bộ - Nguy cơ trùng phòng">
+          <span className="text-[10px] text-[#D97706] font-medium max-w-[140px] truncate" title="Quá hạn đồng bộ - Nguy cơ trùng phòng">
             Nguy cơ trùng phòng
           </span>
         </div>
@@ -671,8 +671,8 @@ const ChannelCalendarPage: React.FC = () => {
     }
 
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-        <IoCheckmarkCircleOutline className="mr-1 text-emerald-600" size={14} />
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#ECFDF5] text-[#16A34A] border border-[#A7F3D0]">
+        <IoCheckmarkCircleOutline className="mr-1 text-[#16A34A]" size={14} />
         Kết nối tốt
       </span>
     );
@@ -730,9 +730,9 @@ const ChannelCalendarPage: React.FC = () => {
         title="Quản Lý Kênh Phân Phối & Nhật Ký Đồng Bộ Lịch (OTA Calendar)"
         subtitle="Theo dõi tình trạng kết nối, cảnh báo mất kết nối tránh trùng phòng và kiểm tra lịch sử đồng bộ đa kênh RFC 5545"
         actions={
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center gap-3">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => handleOpenChecker()}
               icon={IoSearchOutline}
             >
@@ -741,7 +741,7 @@ const ChannelCalendarPage: React.FC = () => {
             {isOwner && (
               <>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleSyncAll}
                   disabled={syncingAll}
                   icon={IoSyncOutline}
@@ -903,10 +903,10 @@ const ChannelCalendarPage: React.FC = () => {
         <div className="flex space-x-2">
           <button
             onClick={() => setActiveTab('channels')}
-            className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors flex items-center space-x-2 ${
+            className={`px-4 py-2 font-semibold text-sm rounded-xl transition-all flex items-center gap-2 ${
               activeTab === 'channels'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-[#606D56] hover:bg-[#F2F6ED] hover:text-[#1A2411]'
             }`}
           >
             <IoLayersOutline size={16} />
@@ -916,10 +916,10 @@ const ChannelCalendarPage: React.FC = () => {
             onClick={() => {
               setActiveTab('all-logs');
             }}
-            className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors flex items-center space-x-2 ${
+            className={`px-4 py-2 font-semibold text-sm rounded-xl transition-all flex items-center gap-2 ${
               activeTab === 'all-logs'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-[#606D56] hover:bg-[#F2F6ED] hover:text-[#1A2411]'
             }`}
           >
             <IoDocumentTextOutline size={16} />
@@ -1541,9 +1541,9 @@ const ChannelCalendarPage: React.FC = () => {
             </ol>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey mt-4">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setSelectedErrorChannel(null)}
             >
               Đóng
@@ -1610,8 +1610,8 @@ const ChannelCalendarPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
-              <Button variant="outline" onClick={() => setSelectedLogDetail(null)}>
+            <div className="flex items-center justify-end pt-4 border-t border-border-grey mt-4">
+              <Button variant="secondary" onClick={() => setSelectedLogDetail(null)}>
                 Đóng
               </Button>
             </div>
@@ -1904,9 +1904,9 @@ const ChannelCalendarPage: React.FC = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey mt-4">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setModalOpen(false)}
               type="button"
             >
@@ -1953,9 +1953,9 @@ const ChannelCalendarPage: React.FC = () => {
             <strong>"{refreshTokenModal?.name}"</strong>?
           </p>
 
-          <div className="flex justify-end space-x-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey mt-4">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setRefreshTokenModal(null)}
             >
               Hủy bỏ
@@ -1996,8 +1996,8 @@ const ChannelCalendarPage: React.FC = () => {
             Bạn có chắc chắn muốn xóa kênh này?
           </p>
 
-          <div className="flex justify-end space-x-3 pt-2">
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey mt-4">
+            <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>
               Hủy bỏ
             </Button>
             <Button
@@ -2085,9 +2085,9 @@ const ChannelCalendarPage: React.FC = () => {
             </div>
           )}
 
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-end pt-4 border-t border-border-grey mt-4">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setLogsModalChannel(null)}
             >
               Đóng
@@ -2156,10 +2156,10 @@ const ChannelCalendarPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex justify-end space-x-2 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey mt-4">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => setCheckerModalOpen(false)}
             >
               Đóng

@@ -47,7 +47,24 @@ api.interceptors.response.use(
   },
   (error: AxiosError<ApiErrorResponse>) => {
     if (error.response && error.response.status === 401) {
-      console.warn('[API] Unauthorized — token có thể đã hết hạn.');
+      console.warn('[API] Unauthorized — token có thể đã hết hạn hoặc bị kết thúc.');
+      const msg = extractErrorMessage(error, 'Phiên đăng nhập đã hết hạn hoặc bị kết thúc từ xa.');
+      
+      // Không ghi đè nếu đang ở màn hình login
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        sessionStorage.setItem('stayaway_logout_reason', msg);
+        localStorage.removeItem(STORAGE_KEYS.TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.USER);
+        sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
+        sessionStorage.removeItem(STORAGE_KEYS.USER);
+        localStorage.removeItem('staygo_token');
+        localStorage.removeItem('staygo_user');
+        sessionStorage.removeItem('staygo_token');
+        sessionStorage.removeItem('staygo_user');
+        
+        // Điều hướng mượt mà về login
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -66,13 +83,29 @@ export const extractErrorMessage = (
 
   if (error.response?.data) {
     const data = error.response.data;
-    if (typeof data === 'string') return data;
+    if (typeof data === 'string') {
+      const trimmed = data.trim();
+      if (trimmed.startsWith('<')) {
+        if (error.response?.status === 401) {
+          return 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.';
+        }
+        if (error.response?.status === 403) {
+          return 'Bạn không có quyền thực hiện thao tác này.';
+        }
+        return defaultMsg;
+      }
+      return data;
+    }
     if (data.message && typeof data.message === 'string') return data.message;
     // Spring validation errors format: { field: "message", ... }
     const firstFieldErr = Object.entries(data).find(
       ([key, val]) => key !== 'timestamp' && key !== 'status' && typeof val === 'string'
     );
     if (firstFieldErr) return firstFieldErr[1] as string;
+  }
+
+  if (error.response?.status === 401) {
+    return 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.';
   }
 
   return error.message || defaultMsg;

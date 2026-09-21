@@ -3,6 +3,7 @@ import { SquareSpinner } from '../common/LoadingScreen';
 
 export type ButtonVariant =
   | 'primary'
+  | 'lime'
   | 'secondary'
   | 'outline'
   | 'ghost'
@@ -32,31 +33,33 @@ const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'inline-flex items-center justify-center font-title-md transition-all gap-2 cursor-pointer select-none rounded-md font-bold tracking-wider border';
+    'inline-flex items-center justify-center font-medium transition-all duration-200 gap-2 cursor-pointer select-none rounded-xl font-semibold border text-center whitespace-nowrap shrink-0';
 
   const sizeStyles: Record<ButtonSize, string> = {
-    sm: 'py-1.5 px-3 text-xs',
-    md: 'py-2.5 px-5 text-sm',
-    lg: 'py-3 px-6 text-base'
+    sm: 'py-1.5 px-4 text-xs min-h-[34px]',
+    md: 'py-2 px-5 text-sm min-h-[40px]',
+    lg: 'py-2.5 px-6 text-base min-h-[46px]'
   };
 
   const variants: Record<ButtonVariant, string> = {
     primary:
-      'bg-primary text-on-primary border-primary shadow-xs hover:bg-primary-container hover:border-primary-container hover:shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-primary text-white border-primary shadow-xs hover:bg-primary-hover hover:border-primary-hover hover:shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed',
+    lime:
+      'bg-[#D4F63D] text-[#1A2411] border-[#BEDF2E] shadow-xs hover:bg-[#C2E232] hover:border-[#BEDF2E] hover:shadow-sm active:scale-[0.98] font-bold disabled:opacity-60 disabled:cursor-not-allowed',
     secondary:
-      'bg-surface-container-lowest text-on-surface border-border-grey shadow-2xs hover:bg-surface-container-low hover:border-outline/50 active:bg-surface-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-white text-[#1A2411] border-border-grey shadow-2xs hover:bg-[#F2F6EC] hover:border-[#CCD8C2] active:bg-[#E8EFE0] transition-all disabled:opacity-60 disabled:cursor-not-allowed',
     outline:
-      'bg-surface-container-lowest text-primary border-primary/60 shadow-2xs hover:bg-primary/5 hover:border-primary transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-white text-primary border-border-grey shadow-2xs hover:bg-[#F2F6EC] hover:border-primary/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed',
     ghost:
-      'bg-surface-container-lowest text-on-surface border-border-grey shadow-2xs hover:bg-surface-container-low hover:border-outline/50 hover:text-on-surface active:bg-surface-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-transparent text-[#586650] border-transparent hover:bg-[#F2F6EC] hover:text-[#1A2411] active:bg-[#E8EFE0] transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
     text:
       'bg-transparent text-on-surface-variant border-transparent hover:bg-surface-container-low hover:text-on-surface transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
     danger:
-      'bg-error text-white border-error shadow-xs hover:bg-red-700 hover:border-red-700 hover:shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-error text-white border-error shadow-xs hover:bg-red-700 hover:border-red-700 hover:shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed',
     dangerOutline:
-      'bg-surface-container-lowest text-error border-error/40 shadow-2xs hover:bg-red-50 hover:border-error transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-white text-error border-error/30 shadow-2xs hover:bg-red-50 hover:border-error transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
     success:
-      'bg-green-600 text-white border-green-600 shadow-xs hover:bg-green-700 hover:border-green-700 hover:shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed'
+      'bg-green-600 text-white border-green-600 shadow-xs hover:bg-green-700 hover:border-green-700 hover:shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed'
   };
 
   const selectedSize = sizeStyles[size] || sizeStyles.md;
