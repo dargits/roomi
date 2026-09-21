@@ -129,64 +129,82 @@
   animation: qrLaserScanDown 1.8s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
 }
 
-/* 5. Hiệu ứng Tên Lửa Bay Ngang & Chia Đôi Màn Hình (Cinematic Rocket Screen-Split) */
-@keyframes rocketFlyAcross {
+/* 5. Hiệu ứng Tên Lửa Xé Rách Vải Giữa 2 Bên (Cinematic Rocket Fabric-Tear Screen Split) */
+@keyframes rocketShootUp {
   0% {
-    transform: translate3d(-150px, -50%, 0) scale(0.85);
+    transform: translate3d(-50%, 120px, 0) scale(0.85);
     opacity: 0;
   }
   8% {
     opacity: 1;
-    transform: translate3d(-40px, -50%, 0) scale(1);
-  }
-  90% {
-    opacity: 1;
-    transform: translate3d(calc(100vw + 40px), -50%, 0) scale(1.05);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(calc(100vw + 160px), -50%, 0) scale(1.1);
-  }
-}
-
-@keyframes screenSplitTop {
-  0% {
-    transform: translateY(0%);
-  }
-  18% {
-    transform: translateY(-2%);
-  }
-  100% {
-    transform: translateY(-100%);
-  }
-}
-
-@keyframes screenSplitBottom {
-  0% {
-    transform: translateY(0%);
-  }
-  18% {
-    transform: translateY(2%);
-  }
-  100% {
-    transform: translateY(100%);
-  }
-}
-
-@keyframes laserCutBeam {
-  0% {
-    width: 0%;
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
+    transform: translate3d(-50%, 0px, 0) scale(1);
   }
   85% {
-    width: 100%;
+    opacity: 1;
+    transform: translate3d(-50%, -105vh, 0) scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, -135vh, 0) scale(1.15);
+  }
+}
+
+@keyframes tearLeft {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+  18% {
+    transform: translate3d(-4%, 4px, 0) rotate(-0.6deg);
+    clip-path: polygon(0 0, 98% 0, 100% 20%, 97% 40%, 100% 60%, 98% 80%, 100% 100%, 0 100%);
+  }
+  50% {
+    transform: translate3d(-35%, 15px, 0) rotate(-2deg);
+    opacity: 0.95;
+    clip-path: polygon(0 0, 96% 0, 100% 15%, 95% 35%, 100% 55%, 96% 75%, 100% 100%, 0 100%);
+  }
+  100% {
+    transform: translate3d(-115%, 35px, 0) rotate(-4.5deg);
+    opacity: 0;
+    clip-path: polygon(0 0, 95% 0, 100% 25%, 95% 50%, 100% 75%, 95% 100%, 0 100%);
+  }
+}
+
+@keyframes tearRight {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+  18% {
+    transform: translate3d(4%, 4px, 0) rotate(0.6deg);
+    clip-path: polygon(2% 0, 100% 0, 100% 100%, 0 100%, 2% 80%, 0% 60%, 3% 40%, 0% 20%);
+  }
+  50% {
+    transform: translate3d(35%, 15px, 0) rotate(2deg);
+    opacity: 0.95;
+    clip-path: polygon(4% 0, 100% 0, 100% 100%, 0 100%, 4% 75%, 0% 55%, 5% 35%, 0% 15%);
+  }
+  100% {
+    transform: translate3d(115%, 35px, 0) rotate(4.5deg);
+    opacity: 0;
+    clip-path: polygon(5% 0, 100% 0, 100% 100%, 0 100%, 5% 75%, 0% 50%, 5% 25%, 0% 0%);
+  }
+}
+
+@keyframes tearLineRip {
+  0% {
+    transform: scaleY(0);
+    transform-origin: bottom center;
+    opacity: 1;
+  }
+  70% {
+    transform: scaleY(1);
+    transform-origin: bottom center;
     opacity: 1;
   }
   100% {
-    width: 100%;
+    transform: scaleY(1);
+    transform-origin: bottom center;
     opacity: 0;
   }
 }
