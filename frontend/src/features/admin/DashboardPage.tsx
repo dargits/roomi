@@ -53,15 +53,15 @@ const getStatusBadge = (status?: string) => {
     case 'CONFIRMED': 
       return <span className="px-2.5 py-0.5 bg-[#E0F2FE] text-[#0369A1] rounded-full font-bold text-xs border border-[#BAE6FD]">Đã xác nhận</span>;
     case 'CHECKED_IN': 
-      return <span className="px-2.5 py-0.5 bg-[#EAF5CD] text-[#3F4F24] rounded-full font-bold text-xs border border-[#D5EBA3]">Đang ở</span>;
+      return <span className="px-2.5 py-0.5 bg-[#EFF6FF] text-[#2563EB] rounded-full font-bold text-xs border border-[#BFDBFE]">Đang ở</span>;
     case 'CHECKED_OUT': 
-      return <span className="px-2.5 py-0.5 bg-[#F1F5F9] text-[#475569] rounded-full font-medium text-xs border border-[#E2E8F0]">Đã đi</span>;
+      return <span className="px-2.5 py-0.5 bg-[#F4F6F0] text-[#606D56] rounded-full font-semibold text-xs border border-border-grey">Đã trả phòng</span>;
     case 'CANCELLED': 
-      return <span className="px-2.5 py-0.5 bg-[#FEE2E2] text-[#B91C1C] rounded-full font-medium text-xs border border-[#FECACA]">Đã hủy</span>;
+      return <span className="px-2.5 py-0.5 bg-[#FEF2F2] text-[#DC2626] rounded-full font-semibold text-xs border border-[#FECACA]">Đã hủy</span>;
     case 'NO_SHOW': 
-      return <span className="px-2.5 py-0.5 bg-[#FFEDD5] text-[#C2410C] rounded-full font-medium text-xs border border-[#FED7AA]">Không đến</span>;
+      return <span className="px-2.5 py-0.5 bg-[#FFFBEB] text-[#D97706] rounded-full font-semibold text-xs border border-[#FDE68A]">Không đến</span>;
     default: 
-      return <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-full font-medium text-xs">{status}</span>;
+      return <span className="px-2.5 py-0.5 bg-[#F4F6F0] text-[#606D56] rounded-full font-semibold text-xs border border-border-grey">{status}</span>;
   }
 };
 
