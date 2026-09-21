@@ -88,7 +88,12 @@ const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, bo
         console.error("Lỗi ghi nhận audit log in hóa đơn:", err);
       });
     }
-    window.print();
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'visible';
+    setTimeout(() => {
+      window.print();
+      document.body.style.overflow = originalOverflow;
+    }, 50);
   };
 
   // Helper lấy đơn giá dịch vụ đã bao gồm VAT
@@ -135,7 +140,7 @@ const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, bo
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 invoice-modal-container font-sans">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative border border-gray-200">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative border border-gray-200 invoice-modal-card">
         
         {/* Thanh công cụ (ẩn khi in) */}
         <div className="bg-slate-50 p-4 flex justify-between items-center border-b border-gray-200 print:hidden">
@@ -160,26 +165,101 @@ const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, bo
             @media print {
               @page {
                 size: A4 portrait;
-                margin: 15mm 15mm 15mm 15mm;
+                margin: 12mm 15mm;
               }
-              body * {
-                visibility: hidden !important;
+
+              /* 1. Ẩn hoàn toàn #root và các phần tử giao diện không liên quan */
+              #root,
+              .print\\:hidden,
+              .no-print,
+              [class*="print:hidden"] {
+                display: none !important;
               }
-              #printable-invoice, #printable-invoice * {
-                visibility: visible !important;
+
+              /* 2. Reset html & body cho chế độ in A4 chuẩn */
+              html, body {
+                overflow: visible !important;
+                height: auto !important;
+                min-height: 100% !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
               }
-              #printable-invoice {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                margin: 0;
-                padding: 0;
+
+              /* 3. Modal container hiển thị tự nhiên trong luồng in, không bị khóa cố định */
+              #modal-root {
+                display: block !important;
+                position: static !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
               }
+
               .invoice-modal-container {
                 position: static !important;
-                background: none !important;
+                display: block !important;
+                background: transparent !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
                 padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                inset: auto !important;
+                z-index: auto !important;
+              }
+
+              .invoice-modal-card {
+                position: static !important;
+                display: block !important;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: transparent !important;
+              }
+
+              /* 4. Khung hóa đơn hiển thị đầy đủ */
+              #printable-invoice {
+                display: block !important;
+                position: static !important;
+                overflow: visible !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: transparent !important;
+              }
+
+              #printable-invoice * {
+                visibility: visible !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+
+              /* 5. Chống rách / cắt ngang nội dung quan trọng khi ngắt trang */
+              table thead {
+                display: table-header-group;
+              }
+              table tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+              .print-avoid-break {
+                page-break-inside: avoid;
+                break-inside: avoid;
               }
             }
           `}</style>
@@ -343,7 +423,7 @@ const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, bo
             </div>
 
             {/* 5. Tổng kết Tiền hàng, Thuế GTGT 10%, Tổng thanh toán */}
-            <div className="flex text-xs pt-1">
+            <div className="flex text-xs pt-1 print-avoid-break">
               <div className="w-1/2 pr-4 space-y-1">
                 <p className="italic text-slate-600">Tỷ giá quy đổi: 1 USD = 25.450 VNĐ (Nếu thanh toán ngoại tệ)</p>
                 <p className="italic text-slate-500 text-[11px]">Đã bao gồm thuế giá trị gia tăng GTGT 10% theo quy định.</p>
@@ -376,13 +456,13 @@ const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, bo
             </div>
 
             {/* 6. Số tiền viết bằng chữ */}
-            <div className="bg-slate-100 p-2.5 rounded border border-slate-200 text-xs">
+            <div className="bg-slate-100 p-2.5 rounded border border-slate-200 text-xs print-avoid-break">
               <span className="font-semibold text-slate-700">Số tiền viết bằng chữ: </span>
               <strong className="text-slate-900 italic">{numberToWords(totalPayment)}</strong>
             </div>
 
             {/* 7. Chữ ký các bên */}
-            <div className="grid grid-cols-2 pt-6 pb-12 text-center text-xs">
+            <div className="grid grid-cols-2 pt-6 pb-12 text-center text-xs print-avoid-break">
               <div>
                 <p className="font-bold uppercase text-slate-900">Người mua hàng</p>
                 <p className="italic text-slate-500 text-[11px] mt-0.5">(Ký, ghi rõ họ tên)</p>
