@@ -435,7 +435,7 @@ const DashboardLayout: React.FC = () => {
         <aside
           className={`
             fixed lg:static top-0 bottom-0 left-0 z-50
-            flex flex-col bg-white border-r border-slate-200/80 shadow-[1px_0_12px_rgba(0,0,0,0.02)]
+            flex flex-col bg-white border-r border-border-grey shadow-[1px_0_12px_rgba(0,0,0,0.02)]
             transition-all duration-300 ease-in-out select-none
             ${mobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'}
             ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}
@@ -693,12 +693,12 @@ const DashboardLayout: React.FC = () => {
           {/* ── Sidebar Footer: Profile & Collapse Toggle ── */}
           {/* Collapsed Mode Footer */}
           {isCollapsed && (
-            <div className="hidden lg:flex flex-col items-center gap-3 py-3 px-2 border-t border-slate-100 bg-white shrink-0">
+            <div className="hidden lg:flex flex-col items-center gap-3 py-3 px-2 border-t border-border-grey bg-white shrink-0">
               {/* Toggle expand button */}
               <button
                 type="button"
                 onClick={toggleCollapse}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 transition-all cursor-pointer border border-transparent hover:border-slate-200 group/toggle"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-[#606D56] hover:text-primary hover:bg-[#F2F6ED] transition-all cursor-pointer border border-transparent hover:border-border-grey group/toggle"
                 title="Mở rộng menu"
               >
                 <IoChevronForwardOutline size={18} className="group-hover/toggle:translate-x-0.5 transition-transform" />
@@ -709,7 +709,7 @@ const DashboardLayout: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/manage/profile')}
-                  className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-slate-200 hover:ring-primary shadow-xs hover:scale-105 transition-all cursor-pointer flex items-center justify-center bg-primary/10"
+                  className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-border-grey hover:ring-primary shadow-xs hover:scale-105 transition-all cursor-pointer flex items-center justify-center bg-primary/10"
                   title="Cài đặt hồ sơ cá nhân"
                 >
                   {user?.avatarImage ? (
@@ -727,10 +727,10 @@ const DashboardLayout: React.FC = () => {
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white pointer-events-none" />
 
                 {/* Floating tooltip popover on hover */}
-                <div className="absolute left-full bottom-0 ml-3 w-48 bg-slate-900 text-white text-xs rounded-xl shadow-2xl p-2.5 opacity-0 pointer-events-none group-hover/user:opacity-100 transition-opacity z-50">
+                <div className="absolute left-full bottom-0 ml-3 w-48 bg-[#1A2411] text-white text-xs rounded-xl shadow-2xl p-2.5 opacity-0 pointer-events-none group-hover/user:opacity-100 transition-opacity z-50 border border-white/10">
                   <p className="font-bold text-sm truncate">{user?.name || 'Tài khoản'}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{roleLabel}</p>
-                  <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] text-primary-hover font-semibold flex items-center justify-between">
+                  <p className="text-[11px] text-[#A4B465] mt-0.5">{roleLabel}</p>
+                  <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-[#D4F63D] font-semibold flex items-center justify-between">
                     <span>Xem hồ sơ</span>
                     <span>&rarr;</span>
                   </div>
@@ -740,26 +740,26 @@ const DashboardLayout: React.FC = () => {
           )}
 
           {/* Expanded Mode Footer */}
-          <div className={`p-3 border-t border-slate-100 bg-white flex flex-col gap-2 shrink-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
+          <div className={`p-3 border-t border-border-grey bg-white flex flex-col gap-2 shrink-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
             {/* Desktop Collapse Toggle */}
             <button
               type="button"
               onClick={toggleCollapse}
-              className="hidden lg:flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer group/btn"
+              className="hidden lg:flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#606D56] hover:bg-[#F2F6ED] hover:text-[#1A2411] transition-colors cursor-pointer group/btn"
               title="Thu gọn menu"
             >
               <div className="flex items-center gap-2">
                 <IoChevronBackOutline size={16} className="group-hover/btn:-translate-x-0.5 transition-transform" />
                 <span>Thu gọn thanh menu</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">Alt + M</span>
+              <span className="text-[10px] text-[#8E9B86] font-mono">Alt + M</span>
             </button>
 
             {/* User Profile Card */}
             <button
               type="button"
               onClick={() => navigate('/manage/profile')}
-              className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 transition-all cursor-pointer text-left border border-slate-200/60 group/profile"
+              className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F6ED] transition-all cursor-pointer text-left border border-border-grey group/profile"
               title="Cài đặt hồ sơ cá nhân"
             >
               <div className="relative shrink-0">
@@ -771,16 +771,16 @@ const DashboardLayout: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="font-bold text-primary text-xs uppercase">
+                    <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
                       {user?.name?.[0] || 'U'}
-                    </span>
+                    </div>
                   )}
                 </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white pointer-events-none" />
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-800 truncate group-hover/profile:text-primary transition-colors leading-tight">
+                <p className="text-xs font-bold text-[#1A2411] truncate group-hover/profile:text-primary transition-colors leading-tight">
                   {user?.name || 'Tài khoản'}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
