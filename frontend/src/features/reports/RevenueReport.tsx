@@ -119,15 +119,15 @@ const RevenueVisualChart: React.FC<{
                   {/* Tooltip on Hover */}
                   {isHovered && (
                     <div className="absolute bottom-full mb-3 z-30 flex flex-col items-center pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-                      <div className="bg-slate-900 text-white text-xs rounded-xl py-2 px-3 shadow-xl whitespace-nowrap text-center border border-slate-700">
-                        <p className="font-semibold text-slate-200 border-b border-slate-700 pb-1 mb-1">{dateLabel}</p>
-                        <p className="font-bold text-amber-300 text-sm">{fmtCurrency(rev)}</p>
+                      <div className="bg-[#1A2411] text-white text-xs rounded-xl py-2 px-3 shadow-xl whitespace-nowrap text-center border border-[#303D20]">
+                        <p className="font-semibold text-[#E4F2CC] border-b border-[#303D20] pb-1 mb-1">{dateLabel}</p>
+                        <p className="font-bold text-[#D4F63D] text-sm">{fmtCurrency(rev)}</p>
                         {Number(row.penaltyRevenue || 0) > 0 && (
-                          <p className="text-[11px] text-orange-300 mt-0.5">+ {fmtCurrency(Number(row.penaltyRevenue || 0))} phí hủy/cọc</p>
+                          <p className="text-[11px] text-[#F97316] mt-0.5">+ {fmtCurrency(Number(row.penaltyRevenue || 0))} phí hủy/cọc</p>
                         )}
-                        <p className="text-[11px] text-slate-300 mt-0.5">{row.bookings || 0} lượt đặt phòng</p>
+                        <p className="text-[11px] text-[#9AA88E] mt-0.5">{row.bookings || 0} lượt đặt phòng</p>
                       </div>
-                      <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1" />
+                      <div className="w-2 h-2 bg-[#1A2411] rotate-45 -mt-1" />
                     </div>
                   )}
 
@@ -283,7 +283,7 @@ const RevenueReport: React.FC = () => {
             </Button>
             {rows.length > 0 && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={exportCSV}
                 icon={IoDownloadOutline}
