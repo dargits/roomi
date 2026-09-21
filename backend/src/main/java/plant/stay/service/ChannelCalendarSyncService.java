@@ -112,4 +112,14 @@ public interface ChannelCalendarSyncService {
      * Lấy danh sách lượt chặn phòng đang hoạt động trong khoảng thời gian (phục vụ lịch phòng).
      */
     List<plant.stay.dto.response.ChannelRoomBlockResponse> getActiveBlocks(java.time.LocalDate from, java.time.LocalDate to);
+
+    /**
+     * Từ chối một lượt chặn từ kênh OTA kèm ghi chú lý do (NCL-15-CN-004).
+     */
+    plant.stay.dto.response.ChannelRoomBlockResponse rejectBlock(Long blockId, String reason, User actor);
+
+    /**
+     * Tự động quét và đóng cảnh báo trùng phòng khi số phòng bị chiếm không còn vượt số phòng thực có (NCL-15-CN-004).
+     */
+    void autoResolveOverbookingConflicts(Long roomTypeId);
 }

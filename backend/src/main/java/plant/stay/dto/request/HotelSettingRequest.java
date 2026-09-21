@@ -41,4 +41,18 @@ public class HotelSettingRequest {
     @jakarta.validation.constraints.Min(value = 1, message = "Số ngày phòng trống tối thiểu là 1 ngày")
     @jakarta.validation.constraints.Max(value = 90, message = "Số ngày phòng trống tối đa là 90 ngày")
     private Integer periodicCleaningDays;
+
+    @jakarta.validation.constraints.Min(value = 5, message = "Thời gian hết hạn phiên tối thiểu là 5 phút")
+    @jakarta.validation.constraints.Max(value = 1440, message = "Thời gian hết hạn phiên tối đa là 1440 phút (24 giờ)")
+    private Integer sessionTimeoutMinutes;
+
+    @jakarta.validation.constraints.Min(value = 0, message = "Số phiên đồng thời không được âm")
+    @jakarta.validation.constraints.Max(value = 50, message = "Số phiên đồng thời tối đa là 50")
+    private Integer maxConcurrentSessions;
+
+    @jakarta.validation.constraints.Min(value = 1, message = "Thời hạn phiên tối thiểu là 1 giờ")
+    @jakarta.validation.constraints.Max(value = 720, message = "Thời hạn phiên tối đa là 720 giờ (30 ngày)")
+    private Integer maxSessionLifetimeHours;
+
+    private Boolean publicInvoiceLookupEnabled;
 }

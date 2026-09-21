@@ -33,6 +33,9 @@ public class PersonalDataMaskingResponseAdvice implements ResponseBodyAdvice<Obj
     @Override
     public boolean supports(MethodParameter returnType,
                             Class<? extends HttpMessageConverter<?>> converterType) {
+        if (returnType != null && plant.stay.exception.GlobalExceptionHandler.class.isAssignableFrom(returnType.getDeclaringClass())) {
+            return false;
+        }
         return true;
     }
 
@@ -43,9 +46,17 @@ public class PersonalDataMaskingResponseAdvice implements ResponseBodyAdvice<Obj
                                   Class<? extends HttpMessageConverter<?>> selectedConverterType,
                                   org.springframework.http.server.ServerHttpRequest serverHttpRequest,
                                   org.springframework.http.server.ServerHttpResponse serverHttpResponse) {
-        User actor = authUtil.getUserFromRequest(request);
-        Role role = actor == null ? null : actor.getRole();
-        if (!PersonalDataMasker.canViewFull(role)) {
+        if (body == null || body instanceof plant.stay.dto.response.MessageResponse) {
+            return body;
+        }
+        try {
+            User actor = authUtil.getUserFromRequest(request);
+            Role role = actor == null ? null : actor.getRole();
+            if (!PersonalDataMasker.canViewFull(role)) {
+                maskIdentifiers(body);
+            }
+        } catch (Exception e) {
+            // Khi phiên đăng nhập bị thu hồi hoặc lỗi xác thực, an toàn che dữ liệu định danh mà không ném ngoại lệ làm gián đoạn response
             maskIdentifiers(body);
         }
         return body;

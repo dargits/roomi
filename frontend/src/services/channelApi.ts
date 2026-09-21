@@ -140,5 +140,17 @@ export const channelApi = {
     const response = await api.get<import('../types').ChannelRoomBlock[]>('/channels/blocks/active');
     return response.data;
   },
+
+  // Từ chối lượt chặn phòng từ kênh OTA kèm ghi chú lý do (NCL-15-CN-004)
+  rejectBlock: async (
+    blockId: number | string,
+    reason: string
+  ): Promise<import('../types').ChannelRoomBlock> => {
+    const response = await api.post<import('../types').ChannelRoomBlock>(
+      `/channels/blocks/${blockId}/reject`,
+      { reason }
+    );
+    return response.data;
+  },
 };
 

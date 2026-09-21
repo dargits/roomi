@@ -171,6 +171,16 @@ public class ChannelController {
         return ResponseEntity.ok(channelCalendarSyncService.convertBlockToBooking(blockId, req, actor));
     }
 
+    @PostMapping("/blocks/{blockId}/reject")
+    public ResponseEntity<plant.stay.dto.response.ChannelRoomBlockResponse> rejectBlock(
+            @PathVariable Long blockId,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            HttpServletRequest request) {
+        User actor = checkStaff(request);
+        String reason = body != null ? body.get("reason") : null;
+        return ResponseEntity.ok(channelCalendarSyncService.rejectBlock(blockId, reason, actor));
+    }
+
     @GetMapping("/blocks")
     public ResponseEntity<List<plant.stay.dto.response.ChannelRoomBlockResponse>> getBlocks(
             @RequestParam(required = false) Long channelId,

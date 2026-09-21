@@ -1,8 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '../context/AuthContext';
-import { AppConfigProvider } from '../context/AppConfigContext';
-import { ToastProvider } from '../context/ToastContext';
+import AppProviders from '../providers/AppProviders';
 
 // Public pages
 import LandingPage from '../features/landing/LandingPage';
@@ -34,6 +32,7 @@ import LoyaltyTierManagement from '../features/admin/LoyaltyTierManagement';
 import DepositPolicyPage from '../features/admin/DepositPolicyPage';
 import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 import ChannelCalendarPage from '../features/admin/ChannelCalendarPage';
+import SessionManagementPage from '../features/admin/SessionManagementPage';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
@@ -48,6 +47,7 @@ import LostAndFoundPage from '../features/housekeeping/LostAndFoundPage';
 // Reports & Backup
 import ReportsPage from '../features/reports/ReportsPage';
 import CashierShiftPage from '../features/reports/CashierShiftPage';
+import DailyLedgerPage from '../features/reports/DailyLedgerPage';
 import BackupDataPage from '../features/admin/BackupDataPage';
 import PersonalDataAuditLogPage from '../features/booking/PersonalDataAuditLogPage';
 
@@ -57,10 +57,8 @@ import NotificationPreferences from '../features/notifications/NotificationPrefe
 
 const AppRoutes: React.FC = () => {
   return (
-    <AppConfigProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <BrowserRouter>
+    <AppProviders>
+      <BrowserRouter>
             <Routes>
               {/* === Public routes === */}
               <Route path="/" element={<LandingPage />} />
@@ -129,6 +127,7 @@ const AppRoutes: React.FC = () => {
                   {/* Báo cáo — OWNER / ACCOUNTANT */}
                   <Route path="/manage/reports" element={<ReportsPage />} />
                   <Route path="/manage/cashier-shifts" element={<CashierShiftPage />} />
+                  <Route path="/manage/daily-ledger" element={<DailyLedgerPage />} />
 
                   {/* Lịch sử hoạt động — OWNER / ADMIN */}
                   <Route path="/manage/audit-logs" element={<ActivityLog />} />
@@ -136,8 +135,9 @@ const AppRoutes: React.FC = () => {
                   {/* Nhật ký truy cập dữ liệu cá nhân — NCL-12 */}
                   <Route path="/manage/personal-data-audit" element={<PersonalDataAuditLogPage />} />
 
-                  {/* Nhân sự — OWNER / ADMIN */}
+                  {/* Nhân sự & Phiên đăng nhập — OWNER / ADMIN */}
                   <Route path="/manage/staff" element={<StaffManagement />} />
+                  <Route path="/manage/sessions" element={<SessionManagementPage />} />
 
                   {/* Cài đặt khách sạn — OWNER */}
                   <Route path="/manage/settings" element={<HotelSettings />} />
@@ -180,9 +180,7 @@ const AppRoutes: React.FC = () => {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
-        </ToastProvider>
-      </AuthProvider>
-    </AppConfigProvider>
+    </AppProviders>
   );
 };
 
