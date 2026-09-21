@@ -147,11 +147,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
 
   const roomTypeOptions = roomTypes.map(rt => ({ value: rt.id, label: rt.name }));
   const channelSourceOptions = [
-    { value: 'WALKIN', label: '🚶 Khách tại quầy (Walk-in)' },
-    { value: 'PHONE', label: '📞 Kênh điện thoại' },
-    { value: 'SOCIAL', label: '💬 Kênh mạng xã hội (FB, Zalo, Tiktok...)' },
-    { value: 'ONLINE', label: '🌐 Cổng đặt phòng trực tiếp' },
-    { value: 'SIMULATION', label: '🔄 Kênh mô phỏng / OTA (Airbnb, Booking...)' },
+    { value: 'WALKIN', label: 'Khách tại quầy (Walk-in)' },
+    { value: 'PHONE', label: 'Kênh điện thoại' },
+    { value: 'SOCIAL', label: 'Kênh mạng xã hội (FB, Zalo, Tiktok...)' },
+    { value: 'ONLINE', label: 'Cổng đặt phòng trực tiếp' },
+    { value: 'SIMULATION', label: 'Kênh OTA / Đại lý (Airbnb, Booking...)' },
   ];
 
   // Badge màu số phòng trống
@@ -162,17 +162,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Tạo Đặt phòng mới" maxWidth="max-w-2xl">
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-error rounded-md text-sm">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-error rounded-xl text-sm">
           {error}
         </div>
       )}
       
-      <form id="bookingForm" onSubmit={handleSubmit} className="space-y-6">
+      <form id="bookingForm" onSubmit={handleSubmit} className="space-y-5">
         
         {/* Guest Selection */}
-        <div className="bg-surface-container-lowest p-4 rounded-lg border border-border-grey space-y-3 relative">
-          <label className="font-label-md text-on-surface flex items-center gap-2">
-            <IoPersonOutline size={18} className="text-primary"/> 
+        <div className="bg-[#FBFDF9] p-4 rounded-xl border border-border-grey space-y-2 relative">
+          <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider">
             Khách hàng <span className="text-error">*</span>
           </label>
           
@@ -185,22 +184,21 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
                 setSearchGuestTerm(e.target.value);
                 if (!e.target.value) setFormData(prev => ({ ...prev, guestId: '' }));
               }}
-              className="w-full pl-10 pr-4 py-2 border border-border-grey rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors text-body-md"
+              className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] placeholder:text-[#8E9B86] transition-all"
             />
-            <IoSearchOutline className="absolute left-3 top-2.5 text-on-surface-variant/70" size={18} />
           </div>
 
           {/* Search Dropdown */}
           {guests.length > 0 && !formData.guestId && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-border-grey rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-border-grey rounded-xl shadow-lg max-h-48 overflow-y-auto">
               {guests.map(guest => (
                 <div 
                   key={guest.id} 
                   onClick={() => selectGuest(guest)}
-                  className="p-3 hover:bg-surface-blue-light cursor-pointer border-b border-border-grey last:border-0"
+                  className="p-3 hover:bg-[#F2F6ED] cursor-pointer border-b border-border-grey last:border-0 transition-colors"
                 >
-                  <div className="font-title-sm text-on-surface">{guest.name}</div>
-                  <div className="text-xs text-on-surface-variant flex gap-3 mt-1">
+                  <div className="font-semibold text-sm text-[#1A2411]">{guest.name}</div>
+                  <div className="text-xs text-[#606D56] flex gap-3 mt-1">
                     <span>SĐT: {guest.phone || '—'}</span>
                     <span>CCCD: {guest.idNumber || '—'}</span>
                   </div>
@@ -210,14 +208,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
           )}
           
           {!formData.guestId && searchGuestTerm.length >= 2 && guests.length === 0 && (
-             <div className="text-sm text-on-surface-variant mt-2 p-2 bg-yellow-50 rounded">
+             <div className="text-xs text-amber-800 mt-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
                Không tìm thấy khách. Vui lòng tạo khách mới trước (trong menu Khách hàng).
              </div>
           )}
         </div>
 
         {/* Room & Dates & Channel Source */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Select 
               label="Loại phòng" 
@@ -233,7 +231,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
                 {checkingAvail ? (
                   <span className="text-xs text-on-surface-variant">Đang kiểm tra phòng trống...</span>
                 ) : availableCount !== null ? (
-                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${availBadgeClass}`}>
+                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${availBadgeClass}`}>
                     {availableCount === 0 ? '⚠️ Không còn phòng trống' : `✓ ${availableCount} phòng trống cho khoảng ngày này`}
                   </span>
                 ) : null}
@@ -254,7 +252,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
             label="Ngày nhận phòng" 
             type="date" 
             name="checkInDate" 
-            icon={IoLogInOutline} 
             value={formData.checkInDate} 
             onChange={handleInputChange} 
             required 
@@ -264,7 +261,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
             label="Ngày trả phòng" 
             type="date" 
             name="checkOutDate" 
-            icon={IoLogOutOutline} 
             value={formData.checkOutDate} 
             onChange={handleInputChange} 
             required 
@@ -274,7 +270,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
         <Input 
           label="Ghi chú thêm" 
           name="note" 
-          icon={IoDocumentOutline} 
           value={formData.note} 
           onChange={handleInputChange} 
           placeholder="Yêu cầu đặc biệt..." 
@@ -282,9 +277,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
 
       </form>
       
-      <div className="flex justify-end gap-3 pt-6 border-t border-border-grey mt-6">
-        <Button variant="ghost" onClick={onClose} disabled={loading}>Hủy</Button>
-        <Button type="submit" form="bookingForm" icon={IoCheckmarkCircleOutline} isLoading={loading}>Xác nhận Đặt phòng</Button>
+      <div className="flex justify-end gap-3 pt-4 border-t border-border-grey mt-6">
+        <Button variant="secondary" onClick={onClose} disabled={loading}>Hủy</Button>
+        <Button type="submit" form="bookingForm" isLoading={loading}>Xác nhận Đặt phòng</Button>
       </div>
     </Modal>
   );

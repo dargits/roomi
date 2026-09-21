@@ -9,4 +9,5 @@ import java.util.List;
 public interface NotificationRoleDefaultRepository extends JpaRepository<NotificationRoleDefault, Long> {
     List<NotificationRoleDefault> findByRole(Role role);
     List<NotificationRoleDefault> findAll();
+    boolean existsByTypeAndRole(plant.stay.model.NotificationType type, Role role);
 }

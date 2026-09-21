@@ -62,6 +62,9 @@ public class ChannelCalendarSyncInboundTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private NotificationRepository notificationRepository;
+
     private User testReceptionist;
     private RoomType testRoomType;
     private Room testRoom1;
@@ -415,5 +418,82 @@ public class ChannelCalendarSyncInboundTest {
             }
         }
         assertTrue(foundChannelBlock, "Lịch phòng phải chứa lượt chặn từ kênh phân phối");
+    }
+
+    @Test
+    @DisplayName("8. Đồng bộ kênh phát hiện trùng lịch với đặt phòng hiện có: Đặt cảnh báo rõ ràng và gửi thông báo khẩn cho Lễ tân")
+    void testInboundSyncDetectsOverbookingConflictWithExistingBookings() {
+        LocalDate start = LocalDate.now().plusDays(5);
+        LocalDate end = start.plusDays(3);
+
+        // Chiếm hết cả testRoom1 và testRoom2 bằng đặt phòng hiện có
+        bookingRepository.save(Booking.builder()
+                .guest(testGuest)
+                .roomType(testRoomType)
+                .room(testRoom1)
+                .checkInDate(start)
+                .checkOutDate(end)
+                .status(BookingStatus.CONFIRMED)
+                .expectedPrice(BigDecimal.valueOf(2000000))
+                .actualPrice(BigDecimal.valueOf(2000000))
+                .build());
+
+        bookingRepository.save(Booking.builder()
+                .guest(testGuest)
+                .roomType(testRoomType)
+                .room(testRoom2)
+                .checkInDate(start)
+                .checkOutDate(end)
+                .status(BookingStatus.CONFIRMED)
+                .expectedPrice(BigDecimal.valueOf(2000000))
+                .actualPrice(BigDecimal.valueOf(2000000))
+                .build());
+
+        // Tạo 1 sự kiện bận từ kênh OTA trong khoảng thời gian này
+        String startStr = start.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String endStr = end.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String icsContent = "BEGIN:VCALENDAR\r\n" +
+                "VERSION:2.0\r\n" +
+                "PRODID:-//Airbnb Inc//Hosting Calendar 0.8//EN\r\n" +
+                "BEGIN:VEVENT\r\n" +
+                "UID:conflict-guest-100@airbnb.com\r\n" +
+                "DTSTART;VALUE=DATE:" + startStr + "\r\n" +
+                "DTEND;VALUE=DATE:" + endStr + "\r\n" +
+                "SUMMARY:Reserved - John Doe\r\n" +
+                "END:VEVENT\r\n" +
+                "END:VCALENDAR";
+
+        // Thực hiện đồng bộ inbound
+        syncServiceImpl.processInboundIcsContent(testChannel, icsContent, "TEST_SYNC");
+
+        // Lấy lượt chặn vừa được tạo
+        ChannelRoomBlock block = channelRoomBlockRepository.findByChannelIdAndExternalUid(testChannel.getId(), "conflict-guest-100@airbnb.com")
+                .orElse(null);
+        assertNotNull(block, "Lượt chặn từ kênh phải được lưu lại");
+        assertNull(block.getRoom(), "Không còn phòng trống nên không thể gán phòng vật lý");
+        assertNotNull(block.getWarningMessage(), "Phải có thông điệp cảnh báo trùng lịch");
+        assertTrue(block.getWarningMessage().contains("Trùng lịch với đặt phòng"), "Thông báo phải chỉ rõ trùng lịch với đặt phòng: " + block.getWarningMessage());
+
+        // Kiểm tra thông báo được gửi đến lễ tân
+        List<Notification> notifs = notificationRepository.findAll().stream()
+                .filter(n -> n.getType() == NotificationType.CHANNEL_OVERBOOKING_CONFLICT)
+                .toList();
+        assertFalse(notifs.isEmpty(), "Phải tạo thông báo loại CHANNEL_OVERBOOKING_CONFLICT");
+        assertTrue(notifs.stream().anyMatch(n -> n.getUser().getRole() == Role.RECEPTIONIST),
+                "Lễ tân phải nhận được thông báo trùng lịch kênh");
+
+        // Kiểm tra sơ đồ lịch phòng (getCalendar) trả về cờ hasConflict = true
+        List<?> calendarItems = bookingService.getCalendar(start.minusDays(1), end.plusDays(1));
+        boolean foundConflictInCalendar = false;
+        for (Object item : calendarItems) {
+            if (item instanceof Map<?, ?> map) {
+                String expectedBlockId = "block_" + block.getId();
+                if (expectedBlockId.equals(map.get("id")) || block.getId().equals(map.get("blockId"))) {
+                    assertEquals(Boolean.TRUE, map.get("hasConflict"), "Sơ đồ lịch phải đánh dấu hasConflict = true");
+                    foundConflictInCalendar = true;
+                }
+            }
+        }
+        assertTrue(foundConflictInCalendar, "Lượt chặn xung đột phải xuất hiện trên Sơ đồ lịch phòng");
     }
 }

@@ -6,7 +6,8 @@ import {
   IoTrendingUpOutline,
   IoStatsChartOutline,
   IoGlobeOutline,
-  IoTimeOutline
+  IoTimeOutline,
+  IoGitCompareOutline
 } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
@@ -16,13 +17,15 @@ import OccupancyReport from './OccupancyReport';
 import AdrRevparReport from './AdrRevparReport';
 import ChannelReport from './ChannelReport';
 import DebtAgingReport from './DebtAgingReport';
+import PeriodComparisonReport from './PeriodComparisonReport';
 
 const TABS = [
-  { id: 'revenue',    label: 'Doanh thu',                                        icon: IoTrendingUpOutline },
-  { id: 'debt-aging', label: 'Tuổi nợ & Nhắc thu',                              icon: IoTimeOutline },
-  { id: 'occupancy',  label: 'Công suất phòng',                                  icon: IoPricetagOutline },
-  { id: 'adr-revpar', label: 'Giá bán TB & Doanh thu/phòng (ADR & RevPAR)',       icon: IoStatsChartOutline },
-  { id: 'channel',    label: 'Cơ cấu theo kênh',                                 icon: IoGlobeOutline }
+  { id: 'revenue',           label: 'Doanh thu',                                        icon: IoTrendingUpOutline },
+  { id: 'period-comparison', label: 'So sánh với kỳ trước',                             icon: IoGitCompareOutline },
+  { id: 'debt-aging',        label: 'Tuổi nợ & Nhắc thu',                              icon: IoTimeOutline },
+  { id: 'occupancy',         label: 'Công suất phòng',                                  icon: IoPricetagOutline },
+  { id: 'adr-revpar',        label: 'Giá bán TB & Doanh thu/phòng (ADR & RevPAR)',       icon: IoStatsChartOutline },
+  { id: 'channel',           label: 'Cơ cấu theo kênh',                                 icon: IoGlobeOutline }
 ];
 
 const ReportsPage: React.FC = () => {
@@ -44,17 +47,18 @@ const ReportsPage: React.FC = () => {
       <PageHeader
         icon={IoBarChartOutline}
         title="Báo cáo & Phân tích"
-        subtitle="Phân tích doanh thu, tuổi nợ & nhắc thu, công suất, hiệu quả giá bán và cơ cấu đặt phòng theo kênh"
+        subtitle="Phân tích doanh thu, so sánh chỉ số đa kỳ, tuổi nợ, công suất, hiệu quả giá bán và cơ cấu đặt phòng theo kênh"
       />
 
       {/* Tabs */}
       <Tabs tabs={TABS} paramKey="tab" defaultTab="revenue" className="mt-0" />
 
-      {tab === 'revenue'    && <RevenueReport />}
-      {tab === 'debt-aging' && <DebtAgingReport />}
-      {tab === 'occupancy'  && <OccupancyReport />}
-      {tab === 'adr-revpar' && <AdrRevparReport />}
-      {tab === 'channel'    && <ChannelReport />}
+      {tab === 'revenue'           && <RevenueReport />}
+      {tab === 'period-comparison' && <PeriodComparisonReport />}
+      {tab === 'debt-aging'        && <DebtAgingReport />}
+      {tab === 'occupancy'         && <OccupancyReport />}
+      {tab === 'adr-revpar'        && <AdrRevparReport />}
+      {tab === 'channel'           && <ChannelReport />}
     </div>
   );
 };

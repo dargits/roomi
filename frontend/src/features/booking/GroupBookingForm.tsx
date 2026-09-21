@@ -121,24 +121,24 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
     <Modal isOpen={isOpen} onClose={onClose} title="Tạo hồ sơ đặt phòng đoàn" maxWidth="max-w-3xl">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-error rounded-md text-sm">{error}</div>}
       <form id="groupBookingForm" onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-surface-container-lowest border border-border-grey rounded-lg">
-          <div className="md:col-span-2 font-title-md text-on-surface flex items-center gap-2">
-            <IoPersonOutline className="text-primary" size={18} /> Người đại diện đoàn
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-[#FBFDF9] border border-border-grey rounded-xl">
+          <div className="md:col-span-2 font-bold text-xs uppercase tracking-wider text-[#586650]">
+            Người đại diện đoàn
           </div>
-          <Input label="Họ và tên" name="representativeName" icon={IoPersonOutline} value={formData.representativeName} onChange={updateField} required />
+          <Input label="Họ và tên" name="representativeName" value={formData.representativeName} onChange={updateField} required />
           <Input label="Số điện thoại" name="representativePhone" value={formData.representativePhone} onChange={updateField} placeholder="Dùng để tìm hoặc tạo hồ sơ khách" />
           <Input label="Email" type="email" name="representativeEmail" value={formData.representativeEmail} onChange={updateField} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input label="Ngày nhận phòng" type="date" name="checkInDate" icon={IoLogInOutline} value={formData.checkInDate} onChange={updateField} required />
-          <Input label="Ngày trả phòng" type="date" name="checkOutDate" icon={IoLogOutOutline} value={formData.checkOutDate} onChange={updateField} required />
+          <Input label="Ngày nhận phòng" type="date" name="checkInDate" value={formData.checkInDate} onChange={updateField} required />
+          <Input label="Ngày trả phòng" type="date" name="checkOutDate" value={formData.checkOutDate} onChange={updateField} required />
         </div>
 
-        <div className="border border-border-grey rounded-lg overflow-hidden">
-          <div className="p-4 bg-surface-container-low flex flex-wrap items-center justify-between gap-3 border-b border-border-grey">
-            <div className="font-title-md text-on-surface flex items-center gap-2"><IoBedOutline className="text-primary" size={18} /> Nhu cầu phòng</div>
-            <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md">{totalRooms} phòng</span>
+        <div className="border border-border-grey rounded-xl overflow-hidden">
+          <div className="p-4 bg-[#FBFDF9] flex flex-wrap items-center justify-between gap-3 border-b border-border-grey">
+            <div className="font-bold text-xs uppercase tracking-wider text-[#586650]">Nhu cầu phòng</div>
+            <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">{totalRooms} phòng</span>
           </div>
           <div className="p-4 space-y-3">
             {formData.rooms.map((line, index) => {
@@ -184,7 +184,7 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
                     title="Xóa dòng phòng"
                     onClick={() => removeRoomLine(index)}
                     disabled={formData.rooms.length === 1}
-                    className="h-[42px] border border-red-200 text-error rounded-md hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="h-[42px] border border-red-200 text-error rounded-xl hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <IoRemoveOutline className="mx-auto" size={18} />
                   </button>
@@ -192,18 +192,18 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
               );
             })}
             {formData.rooms.length < roomTypes.length && (
-              <Button type="button" variant="outline" size="sm" icon={IoAddOutline} onClick={addRoomLine}>
+              <Button type="button" variant="outline" size="sm" onClick={addRoomLine}>
                 Thêm loại phòng
               </Button>
             )}
           </div>
         </div>
 
-        <Input label="Ghi chú" name="note" icon={IoDocumentOutline} value={formData.note} onChange={updateField} placeholder="Yêu cầu chung của đoàn..." />
+        <Input label="Ghi chú" name="note" value={formData.note} onChange={updateField} placeholder="Yêu cầu chung của đoàn..." />
       </form>
       <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-border-grey">
-        <Button variant="ghost" onClick={onClose} disabled={loading} icon={IoCloseOutline}>Hủy</Button>
-        <Button type="submit" form="groupBookingForm" isLoading={loading} icon={IoCheckmarkCircleOutline}>Tạo hồ sơ đoàn</Button>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>Hủy</Button>
+        <Button type="submit" form="groupBookingForm" isLoading={loading}>Tạo hồ sơ đoàn</Button>
       </div>
     </Modal>
   );

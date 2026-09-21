@@ -74,6 +74,10 @@ public class ChannelRoomBlock {
     @Column(name = "warning_message", columnDefinition = "TEXT")
     private String warningMessage;
 
+    // Lý do từ chối lượt chặn nếu lễ tân từ chối
+    @Column(name = "reject_reason", columnDefinition = "TEXT")
+    private String rejectReason;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
