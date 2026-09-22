@@ -128,11 +128,13 @@ const HeroStatCard: React.FC<{
             e.stopPropagation();
             if (onAction) onAction();
           }}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#16220E] text-[#D4F63D] hover:bg-[#16220E]/85 text-[11px] font-bold transition-all shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#16220E] hover:underline cursor-pointer group text-right shrink-0"
           title="Mở Báo cáo doanh thu & Chi tiết tài chính"
         >
-          <span>{actionText}</span>
-          <IoArrowForwardOutline size={12} className="group-hover:translate-x-0.5 transition-transform" />
+          <span className="leading-tight">
+            Chi tiết tài<br />chính
+          </span>
+          <IoArrowForwardOutline size={14} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
         </button>
       )}
     </div>
