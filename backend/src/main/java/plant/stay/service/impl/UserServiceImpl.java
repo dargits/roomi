@@ -268,7 +268,8 @@ public class UserServiceImpl implements plant.stay.service.UserService {
     @org.springframework.transaction.annotation.Transactional
     public void logout(String token) {
         if (token == null || token.trim().isEmpty()) return;
-        sessionRepository.findBySession(token).ifPresent(s -> {
+        String cleanToken = token.startsWith("Bearer ") ? token.substring(7).trim() : token.trim();
+        sessionRepository.findBySession(cleanToken).ifPresent(s -> {
             s.setStatus("REVOKED");
             s.setRevokedReason("Người dùng tự đăng xuất.");
             s.setRevokedAt(java.time.LocalDateTime.now());

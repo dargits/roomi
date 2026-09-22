@@ -28,7 +28,10 @@ const authApi = {
    * Endpoint: POST /api/v1/auth/logout
    */
   logout: async (): Promise<MessageResponse> => {
-    const response = await api.post<MessageResponse>('/auth/logout');
+    const token =
+      localStorage.getItem('staygo_token') ||
+      sessionStorage.getItem('staygo_token');
+    const response = await api.post<MessageResponse>('/auth/logout', { token });
     return response.data;
   }
 };
