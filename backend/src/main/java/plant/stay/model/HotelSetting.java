@@ -110,6 +110,29 @@ public class HotelSetting {
     @Builder.Default
     private Boolean publicInvoiceLookupEnabled = true;
 
+    /**
+     * Cấu hình gợi ý điều chỉnh giá theo công suất dự báo:
+     * - priceSuggestionHighThreshold: Ngưỡng lấp đầy trên (%), gợi ý cân nhắc tăng giá (mặc định 80.0%)
+     * - priceSuggestionLowThreshold: Ngưỡng lấp đầy dưới (%), gợi ý cân nhắc giảm giá hoặc mở thêm kênh (mặc định 30.0%)
+     * - priceSuggestionImminentDays: Số ngày cận kề để xét gợi ý giảm giá (mặc định 7 ngày)
+     * - priceSuggestionConfigured: Đánh dấu Chủ cơ sở đã cấu hình ngưỡng lấp đầy hay chưa
+     */
+    @Column(name = "price_suggestion_high_threshold")
+    @Builder.Default
+    private Double priceSuggestionHighThreshold = 80.0;
+
+    @Column(name = "price_suggestion_low_threshold")
+    @Builder.Default
+    private Double priceSuggestionLowThreshold = 30.0;
+
+    @Column(name = "price_suggestion_imminent_days")
+    @Builder.Default
+    private Integer priceSuggestionImminentDays = 7;
+
+    @Column(name = "price_suggestion_configured")
+    @Builder.Default
+    private Boolean priceSuggestionConfigured = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
