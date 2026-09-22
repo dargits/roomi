@@ -78,47 +78,61 @@ const HeroStatCard: React.FC<{
   actionText?: string;
   onAction?: () => void;
 }> = ({ title, rawValue, collectedAmount = 0, debtAmount = 0, collectionPercent = 0, actionText, onAction }) => (
-  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#E8FAA0] via-[#DDF672] to-[#D2F346] border border-[#C5EB34] p-6 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:-translate-y-0.5 duration-200">
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#16220E]/80 animate-pulse" />
-          <p className="text-xs font-bold uppercase tracking-wider text-[#16220E]/80">{title}</p>
+  <div 
+    onClick={onAction}
+    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#E8FAA0] via-[#DDF672] to-[#D2F346] border border-[#C5EB34] p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:-translate-y-0.5 duration-200 cursor-pointer group"
+  >
+    <div>
+      {/* Top Header: Title & Pill Badge */}
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#16220E]/80 animate-pulse shrink-0" />
+          <p className="text-xs font-bold uppercase tracking-wider text-[#16220E]/80 truncate">{title}</p>
         </div>
-        <h3 className="text-3xl sm:text-4xl font-extrabold text-[#16220E] mt-2.5 tracking-tight leading-none">
+        <div className="inline-flex items-center gap-1 bg-[#16220E] text-[#D4F63D] px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs shrink-0 whitespace-nowrap">
+          <IoArrowUpOutline size={12} className="shrink-0" />
+          <span>
+            <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
+          </span>
+        </div>
+      </div>
+
+      {/* Main Metric Value */}
+      <div className="mt-3">
+        <h3 className="text-2xl sm:text-3xl font-extrabold text-[#16220E] tracking-tight leading-none truncate" title={fmtCurrency(rawValue)}>
           <AnimatedCounter value={rawValue} formatter={fmtCurrency} />
         </h3>
       </div>
-      <div className="inline-flex items-center gap-1.5 bg-[#16220E] text-[#D4F63D] px-3 py-1 rounded-full text-xs font-bold shadow-xs shrink-0">
-        <IoArrowUpOutline size={13} />
-        <span>
-          <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
-        </span>
-      </div>
     </div>
 
-    <div className="mt-6 pt-4 border-t border-[#16220E]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#16220E]/90">
-      <div className="flex items-center gap-4 flex-wrap font-medium">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#16220E]" />
-          <span>
-            Đã thu: <strong><AnimatedCounter value={collectedAmount} formatter={fmtCurrency} /></strong>
+    {/* Bottom Footer: Collected & Debt + Action Button */}
+    <div className="mt-4 pt-3 border-t border-[#16220E]/15 flex items-center justify-between gap-2 text-xs text-[#16220E]/90">
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16220E] shrink-0" />
+          <span className="truncate text-[#16220E]/90">
+            Đã thu: <strong className="font-bold text-[#16220E]"><AnimatedCounter value={collectedAmount} formatter={fmtCurrency} /></strong>
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#16220E]/40" />
-          <span>
-            Công nợ: <strong><AnimatedCounter value={debtAmount} formatter={fmtCurrency} /></strong>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16220E]/40 shrink-0" />
+          <span className="truncate text-[#16220E]/90">
+            Công nợ: <strong className="font-bold text-[#16220E]"><AnimatedCounter value={debtAmount} formatter={fmtCurrency} /></strong>
           </span>
         </div>
       </div>
       {actionText && (
         <button
-          onClick={onAction}
-          className="inline-flex items-center gap-1 text-xs font-bold text-[#16220E] hover:underline cursor-pointer"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onAction) onAction();
+          }}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#16220E] text-[#D4F63D] hover:bg-[#16220E]/85 text-[11px] font-bold transition-all shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
+          title="Mở Báo cáo doanh thu & Chi tiết tài chính"
         >
           <span>{actionText}</span>
-          <IoArrowForwardOutline size={12} />
+          <IoArrowForwardOutline size={12} className="group-hover:translate-x-0.5 transition-transform" />
         </button>
       )}
     </div>
@@ -718,6 +732,7 @@ const HotelKpiTicker: React.FC<{
 );
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { pendingCount: pendingResetCount } = usePasswordResetNotification();
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
@@ -1029,7 +1044,7 @@ const DashboardPage: React.FC = () => {
                 debtAmount={dashboard.monthDebtRevenue || 0}
                 collectionPercent={realCollectionPercent}
                 actionText="Chi tiết tài chính"
-                onAction={() => {}}
+                onAction={() => navigate('/manage/reports?tab=revenue')}
               />
             </div>
 
@@ -1050,6 +1065,7 @@ const DashboardPage: React.FC = () => {
               iconColor="text-[#3F4F24]"
               progressPercent={dashboard.totalRooms ? ((dashboard.availableRooms || 0) / dashboard.totalRooms) * 100 : 0}
               progressBarColor="bg-[#A4B465]"
+              onClick={() => navigate('/manage/rooms')}
             />
 
             {/* Card 3: Đang có khách */}
@@ -1065,6 +1081,7 @@ const DashboardPage: React.FC = () => {
               iconColor="text-[#1E40AF]"
               progressPercent={realOccupancyRate}
               progressBarColor="bg-[#626F47]"
+              onClick={() => navigate('/manage/in-house-guests')}
             />
 
             {/* Card 4: Chờ dọn dẹp */}
@@ -1080,6 +1097,7 @@ const DashboardPage: React.FC = () => {
               iconColor="text-[#B45309]"
               progressPercent={dashboard.totalRooms ? (dirtyRoomsCount / dashboard.totalRooms) * 100 : 0}
               progressBarColor="bg-[#F59E0B]"
+              onClick={() => navigate('/manage/housekeeping')}
             />
           </div>
 
