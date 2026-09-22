@@ -36,7 +36,7 @@ const ReportsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'revenue';
 
-  const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role || '');
+  const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
   if (!hasAccess) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 text-error rounded-xl text-sm">
