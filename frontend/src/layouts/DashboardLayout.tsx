@@ -89,8 +89,8 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoPeopleOutline,
     items: [
       { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
+      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
       { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER'] }
     ]
