@@ -44,4 +44,9 @@ public class BookingResponse {
     private Long channelId;
     private String channelName;
     private String channelCode;
+    private String priceSource;
+    private Long appliedAgreementId;
+    private String appliedAgreementName;
+    private Long corporateClientId;
+    private String corporateClientName;
 }

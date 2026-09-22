@@ -62,6 +62,7 @@ public class BookingServiceImpl implements BookingService {
     private final ApplicationEventPublisher eventPublisher;
     @org.springframework.context.annotation.Lazy
     private final plant.stay.service.ChannelCalendarSyncService channelCalendarSyncService;
+    private final plant.stay.service.NegotiatedPriceService negotiatedPriceService;
 
     @Value("${app.domain:https://stayaway.io.vn}")
     private String appDomain;
@@ -215,14 +216,25 @@ public class BookingServiceImpl implements BookingService {
         if (guestCount > maxCap) {
             throw new IllegalArgumentException("Số khách (" + guestCount + ") vượt quá sức chứa tối đa của phòng (" + maxCap + " người). Vui lòng chọn loại phòng lớn hơn.");
         }
+        NegotiatedPriceAgreement appliedAgreement = negotiatedPriceService != null
+                ? negotiatedPriceService.resolveAgreement(
+                        request.getGroupBookingId(),
+                        request.getCorporateClientId(),
+                        request.getCheckInDate()
+                )
+                : null;
 
-        var breakdown = pricingService.calculateBreakdown(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate(), guestCount, request.getChildCount());
+        var breakdown = pricingService.calculateBreakdown(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate(), guestCount, request.getChildCount(), appliedAgreement);
         BigDecimal expectedPrice = breakdown.getGrandTotal();
 
         String finalNote = request.getNote();
         if (breakdown.getExtraGuests() > 0) {
             String surchargeNote = "[Phụ thu thêm " + breakdown.getExtraGuests() + " người: " + breakdown.getTotalExtraCharge().toPlainString() + " đ]";
             finalNote = (finalNote != null && !finalNote.isBlank()) ? (finalNote + " " + surchargeNote) : surchargeNote;
+        }
+        if (appliedAgreement != null) {
+            String agreementNote = "[Áp dụng thỏa thuận giá: " + appliedAgreement.getName() + " (" + appliedAgreement.getPricePerNight() + " đ/đêm)]";
+            finalNote = (finalNote != null && !finalNote.isBlank()) ? (finalNote + " " + agreementNote) : agreementNote;
         }
 
         String bookingSource = (request.getSource() != null && !request.getSource().isBlank())
@@ -239,12 +251,14 @@ public class BookingServiceImpl implements BookingService {
                 .expectedPrice(expectedPrice)
                 .actualPrice(expectedPrice)
                 .source(bookingSource)
+                .appliedAgreement(appliedAgreement)
+                .priceSource(appliedAgreement != null ? "NEGOTIATED" : "STANDARD")
                 .note(finalNote)
                 .createdBy(actor)
                 .build();
         booking = bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "CREATE", actor,
-                "Tạo đặt phòng cho khách " + guest.getName());
+                "Tạo đặt phòng cho khách " + guest.getName() + (appliedAgreement != null ? " (Giá thỏa thuận: " + appliedAgreement.getName() + ")" : ""));
         eventPublisher.publishEvent(new CalendarSyncEvent(booking.getRoomType().getId(), "BOOKING_CREATED"));
         return toResponse(booking);
     }
@@ -1467,6 +1481,11 @@ public class BookingServiceImpl implements BookingService {
                 .channelId(b.getChannel() != null ? b.getChannel().getId() : null)
                 .channelName(b.getChannel() != null ? b.getChannel().getName() : null)
                 .channelCode(b.getChannel() != null ? b.getChannel().getChannelCode() : null)
+                .priceSource(b.getPriceSource() != null ? b.getPriceSource() : "STANDARD")
+                .appliedAgreementId(b.getAppliedAgreement() != null ? b.getAppliedAgreement().getId() : null)
+                .appliedAgreementName(b.getAppliedAgreement() != null ? b.getAppliedAgreement().getName() : null)
+                .corporateClientId(b.getAppliedAgreement() != null && b.getAppliedAgreement().getCorporateClient() != null ? b.getAppliedAgreement().getCorporateClient().getId() : null)
+                .corporateClientName(b.getAppliedAgreement() != null && b.getAppliedAgreement().getCorporateClient() != null ? b.getAppliedAgreement().getCorporateClient().getCompanyName() : null)
                 .build();
     }
 

@@ -74,4 +74,5 @@ const groupBookingApi = {
   },
 };
 
+export { groupBookingApi };
 export default groupBookingApi;
