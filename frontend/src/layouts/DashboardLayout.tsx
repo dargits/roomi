@@ -419,7 +419,7 @@ const DashboardLayout: React.FC = () => {
   const currentRouteMeta = ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#F4F6F0] text-on-surface flex flex-col antialiased">
+    <div className="h-screen w-full overflow-hidden bg-[#F4F6F0] text-on-surface flex flex-col antialiased">
       <div className="flex flex-1 h-full overflow-hidden relative">
         
         {/* Mobile Backdrop */}
