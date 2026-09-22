@@ -423,3 +423,75 @@ export interface PeriodComparisonReportResponse {
   roomTypes: RoomTypeComparisonDto[];
   executiveInsights: string[];
 }
+
+export interface SurchargeReportSummary {
+  totalSurchargeRevenue: number;
+  catalogServicesRevenue: number;
+  autoSurchargeRevenue: number;
+  totalSalesCount: number;
+  totalQuantity: number;
+  totalCatalogServices: number;
+  activeCatalogServices: number;
+  zeroSalesCatalogServices: number;
+  topServiceName: string;
+  topServiceRevenue: number;
+}
+
+export interface RoomTypeBreakdownItem {
+  roomTypeId: number;
+  roomTypeName: string;
+  salesCount: number;
+  totalQuantity: number;
+  revenue: number;
+  shareInService: number;
+}
+
+export interface CatalogServiceItem {
+  serviceId: number;
+  serviceName: string;
+  unitPrice: number;
+  unit: string;
+  active: boolean;
+  salesCount: number;
+  totalQuantity: number;
+  revenue: number;
+  revenueShare: number;
+  roomTypeBreakdown: RoomTypeBreakdownItem[];
+}
+
+export interface AutoSurchargeItem {
+  code: string;
+  name: string;
+  salesCount: number;
+  totalQuantity: number;
+  revenue: number;
+  revenueShare: number;
+  roomTypeBreakdown: RoomTypeBreakdownItem[];
+}
+
+export interface SimpleServiceStat {
+  name: string;
+  revenue: number;
+  quantity: number;
+}
+
+export interface RoomTypeComparisonItem {
+  roomTypeId: number;
+  roomTypeName: string;
+  totalRevenue: number;
+  totalQuantity: number;
+  salesCount: number;
+  revenueShare: number;
+  topServices: SimpleServiceStat[];
+}
+
+export interface BestSellingServicesReportResponse {
+  from: string;
+  to: string;
+  selectedRoomTypeId?: number;
+  selectedRoomTypeName?: string;
+  summary: SurchargeReportSummary;
+  catalogServices: CatalogServiceItem[];
+  autoSurcharges: AutoSurchargeItem[];
+  roomTypeComparisons: RoomTypeComparisonItem[];
+}
