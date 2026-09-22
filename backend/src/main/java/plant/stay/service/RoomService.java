@@ -28,4 +28,9 @@ public interface RoomService {
 
     // Dọn định kỳ phòng trống dài ngày
     int triggerPeriodicCleaningCheck(User actor);
+
+    // feature/time-standard: Đo thời gian dọn thực tế và gián đoạn
+    RoomResponse startCleaning(Long id, User actor);
+    RoomResponse interruptCleaning(Long id, String reason, User actor);
+    RoomResponse rejectClean(Long id, String reason, User actor);
 }

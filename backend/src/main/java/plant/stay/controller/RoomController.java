@@ -97,6 +97,23 @@ public class RoomController {
         return ResponseEntity.ok(roomService.markDirty(id, actor));
     }
 
+    // feature/time-standard: Nhân viên bắt đầu dọn phòng (bắt đầu bấm giờ)
+    @PutMapping("/{id}/start-cleaning")
+    public ResponseEntity<RoomResponse> startCleaning(@PathVariable Long id, HttpServletRequest request) {
+        User actor = checkHousekeeping(request);
+        return ResponseEntity.ok(roomService.startCleaning(id, actor));
+    }
+
+    // feature/time-standard: Đánh dấu phòng bị gián đoạn khi dọn (thiếu đồ vải, bảo trì, khách quay lại...)
+    @PutMapping("/{id}/interrupt-cleaning")
+    public ResponseEntity<RoomResponse> interruptCleaning(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            HttpServletRequest request) {
+        User actor = checkHousekeeping(request);
+        return ResponseEntity.ok(roomService.interruptCleaning(id, reason, actor));
+    }
+
     // NCL-06-CN-NEW: Housekeeper báo hoàn thành dọn, gửi kiểm tra (DIRTY → INSPECTING)
     @PutMapping("/{id}/submit-inspection")
     public ResponseEntity<RoomResponse> submitForInspection(@PathVariable Long id, HttpServletRequest request) {
@@ -109,6 +126,16 @@ public class RoomController {
     public ResponseEntity<RoomResponse> approveClean(@PathVariable Long id, HttpServletRequest request) {
         User actor = checkSupervisor(request);
         return ResponseEntity.ok(roomService.approveClean(id, actor));
+    }
+
+    // feature/time-standard: Supervisor trả lại kiểm tra không đạt (INSPECTING → DIRTY)
+    @PutMapping("/{id}/reject-clean")
+    public ResponseEntity<RoomResponse> rejectClean(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            HttpServletRequest request) {
+        User actor = checkSupervisor(request);
+        return ResponseEntity.ok(roomService.rejectClean(id, reason, actor));
     }
 
     // NCL-06-CN-NEW: Phân công nhân viên dọn phòng

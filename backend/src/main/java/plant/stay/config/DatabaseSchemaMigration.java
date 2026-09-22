@@ -399,5 +399,49 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: hotel_settings configuration columns: {}", e.getMessage());
         }
+
+        // 19. Định mức thời gian dọn và theo dõi năng suất buồng phòng (feature/time-standard)
+        try {
+            jdbcTemplate.execute("ALTER TABLE room_types ADD COLUMN IF NOT EXISTS standard_checkout_cleaning_minutes INT DEFAULT 45");
+            jdbcTemplate.execute("ALTER TABLE room_types ADD COLUMN IF NOT EXISTS standard_periodic_cleaning_minutes INT DEFAULT 20");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS cleaning_started_at DATETIME");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS active_cleaning_record_id BIGINT");
+
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS room_cleaning_records (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  room_id BIGINT NOT NULL," +
+                "  room_type_id BIGINT NOT NULL," +
+                "  housekeeper_id BIGINT NULL," +
+                "  cleaning_type VARCHAR(30) NULL," +
+                "  started_at DATETIME NULL," +
+                "  completed_at DATETIME NULL," +
+                "  actual_duration_minutes INT NULL," +
+                "  standard_duration_minutes INT NULL," +
+                "  status VARCHAR(30) NOT NULL DEFAULT 'IN_PROGRESS'," +
+                "  is_interrupted BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  interruption_reason TEXT NULL," +
+                "  has_incident BOOLEAN NOT NULL DEFAULT FALSE," +
+                "  incident_count INT NOT NULL DEFAULT 0," +
+                "  rejection_count INT NOT NULL DEFAULT 0," +
+                "  rejection_note TEXT NULL," +
+                "  inspected_by BIGINT NULL," +
+                "  inspected_at DATETIME NULL," +
+                "  created_at DATETIME(6) NOT NULL," +
+                "  updated_at DATETIME(6) NULL," +
+                "  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE," +
+                "  FOREIGN KEY (housekeeper_id) REFERENCES users(id) ON DELETE SET NULL," +
+                "  FOREIGN KEY (inspected_by) REFERENCES users(id) ON DELETE SET NULL" +
+                ")"
+            );
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_rcr_room_id ON room_cleaning_records(room_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_rcr_housekeeper_id ON room_cleaning_records(housekeeper_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_rcr_completed_at ON room_cleaning_records(completed_at)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_rcr_started_at ON room_cleaning_records(started_at)");
+            log.info("Schema Migration: Successfully ensured 'room_cleaning_records' table and cleaning standards columns exist.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: room_cleaning_records migration: {}", e.getMessage());
+        }
     }
 }
