@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { useAuth } from '../../context/AuthContext';
 import { IoAddOutline, IoBedOutline, IoCashOutline, IoChevronDownOutline, IoCloseOutline, IoCloudUploadOutline, IoPencilOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
@@ -27,6 +28,7 @@ interface RoomTypeFormData {
 }
 
 const RoomTypeManagement: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [roomTypes, setRoomTypes] = useState<RoomTypeResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -343,6 +345,13 @@ const RoomTypeManagement: React.FC = () => {
                               }`}
                             >
                               📅 Giá theo Mùa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => navigate('/manage/price-suggestions')}
+                              className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors bg-surface-blue-light text-primary hover:bg-primary hover:text-on-primary ml-auto flex items-center gap-1.5"
+                            >
+                              📈 Xem gợi ý điều chỉnh giá theo công suất
                             </button>
                           </div>
 

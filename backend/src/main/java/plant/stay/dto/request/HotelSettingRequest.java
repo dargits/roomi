@@ -55,4 +55,9 @@ public class HotelSettingRequest {
     private Integer maxSessionLifetimeHours;
 
     private Boolean publicInvoiceLookupEnabled;
+
+    private Double priceSuggestionHighThreshold;
+    private Double priceSuggestionLowThreshold;
+    private Integer priceSuggestionImminentDays;
+    private Boolean priceSuggestionConfigured;
 }
