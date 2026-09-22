@@ -20,6 +20,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import plant.stay.event.CalendarSyncEvent;
 
 import plant.stay.repository.HotelSettingRepository;
+import plant.stay.repository.RoomCleaningRecordRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +38,7 @@ public class RoomServiceImpl implements RoomService {
     private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
     private final HotelSettingRepository hotelSettingRepository;
+    private final RoomCleaningRecordRepository roomCleaningRecordRepository;
 
     @Override
     public List<RoomResponse> getAll() {
@@ -166,7 +168,91 @@ public class RoomServiceImpl implements RoomService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ===== NCL-06-CN-NEW: Housekeeping 2 bước =====
+    // ===== feature/time-standard: Đo thời gian dọn và theo dõi năng suất buồng phòng =====
+
+    @Override
+    @Transactional
+    public RoomResponse startCleaning(Long id, User actor) {
+        Room room = findById(id);
+        if (room.getStatus() != RoomStatus.DIRTY) {
+            throw new IllegalArgumentException("Chỉ có thể bắt đầu dọn khi phòng ở trạng thái Cần dọn (DIRTY)");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        int standardMinutes = 45;
+        if (room.getRoomType() != null) {
+            if ("PERIODIC_VACANT".equals(room.getCleaningReason())) {
+                standardMinutes = room.getRoomType().getStandardPeriodicCleaningMinutes() != null
+                        ? room.getRoomType().getStandardPeriodicCleaningMinutes() : 20;
+            } else {
+                standardMinutes = room.getRoomType().getStandardCheckoutCleaningMinutes() != null
+                        ? room.getRoomType().getStandardCheckoutCleaningMinutes() : 45;
+            }
+        }
+
+        User housekeeper = room.getAssignedHousekeeper() != null ? room.getAssignedHousekeeper() : actor;
+        RoomCleaningRecord record;
+
+        // Nếu đã có bản ghi đang diễn ra thì tái sử dụng
+        if (room.getActiveCleaningRecordId() != null) {
+            record = roomCleaningRecordRepository.findById(room.getActiveCleaningRecordId()).orElse(null);
+            if (record != null && record.getStatus() == CleaningRecordStatus.IN_PROGRESS) {
+                record.setStartedAt(now);
+                record.setHousekeeper(housekeeper);
+                record.setStandardDurationMinutes(standardMinutes);
+                record = roomCleaningRecordRepository.save(record);
+            } else {
+                record = null;
+            }
+        } else {
+            record = null;
+        }
+
+        if (record == null) {
+            record = RoomCleaningRecord.builder()
+                    .room(room)
+                    .roomType(room.getRoomType())
+                    .housekeeper(housekeeper)
+                    .cleaningType("PERIODIC_VACANT".equals(room.getCleaningReason()) ? "PERIODIC" : "CHECKOUT")
+                    .standardDurationMinutes(standardMinutes)
+                    .startedAt(now)
+                    .status(CleaningRecordStatus.IN_PROGRESS)
+                    .isInterrupted(false)
+                    .hasIncident(false)
+                    .rejectionCount(0)
+                    .build();
+            record = roomCleaningRecordRepository.save(record);
+        }
+
+        room.setCleaningStartedAt(now);
+        room.setActiveCleaningRecordId(record.getId());
+        if (room.getAssignedHousekeeper() == null && actor.getRole() == Role.HOUSEKEEPER) {
+            room.setAssignedHousekeeper(actor);
+            room.setAssignedAt(now);
+        }
+        room = roomRepository.save(room);
+
+        auditLogService.log("Room", room.getId(), "START_CLEANING", actor,
+                "Bắt đầu dọn phòng " + room.getRoomNumber() + " (Định mức: " + standardMinutes + " phút)");
+        return toResponse(room);
+    }
+
+    @Override
+    @Transactional
+    public RoomResponse interruptCleaning(Long id, String reason, User actor) {
+        Room room = findById(id);
+        if (room.getActiveCleaningRecordId() != null) {
+            RoomCleaningRecord record = roomCleaningRecordRepository.findById(room.getActiveCleaningRecordId()).orElse(null);
+            if (record != null) {
+                record.setIsInterrupted(true);
+                record.setInterruptionReason(reason != null ? reason : "Gián đoạn tác vụ dọn phòng");
+                roomCleaningRecordRepository.save(record);
+            }
+        }
+        auditLogService.log("Room", room.getId(), "INTERRUPT_CLEANING", actor,
+                "Đánh dấu phòng " + room.getRoomNumber() + " bị gián đoạn: " + (reason != null ? reason : "Không nêu lý do"));
+        return toResponse(room);
+    }
 
     @Override
     @Transactional
@@ -175,6 +261,56 @@ public class RoomServiceImpl implements RoomService {
         if (room.getStatus() != RoomStatus.DIRTY) {
             throw new IllegalArgumentException("Chỉ có thể gửi kiểm tra khi phòng ở trạng thái Cần dọn (DIRTY)");
         }
+
+        LocalDateTime now = LocalDateTime.now();
+        int standardMinutes = 45;
+        if (room.getRoomType() != null) {
+            if ("PERIODIC_VACANT".equals(room.getCleaningReason())) {
+                standardMinutes = room.getRoomType().getStandardPeriodicCleaningMinutes() != null
+                        ? room.getRoomType().getStandardPeriodicCleaningMinutes() : 20;
+            } else {
+                standardMinutes = room.getRoomType().getStandardCheckoutCleaningMinutes() != null
+                        ? room.getRoomType().getStandardCheckoutCleaningMinutes() : 45;
+            }
+        }
+
+        if (room.getActiveCleaningRecordId() != null) {
+            RoomCleaningRecord record = roomCleaningRecordRepository.findById(room.getActiveCleaningRecordId()).orElse(null);
+            if (record != null) {
+                record.setCompletedAt(now);
+                if (record.getStartedAt() != null) {
+                    long diff = java.time.Duration.between(record.getStartedAt(), now).toMinutes();
+                    record.setActualDurationMinutes(Math.max(1, (int) diff));
+                } else {
+                    record.setStartedAt(room.getCleaningStartedAt() != null ? room.getCleaningStartedAt() : now.minusMinutes(standardMinutes));
+                    long diff = java.time.Duration.between(record.getStartedAt(), now).toMinutes();
+                    record.setActualDurationMinutes(Math.max(1, (int) diff));
+                }
+                record.setStatus(CleaningRecordStatus.SUBMITTED);
+                roomCleaningRecordRepository.save(record);
+            }
+        } else {
+            // Trường hợp nhân viên không bấm bắt đầu mà bấm thẳng dọn xong
+            LocalDateTime start = room.getCleaningStartedAt() != null ? room.getCleaningStartedAt() : now.minusMinutes(standardMinutes);
+            long diff = java.time.Duration.between(start, now).toMinutes();
+            RoomCleaningRecord record = RoomCleaningRecord.builder()
+                    .room(room)
+                    .roomType(room.getRoomType())
+                    .housekeeper(room.getAssignedHousekeeper() != null ? room.getAssignedHousekeeper() : actor)
+                    .cleaningType("PERIODIC_VACANT".equals(room.getCleaningReason()) ? "PERIODIC" : "CHECKOUT")
+                    .standardDurationMinutes(standardMinutes)
+                    .startedAt(start)
+                    .completedAt(now)
+                    .actualDurationMinutes(Math.max(1, (int) diff))
+                    .status(CleaningRecordStatus.SUBMITTED)
+                    .isInterrupted(false)
+                    .hasIncident(false)
+                    .rejectionCount(0)
+                    .build();
+            record = roomCleaningRecordRepository.save(record);
+            room.setActiveCleaningRecordId(record.getId());
+        }
+
         room.setStatus(RoomStatus.INSPECTING);
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "SUBMIT_INSPECTION", actor,
@@ -189,14 +325,57 @@ public class RoomServiceImpl implements RoomService {
         if (room.getStatus() != RoomStatus.INSPECTING) {
             throw new IllegalArgumentException("Chỉ có thể duyệt sạch khi phòng đang ở trạng thái Chờ duyệt (INSPECTING)");
         }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (room.getActiveCleaningRecordId() != null) {
+            RoomCleaningRecord record = roomCleaningRecordRepository.findById(room.getActiveCleaningRecordId()).orElse(null);
+            if (record != null) {
+                record.setStatus(CleaningRecordStatus.APPROVED);
+                record.setInspectedBy(actor);
+                record.setInspectedAt(now);
+                roomCleaningRecordRepository.save(record);
+            }
+        }
+
         room.setStatus(RoomStatus.AVAILABLE);
-        room.setLastCleanedAt(LocalDateTime.now());
+        room.setLastCleanedAt(now);
         room.setCleaningReason(null);
         room.setAssignedHousekeeper(null);
         room.setAssignedAt(null);
+        room.setCleaningStartedAt(null);
+        room.setActiveCleaningRecordId(null);
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "APPROVE_CLEAN", actor,
                 "Phòng " + room.getRoomNumber() + " đã được duyệt sạch, sẵn sàng phục vụ");
+        return toResponse(room);
+    }
+
+    @Override
+    @Transactional
+    public RoomResponse rejectClean(Long id, String reason, User actor) {
+        Room room = findById(id);
+        if (room.getStatus() != RoomStatus.INSPECTING) {
+            throw new IllegalArgumentException("Chỉ có thể yêu cầu dọn lại khi phòng đang ở trạng thái Chờ duyệt (INSPECTING)");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (room.getActiveCleaningRecordId() != null) {
+            RoomCleaningRecord record = roomCleaningRecordRepository.findById(room.getActiveCleaningRecordId()).orElse(null);
+            if (record != null) {
+                record.setStatus(CleaningRecordStatus.REJECTED);
+                record.setRejectionCount((record.getRejectionCount() != null ? record.getRejectionCount() : 0) + 1);
+                record.setRejectionNote(reason);
+                record.setInspectedBy(actor);
+                record.setInspectedAt(now);
+                roomCleaningRecordRepository.save(record);
+            }
+        }
+
+        room.setStatus(RoomStatus.DIRTY);
+        room.setCleaningStartedAt(null);
+        room = roomRepository.save(room);
+        auditLogService.log("Room", room.getId(), "REJECT_CLEAN", actor,
+                "Yêu cầu dọn lại phòng " + room.getRoomNumber() + (reason != null && !reason.isBlank() ? ": " + reason : ""));
         return toResponse(room);
     }
 
@@ -373,6 +552,19 @@ public class RoomServiceImpl implements RoomService {
             }
         }
 
+        // Định mức thời gian dọn dẹp theo loại phòng và lý do dọn
+        Integer standardMin = 45;
+        if (room.getRoomType() != null) {
+            if ("PERIODIC_VACANT".equals(room.getCleaningReason())) {
+                standardMin = room.getRoomType().getStandardPeriodicCleaningMinutes() != null
+                        ? room.getRoomType().getStandardPeriodicCleaningMinutes() : 20;
+            } else {
+                standardMin = room.getRoomType().getStandardCheckoutCleaningMinutes() != null
+                        ? room.getRoomType().getStandardCheckoutCleaningMinutes() : 45;
+            }
+        }
+        boolean isCleaningInProgress = room.getStatus() == RoomStatus.DIRTY && room.getCleaningStartedAt() != null;
+
         return RoomResponse.builder()
                 .id(room.getId())
                 .roomNumber(room.getRoomNumber())
@@ -394,6 +586,10 @@ public class RoomServiceImpl implements RoomService {
                 .lastCleanedAt(room.getLastCleanedAt())
                 .cleaningReason(room.getCleaningReason())
                 .vacantDays(vacantDays)
+                .cleaningStartedAt(room.getCleaningStartedAt())
+                .activeCleaningRecordId(room.getActiveCleaningRecordId())
+                .isCleaningInProgress(isCleaningInProgress)
+                .standardCleaningMinutes(standardMin)
                 .build();
     }
 }

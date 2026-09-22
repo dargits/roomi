@@ -29,6 +29,8 @@ import {
 } from 'react-icons/io5';
 import RoomIncidentModal from './RoomIncidentModal';
 import LostItemCreateModal from './LostItemCreateModal';
+import Modal from '../../components/ui/Modal';
+import Button from '../../components/ui/Button';
 
 interface CleaningTaskListProps {
   onRoomCleaned?: () => void;
@@ -47,6 +49,21 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
   const [incidentRoom, setIncidentRoom] = useState<any | null>(null);
   const [lostItemRoom, setLostItemRoom] = useState<any | null>(null);
   const [scanningPeriodic, setScanningPeriodic] = useState(false);
+
+  // feature/time-standard: Timer & Modals
+  const [nowTime, setNowTime] = useState<number>(Date.now());
+  const [interruptionRoom, setInterruptionRoom] = useState<any | null>(null);
+  const [interruptionReason, setInterruptionReason] = useState<string>('Thiếu đồ vải, khăn hoặc chăn ga');
+  const [customInterruption, setCustomInterruption] = useState<string>('');
+
+  const [rejectionRoom, setRejectionRoom] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('Khu vực vệ sinh chưa đạt yêu cầu');
+  const [customRejection, setCustomRejection] = useState<string>('');
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
   
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -181,24 +198,58 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
     }
   };
 
-  // Supervisor yêu cầu dọn lại -> DIRTY
-  const handleRejectClean = async (room: any) => {
-    const isConfirmed = await confirm({
-      title: 'Yêu cầu dọn lại',
-      message: `Phòng ${room.roomNumber} chưa đạt yêu cầu? Chuyển lại về trạng thái Cần dọn dẹp?`,
-      confirmText: 'Yêu cầu dọn lại',
-      type: 'warning'
-    });
-    if (!isConfirmed) return;
-
+  // feature/time-standard: Nhân viên bấm bắt đầu dọn phòng (bấm giờ)
+  const handleStartCleaning = async (room: any) => {
     setProcessingId(room.id);
     try {
-      await roomApi.markRoomDirty(room.id);
-      toast.info(`Phòng ${room.roomNumber} đã được chuyển lại về danh sách Cần dọn dẹp.`);
+      await roomApi.startCleaning(room.id);
+      toast.success(`Đã bắt đầu tính giờ dọn phòng ${room.roomNumber}!`);
+      await fetchRoomsAndStaff();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi khi bắt đầu dọn phòng');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // feature/time-standard: Xác nhận đánh dấu gián đoạn
+  const handleConfirmInterruption = async () => {
+    if (!interruptionRoom) return;
+    const finalReason = interruptionReason === 'OTHER' ? (customInterruption.trim() || 'Gián đoạn khác') : interruptionReason;
+    setProcessingId(interruptionRoom.id);
+    try {
+      await roomApi.interruptCleaning(interruptionRoom.id, finalReason);
+      toast.info(`Đã ghi nhận gián đoạn cho phòng ${interruptionRoom.roomNumber}. Lượt dọn này sẽ không tính vào thời gian trung bình.`);
+      setInterruptionRoom(null);
+      setCustomInterruption('');
+      await fetchRoomsAndStaff();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi khi đánh dấu gián đoạn');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // Supervisor yêu cầu dọn lại -> Mở modal nhập lý do
+  const handleOpenRejectModal = (room: any) => {
+    setRejectionRoom(room);
+    setRejectionReason('Khu vực vệ sinh chưa đạt yêu cầu');
+    setCustomRejection('');
+  };
+
+  const handleConfirmRejection = async () => {
+    if (!rejectionRoom) return;
+    const finalReason = rejectionReason === 'OTHER' ? (customRejection.trim() || 'Chưa đạt yêu cầu vệ sinh') : rejectionReason;
+    setProcessingId(rejectionRoom.id);
+    try {
+      await roomApi.rejectClean(rejectionRoom.id, finalReason);
+      toast.info(`Phòng ${rejectionRoom.roomNumber} đã được chuyển lại về Cần dọn kèm ghi chú kiểm tra không đạt.`);
+      setRejectionRoom(null);
+      setCustomRejection('');
       await fetchRoomsAndStaff();
       if (onRoomCleaned) onRoomCleaned();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Lỗi khi chuyển trạng thái phòng.');
+      toast.error(err.response?.data?.message || 'Lỗi khi yêu cầu dọn lại.');
     } finally {
       setProcessingId(null);
     }
@@ -902,12 +953,29 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                       {/* Specs chips */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="px-2 py-0.5 rounded-md bg-[#F4F6F0] text-on-surface-variant text-[11px] font-medium border border-border-grey/60 flex items-center gap-1">
-                          <IoTimeOutline size={12} /> ~30 - 45 phút
+                          <IoTimeOutline size={12} /> ~{room.standardCleaningMinutes || 45} phút
                         </span>
                         <span className="px-2 py-0.5 rounded-md bg-[#F4F6F0] text-on-surface-variant text-[11px] font-medium border border-border-grey/60 flex items-center gap-1">
                           <IoBrushOutline size={11} /> {room.cleaningReason === 'PERIODIC_VACANT' ? 'Dọn định kỳ' : 'Dọn sau trả phòng'}
                         </span>
                       </div>
+
+                      {/* Live timer badge khi phòng đang trong phiên dọn */}
+                      {isDirty && room.cleaningStartedAt && (
+                        <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${
+                          Math.floor((nowTime - new Date(room.cleaningStartedAt).getTime()) / 60000) > (room.standardCleaningMinutes || 45)
+                            ? 'bg-rose-50 border-rose-300 text-rose-700'
+                            : 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                        }`}>
+                          <div className="flex items-center gap-1.5">
+                            <IoTimeOutline size={15} className="animate-spin" />
+                            <span>Đang dọn: {Math.max(0, Math.floor((nowTime - new Date(room.cleaningStartedAt).getTime()) / 60000))} phút</span>
+                          </div>
+                          <span className="text-[10px] font-normal opacity-85">
+                            Định mức: {room.standardCleaningMinutes || 45}p
+                          </span>
+                        </div>
+                      )}
 
                       {/* Priority & Guest Info Banner */}
                       <div>
@@ -1024,36 +1092,75 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                     <div className="p-4 pt-0 space-y-2 mt-auto">
                       {isDirty ? (
                         <>
-                          {/* Housekeeper: Gửi kiểm tra sau khi dọn xong */}
+                          {/* Housekeeper Actions */}
                           {isHousekeeper && (
-                            <button
-                              onClick={() => handleSubmitInspection(room)}
-                              disabled={processingId === room.id}
-                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 active:bg-purple-900 disabled:bg-purple-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                            >
-                              {processingId === room.id ? (
-                                <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
-                              ) : (
-                                <IoSendOutline size={14} />
-                              )}
-                              Dọn xong, gửi duyệt
-                            </button>
+                            !room.cleaningStartedAt ? (
+                              <button
+                                onClick={() => handleStartCleaning(room)}
+                                disabled={processingId === room.id}
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                              >
+                                {processingId === room.id ? (
+                                  <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
+                                ) : (
+                                  <IoTimeOutline size={15} />
+                                )}
+                                Bắt đầu dọn (Bấm giờ)
+                              </button>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setInterruptionRoom(room)}
+                                  disabled={processingId === room.id}
+                                  className="flex items-center justify-center gap-1 px-2.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-semibold transition-colors cursor-pointer"
+                                  title="Đánh dấu nếu bị gián đoạn vì lý do khách quan"
+                                >
+                                  <IoWarningOutline size={14} className="text-amber-600 shrink-0" />
+                                  <span>Bị gián đoạn</span>
+                                </button>
+                                <button
+                                  onClick={() => handleSubmitInspection(room)}
+                                  disabled={processingId === room.id}
+                                  className="flex items-center justify-center gap-1 px-2.5 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 active:bg-purple-900 disabled:bg-purple-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                                >
+                                  {processingId === room.id ? (
+                                    <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
+                                  ) : (
+                                    <IoSendOutline size={14} />
+                                  )}
+                                  <span>Báo dọn xong</span>
+                                </button>
+                              </div>
+                            )
                           )}
 
                           {/* Supervisor: Lễ tân / Quản lý duyệt sạch ngay */}
                           {isSupervisor && (
-                            <button
-                              onClick={() => handleMarkClean(room)}
-                              disabled={processingId === room.id}
-                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#626F47] hover:bg-[#525E3B] active:bg-[#434E2E] disabled:bg-[#626F47]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                            >
-                              {processingId === room.id ? (
-                                <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
-                              ) : (
-                                <IoCheckmarkDoneOutline size={15} />
+                            <div className="space-y-1.5">
+                              {!room.cleaningStartedAt && (
+                                <button
+                                  onClick={() => handleStartCleaning(room)}
+                                  disabled={processingId === room.id}
+                                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-xs font-semibold transition-colors cursor-pointer"
+                                >
+                                  <IoTimeOutline size={14} className="text-blue-600" />
+                                  Bắt đầu tính giờ dọn
+                                </button>
                               )}
-                              Đánh dấu phòng đã sạch
-                            </button>
+                              <button
+                                onClick={() => handleMarkClean(room)}
+                                disabled={processingId === room.id}
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#626F47] hover:bg-[#525E3B] active:bg-[#434E2E] disabled:bg-[#626F47]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                              >
+                                {processingId === room.id ? (
+                                  <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
+                                ) : (
+                                  <IoCheckmarkDoneOutline size={15} />
+                                )}
+                                Đánh dấu phòng đã sạch
+                              </button>
+                            </div>
                           )}
                         </>
                       ) : (
@@ -1075,7 +1182,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               </button>
 
                               <button
-                                onClick={() => handleRejectClean(room)}
+                                onClick={() => handleOpenRejectModal(room)}
                                 disabled={processingId === room.id}
                                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-800 border border-red-300 text-xs font-semibold transition-colors cursor-pointer"
                               >
@@ -1142,6 +1249,167 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
             fetchRoomsAndStaff();
           }}
         />
+      )}
+      {/* Modal Đánh dấu gián đoạn phiên dọn */}
+      {interruptionRoom && (
+        <Modal
+          isOpen={!!interruptionRoom}
+          onClose={() => setInterruptionRoom(null)}
+          title={`Đánh dấu gián đoạn dọn phòng ${interruptionRoom.roomNumber}`}
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 leading-relaxed">
+              <div className="flex items-center gap-1.5 font-bold mb-1">
+                <IoInformationCircleOutline size={16} className="text-amber-700" />
+                <span>Quy định tính toán công bằng</span>
+              </div>
+              Phòng bị gián đoạn khách quan sẽ được gắn cờ và <strong>không tính vào thời gian dọn trung bình</strong>, giúp phản ánh đúng năng suất thực tế.
+            </div>
+
+            <div className="space-y-2">
+              <label className="block font-semibold text-on-surface">Lý do gián đoạn:</label>
+              <div className="space-y-1.5">
+                {[
+                  'Thiếu đồ vải, khăn hoặc chăn ga',
+                  'Chờ xử lý đồ đạc/hành lý của khách cũ',
+                  'Phát hiện sự cố phòng / chờ kỹ thuật bảo trì',
+                  'Khách cũ quay lại lấy đồ hoặc bị điều động gấp',
+                  'OTHER'
+                ].map((reasonKey) => (
+                  <label
+                    key={reasonKey}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${
+                      interruptionReason === reasonKey
+                        ? 'bg-[#1A2411]/5 border-[#626F47] text-on-surface font-semibold'
+                        : 'border-border-grey hover:bg-[#F4F6F0] text-on-surface-variant'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="interruptionReason"
+                      value={reasonKey}
+                      checked={interruptionReason === reasonKey}
+                      onChange={(e) => setInterruptionReason(e.target.value)}
+                      className="accent-[#626F47]"
+                    />
+                    <span>{reasonKey === 'OTHER' ? 'Lý do khác...' : reasonKey}</span>
+                  </label>
+                ))}
+              </div>
+
+              {interruptionReason === 'OTHER' && (
+                <textarea
+                  value={customInterruption}
+                  onChange={(e) => setCustomInterruption(e.target.value)}
+                  placeholder="Nhập lý do gián đoạn cụ thể..."
+                  className="w-full mt-2 p-2.5 border border-border-grey rounded-xl text-xs focus:outline-none focus:border-primary"
+                  rows={3}
+                />
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setInterruptionRoom(null)}
+                disabled={processingId === interruptionRoom.id}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                size="sm"
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={handleConfirmInterruption}
+                disabled={processingId === interruptionRoom.id}
+              >
+                {processingId === interruptionRoom.id ? 'Đang lưu...' : 'Xác nhận gián đoạn'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Yêu cầu dọn lại (Kiểm tra chưa đạt) */}
+      {rejectionRoom && (
+        <Modal
+          isOpen={!!rejectionRoom}
+          onClose={() => setRejectionRoom(null)}
+          title={`Yêu cầu dọn lại phòng ${rejectionRoom.roomNumber}`}
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-900 leading-relaxed">
+              <div className="flex items-center gap-1.5 font-bold mb-1">
+                <IoAlertCircleOutline size={16} className="text-red-700" />
+                <span>Nghiệm thu vệ sinh chưa đạt</span>
+              </div>
+              Phòng sẽ được chuyển lại danh sách <strong>Cần dọn</strong> kèm lý do để nhân viên phụ trách biết và khắc phục.
+            </div>
+
+            <div className="space-y-2">
+              <label className="block font-semibold text-on-surface">Vấn đề cần khắc phục:</label>
+              <div className="space-y-1.5">
+                {[
+                  'Khu vực vệ sinh chưa đạt yêu cầu',
+                  'Chưa thay ga giường / vỏ gối hoặc chưa phẳng phiu',
+                  'Chưa bổ sung đầy đủ đồ amenities / nước uống',
+                  'Còn mùi hôi hoặc sàn chưa hút bụi / lau sạch',
+                  'OTHER'
+                ].map((reasonKey) => (
+                  <label
+                    key={reasonKey}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${
+                      rejectionReason === reasonKey
+                        ? 'bg-red-50 border-red-300 text-red-950 font-semibold'
+                        : 'border-border-grey hover:bg-[#F4F6F0] text-on-surface-variant'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="rejectionReason"
+                      value={reasonKey}
+                      checked={rejectionReason === reasonKey}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="accent-red-600"
+                    />
+                    <span>{reasonKey === 'OTHER' ? 'Lý do khác...' : reasonKey}</span>
+                  </label>
+                ))}
+              </div>
+
+              {rejectionReason === 'OTHER' && (
+                <textarea
+                  value={customRejection}
+                  onChange={(e) => setCustomRejection(e.target.value)}
+                  placeholder="Ghi chú chi tiết điểm chưa đạt..."
+                  className="w-full mt-2 p-2.5 border border-border-grey rounded-xl text-xs focus:outline-none focus:border-red-500"
+                  rows={3}
+                />
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRejectionRoom(null)}
+                disabled={processingId === rejectionRoom.id}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleConfirmRejection}
+                disabled={processingId === rejectionRoom.id}
+              >
+                {processingId === rejectionRoom.id ? 'Đang gửi...' : 'Xác nhận yêu cầu dọn lại'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
