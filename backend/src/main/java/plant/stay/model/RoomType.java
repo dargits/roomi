@@ -43,6 +43,14 @@ public class RoomType {
     @Column(name = "amenities_description", columnDefinition = "TEXT")
     private String amenitiesDescription; // Mô tả tiện nghi kèm theo
 
+    @Column(name = "standard_checkout_cleaning_minutes")
+    @Builder.Default
+    private Integer standardCheckoutCleaningMinutes = 45; // Định mức thời gian dọn sau trả phòng (phút)
+
+    @Column(name = "standard_periodic_cleaning_minutes")
+    @Builder.Default
+    private Integer standardPeriodicCleaningMinutes = 20; // Định mức thời gian dọn định kỳ (phút)
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "room_type_images", joinColumns = @JoinColumn(name = "room_type_id"))
     @Column(name = "image_url", length = 500)
