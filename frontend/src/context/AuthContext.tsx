@@ -14,7 +14,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (account: string, password: string, rememberMe?: boolean) => Promise<LoginResult>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateUser: (updatedUser: UserResponse) => void;
 }
 
@@ -111,13 +111,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = (): void => {
-    localStorage.removeItem('staygo_token');
-    localStorage.removeItem('staygo_user');
-    sessionStorage.removeItem('staygo_token');
-    sessionStorage.removeItem('staygo_user');
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = async (): Promise<void> => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.warn('Backend logout notification skipped or offline:', error);
+    } finally {
+      localStorage.removeItem('staygo_token');
+      localStorage.removeItem('staygo_user');
+      sessionStorage.removeItem('staygo_token');
+      sessionStorage.removeItem('staygo_user');
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   return (
