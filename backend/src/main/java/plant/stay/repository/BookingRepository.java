@@ -141,4 +141,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "AND b.status IN ('CHECKED_OUT', 'CHECKED_IN') " +
            "ORDER BY CASE WHEN b.checkedOutAt IS NOT NULL THEN b.checkedOutAt ELSE b.createdAt END DESC, b.checkOutDate DESC, b.id DESC")
     List<Booking> findRecentStaysForRoom(@Param("roomId") Long roomId, org.springframework.data.domain.Pageable pageable);
+
+    // Tìm ngày nhận phòng sớm nhất để đánh giá thời gian tích lũy dữ liệu công suất
+    @Query("SELECT MIN(b.checkInDate) FROM Booking b WHERE b.status NOT IN ('CANCELLED', 'NO_SHOW')")
+    LocalDate findEarliestBookingDate();
 }
