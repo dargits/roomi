@@ -7,7 +7,8 @@ import {
   IoStatsChartOutline,
   IoGlobeOutline,
   IoTimeOutline,
-  IoGitCompareOutline
+  IoGitCompareOutline,
+  IoBriefcaseOutline
 } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
@@ -18,6 +19,7 @@ import AdrRevparReport from './AdrRevparReport';
 import ChannelReport from './ChannelReport';
 import DebtAgingReport from './DebtAgingReport';
 import PeriodComparisonReport from './PeriodComparisonReport';
+import NegotiatedRevenueReport from './NegotiatedRevenueReport';
 
 const TABS = [
   { id: 'revenue',           label: 'Doanh thu',                                        icon: IoTrendingUpOutline },
@@ -25,7 +27,8 @@ const TABS = [
   { id: 'debt-aging',        label: 'Tuổi nợ & Nhắc thu',                              icon: IoTimeOutline },
   { id: 'occupancy',         label: 'Công suất phòng',                                  icon: IoPricetagOutline },
   { id: 'adr-revpar',        label: 'Giá bán TB & Doanh thu/phòng (ADR & RevPAR)',       icon: IoStatsChartOutline },
-  { id: 'channel',           label: 'Cơ cấu theo kênh',                                 icon: IoGlobeOutline }
+  { id: 'channel',           label: 'Cơ cấu theo kênh',                                 icon: IoGlobeOutline },
+  { id: 'negotiated-revenue', label: 'Giá thỏa thuận',                                icon: IoBriefcaseOutline },
 ];
 
 const ReportsPage: React.FC = () => {
@@ -33,7 +36,7 @@ const ReportsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'revenue';
 
-  const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role || '');
+  const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
   if (!hasAccess) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 text-error rounded-xl text-sm">
@@ -59,6 +62,7 @@ const ReportsPage: React.FC = () => {
       {tab === 'occupancy'         && <OccupancyReport />}
       {tab === 'adr-revpar'        && <AdrRevparReport />}
       {tab === 'channel'           && <ChannelReport />}
+      {tab === 'negotiated-revenue' && <NegotiatedRevenueReport />}
     </div>
   );
 };
