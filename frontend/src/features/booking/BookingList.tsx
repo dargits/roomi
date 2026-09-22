@@ -484,6 +484,11 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                         <IoCallOutline size={14} className="text-primary/70" /> {formatPhone(booking.guestPhone, user)}
                       </div>
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {booking.source === 'LEGACY_IMPORT' && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                            Nhập dữ liệu cũ
+                          </span>
+                        )}
                         {booking.groupBookingId ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
                             <IoPeopleOutline size={12} />
