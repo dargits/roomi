@@ -35,6 +35,7 @@ import ChannelCalendarPage from '../features/admin/ChannelCalendarPage';
 import SessionManagementPage from '../features/admin/SessionManagementPage';
 import CorporateClientManagement from '../features/admin/CorporateClientManagement';
 import NegotiatedPriceManagement from '../features/admin/NegotiatedPriceManagement';
+import PriceSuggestionPage from '../features/admin/PriceSuggestionPage';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
@@ -113,8 +114,9 @@ const AppRoutes: React.FC = () => {
                   {/* Phòng */}
                   <Route path="/manage/rooms" element={<RoomManagement />} />
 
-                  {/* Loại phòng — OWNER */}
+                  {/* Loại phòng & Gợi ý giá — OWNER */}
                   <Route path="/manage/room-types" element={<RoomTypeManagement />} />
+                  <Route path="/manage/price-suggestions" element={<PriceSuggestionPage />} />
 
                   {/* Khách hàng — OWNER / RECEPTIONIST */}
                   <Route path="/manage/guests" element={<GuestManagement />} />

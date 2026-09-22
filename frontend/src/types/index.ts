@@ -11,3 +11,4 @@ export * from './admin';
 export * from './bookingConfirmation';
 export * from './lostItem';
 export * from './channel';
+export * from './suggestion';

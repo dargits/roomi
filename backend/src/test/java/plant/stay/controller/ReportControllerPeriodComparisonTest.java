@@ -65,7 +65,7 @@ public class ReportControllerPeriodComparisonTest {
 
         mockUnauthorizedStaff = new User();
         mockUnauthorizedStaff.setId(2L);
-        mockUnauthorizedStaff.setRole(Role.RECEPTIONIST);
+        mockUnauthorizedStaff.setRole(Role.HOUSEKEEPER);
 
         deluxeType = RoomType.builder()
                 .id(1L)
