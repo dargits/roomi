@@ -409,8 +409,8 @@ const DashboardLayout: React.FC = () => {
     };
   }, [location.pathname, isCollapsed]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -419,7 +419,7 @@ const DashboardLayout: React.FC = () => {
   const currentRouteMeta = ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#F4F6F0] text-on-surface flex flex-col antialiased">
+    <div className="h-screen w-full overflow-hidden bg-[#F4F6F0] text-on-surface flex flex-col antialiased">
       <div className="flex flex-1 h-full overflow-hidden relative">
         
         {/* Mobile Backdrop */}
@@ -442,36 +442,36 @@ const DashboardLayout: React.FC = () => {
           `}
         >
           {/* Sidebar Header: Brand & Logo */}
-          <div className="h-16 px-3.5 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
+          <div className="h-16 px-4 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
             <Link
               to="/"
-              className={`flex items-center gap-3 overflow-hidden group py-1 ${isCollapsed ? 'justify-center w-full' : ''}`}
-              title={isCollapsed ? (hotelSetting?.propertyName || 'Lodgify') : 'Về trang chủ'}
+              className={`flex items-center group py-1 ${isCollapsed ? 'justify-center w-full' : 'px-1 gap-3'}`}
+              title={isCollapsed ? (hotelSetting?.propertyName || 'STAY AWAY') : 'Về trang chủ'}
             >
-              {/* Brand Emblem: Lodgify 4-pill grid icon */}
-              <div className="w-10 h-10 rounded-xl bg-[#1A2411] text-[#D4F63D] shadow-sm flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
-                <div className="grid grid-cols-2 gap-1 p-1.5">
-                  <span className="w-2 h-3.5 rounded-full bg-[#D4F63D]"></span>
-                  <span className="w-2 h-2.5 rounded-full bg-[#A4B465]"></span>
-                  <span className="w-2 h-2.5 rounded-full bg-[#A4B465]"></span>
-                  <span className="w-2 h-3.5 rounded-full bg-[#D4F63D]"></span>
-                </div>
-              </div>
-
-              {/* Brand text when expanded */}
-              <div className={`flex flex-col min-w-0 transition-opacity duration-200 ${isCollapsed ? 'lg:hidden' : ''}`}>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-logo font-extrabold text-[17px] tracking-tight text-[#1A2411] uppercase truncate leading-tight group-hover:text-primary transition-colors">
-                    {hotelSetting?.propertyName || 'Lodgify'}
+              {isCollapsed ? (
+                <div className="flex flex-col items-center justify-center">
+                  <span className="font-logo font-bold text-2xl text-primary leading-none">
+                    {(hotelSetting?.propertyName || 'S')[0]}
                   </span>
-                  <span className="px-1.5 py-0.2 text-[9px] font-extrabold bg-[#D4F63D] text-[#1A2411] rounded-full border border-[#BEDF2E]">
-                    0.1%
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] mt-1.5"></div>
+                </div>
+              ) : (
+                <div className="flex flex-col select-none">
+                  <span className="font-logo font-bold text-[22px] tracking-wide text-primary leading-none uppercase group-hover:opacity-85 transition-opacity">
+                    {hotelSetting?.propertyName || 'STAY AWAY'}
                   </span>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#FDD835] animate-bounce [animation-delay:150ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] animate-bounce [animation-delay:300ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#8E24AA] animate-bounce [animation-delay:450ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]"></div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#73826B] ml-1.5">
+                      HOTEL MANAGEMENT
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#606D56]">Hotel Management</span>
-                </div>
-              </div>
+              )}
             </Link>
 
             {/* Mobile close button */}

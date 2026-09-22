@@ -48,8 +48,13 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<MessageResponse> logout(HttpServletRequest httpRequest) {
+    public ResponseEntity<MessageResponse> logout(
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            HttpServletRequest httpRequest) {
         String token = authUtil.extractToken(httpRequest);
+        if ((token == null || token.isEmpty()) && body != null && body.containsKey("token")) {
+            token = body.get("token");
+        }
         if (token != null && !token.isEmpty()) {
             userService.logout(token);
         }
