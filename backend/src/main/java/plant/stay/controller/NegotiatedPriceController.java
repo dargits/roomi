@@ -47,7 +47,7 @@ public class NegotiatedPriceController {
     public ResponseEntity<NegotiatedPriceAgreementResponse> create(
             @Valid @RequestBody NegotiatedPriceAgreementRequest req,
             HttpServletRequest request) {
-        User actor = checkOwnerOrAdmin(request);
+        User actor = checkStaff(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(negotiatedPriceService.create(req, actor));
     }
 
@@ -56,13 +56,13 @@ public class NegotiatedPriceController {
             @PathVariable Long id,
             @Valid @RequestBody NegotiatedPriceAgreementRequest req,
             HttpServletRequest request) {
-        User actor = checkOwnerOrAdmin(request);
+        User actor = checkStaff(request);
         return ResponseEntity.ok(negotiatedPriceService.update(id, req, actor));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, HttpServletRequest request) {
-        User actor = checkOwnerOrAdmin(request);
+        User actor = checkStaff(request);
         negotiatedPriceService.delete(id, actor);
         return ResponseEntity.noContent().build();
     }

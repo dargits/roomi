@@ -100,7 +100,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Tài chính',
     icon: IoStatsChartOutline,
     items: [
-      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
+      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'] },
       { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'RECEPTIONIST'] },
       { path: '/manage/daily-ledger', label: 'Sổ quỹ ngày', icon: IoBookOutline, allowedRoles: ['OWNER', 'ACCOUNTANT'] }
     ]

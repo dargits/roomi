@@ -59,7 +59,7 @@ public class CorporateClientController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, HttpServletRequest request) {
-        User actor = checkOwnerOrAdmin(request);
+        User actor = checkStaff(request);
         corporateClientService.delete(id, actor);
         return ResponseEntity.noContent().build();
     }

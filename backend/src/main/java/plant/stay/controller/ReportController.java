@@ -1580,7 +1580,7 @@ public class ReportController {
 
     private void checkFinance(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT && user.getRole() != Role.ADMIN))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST))
             throw new UnauthorizedException("Không có quyền xem báo cáo doanh thu");
     }
 }
