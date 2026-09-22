@@ -86,6 +86,24 @@ export const roomApi = {
     return response.data;
   },
 
+  // feature/time-standard: Bắt đầu dọn phòng (bấm giờ thực tế)
+  startCleaning: async (id: number | string): Promise<RoomResponse> => {
+    const response = await api.put<RoomResponse>(`/rooms/${id}/start-cleaning`);
+    return response.data;
+  },
+
+  // feature/time-standard: Đánh dấu gián đoạn ca dọn
+  interruptCleaning: async (id: number | string, reason?: string): Promise<RoomResponse> => {
+    const response = await api.put<RoomResponse>(`/rooms/${id}/interrupt-cleaning`, null, { params: { reason } });
+    return response.data;
+  },
+
+  // feature/time-standard: Yêu cầu dọn lại kèm lý do
+  rejectClean: async (id: number | string, reason?: string): Promise<RoomResponse> => {
+    const response = await api.put<RoomResponse>(`/rooms/${id}/reject-clean`, null, { params: { reason } });
+    return response.data;
+  },
+
   // Quét định kỳ phòng trống dài ngày (OWNER)
   scanPeriodicCleaning: async (): Promise<MessageResponse> => {
     const response = await api.post<MessageResponse>('/rooms/scan-periodic-cleaning');
