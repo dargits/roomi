@@ -31,7 +31,8 @@ import {
   IoChevronBackOutline,
   IoChevronForwardOutline,
   IoOpenOutline,
-  IoSyncOutline
+  IoSyncOutline,
+  IoTrendingUpOutline
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
@@ -77,10 +78,11 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Phòng',
     icon: IoBedOutline,
     items: [
-      { path: '/manage/rooms',        label: 'Sơ đồ phòng',   icon: IoLayersOutline,   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/room-types',   label: 'Loại phòng',     icon: IoBedOutline,      allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/housekeeping', label: 'Buồng phòng',    icon: IoSparklesOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
-      { path: '/manage/lost-and-found', label: 'Đồ khách để quên', icon: IoCubeOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
+      { path: '/manage/rooms',              label: 'Sơ đồ phòng',           icon: IoLayersOutline,       allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/room-types',         label: 'Loại phòng',            icon: IoBedOutline,          allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/price-suggestions',  label: 'Gợi ý điều chỉnh giá',  icon: IoTrendingUpOutline,   allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/housekeeping',       label: 'Buồng phòng',          icon: IoSparklesOutline,     allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
+      { path: '/manage/lost-and-found',     label: 'Đồ khách để quên',     icon: IoCubeOutline,         allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
     ]
   },
   {

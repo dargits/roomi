@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { useAuth } from '../../context/AuthContext';
 import { IoAddOutline, IoBedOutline, IoCashOutline, IoChevronDownOutline, IoCloseOutline, IoCloudUploadOutline, IoPencilOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
@@ -19,12 +20,15 @@ interface RoomTypeFormData {
   extraPersonChargePerNight: number;
   maxChildAgeFree: number;
   basePrice: number;
+  standardCheckoutCleaningMinutes: number;
+  standardPeriodicCleaningMinutes: number;
   amenitiesDescription: string;
   imageUrls: string[];
   active: boolean;
 }
 
 const RoomTypeManagement: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [roomTypes, setRoomTypes] = useState<RoomTypeResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -40,6 +44,8 @@ const RoomTypeManagement: React.FC = () => {
     extraPersonChargePerNight: 0,
     maxChildAgeFree: 6,
     basePrice: 0,
+    standardCheckoutCleaningMinutes: 45,
+    standardPeriodicCleaningMinutes: 20,
     amenitiesDescription: '',
     imageUrls: [],
     active: true
@@ -94,6 +100,8 @@ const RoomTypeManagement: React.FC = () => {
       extraPersonChargePerNight: 0,
       maxChildAgeFree: 6,
       basePrice: 0,
+      standardCheckoutCleaningMinutes: 45,
+      standardPeriodicCleaningMinutes: 20,
       amenitiesDescription: '',
       imageUrls: [],
       active: true
@@ -112,6 +120,8 @@ const RoomTypeManagement: React.FC = () => {
       extraPersonChargePerNight: room.extraPersonChargePerNight || 0,
       maxChildAgeFree: room.maxChildAgeFree || 6,
       basePrice: room.basePrice,
+      standardCheckoutCleaningMinutes: room.standardCheckoutCleaningMinutes || 45,
+      standardPeriodicCleaningMinutes: room.standardPeriodicCleaningMinutes || 20,
       amenitiesDescription: room.amenitiesDescription || '',
       imageUrls: room.imageUrls || [],
       active: room.active
@@ -134,6 +144,10 @@ const RoomTypeManagement: React.FC = () => {
       setFormError('Mức phụ thu thêm người không được là số âm.');
       return;
     }
+    if (Number(formData.standardCheckoutCleaningMinutes) <= 0 || Number(formData.standardPeriodicCleaningMinutes) <= 0) {
+      setFormError('Thời gian định mức dọn phòng phải lớn hơn 0 phút.');
+      return;
+    }
     try {
       const payload = {
         ...formData,
@@ -141,7 +155,9 @@ const RoomTypeManagement: React.FC = () => {
         maxCapacity: Number(formData.maxCapacity),
         extraPersonChargePerNight: Number(formData.extraPersonChargePerNight),
         maxChildAgeFree: Number(formData.maxChildAgeFree),
-        basePrice: Number(formData.basePrice)
+        basePrice: Number(formData.basePrice),
+        standardCheckoutCleaningMinutes: Number(formData.standardCheckoutCleaningMinutes) || 45,
+        standardPeriodicCleaningMinutes: Number(formData.standardPeriodicCleaningMinutes) || 20
       };
       if (isEditing && formData.id) {
         await roomTypeApi.updateRoomType(formData.id, payload as any);
@@ -237,9 +253,14 @@ const RoomTypeManagement: React.FC = () => {
                     </td>
                     <td className="p-4 group-hover:text-primary transition-colors">
                       <div className="font-bold text-sm text-[#1A2411]">{room.name}</div>
-                      {room.maxChildAgeFree !== undefined && (
-                        <div className="text-[11px] text-[#606D56] mt-0.5">Miễn phụ thu trẻ ≤ {room.maxChildAgeFree} tuổi</div>
-                      )}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {room.maxChildAgeFree !== undefined && (
+                          <span className="text-[11px] text-[#606D56]">Miễn phụ thu trẻ ≤ {room.maxChildAgeFree} tuổi</span>
+                        )}
+                        <span className="text-[11px] text-teal-900 font-semibold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                          ⏱️ Chuẩn: {room.standardCheckoutCleaningMinutes || 45}p (sau trả) • {room.standardPeriodicCleaningMinutes || 20}p (định kỳ)
+                        </span>
+                      </div>
                     </td>
                     <td className="p-4 text-center">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F2F6ED] border border-border-grey text-[#4F5E37] font-bold text-xs">
@@ -324,6 +345,13 @@ const RoomTypeManagement: React.FC = () => {
                               }`}
                             >
                               📅 Giá theo Mùa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => navigate('/manage/price-suggestions')}
+                              className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors bg-surface-blue-light text-primary hover:bg-primary hover:text-on-primary ml-auto flex items-center gap-1.5"
+                            >
+                              📈 Xem gợi ý điều chỉnh giá theo công suất
                             </button>
                           </div>
 
@@ -420,6 +448,32 @@ const RoomTypeManagement: React.FC = () => {
             
             <div className="col-span-1 md:col-span-2">
               <Input label="Giá cơ bản (VNĐ/đêm)" type="number" name="basePrice" required min="0" step="1000" value={String(formData.basePrice)} onChange={handleInputChange} />
+            </div>
+
+            <div>
+              <Input 
+                label="Định mức dọn sau trả phòng (phút)" 
+                type="number" 
+                name="standardCheckoutCleaningMinutes" 
+                required 
+                min="1" 
+                value={String(formData.standardCheckoutCleaningMinutes)} 
+                onChange={handleInputChange} 
+                helperText="Thời gian chuẩn dọn sau khi khách trả (mặc định: 45p)"
+              />
+            </div>
+
+            <div>
+              <Input 
+                label="Định mức dọn định kỳ (phút)" 
+                type="number" 
+                name="standardPeriodicCleaningMinutes" 
+                required 
+                min="1" 
+                value={String(formData.standardPeriodicCleaningMinutes)} 
+                onChange={handleInputChange} 
+                helperText="Thời gian chuẩn dọn phòng trống định kỳ (mặc định: 20p)"
+              />
             </div>
             
             <div className="col-span-1 md:col-span-2">
