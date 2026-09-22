@@ -26,4 +26,6 @@ public class BookingRequest {
 
     private String note;
     private String source; // WALKIN, PHONE, SOCIAL, ONLINE, SIMULATION
+    private Long corporateClientId; // ID há»“ sÆ¡ khÃ¡ch cÃ´ng ty (náº¿u cÃ³)
+    private Long groupBookingId; // ID doàn d?t phòng (n?u có, dùng d? resolve th?a thu?n giá doàn)
 }

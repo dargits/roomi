@@ -50,6 +50,8 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     private final plant.stay.repository.BookingServiceUsageRepository usageRepository;
     private final plant.stay.service.PricingService pricingService;
     private final ApplicationEventPublisher eventPublisher;
+    private final plant.stay.repository.CorporateClientRepository corporateClientRepository;
+    private final plant.stay.service.NegotiatedPriceService negotiatedPriceService;
 
 
     @Override
@@ -60,19 +62,33 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         Map<Long, RoomType> roomTypes = loadAndLockRoomTypes(requestedRooms.keySet());
         validateCapacity(requestedRooms, roomTypes, request.getCheckInDate(), request.getCheckOutDate());
 
+        CorporateClient corporateClient = null;
+        if (request.getCorporateClientId() != null) {
+            corporateClient = corporateClientRepository.findById(request.getCorporateClientId()).orElse(null);
+        }
+
         Guest representative = resolveRepresentative(request);
         GroupBooking groupBooking = groupBookingRepository.save(GroupBooking.builder()
                 .representativeGuest(representative)
+                .corporateClient(corporateClient)
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .note(request.getNote())
                 .createdBy(actor)
                 .build());
 
+        NegotiatedPriceAgreement agreement = negotiatedPriceService.resolveAgreement(
+                groupBooking.getId(),
+                corporateClient != null ? corporateClient.getId() : null,
+                request.getCheckInDate()
+        );
+
         List<Booking> bookings = new ArrayList<>();
         for (Map.Entry<Long, Integer> entry : requestedRooms.entrySet()) {
             RoomType roomType = roomTypes.get(entry.getKey());
-            BigDecimal price = calculatePrice(roomType, request.getCheckInDate(), request.getCheckOutDate());
+            BigDecimal price = pricingService != null 
+                    ? pricingService.calculateTotalPrice(roomType, request.getCheckInDate(), request.getCheckOutDate(), agreement)
+                    : calculatePrice(roomType, request.getCheckInDate(), request.getCheckOutDate());
             for (int index = 0; index < entry.getValue(); index++) {
                 bookings.add(Booking.builder()
                         .groupBooking(groupBooking)
@@ -83,6 +99,8 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                         .status(BookingStatus.NEW)
                         .expectedPrice(price)
                         .actualPrice(price)
+                        .appliedAgreement(agreement)
+                        .priceSource(agreement != null ? "NEGOTIATED" : "STANDARD")
                         .note(request.getNote())
                         .createdBy(actor)
                         .build());
@@ -786,6 +804,8 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 .representativeName(group.getRepresentativeGuest().getName())
                 .representativePhone(group.getRepresentativeGuest().getPhone())
                 .representativeEmail(group.getRepresentativeGuest().getEmail())
+                .corporateClientId(group.getCorporateClient() != null ? group.getCorporateClient().getId() : null)
+                .corporateClientName(group.getCorporateClient() != null ? group.getCorporateClient().getCompanyName() : null)
                 .checkInDate(group.getCheckInDate())
                 .checkOutDate(group.getCheckOutDate())
                 .note(group.getNote())
@@ -891,6 +911,9 @@ public class GroupBookingServiceImpl implements GroupBookingService {
                 .note(booking.getNote())
                 .createdAt(booking.getCreatedAt())
                 .roomStatus(booking.getRoom() != null && booking.getRoom().getStatus() != null ? booking.getRoom().getStatus().name() : null)
+                .priceSource(booking.getPriceSource() != null ? booking.getPriceSource() : "STANDARD")
+                .appliedAgreementId(booking.getAppliedAgreement() != null ? booking.getAppliedAgreement().getId() : null)
+                .appliedAgreementName(booking.getAppliedAgreement() != null ? booking.getAppliedAgreement().getName() : null)
                 .build();
     }
 }

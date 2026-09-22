@@ -5,44 +5,49 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
-@Table(name = "group_bookings")
+@Table(name = "negotiated_price_agreements")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class GroupBooking {
+public class NegotiatedPriceAgreement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "representative_guest_id", nullable = false)
-    private Guest representativeGuest;
+    @Column(nullable = false, length = 255)
+    private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "corporate_client_id")
     private CorporateClient corporateClient;
 
-    @Column(name = "check_in_date", nullable = false)
-    private LocalDate checkInDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_booking_id")
+    private GroupBooking groupBooking;
 
-    @Column(name = "check_out_date", nullable = false)
-    private LocalDate checkOutDate;
+    @Column(name = "price_per_night", precision = 12, scale = 2, nullable = false)
+    private BigDecimal pricePerNight;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(name = "end_date", nullable = false)
+    private LocalDate endDate;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean active = true;
 
     @Column(columnDefinition = "TEXT")
     private String note;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
+    @JoinColumn(name = "created_by")
     private User createdBy;
-
-    @OneToMany(mappedBy = "groupBooking", fetch = FetchType.LAZY)
-    @Builder.Default
-    private List<Booking> bookings = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

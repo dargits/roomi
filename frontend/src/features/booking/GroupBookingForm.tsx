@@ -15,6 +15,7 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import groupBookingApi from '../../services/groupBookingApi';
+import { corporateClientApi, CorporateClient } from '../../services/corporateClientApi';
 import { RoomTypeResponse, GroupBookingResponse } from '../../types';
 
 interface RoomLine {
@@ -32,6 +33,7 @@ interface GroupBookingFormProps {
 
 const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, onSuccess }) => {
   const [roomTypes, setRoomTypes] = useState<RoomTypeResponse[]>([]);
+  const [corporateClients, setCorporateClients] = useState<CorporateClient[]>([]);
   const [formData, setFormData] = useState({
     representativeName: '',
     representativePhone: '',
@@ -39,6 +41,7 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
     checkInDate: '',
     checkOutDate: '',
     note: '',
+    corporateClientId: '',
     rooms: [emptyRoomLine()],
   });
   const [loading, setLoading] = useState<boolean>(false);
@@ -61,10 +64,11 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
     if (!isOpen) return;
     setFormData({
       representativeName: '', representativePhone: '', representativeEmail: '',
-      checkInDate: '', checkOutDate: '', note: '', rooms: [emptyRoomLine()],
+      checkInDate: '', checkOutDate: '', note: '', corporateClientId: '', rooms: [emptyRoomLine()],
     });
     setError('');
     loadRoomTypes();
+    corporateClientApi.getAll(undefined, true).then(setCorporateClients).catch(console.error);
   }, [isOpen]);
 
   const updateField = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -103,6 +107,7 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
     try {
       const created = await groupBookingApi.create({
         ...formData,
+        corporateClientId: formData.corporateClientId ? Number(formData.corporateClientId) : undefined,
         rooms: formData.rooms.map((line) => ({ roomTypeId: Number(line.roomTypeId), quantity: Number(line.quantity) })),
       });
       if (onSuccess) {
@@ -128,6 +133,30 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
           <Input label="Họ và tên" name="representativeName" value={formData.representativeName} onChange={updateField} required />
           <Input label="Số điện thoại" name="representativePhone" value={formData.representativePhone} onChange={updateField} placeholder="Dùng để tìm hoặc tạo hồ sơ khách" />
           <Input label="Email" type="email" name="representativeEmail" value={formData.representativeEmail} onChange={updateField} />
+          {/* Corporate Client Selection */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-label-md mb-1.5 text-on-surface-variant">
+              Khách hàng công ty <span className="text-xs font-normal text-on-surface-variant">(nếu đoàn có thỏa thuận giá)</span>
+            </label>
+            <select
+              name="corporateClientId"
+              value={formData.corporateClientId}
+              onChange={(e) => setFormData(prev => ({ ...prev, corporateClientId: e.target.value }))}
+              className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] transition-all"
+            >
+              <option value="">-- Khách lẻ / Không có thỏa thuận --</option>
+              {corporateClients.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.companyName}{c.taxCode ? ` (MST: ${c.taxCode})` : ''}
+                </option>
+              ))}
+            </select>
+            {formData.corporateClientId && (
+              <p className="mt-1.5 text-xs text-emerald-700">
+                🏷️ Giá thỏa thuận có hiệu lực (nếu có) sẽ được tự động áp khi tạo đặt phòng đơn.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
