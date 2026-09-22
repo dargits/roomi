@@ -33,6 +33,8 @@ import DepositPolicyPage from '../features/admin/DepositPolicyPage';
 import ConcurrencyLogPage from '../features/admin/ConcurrencyLogPage';
 import ChannelCalendarPage from '../features/admin/ChannelCalendarPage';
 import SessionManagementPage from '../features/admin/SessionManagementPage';
+import CorporateClientManagement from '../features/admin/CorporateClientManagement';
+import NegotiatedPriceManagement from '../features/admin/NegotiatedPriceManagement';
 
 // Booking
 import BookingManagement from '../features/booking/BookingManagement';
@@ -116,6 +118,10 @@ const AppRoutes: React.FC = () => {
 
                   {/* Khách hàng — OWNER / RECEPTIONIST */}
                   <Route path="/manage/guests" element={<GuestManagement />} />
+
+                  {/* Khách công ty & Thỏa thuận giá — OWNER */}
+                  <Route path="/manage/corporate-clients" element={<CorporateClientManagement />} />
+                  <Route path="/manage/negotiated-prices" element={<NegotiatedPriceManagement />} />
 
                   {/* Dịch vụ phụ thu — OWNER */}
                   <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />

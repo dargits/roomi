@@ -8,6 +8,8 @@ import { guestApi } from '../../services/guestApi';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
+import { corporateClientApi, CorporateClient } from '../../services/corporateClientApi';
+import { negotiatedPriceApi, NegotiatedPricePreviewResponse } from '../../services/negotiatedPriceApi';
 
 interface BookingFormProps {
   isOpen: boolean;
@@ -18,6 +20,8 @@ interface BookingFormProps {
 const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess }) => {
   const [guests, setGuests] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
+  const [corporateClients, setCorporateClients] = useState<CorporateClient[]>([]);
+  const [pricePreview, setPricePreview] = useState<NegotiatedPricePreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [availableCount, setAvailableCount] = useState<number | null>(null);
@@ -32,6 +36,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     roomId: number | null;
     checkInDate: string;
     checkOutDate: string;
+    corporateClientId: string | number;
     note: string;
     source: string;
   }>({
@@ -40,6 +45,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     roomId: null,
     checkInDate: '',
     checkOutDate: '',
+    corporateClientId: '',
     note: '',
     source: 'WALKIN'
   });
@@ -47,12 +53,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
   useEffect(() => {
     if (isOpen) {
       fetchRoomTypes();
+      corporateClientApi.getAll(undefined, true).then(setCorporateClients).catch(console.error);
       setFormData({
         guestId: '',
         roomTypeId: '',
         roomId: null,
         checkInDate: '',
         checkOutDate: '',
+        corporateClientId: '',
         note: '',
         source: 'WALKIN'
       });
@@ -60,6 +68,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       setGuests([]);
       setError('');
       setAvailableCount(null);
+      setPricePreview(null);
     }
   }, [isOpen]);
 
@@ -78,6 +87,25 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       .finally(() => { if (!cancelled) setCheckingAvail(false); });
     return () => { cancelled = true; };
   }, [formData.roomTypeId, formData.checkInDate, formData.checkOutDate]);
+
+  // Tự động kiểm tra giá thỏa thuận khi chọn khách công ty
+  useEffect(() => {
+    const { corporateClientId, roomTypeId, checkInDate, checkOutDate } = formData;
+    if (!corporateClientId || !roomTypeId || !checkInDate || !checkOutDate || checkInDate >= checkOutDate) {
+      setPricePreview(null);
+      return;
+    }
+    let cancelled = false;
+    negotiatedPriceApi.preview({
+      corporateClientId: Number(corporateClientId),
+      roomTypeId: Number(roomTypeId),
+      checkInDate,
+      checkOutDate,
+    })
+      .then(res => { if (!cancelled) setPricePreview(res); })
+      .catch(() => { if (!cancelled) setPricePreview(null); });
+    return () => { cancelled = true; };
+  }, [formData.corporateClientId, formData.roomTypeId, formData.checkInDate, formData.checkOutDate]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -135,6 +163,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
         ...formData,
         guestId: Number(formData.guestId),
         roomTypeId: Number(formData.roomTypeId),
+        corporateClientId: formData.corporateClientId ? Number(formData.corporateClientId) : undefined,
         source: formData.source || 'WALKIN'
       });
       onSuccess?.();
@@ -211,6 +240,49 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
              <div className="text-xs text-amber-800 mt-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
                Không tìm thấy khách. Vui lòng tạo khách mới trước (trong menu Khách hàng).
              </div>
+          )}
+        </div>
+
+        {/* Corporate Client Selection (Negotiated Price) */}
+        <div className="bg-[#FBFDF9] p-4 rounded-xl border border-border-grey space-y-2">
+          <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider">
+            Khách hàng công ty (nếu có thỏa thuận giá)
+          </label>
+          <select
+            name="corporateClientId"
+            value={formData.corporateClientId}
+            onChange={handleInputChange}
+            className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] transition-all"
+          >
+            <option value="">-- Không áp dụng (Khách lẻ thông thường) --</option>
+            {corporateClients.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.companyName} {c.taxCode ? `(MST: ${c.taxCode})` : ''}
+              </option>
+            ))}
+          </select>
+
+          {/* Negotiated Price Banner */}
+          {pricePreview?.applied && (
+            <div className="mt-2 p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm animate-fade-in">
+              <div className="space-y-0.5">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-800 text-sm">
+                  <span>🏷️ Đã tự động áp giá thỏa thuận:</span>
+                  <span className="underline">{pricePreview.agreementName}</span>
+                </div>
+                <div className="text-emerald-700">
+                  Mức giá: <strong>{pricePreview.pricePerNight?.toLocaleString('vi-VN')} đ/đêm</strong> × {pricePreview.totalNights} đêm = <strong className="text-sm text-emerald-900">{pricePreview.totalPrice?.toLocaleString('vi-VN')} đ</strong>
+                </div>
+              </div>
+              <div className="text-right sm:self-center">
+                <span className="text-gray-400 line-through text-xs block">
+                  Giá niêm yết: {pricePreview.standardPrice?.toLocaleString('vi-VN')} đ
+                </span>
+                <span className="text-emerald-700 font-bold text-xs">
+                  (Tiết kiệm {(pricePreview.standardPrice - pricePreview.totalPrice)?.toLocaleString('vi-VN')} đ)
+                </span>
+              </div>
+            </div>
           )}
         </div>
 
