@@ -58,6 +58,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                                           @Param("checkOut") LocalDate checkOut,
                                           @Param("excludeId") Long excludeId);
 
+    // Kiểm tra phòng có bất kỳ booking nào trùng lịch không (kể cả quá khứ CHECKED_OUT, CONFIRMED, CHECKED_IN, NEW)
+    @Query("SELECT b FROM Booking b WHERE b.room.id = :roomId " +
+           "AND b.status NOT IN ('CANCELLED', 'NO_SHOW') " +
+           "AND b.checkInDate < :checkOut AND b.checkOutDate > :checkIn")
+    List<Booking> findOverlappingBookingsForRoom(@Param("roomId") Long roomId,
+                                                @Param("checkIn") LocalDate checkIn,
+                                                @Param("checkOut") LocalDate checkOut);
+
     @Query("SELECT COUNT(b) FROM Booking b WHERE b.roomType.id = :roomTypeId " +
            "AND b.status IN ('NEW', 'CONFIRMED', 'CHECKED_IN') " +
            "AND b.checkInDate < :checkOut AND b.checkOutDate > :checkIn")
