@@ -442,24 +442,34 @@ const DashboardLayout: React.FC = () => {
           `}
         >
           {/* Sidebar Header: Brand & Logo */}
-          <div className="h-16 px-3.5 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
+          <div className="h-16 px-4 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
             <Link
               to="/"
-              className={`flex items-center gap-3 overflow-hidden group py-1 ${isCollapsed ? 'justify-center w-full px-2' : 'px-1'}`}
+              className={`flex items-center group py-1 ${isCollapsed ? 'justify-center w-full' : 'px-1 gap-3'}`}
               title={isCollapsed ? (hotelSetting?.propertyName || 'STAY AWAY') : 'Về trang chủ'}
             >
               {isCollapsed ? (
-                <span className="font-logo font-extrabold text-xl text-[#1A2411] group-hover:text-primary transition-colors">
-                  {(hotelSetting?.propertyName || 'STAY AWAY').slice(0, 2).toUpperCase()}
-                </span>
+                <div className="flex flex-col items-center justify-center">
+                  <span className="font-logo font-bold text-2xl text-primary leading-none">
+                    {(hotelSetting?.propertyName || 'S')[0]}
+                  </span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] mt-1.5"></div>
+                </div>
               ) : (
-                <div className="flex flex-col min-w-0 transition-opacity duration-200">
-                  <span className="font-logo font-extrabold text-[18px] tracking-tight text-[#1A2411] uppercase truncate leading-tight group-hover:text-primary transition-colors">
+                <div className="flex flex-col select-none">
+                  <span className="font-logo font-bold text-[22px] tracking-wide text-primary leading-none uppercase group-hover:opacity-85 transition-opacity">
                     {hotelSetting?.propertyName || 'STAY AWAY'}
                   </span>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#606D56] mt-0.5">
-                    Hotel Management
-                  </span>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#FDD835] animate-bounce [animation-delay:150ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] animate-bounce [animation-delay:300ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#8E24AA] animate-bounce [animation-delay:450ms]"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]"></div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#73826B] ml-1.5">
+                      HOTEL MANAGEMENT
+                    </span>
+                  </div>
                 </div>
               )}
             </Link>
