@@ -40,5 +40,9 @@ public class RoomTypeRequest {
 
     private java.util.List<String> imageUrls;
 
+    private Integer standardCheckoutCleaningMinutes;
+
+    private Integer standardPeriodicCleaningMinutes;
+
     private Boolean active;
 }

@@ -25,6 +25,8 @@ public class RoomTypeResponse {
     private String priceSourceName;
     private String amenitiesDescription;
     private java.util.List<String> imageUrls;
+    private Integer standardCheckoutCleaningMinutes;
+    private Integer standardPeriodicCleaningMinutes;
     private boolean active;
     private Long totalRooms;
     private Long availableRoomsToday;
