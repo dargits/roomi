@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoCashOutline, IoBedOutline } from 'react-icons/io5';
+import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoCashOutline, IoBedOutline, IoCloudUploadOutline } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
@@ -13,6 +13,7 @@ import GroupBookingForm from './GroupBookingForm';
 import GroupBookingList from './GroupBookingList';
 import PendingDepositList from './PendingDepositList';
 import InHouseGuestList from './InHouseGuestList';
+import LegacyBookingImportModal from './LegacyBookingImportModal';
 
 const BookingManagement: React.FC = () => {
   const { user } = useAuth();
@@ -48,6 +49,7 @@ const BookingManagement: React.FC = () => {
   // States cho BookingForm
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isGroupFormOpen, setIsGroupFormOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'].includes(user?.role);
@@ -129,6 +131,15 @@ const BookingManagement: React.FC = () => {
             {/* Action Buttons */}
             {!isAccountant && (
               <div className="flex gap-2 shrink-0">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setIsImportModalOpen(true)} 
+                  icon={IoCloudUploadOutline}
+                  title="Nhập dữ liệu đặt phòng cũ từ file Excel hoặc CSV"
+                >
+                  Nhập dữ liệu cũ
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => setIsGroupFormOpen(true)} icon={IoPeopleOutline}>
                   Tạo đoàn
                 </Button>
@@ -166,6 +177,13 @@ const BookingManagement: React.FC = () => {
           if (autoAssign && createdGroup) {
             setAutoAssignGroup(createdGroup);
           }
+        }}
+      />
+      <LegacyBookingImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          setRefreshKey((prev) => prev + 1);
         }}
       />
     </div>
