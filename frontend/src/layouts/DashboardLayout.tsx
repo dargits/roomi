@@ -409,8 +409,8 @@ const DashboardLayout: React.FC = () => {
     };
   }, [location.pathname, isCollapsed]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
