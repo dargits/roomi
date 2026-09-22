@@ -541,6 +541,13 @@ const QuickActionBar: React.FC = () => {
             <span>Xử Lý Buồng Phòng</span>
           </button>
           <button
+            onClick={() => navigate('/manage/price-suggestions')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
+          >
+            <IoTrendingUpOutline size={15} className="text-primary" />
+            <span>Gợi Ý Điều Chỉnh Giá</span>
+          </button>
+          <button
             onClick={() => navigate('/manage/reports')}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#D4F63D] hover:bg-[#C2E232] text-xs font-bold text-[#1A2411] transition-all cursor-pointer shadow-2xs"
           >

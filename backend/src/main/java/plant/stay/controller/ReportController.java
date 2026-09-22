@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/reports")
 @CrossOrigin("*")
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReportController {
 
@@ -42,7 +41,39 @@ public class ReportController {
     private final DepositRepository depositRepository;
     private final plant.stay.repository.PaymentRepository paymentRepository;
     private final plant.stay.repository.RoomTypeRepository roomTypeRepository;
+    private final plant.stay.service.BestSellingServicesReportService bestSellingServicesReportService;
     private final AuthUtil authUtil;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReportController(
+            BookingRepository bookingRepository,
+            RoomRepository roomRepository,
+            InvoiceRepository invoiceRepository,
+            DepositRepository depositRepository,
+            plant.stay.repository.PaymentRepository paymentRepository,
+            plant.stay.repository.RoomTypeRepository roomTypeRepository,
+            plant.stay.service.BestSellingServicesReportService bestSellingServicesReportService,
+            AuthUtil authUtil) {
+        this.bookingRepository = bookingRepository;
+        this.roomRepository = roomRepository;
+        this.invoiceRepository = invoiceRepository;
+        this.depositRepository = depositRepository;
+        this.paymentRepository = paymentRepository;
+        this.roomTypeRepository = roomTypeRepository;
+        this.bestSellingServicesReportService = bestSellingServicesReportService;
+        this.authUtil = authUtil;
+    }
+
+    public ReportController(
+            BookingRepository bookingRepository,
+            RoomRepository roomRepository,
+            InvoiceRepository invoiceRepository,
+            DepositRepository depositRepository,
+            plant.stay.repository.PaymentRepository paymentRepository,
+            plant.stay.repository.RoomTypeRepository roomTypeRepository,
+            AuthUtil authUtil) {
+        this(bookingRepository, roomRepository, invoiceRepository, depositRepository, paymentRepository, roomTypeRepository, null, authUtil);
+    }
 
     /**
      * Tính toán doanh thu thực tế của booking một cách an toàn:
@@ -799,6 +830,19 @@ public class ReportController {
     }
 
     // ========================================================
+    // Báo cáo Dịch vụ phụ thu bán chạy (CLTSN-BEST-SERVICES)
+    // ========================================================
+    @GetMapping("/best-selling-services")
+    public ResponseEntity<plant.stay.dto.response.BestSellingServicesReportResponse> bestSellingServices(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long roomTypeId,
+            HttpServletRequest request) {
+        checkFinance(request);
+        return ResponseEntity.ok(bestSellingServicesReportService.getReport(from, to, roomTypeId));
+    }
+
+    // ========================================================
     // Báo cáo So sánh chỉ số với kỳ trước (CLTSN3-431)
     // ========================================================
     @GetMapping("/period-comparison")
@@ -1307,6 +1351,14 @@ public class ReportController {
             HttpServletRequest request) {
         checkFinance(request);
 
+        if ("best_selling_services".equals(type) || "surcharge_services".equals(type)) {
+            byte[] data = bestSellingServicesReportService.exportCsv(from, to);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=bao_cao_dich_vu_phu_thu_" + from + "_" + to + ".csv")
+                    .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                    .body(data);
+        }
+
         StringBuilder csv = new StringBuilder();
         if ("bookings".equals(type)) {
             csv.append("ID,Khách,Phòng,Nhận phòng,Trả phòng,Trạng thái,Tiền phòng\n");
@@ -1580,7 +1632,7 @@ public class ReportController {
 
     private void checkFinance(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT && user.getRole() != Role.ADMIN))
             throw new UnauthorizedException("Không có quyền xem báo cáo doanh thu");
     }
 }
