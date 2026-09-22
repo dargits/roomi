@@ -88,9 +88,11 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Khách & Dịch vụ',
     icon: IoPeopleOutline,
     items: [
-      { path: '/manage/guests',         label: 'Khách hàng',           icon: IoPeopleOutline,  allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/extra-services', label: 'Dịch vụ phụ thu',    icon: IoCubeOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/loyalty',        label: 'Khách thân thiết',      icon: IoTrophyOutline,  allowedRoles: ['OWNER'] }
+      { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
+      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
+      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER'] }
     ]
   },
   {
@@ -98,7 +100,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Tài chính',
     icon: IoStatsChartOutline,
     items: [
-      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
+      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'] },
       { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'RECEPTIONIST'] },
       { path: '/manage/daily-ledger', label: 'Sổ quỹ ngày', icon: IoBookOutline, allowedRoles: ['OWNER', 'ACCOUNTANT'] }
     ]
@@ -147,6 +149,8 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/housekeeping': { title: 'Quản Lý Buồng Phòng', group: 'Phòng' },
   '/manage/lost-and-found': { title: 'Quản Lý Đồ Khách Để Quên', group: 'Phòng' },
   '/manage/guests': { title: 'Quản Lý Khách Hàng', group: 'Khách & Dịch vụ' },
+  '/manage/corporate-clients': { title: 'Khách Hàng Công Ty', group: 'Khách & Dịch vụ' },
+  '/manage/negotiated-prices': { title: 'Thỏa Thuận Giá Hợp Đồng', group: 'Khách & Dịch vụ' },
   '/manage/extra-services': { title: 'Dịch Vụ Phụ Thu', group: 'Khách & Dịch vụ' },
   '/manage/loyalty': { title: 'Khách Thân Thiết', group: 'Khách & Dịch vụ' },
   '/manage/reports': { title: 'Báo Cáo Doanh Thu & Công Suất', group: 'Tài chính' },

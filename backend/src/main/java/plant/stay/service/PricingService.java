@@ -24,12 +24,15 @@ public interface PricingService {
     HolidayPriceResponse saveHolidayPrice(HolidayPriceRequest req, User actor);
     void deleteHolidayPrice(Long id, User actor);
 
-    // Tính giá một đêm theo thứ tự ưu tiên: Lễ > Cuối tuần > Mùa > Cơ bản
+    // Tính giá một đêm theo thứ tự ưu tiên: Thỏa thuận > Lễ > Cuối tuần > Mùa > Cơ bản
     NightlyPriceDetailDto calculateNightPrice(RoomType roomType, LocalDate night);
+    NightlyPriceDetailDto calculateNightPrice(RoomType roomType, LocalDate night, plant.stay.model.NegotiatedPriceAgreement agreement);
 
     // Tính tổng tiền phòng cho cả kỳ
     BigDecimal calculateTotalPrice(RoomType roomType, LocalDate checkIn, LocalDate checkOut);
+    BigDecimal calculateTotalPrice(RoomType roomType, LocalDate checkIn, LocalDate checkOut, plant.stay.model.NegotiatedPriceAgreement agreement);
 
     // Bảng chi tiết giá từng đêm + phụ thu vượt sức chứa
     NightlyPriceBreakdownResponse calculateBreakdown(Long roomTypeId, LocalDate checkIn, LocalDate checkOut, Integer guestCount, Integer childCount);
+    NightlyPriceBreakdownResponse calculateBreakdown(Long roomTypeId, LocalDate checkIn, LocalDate checkOut, Integer guestCount, Integer childCount, plant.stay.model.NegotiatedPriceAgreement agreement);
 }

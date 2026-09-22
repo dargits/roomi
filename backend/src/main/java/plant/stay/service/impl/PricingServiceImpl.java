@@ -119,14 +119,35 @@ public class PricingServiceImpl implements PricingService {
                 "Xóa giá ngày lễ " + price.getHolidayName() + " (" + price.getHolidayDate() + ") của loại phòng " + price.getRoomType().getName());
     }
 
-    // ===== Price Calculation (Priority: Holiday > Weekend > Season > Base) =====
+    // ===== Price Calculation (Priority: Negotiated > Holiday > Weekend > Season > Base) =====
 
     @Override
     @Transactional(readOnly = true)
     public NightlyPriceDetailDto calculateNightPrice(RoomType roomType, LocalDate night) {
+        return calculateNightPrice(roomType, night, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NightlyPriceDetailDto calculateNightPrice(RoomType roomType, LocalDate night, plant.stay.model.NegotiatedPriceAgreement agreement) {
         String dayName = formatDayOfWeek(night.getDayOfWeek());
 
-        // 1. Ưu tiên cao nhất: Giá ngày lễ
+        // 0. Ưu tiên cao nhất: Giá thỏa thuận (cho đoàn hoặc khách công ty)
+        if (agreement != null && Boolean.TRUE.equals(agreement.getActive())
+                && !night.isBefore(agreement.getStartDate()) && !night.isAfter(agreement.getEndDate())) {
+            String sourceName = agreement.getGroupBooking() != null
+                    ? "Giá thỏa thuận đoàn: " + agreement.getName()
+                    : "Giá thỏa thuận công ty: " + agreement.getName();
+            return NightlyPriceDetailDto.builder()
+                    .date(night)
+                    .dayOfWeek(dayName)
+                    .appliedPrice(agreement.getPricePerNight())
+                    .priceSource("NEGOTIATED")
+                    .sourceName(sourceName)
+                    .build();
+        }
+
+        // 1. Ưu tiên cao nhất trong bảng giá: Giá ngày lễ
         Optional<HolidayPrice> holidayOpt = holidayPriceRepository.findByRoomTypeAndDate(roomType.getId(), night);
         if (holidayOpt.isPresent() && holidayOpt.get().isActive()) {
             HolidayPrice hp = holidayOpt.get();
@@ -181,13 +202,19 @@ public class PricingServiceImpl implements PricingService {
     @Override
     @Transactional(readOnly = true)
     public BigDecimal calculateTotalPrice(RoomType roomType, LocalDate checkIn, LocalDate checkOut) {
+        return calculateTotalPrice(roomType, checkIn, checkOut, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateTotalPrice(RoomType roomType, LocalDate checkIn, LocalDate checkOut, plant.stay.model.NegotiatedPriceAgreement agreement) {
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
         if (nights <= 0) nights = 1;
 
         BigDecimal total = BigDecimal.ZERO;
         for (long i = 0; i < nights; i++) {
             LocalDate night = checkIn.plusDays(i);
-            total = total.add(calculateNightPrice(roomType, night).getAppliedPrice());
+            total = total.add(calculateNightPrice(roomType, night, agreement).getAppliedPrice());
         }
         return total;
     }
@@ -195,6 +222,12 @@ public class PricingServiceImpl implements PricingService {
     @Override
     @Transactional(readOnly = true)
     public NightlyPriceBreakdownResponse calculateBreakdown(Long roomTypeId, LocalDate checkIn, LocalDate checkOut, Integer guestCount, Integer childCount) {
+        return calculateBreakdown(roomTypeId, checkIn, checkOut, guestCount, childCount, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NightlyPriceBreakdownResponse calculateBreakdown(Long roomTypeId, LocalDate checkIn, LocalDate checkOut, Integer guestCount, Integer childCount, plant.stay.model.NegotiatedPriceAgreement agreement) {
         RoomType roomType = roomTypeRepository.findById(roomTypeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng #" + roomTypeId));
 
@@ -206,7 +239,7 @@ public class PricingServiceImpl implements PricingService {
 
         for (long i = 0; i < nights; i++) {
             LocalDate night = checkIn.plusDays(i);
-            NightlyPriceDetailDto dto = calculateNightPrice(roomType, night);
+            NightlyPriceDetailDto dto = calculateNightPrice(roomType, night, agreement);
             details.add(dto);
             totalRoomPrice = totalRoomPrice.add(dto.getAppliedPrice());
         }

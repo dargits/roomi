@@ -210,6 +210,23 @@ public class ReportController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal grandTotal = totalRevenue.add(penaltyRevenue);
 
+        // Thống kê doanh thu giá thỏa thuận
+        List<Booking> negotiatedBookings = bookings.stream()
+                .filter(b -> "NEGOTIATED".equalsIgnoreCase(b.getPriceSource()) || b.getAppliedAgreement() != null)
+                .collect(Collectors.toList());
+        BigDecimal negotiatedRevenue = negotiatedBookings.stream()
+                .map(this::getEffectiveRevenue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        long negotiatedRoomNights = 0;
+        for (Booking b : negotiatedBookings) {
+            if (b.getCheckInDate() != null && b.getCheckOutDate() != null) {
+                negotiatedRoomNights += Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()));
+            }
+        }
+        BigDecimal negotiatedSharePercent = totalRevenue.compareTo(BigDecimal.ZERO) > 0
+                ? negotiatedRevenue.multiply(BigDecimal.valueOf(100)).divide(totalRevenue, 2, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("from", from.toString());
         result.put("to", to.toString());
@@ -220,7 +237,71 @@ public class ReportController {
         result.put("penaltyRevenue", penaltyRevenue);
         result.put("grandTotal", grandTotal);
         result.put("bookingCount", bookingCount);
+        result.put("negotiatedRevenue", negotiatedRevenue);
+        result.put("negotiatedBookingCount", negotiatedBookings.size());
+        result.put("negotiatedRoomNights", negotiatedRoomNights);
+        result.put("negotiatedSharePercent", negotiatedSharePercent);
         result.put("rows", rows);
+
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/negotiated-revenue")
+    public ResponseEntity<?> negotiatedRevenue(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            HttpServletRequest request) {
+        checkFinance(request);
+        List<Booking> bookings = bookingRepository.findCheckedOutBetween(from, to);
+        List<Booking> negotiatedBookings = bookings.stream()
+                .filter(b -> "NEGOTIATED".equalsIgnoreCase(b.getPriceSource()) || b.getAppliedAgreement() != null)
+                .collect(Collectors.toList());
+
+        BigDecimal totalRevenue = bookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal negotiatedRevenue = negotiatedBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long negotiatedRoomNights = 0;
+        for (Booking b : negotiatedBookings) {
+            if (b.getCheckInDate() != null && b.getCheckOutDate() != null) {
+                negotiatedRoomNights += Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()));
+            }
+        }
+
+        BigDecimal sharePercent = totalRevenue.compareTo(BigDecimal.ZERO) > 0
+                ? negotiatedRevenue.multiply(BigDecimal.valueOf(100)).divide(totalRevenue, 2, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        Map<String, List<Booking>> byAgreement = negotiatedBookings.stream()
+                .collect(Collectors.groupingBy(b -> b.getAppliedAgreement() != null ? b.getAppliedAgreement().getName() : "Không xác định"));
+
+        List<Map<String, Object>> agreementBreakdown = byAgreement.entrySet().stream()
+                .map(e -> {
+                    BigDecimal rev = e.getValue().stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    long nights = e.getValue().stream().mapToLong(b -> {
+                        if (b.getCheckInDate() != null && b.getCheckOutDate() != null) {
+                            return Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()));
+                        }
+                        return 1;
+                    }).sum();
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("agreementName", e.getKey());
+                    map.put("bookingCount", e.getValue().size());
+                    map.put("roomNights", nights);
+                    map.put("revenue", rev);
+                    return map;
+                })
+                .sorted((a, b) -> ((BigDecimal) b.get("revenue")).compareTo((BigDecimal) a.get("revenue")))
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("from", from.toString());
+        result.put("to", to.toString());
+        result.put("totalRevenue", totalRevenue);
+        result.put("negotiatedRevenue", negotiatedRevenue);
+        result.put("negotiatedBookingCount", negotiatedBookings.size());
+        result.put("negotiatedRoomNights", negotiatedRoomNights);
+        result.put("sharePercent", sharePercent);
+        result.put("agreements", agreementBreakdown);
 
         return ResponseEntity.ok(result);
     }
@@ -1499,7 +1580,7 @@ public class ReportController {
 
     private void checkFinance(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT && user.getRole() != Role.ADMIN))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ACCOUNTANT && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST))
             throw new UnauthorizedException("Không có quyền xem báo cáo doanh thu");
     }
 }
