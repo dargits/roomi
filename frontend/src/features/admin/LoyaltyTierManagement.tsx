@@ -7,107 +7,71 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import { useToast } from "../../context/ToastContext";
 
 interface TierTheme {
-  badgeBg: string;
-  badgeText: string;
-  badgeBorder: string;
-  gradientHeader: string;
+  cardGradient: string;
+  accentDot: string;
   cardBorder: string;
-  cardHoverBorder: string;
-  accentBar: string;
-  pointPill: string;
+  badgeBorder: string;
 }
 
 const getTierTheme = (name: string, index: number): TierTheme => {
   const lower = (name || "").toLowerCase();
   if (lower.includes('đồng') || lower.includes('bronze')) {
     return {
-      badgeBg: 'bg-[#FDF4EB]',
-      badgeText: 'text-[#9A3412]',
-      badgeBorder: 'border-[#FDBA74]',
-      gradientHeader: 'from-[#7C2D12] via-[#9A3412] to-[#C2410C]',
+      cardGradient: 'from-[#381E10] via-[#542E18] to-[#241208]',
+      accentDot: 'bg-[#EA580C]',
       cardBorder: 'border-[#FED7AA]',
-      cardHoverBorder: 'hover:border-[#FB923C]',
-      accentBar: 'bg-[#EA580C]',
-      pointPill: 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'
+      badgeBorder: 'border-[#FDBA74]'
     };
   }
   if (lower.includes('bạc') || lower.includes('silver')) {
     return {
-      badgeBg: 'bg-[#F1F5F9]',
-      badgeText: 'text-[#334155]',
-      badgeBorder: 'border-[#CBD5E1]',
-      gradientHeader: 'from-[#334155] via-[#475569] to-[#64748B]',
+      cardGradient: 'from-[#1E293B] via-[#334155] to-[#0F172A]',
+      accentDot: 'bg-[#94A3B8]',
       cardBorder: 'border-[#E2E8F0]',
-      cardHoverBorder: 'hover:border-[#94A3B8]',
-      accentBar: 'bg-[#64748B]',
-      pointPill: 'bg-[#F8FAFC] text-[#475569] border-[#E2E8F0]'
+      badgeBorder: 'border-[#CBD5E1]'
     };
   }
   if (lower.includes('vàng') || lower.includes('gold')) {
     return {
-      badgeBg: 'bg-[#FEFCE8]',
-      badgeText: 'text-[#854D0E]',
-      badgeBorder: 'border-[#FDE047]',
-      gradientHeader: 'from-[#854D0E] via-[#B45309] to-[#D97706]',
+      cardGradient: 'from-[#553106] via-[#78450A] to-[#351C02]',
+      accentDot: 'bg-[#F59E0B]',
       cardBorder: 'border-[#FEF08A]',
-      cardHoverBorder: 'hover:border-[#FACC15]',
-      accentBar: 'bg-[#EAB308]',
-      pointPill: 'bg-[#FEFCE8] text-[#A16207] border-[#FEF08A]'
+      badgeBorder: 'border-[#FDE047]'
     };
   }
   if (lower.includes('kim cương') || lower.includes('diamond') || lower.includes('bạch kim') || lower.includes('platinum')) {
     return {
-      badgeBg: 'bg-[#F0FDF4]',
-      badgeText: 'text-[#166534]',
-      badgeBorder: 'border-[#86EFAC]',
-      gradientHeader: 'from-[#064E3B] via-[#047857] to-[#0D9488]',
+      cardGradient: 'from-[#063327] via-[#094A38] to-[#032019]',
+      accentDot: 'bg-[#10B981]',
       cardBorder: 'border-[#A7F3D0]',
-      cardHoverBorder: 'hover:border-[#34D399]',
-      accentBar: 'bg-[#10B981]',
-      pointPill: 'bg-[#F0FDF4] text-[#047857] border-[#BBF7D0]'
+      badgeBorder: 'border-[#86EFAC]'
     };
   }
 
   const fallbacks: TierTheme[] = [
     {
-      badgeBg: 'bg-[#FDF4EB]',
-      badgeText: 'text-[#9A3412]',
-      badgeBorder: 'border-[#FDBA74]',
-      gradientHeader: 'from-[#7C2D12] via-[#9A3412] to-[#C2410C]',
+      cardGradient: 'from-[#381E10] via-[#542E18] to-[#241208]',
+      accentDot: 'bg-[#EA580C]',
       cardBorder: 'border-[#FED7AA]',
-      cardHoverBorder: 'hover:border-[#FB923C]',
-      accentBar: 'bg-[#EA580C]',
-      pointPill: 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'
+      badgeBorder: 'border-[#FDBA74]'
     },
     {
-      badgeBg: 'bg-[#F1F5F9]',
-      badgeText: 'text-[#334155]',
-      badgeBorder: 'border-[#CBD5E1]',
-      gradientHeader: 'from-[#334155] via-[#475569] to-[#64748B]',
+      cardGradient: 'from-[#1E293B] via-[#334155] to-[#0F172A]',
+      accentDot: 'bg-[#94A3B8]',
       cardBorder: 'border-[#E2E8F0]',
-      cardHoverBorder: 'hover:border-[#94A3B8]',
-      accentBar: 'bg-[#64748B]',
-      pointPill: 'bg-[#F8FAFC] text-[#475569] border-[#E2E8F0]'
+      badgeBorder: 'border-[#CBD5E1]'
     },
     {
-      badgeBg: 'bg-[#FEFCE8]',
-      badgeText: 'text-[#854D0E]',
-      badgeBorder: 'border-[#FDE047]',
-      gradientHeader: 'from-[#854D0E] via-[#B45309] to-[#D97706]',
+      cardGradient: 'from-[#553106] via-[#78450A] to-[#351C02]',
+      accentDot: 'bg-[#F59E0B]',
       cardBorder: 'border-[#FEF08A]',
-      cardHoverBorder: 'hover:border-[#FACC15]',
-      accentBar: 'bg-[#EAB308]',
-      pointPill: 'bg-[#FEFCE8] text-[#A16207] border-[#FEF08A]'
+      badgeBorder: 'border-[#FDE047]'
     },
     {
-      badgeBg: 'bg-[#F0FDF4]',
-      badgeText: 'text-[#166534]',
-      badgeBorder: 'border-[#86EFAC]',
-      gradientHeader: 'from-[#064E3B] via-[#047857] to-[#0D9488]',
+      cardGradient: 'from-[#063327] via-[#094A38] to-[#032019]',
+      accentDot: 'bg-[#10B981]',
       cardBorder: 'border-[#A7F3D0]',
-      cardHoverBorder: 'hover:border-[#34D399]',
-      accentBar: 'bg-[#10B981]',
-      pointPill: 'bg-[#F0FDF4] text-[#047857] border-[#BBF7D0]'
+      badgeBorder: 'border-[#86EFAC]'
     }
   ];
   return fallbacks[index % fallbacks.length];
@@ -119,6 +83,7 @@ const LoyaltyTierManagement: React.FC = () => {
   const [tiers, setTiers] = useState<any[]>([]);
   const [guestStats, setGuestStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [showModal, setShowModal] = useState(false);
   const [editingTier, setEditingTier] = useState<any>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -213,7 +178,7 @@ const LoyaltyTierManagement: React.FC = () => {
     }
   };
 
-  // Helper tách quyền lợi thành các dòng
+  // Tách quyền lợi thành các gạch đầu dòng ngắn gọn
   const parseBenefits = (desc: string) => {
     if (!desc || !desc.trim()) return [];
     return desc
@@ -245,42 +210,83 @@ const LoyaltyTierManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Overview Stat Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-border-grey rounded-2xl p-4.5 shadow-2xs hover:shadow-xs transition-all">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#606D56]">Quy Mô Cấp Bậc</p>
-          <div className="text-2xl font-extrabold text-[#1A2411] mt-1 tracking-tight">
-            {tiers.length} <span className="text-xs font-medium text-[#606D56]">hạng thành viên</span>
+      {/* Overview Metric Bar & View Switcher */}
+      <div className="bg-white border border-border-grey rounded-2xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center flex-wrap gap-4 sm:gap-6 divide-y sm:divide-y-0 sm:divide-x divide-border-grey">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#EAF5CD] text-[#3F4F24] flex items-center justify-center font-extrabold text-sm shadow-2xs">
+              {tiers.length}
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#606D56]">Quy Mô Cấp Bậc</p>
+              <p className="text-xs font-extrabold text-[#1A2411]">
+                {tiers.length} hạng thành viên
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-[#8A9A7D] mt-1">Từ hạng cơ bản đến VIP cao cấp</p>
+
+          <div className="sm:pl-6 pt-3 sm:pt-0 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#E6F0FA] text-[#1E40AF] flex items-center justify-center font-extrabold text-sm shadow-2xs">
+              {totalMembers}
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#606D56]">Hội Viên Đang Sở Hữu</p>
+              <p className="text-xs font-extrabold text-[#1A2411]">
+                {totalMembers} khách hàng
+              </p>
+            </div>
+          </div>
+
+          <div className="sm:pl-6 pt-3 sm:pt-0 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FEF9C3] text-[#854D0E] flex items-center justify-center font-extrabold text-xs shadow-2xs">
+              100k
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#606D56]">Quy Tắc Đổi Điểm</p>
+              <p className="text-xs font-extrabold text-[#1A2411]">
+                100.000 đ = 1 điểm
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white border border-border-grey rounded-2xl p-4.5 shadow-2xs hover:shadow-xs transition-all">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#606D56]">Tổng Hội Viên Đang Sở Hữu</p>
-          <div className="text-2xl font-extrabold text-[#1A2411] mt-1 tracking-tight">
-            {totalMembers} <span className="text-xs font-medium text-[#606D56]">khách hàng</span>
-          </div>
-          <p className="text-xs text-[#8A9A7D] mt-1">Được tự động xếp hạng khi tích lũy đủ điểm</p>
-        </div>
-
-        <div className="bg-white border border-border-grey rounded-2xl p-4.5 shadow-2xs hover:shadow-xs transition-all">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#606D56]">Quy Tắc Đổi Điểm</p>
-          <div className="text-xl font-extrabold text-[#1A2411] mt-1 tracking-tight">
-            100.000 đ = 1 điểm
-          </div>
-          <p className="text-xs text-[#8A9A7D] mt-1">Hệ thống tự động cộng điểm sau mỗi kỳ lưu trú</p>
+        {/* View Switcher */}
+        <div className="flex items-center gap-1 bg-[#F2F6ED] p-1 rounded-xl border border-border-grey self-start md:self-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'cards' 
+                ? 'bg-white text-[#1A2411] shadow-2xs' 
+                : 'text-[#606D56] hover:text-[#1A2411]'
+            }`}
+          >
+            Thẻ Hội Viên VIP
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'table' 
+                ? 'bg-white text-[#1A2411] shadow-2xs' 
+                : 'text-[#606D56] hover:text-[#1A2411]'
+            }`}
+          >
+            Bảng So Sánh Quyền Lợi
+          </button>
         </div>
       </div>
 
-      {/* Danh sách các hạng dạng thẻ Luxury */}
+      {/* Main Content Area */}
       {loading ? (
         <div className="p-12 text-center"><LoadingScreen message="Đang tải danh mục hạng thành viên..." /></div>
       ) : tiers.length === 0 ? (
         <div className="p-12 text-center text-[#606D56] text-sm bg-white border border-border-grey rounded-2xl shadow-2xs">
           Chưa có hạng thành viên nào được tạo. Bấm "Thêm hạng mới" để bắt đầu xây dựng chương trình khách thân thiết.
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      ) : viewMode === 'cards' ? (
+        /* DẠNG THẺ VIP CHUYÊN NGHIỆP */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
           {tiers.map((tier, idx) => {
             const stat = guestStats.find(s => s.id === tier.id);
             const theme = getTierTheme(tier.name, idx);
@@ -289,47 +295,50 @@ const LoyaltyTierManagement: React.FC = () => {
             return (
               <div
                 key={tier.id}
-                className={`group relative bg-white border ${theme.cardBorder} ${theme.cardHoverBorder} rounded-2xl shadow-2xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between`}
+                className="group bg-white border border-border-grey rounded-2xl shadow-2xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between"
               >
-                {/* Top Luxury Banner Strip */}
-                <div className={`h-2.5 w-full bg-gradient-to-r ${theme.gradientHeader}`} />
+                {/* Phần mặt thẻ VIP sang trọng */}
+                <div className={`p-5 bg-gradient-to-br ${theme.cardGradient} text-white relative overflow-hidden shadow-inner`}>
+                  {/* Họa tiết chìm tinh tế */}
+                  <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/5 pointer-events-none" />
+                  <div className="absolute right-8 -top-8 w-20 h-20 rounded-full bg-white/5 pointer-events-none" />
 
-                <div className="p-5 flex-1 flex flex-col">
-                  {/* Tier Header: Rank badge & Points requirement */}
-                  <div className="flex items-start justify-between gap-3 mb-2.5">
-                    <div>
-                      <span className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider font-mono border ${theme.badgeBg} ${theme.badgeText} ${theme.badgeBorder}`}>
-                        CẤP 0{idx + 1}
+                  <div className="flex items-center justify-between gap-2 relative z-10">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                      <span className="text-[10px] font-bold tracking-widest uppercase text-white/75 font-mono">
+                        STAY AWAY • CẤP 0{idx + 1}
                       </span>
-                      <h3 className="font-extrabold text-lg text-[#16220E] tracking-tight mt-1.5 group-hover:text-primary transition-colors">
-                        {tier.name}
-                      </h3>
                     </div>
-
-                    <div className={`px-2.5 py-1 rounded-full border text-xs font-extrabold tracking-tight shrink-0 shadow-2xs ${theme.pointPill}`}>
-                      Từ {tier.minPoints.toLocaleString("vi-VN")} điểm
-                    </div>
-                  </div>
-
-                  {/* Chi tiêu tối thiểu ước tính */}
-                  <div className="text-[11px] text-[#606D56] font-medium mb-4 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#8A9A7D] shrink-0" />
-                    <span>
-                      Chi tiêu tích lũy từ: <strong>{(tier.minPoints * 100000).toLocaleString("vi-VN")} đ</strong>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/15 backdrop-blur-xs text-white border border-white/20 font-mono shadow-2xs">
+                      {tier.minPoints.toLocaleString("vi-VN")} ĐIỂM
                     </span>
                   </div>
 
-                  {/* Danh sách đặc quyền */}
-                  <div className="mt-1 flex-1">
-                    <p className="text-[11px] uppercase font-bold text-[#8A9A7D] tracking-wider mb-2">
-                      Đặc Quyền & Ưu Đãi
+                  <div className="mt-4 relative z-10">
+                    <h3 className="text-xl font-extrabold text-white tracking-tight">
+                      {tier.name}
+                    </h3>
+                    <p className="text-xs text-white/80 mt-1 font-medium">
+                      Tích lũy từ: <strong className="text-white">{(tier.minPoints * 100000).toLocaleString("vi-VN")} đ</strong>
                     </p>
-                    <div className="space-y-1.5">
+                  </div>
+                </div>
+
+                {/* Danh sách đặc quyền & footer */}
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-[#606D56] mb-2.5 flex items-center justify-between">
+                      <span>Đặc Quyền Dành Riêng</span>
+                      <span className="text-[10px] text-[#8A9A7D] font-normal">{benefits.length} quyền lợi</span>
+                    </div>
+
+                    <div className="space-y-2">
                       {benefits.length > 0 ? (
-                        benefits.map((benefitText, bIdx) => (
-                          <div key={bIdx} className="flex items-start gap-2 text-xs text-[#2A3820] leading-relaxed">
-                            <span className={`w-1.5 h-1.5 rounded-full ${theme.accentBar} mt-1.5 shrink-0`} />
-                            <span className="font-medium">{benefitText}</span>
+                        benefits.map((b, bIdx) => (
+                          <div key={bIdx} className="flex items-start gap-2 text-xs text-[#1A2411] leading-relaxed">
+                            <span className={`w-1.5 h-1.5 rounded-full ${theme.accentDot} mt-1.5 shrink-0`} />
+                            <span className="font-medium">{b}</span>
                           </div>
                         ))
                       ) : (
@@ -337,37 +346,114 @@ const LoyaltyTierManagement: React.FC = () => {
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Footer Bar */}
-                <div className="px-5 py-3.5 bg-[#FAFDF7] border-t border-border-grey/70 flex items-center justify-between text-xs">
-                  <div className="text-[#606D56]">
-                    <strong className="text-[#1A2411] font-bold text-sm font-mono mr-1">
-                      {stat ? stat.guestCount : 0}
-                    </strong>
-                    <span>hội viên đạt hạng</span>
-                  </div>
+                  <div className="mt-5 pt-3.5 border-t border-border-grey/70 flex items-center justify-between text-xs">
+                    <div className="text-[#606D56]">
+                      <strong className="text-[#1A2411] font-extrabold text-sm font-mono mr-1">
+                        {stat ? stat.guestCount : 0}
+                      </strong>
+                      <span>hội viên</span>
+                    </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(tier)}
-                      className="px-3 py-1.5 text-xs font-bold rounded-xl bg-white border border-border-grey hover:bg-[#F2F6ED] text-[#1A2411] transition-all cursor-pointer shadow-2xs hover:border-[#CCD8C2]"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(tier)}
-                      className="px-3 py-1.5 text-xs font-bold rounded-xl text-red-600 hover:bg-red-50 transition-all cursor-pointer"
-                    >
-                      Xóa
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(tier)}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(tier)}
+                        className="px-2.5 py-1.5 text-xs font-bold rounded-xl text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      ) : (
+        /* DẠNG BẢNG SO SÁNH QUYỀN LỢI CHI TIẾT */
+        <div className="bg-white border border-border-grey rounded-2xl overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border-grey bg-[#FAFDF7] text-[11px] font-bold uppercase tracking-wider text-[#606D56]">
+                  <th className="p-4">Cấp Bậc</th>
+                  <th className="p-4">Tên Hạng</th>
+                  <th className="p-4">Ngưỡng Điểm</th>
+                  <th className="p-4">Chi Tiêu Tích Lũy</th>
+                  <th className="p-4">Số Hội Viên</th>
+                  <th className="p-4">Đặc Quyền & Ưu Đãi</th>
+                  <th className="p-4 text-right">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-grey text-xs">
+                {tiers.map((tier, idx) => {
+                  const stat = guestStats.find(s => s.id === tier.id);
+                  const theme = getTierTheme(tier.name, idx);
+                  const benefits = parseBenefits(tier.benefitDescription);
+
+                  return (
+                    <tr key={tier.id} className="hover:bg-[#F7FAF4] transition-colors">
+                      <td className="p-4 font-mono font-bold text-[#606D56]">
+                        CẤP 0{idx + 1}
+                      </td>
+                      <td className="p-4">
+                        <div className="font-extrabold text-sm text-[#1A2411]">{tier.name}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className="font-mono font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md border border-primary/20">
+                          {tier.minPoints.toLocaleString("vi-VN")} điểm
+                        </span>
+                      </td>
+                      <td className="p-4 font-medium text-[#606D56]">
+                        {(tier.minPoints * 100000).toLocaleString("vi-VN")} đ
+                      </td>
+                      <td className="p-4">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-[#EAF5CD] text-[#3F4F24]">
+                          {stat ? stat.guestCount : 0} hội viên
+                        </span>
+                      </td>
+                      <td className="p-4 max-w-md">
+                        <div className="space-y-1">
+                          {benefits.map((b, bIdx) => (
+                            <div key={bIdx} className="flex items-start gap-1.5 text-[#2A3820] font-medium leading-relaxed">
+                              <span className={`w-1.5 h-1.5 rounded-full ${theme.accentDot} mt-1.5 shrink-0`} />
+                              <span>{b}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(tier)}
+                            className="px-2.5 py-1 font-bold text-xs rounded-lg hover:bg-surface-container text-primary cursor-pointer transition-colors"
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(tier)}
+                            className="px-2.5 py-1 font-bold text-xs rounded-lg hover:bg-red-50 text-error cursor-pointer transition-colors"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
