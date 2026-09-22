@@ -445,33 +445,23 @@ const DashboardLayout: React.FC = () => {
           <div className="h-16 px-3.5 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
             <Link
               to="/"
-              className={`flex items-center gap-3 overflow-hidden group py-1 ${isCollapsed ? 'justify-center w-full' : ''}`}
-              title={isCollapsed ? (hotelSetting?.propertyName || 'Lodgify') : 'Về trang chủ'}
+              className={`flex items-center gap-3 overflow-hidden group py-1 ${isCollapsed ? 'justify-center w-full px-2' : 'px-1'}`}
+              title={isCollapsed ? (hotelSetting?.propertyName || 'STAY AWAY') : 'Về trang chủ'}
             >
-              {/* Brand Emblem: Lodgify 4-pill grid icon */}
-              <div className="w-10 h-10 rounded-xl bg-[#1A2411] text-[#D4F63D] shadow-sm flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
-                <div className="grid grid-cols-2 gap-1 p-1.5">
-                  <span className="w-2 h-3.5 rounded-full bg-[#D4F63D]"></span>
-                  <span className="w-2 h-2.5 rounded-full bg-[#A4B465]"></span>
-                  <span className="w-2 h-2.5 rounded-full bg-[#A4B465]"></span>
-                  <span className="w-2 h-3.5 rounded-full bg-[#D4F63D]"></span>
-                </div>
-              </div>
-
-              {/* Brand text when expanded */}
-              <div className={`flex flex-col min-w-0 transition-opacity duration-200 ${isCollapsed ? 'lg:hidden' : ''}`}>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-logo font-extrabold text-[17px] tracking-tight text-[#1A2411] uppercase truncate leading-tight group-hover:text-primary transition-colors">
-                    {hotelSetting?.propertyName || 'Lodgify'}
+              {isCollapsed ? (
+                <span className="font-logo font-extrabold text-xl text-[#1A2411] group-hover:text-primary transition-colors">
+                  {(hotelSetting?.propertyName || 'STAY AWAY').slice(0, 2).toUpperCase()}
+                </span>
+              ) : (
+                <div className="flex flex-col min-w-0 transition-opacity duration-200">
+                  <span className="font-logo font-extrabold text-[18px] tracking-tight text-[#1A2411] uppercase truncate leading-tight group-hover:text-primary transition-colors">
+                    {hotelSetting?.propertyName || 'STAY AWAY'}
                   </span>
-                  <span className="px-1.5 py-0.2 text-[9px] font-extrabold bg-[#D4F63D] text-[#1A2411] rounded-full border border-[#BEDF2E]">
-                    0.1%
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#606D56] mt-0.5">
+                    Hotel Management
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#606D56]">Hotel Management</span>
-                </div>
-              </div>
+              )}
             </Link>
 
             {/* Mobile close button */}
