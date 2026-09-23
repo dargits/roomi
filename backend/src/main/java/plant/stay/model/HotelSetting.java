@@ -133,6 +133,32 @@ public class HotelSetting {
     @Builder.Default
     private Boolean priceSuggestionConfigured = true;
 
+    /**
+     * Cấu hình Sao lưu tự động toàn bộ hệ thống:
+     * - autoBackupEnabled: Bật/tắt tự động sao lưu hàng ngày.
+     * - autoBackupTime: Khung giờ chạy sao lưu tự động hàng ngày (mặc định 02:00 sáng).
+     * - backupRetentionDays: Số ngày lưu trữ bản sao lưu trên máy chủ trước khi tự dọn dẹp (mặc định 30 ngày).
+     * - lastBackupAt: Thời điểm tạo bản sao lưu gần nhất.
+     * - lastBackupStatus: Trạng thái của lần sao lưu gần nhất.
+     */
+    @Column(name = "auto_backup_enabled")
+    @Builder.Default
+    private Boolean autoBackupEnabled = true;
+
+    @Column(name = "auto_backup_time")
+    @Builder.Default
+    private LocalTime autoBackupTime = LocalTime.of(2, 0);
+
+    @Column(name = "backup_retention_days")
+    @Builder.Default
+    private Integer backupRetentionDays = 30;
+
+    @Column(name = "last_backup_at")
+    private LocalDateTime lastBackupAt;
+
+    @Column(name = "last_backup_status")
+    private String lastBackupStatus;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
