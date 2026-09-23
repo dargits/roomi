@@ -407,33 +407,49 @@ const HotelSettings: React.FC = () => {
 
           {settings.periodicCleaningEnabled && (
             <div className="space-y-4 pt-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                <Input
-                  label="Số ngày không có khách để chuyển sang Cần dọn *"
-                  type="number"
-                  name="periodicCleaningDays"
-                  min={1}
-                  max={90}
-                  value={settings.periodicCleaningDays !== undefined ? String(settings.periodicCleaningDays) : '5'}
-                  onChange={handleChange}
-                  error={errors.periodicCleaningDays || undefined}
-                  icon={IoCalendarOutline}
-                  helperText="Sau số ngày này không có khách, phòng sẽ tự động chuyển sang Cần dọn"
-                  required
-                />
+              <div>
+                <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider mb-1.5">
+                  Số ngày không có khách để chuyển sang Cần dọn <span className="text-error">*</span>
+                </label>
 
-                <div className="pb-1">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <div className="relative w-full sm:w-72">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                      <IoCalendarOutline size={18} strokeWidth={1.5} className="text-[#606D56]" />
+                    </div>
+                    <input
+                      type="number"
+                      name="periodicCleaningDays"
+                      min={1}
+                      max={90}
+                      value={settings.periodicCleaningDays !== undefined ? String(settings.periodicCleaningDays) : '5'}
+                      onChange={handleChange}
+                      className={`w-full h-[42px] py-2.5 pl-10 pr-4 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] placeholder:text-[#8E9B86] transition-all ${
+                        errors.periodicCleaningDays ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-[#CCD8C2]'
+                      }`}
+                      required
+                    />
+                  </div>
+
                   <Button
                     type="button"
                     variant="outline"
                     icon={IoRefreshOutline}
                     onClick={handleScanPeriodicCleaning}
                     isLoading={isScanning}
-                    className="w-full sm:w-auto"
+                    className="h-[42px] px-4 text-xs font-bold rounded-xl shrink-0 inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-2xs hover:bg-[#F2F6EC]"
                   >
                     Quét phòng trống ngay
                   </Button>
                 </div>
+
+                {errors.periodicCleaningDays ? (
+                  <p className="text-error text-xs mt-1.5 font-medium">{errors.periodicCleaningDays}</p>
+                ) : (
+                  <p className="text-[#606D56] text-xs mt-1.5">
+                    Sau số ngày này không có khách, phòng sẽ tự động chuyển sang Cần dọn
+                  </p>
+                )}
               </div>
 
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 space-y-1">
@@ -462,9 +478,12 @@ const HotelSettings: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 items-stretch">
             <Input
               label="Thời gian chờ không thao tác (phút) *"
+              labelClassName="min-h-[32px] sm:min-h-[36px] flex items-start"
+              helperTextClassName="min-h-[32px] sm:min-h-[36px]"
+              containerClassName="flex flex-col justify-between h-full"
               type="number"
               name="sessionTimeoutMinutes"
               min={5}
@@ -479,6 +498,9 @@ const HotelSettings: React.FC = () => {
 
             <Input
               label="Số phiên đồng thời tối đa *"
+              labelClassName="min-h-[32px] sm:min-h-[36px] flex items-start"
+              helperTextClassName="min-h-[32px] sm:min-h-[36px]"
+              containerClassName="flex flex-col justify-between h-full"
               type="number"
               name="maxConcurrentSessions"
               min={0}
@@ -493,6 +515,9 @@ const HotelSettings: React.FC = () => {
 
             <Input
               label="Thời hạn tối đa của phiên (giờ) *"
+              labelClassName="min-h-[32px] sm:min-h-[36px] flex items-start"
+              helperTextClassName="min-h-[32px] sm:min-h-[36px]"
+              containerClassName="flex flex-col justify-between h-full"
               type="number"
               name="maxSessionLifetimeHours"
               min={1}

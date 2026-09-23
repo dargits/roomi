@@ -7,18 +7,18 @@ import java.time.LocalDate;
 
 @Data
 public class BookingRequest {
-    @NotNull(message = "Khách hàng không được để trống")
+    @NotNull(message = "KhÃ¡ch hÃ ng khÃ´ng ÄÆ°á»£c Äá» trá»ng")
     private Long guestId;
 
-    @NotNull(message = "Loại phòng không được để trống")
+    @NotNull(message = "Loáº¡i phÃ²ng khÃ´ng ÄÆ°á»£c Äá» trá»ng")
     private Long roomTypeId;
 
-    private Long roomId; // Optional — có thể gán phòng sau
+    private Long roomId; // Optional â cÃ³ thá» gÃ¡n phÃ²ng sau
 
-    @NotNull(message = "Ngày nhận phòng không được để trống")
+    @NotNull(message = "NgÃ y nháº­n phÃ²ng khÃ´ng ÄÆ°á»£c Äá» trá»ng")
     private LocalDate checkInDate;
 
-    @NotNull(message = "Ngày trả phòng không được để trống")
+    @NotNull(message = "NgÃ y tráº£ phÃ²ng khÃ´ng ÄÆ°á»£c Äá» trá»ng")
     private LocalDate checkOutDate;
 
     private Integer guestCount;
@@ -26,6 +26,6 @@ public class BookingRequest {
 
     private String note;
     private String source; // WALKIN, PHONE, SOCIAL, ONLINE, SIMULATION
-    private Long corporateClientId; // ID hồ sơ khách công ty (nếu có)
-    private Long groupBookingId; // ID do�n d?t ph�ng (n?u c�, d�ng d? resolve th?a thu?n gi� do�n)
+    private Long corporateClientId; // ID ho so khach cong ty (neu co)
+    private Long groupBookingId; // ID doan dat phong (neu co)
 }
