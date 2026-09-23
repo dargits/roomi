@@ -29,6 +29,7 @@ describe('DiscountPanel component', () => {
     render(
       <DiscountPanel
         discount={mockDiscount}
+        onAddDiscount={() => {}}
         onRemove={() => {}}
         onApprove={() => {}}
         onReject={() => {}}
@@ -52,6 +53,7 @@ describe('DiscountPanel component', () => {
       <DiscountPanel
         discount={pendingDiscount}
         userRole="OWNER"
+        onAddDiscount={() => {}}
         onRemove={() => {}}
         onApprove={handleApprove}
         onReject={() => {}}
@@ -73,6 +75,7 @@ describe('DiscountPanel component', () => {
     render(
       <DiscountPanel
         discount={mockDiscount}
+        onAddDiscount={() => {}}
         onRemove={handleRemove}
         onApprove={() => {}}
         onReject={() => {}}

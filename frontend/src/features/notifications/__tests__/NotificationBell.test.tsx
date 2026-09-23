@@ -41,6 +41,8 @@ describe('NotificationBell component', () => {
           type: 'CHECKIN_TODAY',
           title: 'Khách đến hôm nay',
           body: 'Phòng 201 check-in lúc 14:00',
+          refType: null,
+          refId: null,
           isRead: false,
           createdAt: new Date().toISOString()
         }
