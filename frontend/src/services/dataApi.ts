@@ -99,7 +99,8 @@ const dataApi = {
    */
   createFullBackup: async (type: 'FULL_ZIP' | 'DATABASE_SQL' = 'FULL_ZIP'): Promise<BackupHistoryItem> => {
     const response = await api.post('/backup/create', null, {
-      params: { type }
+      params: { type },
+      timeout: 300000
     });
     return response.data;
   },
@@ -118,6 +119,7 @@ const dataApi = {
   downloadBackupFile: async (id: number, onProgress?: (percent: number) => void): Promise<Blob> => {
     const response = await api.get(`/backup/download/${id}`, {
       responseType: 'blob',
+      timeout: 300000,
       onDownloadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -134,6 +136,7 @@ const dataApi = {
   instantDownloadBackup: async (onProgress?: (percent: number) => void): Promise<Blob> => {
     const response = await api.get('/backup/instant-download', {
       responseType: 'blob',
+      timeout: 300000,
       onDownloadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -153,17 +156,18 @@ const dataApi = {
   },
 
   /**
-   * Khôi phục toàn bộ hệ thống từ bản sao lưu đã có trên máy chủ (Chỉ OWNER)
+   * Khôi phục toàn bộ hệ thống từ bản sao lưu đã có trên máy chủ
    */
   restoreBackup: async (id: number, confirmCode: string): Promise<RestoreSummary> => {
     const response = await api.post(`/backup/restore/${id}`, null, {
-      params: { confirmCode }
+      params: { confirmCode },
+      timeout: 300000 // 5 phút, tránh lỗi timeout 30s khi khôi phục nhiều bảng
     });
     return response.data;
   },
 
   /**
-   * Khôi phục toàn bộ hệ thống từ file .sql hoặc .zip tải lên (Chỉ OWNER)
+   * Khôi phục toàn bộ hệ thống từ file .sql hoặc .zip tải lên
    */
   restoreBackupFromUpload: async (
     file: File,
@@ -177,6 +181,7 @@ const dataApi = {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
+      timeout: 300000, // 5 phút, hỗ trợ tải file lớn và khôi phục toàn diện
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onUploadProgress) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
