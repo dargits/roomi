@@ -93,7 +93,7 @@ const Tabs: React.FC<TabsProps> = ({
 
   return (
     <div
-      className={`relative flex items-center overflow-x-auto ${
+      className={`relative flex items-center overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
         isPill
           ? `p-1.5 bg-[#F4F6F0] rounded-2xl border border-border-grey w-fit shadow-2xs ${className}`
           : `border-b border-border-grey ${className}`

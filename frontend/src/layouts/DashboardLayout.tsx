@@ -58,7 +58,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Tổng quan',
     icon: IoGridOutline,
     items: [
-      { path: '/manage/dashboard', label: 'Tổng quan', icon: IoGridOutline, allowedRoles: null }
+      { path: '/manage/dashboard', label: 'Tổng quan', icon: IoGridOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
     ]
   },
   {
@@ -93,7 +93,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
       { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
       { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
-      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER'] },
       { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER'] }
     ]
   },
@@ -113,13 +113,13 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoSettingsOutline,
     items: [
       { path: '/manage/staff',               label: 'Nhân sự',                    icon: IoPersonOutline,           allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER'] },
       { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER'] },
       { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        icon: IoLockClosedOutline,       allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         icon: IoTimeOutline,             allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   icon: IoShieldCheckmarkOutline,  allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/backup',              label: 'Sao lưu & CSV',              icon: IoCloudDownloadOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER', 'ADMIN'] }
+      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER'] }
     ]
   }
 ];
@@ -473,7 +473,7 @@ const DashboardLayout: React.FC = () => {
                     <div className="w-1.5 h-1.5 rounded-full bg-[#8E24AA] animate-bounce [animation-delay:450ms]"></div>
                     <div className="w-1.5 h-1.5 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]"></div>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-[#73826B] ml-1.5">
-                      HOTEL MANAGEMENT
+                      QUẢN LÝ KHÁCH SẠN
                     </span>
                   </div>
                 </div>
@@ -673,14 +673,14 @@ const DashboardLayout: React.FC = () => {
               );
             })}
 
-            {/* Lodgify Assistant / Hotel Helper Card (Expanded mode) */}
-            {!isCollapsed && (
+            {/* Lodgify Assistant / Hotel Helper Card (Expanded mode - chỉ hiện cho các vai trò có quyền xem đặt phòng) */}
+            {!isCollapsed && user?.role && ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'].includes(user.role) && (
               <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-[#F5ECD5]/70 via-[#F7F9F2] to-[#EEFAB8]/60 border border-[#E2E8D8] shadow-2xs">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-5 h-5 rounded-md bg-[#D4F63D] text-[#1A2411] flex items-center justify-center font-bold text-[10px] shadow-2xs">
                     ✦
                   </div>
-                  <span className="text-xs font-bold text-[#1A2411] tracking-tight">Lodgify Smart PMS</span>
+                  <span className="text-xs font-bold text-[#1A2411] tracking-tight">Quản lý Phòng Thông minh</span>
                 </div>
                 <p className="text-[11px] text-[#5E6D54] leading-relaxed">
                   Tối ưu công suất phòng và doanh thu tự động hôm nay.

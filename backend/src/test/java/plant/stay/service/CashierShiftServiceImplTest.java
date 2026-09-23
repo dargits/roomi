@@ -104,4 +104,40 @@ class CashierShiftServiceImplTest {
 
         assertThrows(BusinessException.class, () -> cashierShiftService.close(shift.getId(), request, receptionist));
     }
+
+    @Test
+    @DisplayName("Cho phép chốt ca khi có chênh lệch và có nhập discrepancyNote")
+    void closeAllowsDiscrepancyWithDiscrepancyNote() {
+        when(invoiceRepository.findAll()).thenReturn(List.of());
+
+        CashierShiftCloseRequest request = new CashierShiftCloseRequest();
+        request.setActualCash(BigDecimal.valueOf(100_000));
+        request.setDiscrepancyNote("Tien thua khach bo lai");
+
+        assertDoesNotThrow(() -> cashierShiftService.close(shift.getId(), request, receptionist));
+    }
+
+    @Test
+    @DisplayName("Cho phép chốt ca khi có chênh lệch và có nhập explanation")
+    void closeAllowsDiscrepancyWithExplanation() {
+        when(invoiceRepository.findAll()).thenReturn(List.of());
+
+        CashierShiftCloseRequest request = new CashierShiftCloseRequest();
+        request.setActualCash(BigDecimal.valueOf(100_000));
+        request.setExplanation("Thua tien tip cua khach");
+
+        assertDoesNotThrow(() -> cashierShiftService.close(shift.getId(), request, receptionist));
+    }
+
+    @Test
+    @DisplayName("Chặn chốt ca khi có chênh lệch nhưng không nhập giải thích")
+    void closeBlocksDiscrepancyWithoutExplanation() {
+        when(invoiceRepository.findAll()).thenReturn(List.of());
+
+        CashierShiftCloseRequest request = new CashierShiftCloseRequest();
+        request.setActualCash(BigDecimal.valueOf(100_000));
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> cashierShiftService.close(shift.getId(), request, receptionist));
+        org.junit.jupiter.api.Assertions.assertEquals("Vui lòng nhập giải thích cho chênh lệch tiền mặt.", ex.getMessage());
+    }
 }
