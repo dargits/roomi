@@ -113,6 +113,40 @@ const reportApi = {
   getTodayCheckInOut: async (): Promise<any> => {
     const response = await api.get('/notifications/today-checkinout');
     return response.data;
+  },
+
+  /**
+   * Báo cáo dịch vụ phụ thu bán chạy
+   * GET /api/v1/reports/best-selling-services?from=&to=&roomTypeId=
+   * Role: OWNER / ACCOUNTANT / ADMIN
+   */
+  getBestSellingServicesReport: async (
+    from: string,
+    to: string,
+    roomTypeId?: number
+  ): Promise<import('../types').BestSellingServicesReportResponse> => {
+    const params: Record<string, any> = { from, to };
+    if (roomTypeId) {
+      params.roomTypeId = roomTypeId;
+    }
+    const response = await api.get<import('../types').BestSellingServicesReportResponse>(
+      '/reports/best-selling-services',
+      { params }
+    );
+    return response.data;
+  },
+
+  /**
+   * Xuất báo cáo dịch vụ phụ thu bán chạy ra file CSV UTF-8 BOM
+   * GET /api/v1/reports/export?type=best_selling_services&from=&to=
+   * Role: OWNER / ACCOUNTANT / ADMIN
+   */
+  exportBestSellingServicesCsv: async (from: string, to: string): Promise<Blob> => {
+    const response = await api.get('/reports/export', {
+      params: { type: 'best_selling_services', from, to },
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };
 

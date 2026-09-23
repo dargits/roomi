@@ -21,4 +21,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /** Lấy danh sách nhân viên đang hoạt động theo vai trò (dùng cho phân công buồng phòng) */
     List<User> findByRoleAndActiveTrue(Role role);
+
+    List<User> findByRole(Role role);
 }

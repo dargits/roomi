@@ -120,22 +120,22 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 border-t border-border-grey pt-4">
-          <div>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3.5 border-t border-border-grey pt-4">
+          <div className="flex items-center gap-2 flex-wrap">
             {room.badge && (
               <span className="bg-red-100 text-alert-red font-label-md text-label-md px-2.5 py-1 rounded-full text-xs font-semibold">
                 {room.badge}
               </span>
             )}
             {room.originalPrice && (
-              <div className="font-body-md text-body-md text-on-surface-variant line-through mt-1">
+              <div className="font-body-md text-xs sm:text-sm text-on-surface-variant line-through">
                 {room.originalPrice}
               </div>
             )}
           </div>
-          <div className="text-right">
-            <div className="font-headline-md text-2xl font-bold text-[#1A2411]">
-              {room.price} <span className="font-body-md text-sm text-[#606D56] font-normal">{room.isAveragePrice ? '/đêm (TB)' : '/đêm'}</span>
+          <div className="text-left sm:text-right w-full sm:w-auto">
+            <div className="font-headline-md text-xl sm:text-2xl font-bold text-[#1A2411]">
+              {room.price} <span className="font-body-md text-xs sm:text-sm text-[#606D56] font-normal">{room.isAveragePrice ? '/đêm (TB)' : '/đêm'}</span>
             </div>
             {room.nights != null && room.nights > 1 && room.totalPrice != null ? (
               <div className="text-xs text-[#606D56] mb-2.5">
@@ -144,7 +144,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
             ) : (
               <div className="mb-2" />
             )}
-            <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 w-full sm:w-auto">
               {onGroupBook && (
                 <Button
                   type="button"
@@ -152,6 +152,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
                   size="md"
                   disabled={isSoldOut}
                   onClick={isSoldOut ? undefined : onGroupBook}
+                  className="w-full sm:w-auto min-h-[42px] justify-center"
                 >
                   Đặt theo đoàn
                 </Button>
@@ -162,6 +163,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
                 size="md"
                 disabled={isSoldOut}
                 onClick={isSoldOut ? undefined : onBookNow}
+                className="w-full sm:w-auto min-h-[42px] justify-center shadow-xs"
               >
                 {isSoldOut ? 'Hết phòng' : 'Đặt phòng ngay'}
               </Button>

@@ -31,7 +31,8 @@ import {
   IoChevronBackOutline,
   IoChevronForwardOutline,
   IoOpenOutline,
-  IoSyncOutline
+  IoSyncOutline,
+  IoTrendingUpOutline
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
@@ -57,7 +58,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Tổng quan',
     icon: IoGridOutline,
     items: [
-      { path: '/manage/dashboard', label: 'Tổng quan', icon: IoGridOutline, allowedRoles: null }
+      { path: '/manage/dashboard', label: 'Tổng quan', icon: IoGridOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] }
     ]
   },
   {
@@ -77,10 +78,11 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Phòng',
     icon: IoBedOutline,
     items: [
-      { path: '/manage/rooms',        label: 'Sơ đồ phòng',   icon: IoLayersOutline,   allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/room-types',   label: 'Loại phòng',     icon: IoBedOutline,      allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/housekeeping', label: 'Buồng phòng',    icon: IoSparklesOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
-      { path: '/manage/lost-and-found', label: 'Đồ khách để quên', icon: IoCubeOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
+      { path: '/manage/rooms',              label: 'Sơ đồ phòng',           icon: IoLayersOutline,       allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/room-types',         label: 'Loại phòng',            icon: IoBedOutline,          allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/price-suggestions',  label: 'Gợi ý điều chỉnh giá',  icon: IoTrendingUpOutline,   allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/housekeeping',       label: 'Buồng phòng',          icon: IoSparklesOutline,     allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
+      { path: '/manage/lost-and-found',     label: 'Đồ khách để quên',     icon: IoCubeOutline,         allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
     ]
   },
   {
@@ -88,9 +90,11 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Khách & Dịch vụ',
     icon: IoPeopleOutline,
     items: [
-      { path: '/manage/guests',         label: 'Khách hàng',           icon: IoPeopleOutline,  allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/extra-services', label: 'Dịch vụ phụ thu',    icon: IoCubeOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/loyalty',        label: 'Khách thân thiết',      icon: IoTrophyOutline,  allowedRoles: ['OWNER'] }
+      { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
+      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
+      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER'] },
+      { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER'] }
     ]
   },
   {
@@ -98,7 +102,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Tài chính',
     icon: IoStatsChartOutline,
     items: [
-      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
+      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'] },
       { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'RECEPTIONIST'] },
       { path: '/manage/daily-ledger', label: 'Sổ quỹ ngày', icon: IoBookOutline, allowedRoles: ['OWNER', 'ACCOUNTANT'] }
     ]
@@ -109,13 +113,13 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoSettingsOutline,
     items: [
       { path: '/manage/staff',               label: 'Nhân sự',                    icon: IoPersonOutline,           allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER'] },
       { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER'] },
       { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        icon: IoLockClosedOutline,       allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         icon: IoTimeOutline,             allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   icon: IoShieldCheckmarkOutline,  allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/backup',              label: 'Sao lưu & CSV',              icon: IoCloudDownloadOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER', 'ADMIN'] }
+      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER'] }
     ]
   }
 ];
@@ -147,6 +151,8 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/housekeeping': { title: 'Quản Lý Buồng Phòng', group: 'Phòng' },
   '/manage/lost-and-found': { title: 'Quản Lý Đồ Khách Để Quên', group: 'Phòng' },
   '/manage/guests': { title: 'Quản Lý Khách Hàng', group: 'Khách & Dịch vụ' },
+  '/manage/corporate-clients': { title: 'Khách Hàng Công Ty', group: 'Khách & Dịch vụ' },
+  '/manage/negotiated-prices': { title: 'Thỏa Thuận Giá Hợp Đồng', group: 'Khách & Dịch vụ' },
   '/manage/extra-services': { title: 'Dịch Vụ Phụ Thu', group: 'Khách & Dịch vụ' },
   '/manage/loyalty': { title: 'Khách Thân Thiết', group: 'Khách & Dịch vụ' },
   '/manage/reports': { title: 'Báo Cáo Doanh Thu & Công Suất', group: 'Tài chính' },
@@ -284,6 +290,8 @@ const SubmenuNav: React.FC<{
 const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { hotelSetting } = useAppConfig();
+  const rawPropertyName = hotelSetting?.propertyName?.trim() || 'StayAway';
+  const displayBrandName = rawPropertyName.toUpperCase() === 'STAY AWAY' ? 'StayAway' : rawPropertyName;
   const navigate = useNavigate();
   const location = useLocation();
   const { pendingCount: pendingResetCount } = usePasswordResetNotification();
@@ -442,32 +450,53 @@ const DashboardLayout: React.FC = () => {
           `}
         >
           {/* Sidebar Header: Brand & Logo */}
-          <div className="h-16 px-4 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
+          <div className="h-16 px-3 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
             <Link
               to="/"
-              className={`flex items-center group py-1 ${isCollapsed ? 'justify-center w-full' : 'px-1 gap-3'}`}
-              title={isCollapsed ? (hotelSetting?.propertyName || 'STAY AWAY') : 'Về trang chủ'}
+              className={`flex items-center group transition-all duration-200 ${
+                isCollapsed
+                  ? 'justify-center w-full'
+                  : 'gap-3 w-full p-1.5 rounded-2xl hover:bg-[#F4F6F0]'
+              }`}
+              title={displayBrandName}
             >
-              {isCollapsed ? (
-                <div className="flex flex-col items-center justify-center">
-                  <span className="font-logo font-bold text-2xl text-primary leading-none">
-                    {(hotelSetting?.propertyName || 'S')[0]}
-                  </span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] mt-1.5"></div>
+              {/* Bespoke Boutique Hotel Emblem */}
+              <div className="relative shrink-0 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1A2411] via-[#253319] to-[#1A2411] text-[#D4F63D] flex items-center justify-center shadow-xs shadow-[#1A2411]/25 border border-[#D4F63D]/25 group-hover:scale-105 group-hover:border-[#D4F63D]/50 transition-all duration-200">
+                  <svg
+                    className="w-5 h-5 text-[#D4F63D]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 10.5L12 3l9 7.5" />
+                    <path d="M5 9.5V20a1 1 0 001 1h12a1 1 0 001-1V9.5" />
+                    <path d="M10 21V13a2 2 0 012-2h0a2 2 0 012 2v8" />
+                    <circle cx="12" cy="7" r="0.8" fill="currentColor" stroke="none" />
+                  </svg>
                 </div>
-              ) : (
-                <div className="flex flex-col select-none">
-                  <span className="font-logo font-bold text-[22px] tracking-wide text-primary leading-none uppercase group-hover:opacity-85 transition-opacity">
-                    {hotelSetting?.propertyName || 'STAY AWAY'}
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#FDD835] animate-bounce [animation-delay:150ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] animate-bounce [animation-delay:300ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#8E24AA] animate-bounce [animation-delay:450ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]"></div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#73826B] ml-1.5">
-                      HOTEL MANAGEMENT
+                {/* Active live pulse dot */}
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#D4F63D] ring-2 ring-white shadow-2xs" />
+              </div>
+
+              {/* Brand Text & Badge (Expanded Mode) */}
+              {!isCollapsed && (
+                <div className="flex flex-col min-w-0 select-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-[15.5px] tracking-tight text-[#1A2411] font-display truncate leading-tight group-hover:text-primary transition-colors">
+                      {displayBrandName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[5px] bg-[#E8EFE0] text-[#2D381F] text-[9.5px] font-bold tracking-wider uppercase leading-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      PMS
+                    </span>
+                    <span className="text-[11px] font-medium text-[#73826B] truncate">
+                      Quản lý lưu trú
                     </span>
                   </div>
                 </div>
@@ -478,7 +507,7 @@ const DashboardLayout: React.FC = () => {
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer ml-1"
               title="Đóng menu"
             >
               <IoCloseOutline size={22} />
@@ -667,14 +696,14 @@ const DashboardLayout: React.FC = () => {
               );
             })}
 
-            {/* Lodgify Assistant / Hotel Helper Card (Expanded mode) */}
-            {!isCollapsed && (
+            {/* Lodgify Assistant / Hotel Helper Card (Expanded mode - chỉ hiện cho các vai trò có quyền xem đặt phòng) */}
+            {!isCollapsed && user?.role && ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'].includes(user.role) && (
               <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-[#F5ECD5]/70 via-[#F7F9F2] to-[#EEFAB8]/60 border border-[#E2E8D8] shadow-2xs">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-5 h-5 rounded-md bg-[#D4F63D] text-[#1A2411] flex items-center justify-center font-bold text-[10px] shadow-2xs">
                     ✦
                   </div>
-                  <span className="text-xs font-bold text-[#1A2411] tracking-tight">Lodgify Smart PMS</span>
+                  <span className="text-xs font-bold text-[#1A2411] tracking-tight">Quản lý Phòng Thông minh</span>
                 </div>
                 <p className="text-[11px] text-[#5E6D54] leading-relaxed">
                   Tối ưu công suất phòng và doanh thu tự động hôm nay.

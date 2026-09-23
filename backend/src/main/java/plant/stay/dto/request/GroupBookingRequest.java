@@ -28,6 +28,7 @@ public class GroupBookingRequest {
     private LocalDate checkOutDate;
 
     private String note;
+    private Long corporateClientId;
 
     @Valid
     @NotEmpty(message = "Cần chọn ít nhất một loại phòng")

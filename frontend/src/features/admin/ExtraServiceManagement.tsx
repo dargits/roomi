@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { extraServiceApi } from '../../services/extraServiceApi';
+import inventoryApi from '../../services/inventoryApi';
 import { useAuth } from '../../context/AuthContext';
-import { IoAddOutline, IoCafeOutline, IoPencilOutline, IoTrashOutline } from 'react-icons/io5';
+import { 
+  IoAddOutline, 
+  IoCafeOutline, 
+  IoPencilOutline, 
+  IoTrashOutline, 
+  IoCubeOutline,
+  IoAlertCircleOutline 
+} from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
-import { ExtraServiceResponse } from '../../types';
+import { ExtraServiceResponse, InventoryItemResponse, ExtraServiceInventoryItemDto } from '../../types';
 
 const ExtraServiceManagement: React.FC = () => {
   const { user } = useAuth();
   const [services, setServices] = useState<ExtraServiceResponse[]>([]);
+  const [inventoryItemsList, setInventoryItemsList] = useState<InventoryItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal state
@@ -24,13 +33,15 @@ const ExtraServiceManagement: React.FC = () => {
     unitPrice: number;
     unit: string;
     active: boolean;
+    inventoryItems: ExtraServiceInventoryItemDto[];
   }>({
     id: null,
     name: '',
     description: '',
     unitPrice: 0,
     unit: '',
-    active: true
+    active: true,
+    inventoryItems: []
   });
   const [formError, setFormError] = useState('');
 
@@ -38,20 +49,24 @@ const ExtraServiceManagement: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<ExtraServiceResponse | null>(null);
 
-  const fetchServices = async () => {
+  const fetchServicesAndInventory = async () => {
     setLoading(true);
     try {
-      const data = await extraServiceApi.getAllServices();
-      setServices(data || []);
+      const [serviceData, invData] = await Promise.all([
+        extraServiceApi.getAllServices(),
+        inventoryApi.getAll().catch(() => [])
+      ]);
+      setServices(serviceData || []);
+      setInventoryItemsList(invData || []);
     } catch (error) {
-      console.error("Failed to fetch extra services", error);
+      console.error("Failed to fetch data", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchServices();
+    fetchServicesAndInventory();
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -64,8 +79,66 @@ const ExtraServiceManagement: React.FC = () => {
     }));
   };
 
+  const handleAddInventoryRow = () => {
+    const chosenIds = new Set(formData.inventoryItems.map(i => i.inventoryItemId));
+    const available = inventoryItemsList.find(i => !chosenIds.has(Number(i.id)));
+    const itemToAdd = available || inventoryItemsList[0];
+    if (!itemToAdd) return;
+
+    setFormData(prev => ({
+      ...prev,
+      inventoryItems: [
+        ...prev.inventoryItems,
+        {
+          inventoryItemId: Number(itemToAdd.id),
+          quantity: 1,
+          itemName: itemToAdd.name,
+          unit: itemToAdd.unit,
+          currentStock: itemToAdd.quantityOnHand
+        }
+      ]
+    }));
+  };
+
+  const handleRemoveInventoryRow = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      inventoryItems: prev.inventoryItems.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleInventoryRowChange = (index: number, field: 'inventoryItemId' | 'quantity', val: any) => {
+    setFormData(prev => {
+      const updated = [...prev.inventoryItems];
+      if (field === 'inventoryItemId') {
+        const found = inventoryItemsList.find(i => Number(i.id) === Number(val));
+        updated[index] = {
+          ...updated[index],
+          inventoryItemId: Number(val),
+          itemName: found?.name || '',
+          unit: found?.unit || '',
+          currentStock: found?.quantityOnHand
+        };
+      } else {
+        updated[index] = {
+          ...updated[index],
+          quantity: Math.max(1, Number(val) || 1)
+        };
+      }
+      return { ...prev, inventoryItems: updated };
+    });
+  };
+
   const openAddModal = () => {
-    setFormData({ id: null, name: '', description: '', unitPrice: 0, unit: '', active: true });
+    setFormData({ 
+      id: null, 
+      name: '', 
+      description: '', 
+      unitPrice: 0, 
+      unit: '', 
+      active: true,
+      inventoryItems: []
+    });
     setIsEditing(false);
     setFormError('');
     setIsModalOpen(true);
@@ -78,7 +151,15 @@ const ExtraServiceManagement: React.FC = () => {
       description: service.description || '',
       unitPrice: service.unitPrice ?? (service as any).price ?? 0,
       unit: service.unit || '',
-      active: service.active ?? true
+      active: service.active ?? true,
+      inventoryItems: (service.inventoryItems || []).map(item => ({
+        id: item.id,
+        inventoryItemId: item.inventoryItemId,
+        itemName: item.itemName,
+        unit: item.unit,
+        quantity: item.quantity,
+        currentStock: item.currentStock
+      }))
     });
     setIsEditing(true);
     setFormError('');
@@ -99,7 +180,7 @@ const ExtraServiceManagement: React.FC = () => {
         toastSuccess(`Đã tạo mới dịch vụ "${formData.name}" thành công!`);
       }
       setIsModalOpen(false);
-      fetchServices();
+      fetchServicesAndInventory();
     } catch (error: any) {
       console.error("Form submit error", error);
       setFormError(error.response?.data?.message || "Có lỗi xảy ra khi lưu dữ liệu.");
@@ -117,7 +198,7 @@ const ExtraServiceManagement: React.FC = () => {
       await extraServiceApi.deleteService(itemToDelete.id);
       toastSuccess(`Đã xóa dịch vụ "${itemToDelete.name}" thành công!`);
       setIsDeleteModalOpen(false);
-      fetchServices();
+      fetchServicesAndInventory();
     } catch (error: any) {
       console.error("Delete error", error);
       toastError(error.response?.data?.message || "Lỗi khi xóa dịch vụ.");
@@ -135,9 +216,14 @@ const ExtraServiceManagement: React.FC = () => {
       <div className="px-4 py-3 border-b border-border-grey flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-lowest">
         <div className="flex items-center gap-2">
           <IoCafeOutline size={22} className="text-primary" /> 
-          <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
-            Dịch vụ Phụ thu
-          </h2>
+          <div>
+            <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
+              Dịch vụ Phụ thu
+            </h2>
+            <p className="text-xs text-on-surface-variant">
+              Quản lý các dịch vụ tính phí kèm định mức tự động xuất kho đồ dùng
+            </p>
+          </div>
         </div>
         {isOwner && (
           <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
@@ -154,6 +240,7 @@ const ExtraServiceManagement: React.FC = () => {
               <th className="p-3">Mô tả</th>
               <th className="p-3">Đơn giá</th>
               <th className="p-3">Đơn vị tính</th>
+              <th className="p-3">Liên kết Kho Đồ Dùng</th>
               <th className="p-3">Trạng thái</th>
               {isOwner && <th className="p-3 text-right">Thao tác</th>}
             </tr>
@@ -161,23 +248,45 @@ const ExtraServiceManagement: React.FC = () => {
           <tbody className="divide-y divide-border-grey font-body-md text-sm text-on-surface">
             {loading ? (
               <tr>
-                <td colSpan={6} className="p-4 text-center">
+                <td colSpan={7} className="p-4 text-center">
                   <LoadingScreen message="Đang tải danh sách dịch vụ..." />
                 </td>
               </tr>
             ) : services.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-on-surface-variant">
+                <td colSpan={7} className="p-8 text-center text-on-surface-variant">
                   Chưa có dịch vụ phụ thu nào.
                 </td>
               </tr>
             ) : (
               services.map((service) => (
                 <tr key={service.id} className="hover:bg-surface-container-low/50 transition-colors">
-                  <td className="p-3 font-semibold text-on-surface">{service.name}</td>
+                  <td className="p-3 font-semibold text-on-surface">
+                    {service.name}
+                  </td>
                   <td className="p-3 text-on-surface-variant">{service.description || '—'}</td>
                   <td className="p-3 font-medium text-primary">{formatPrice(service.unitPrice ?? (service as any).price)}</td>
                   <td className="p-3">{service.unit || 'Lần'}</td>
+                  <td className="p-3">
+                    {service.inventoryItems && service.inventoryItems.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 max-w-xs">
+                        {service.inventoryItems.map((inv, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            title={`Mỗi 1 ${service.unit || 'lần'} dịch vụ sẽ tự động trừ ${inv.quantity} ${inv.unit || ''} trong kho`}
+                          >
+                            <IoCubeOutline size={12} className="text-emerald-600" />
+                            {inv.itemName}: <strong>x{inv.quantity}</strong>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-on-surface-variant/70 italic">
+                        Không trừ kho
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                       service.active ? 'bg-green-50 text-green-700' : 'bg-surface-container-high text-on-surface-variant'
@@ -217,7 +326,7 @@ const ExtraServiceManagement: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isEditing ? "Chỉnh sửa Dịch vụ" : "Thêm Dịch vụ Phụ thu"}
-        maxWidth="max-w-md"
+        maxWidth="max-w-lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {formError && (
@@ -231,7 +340,7 @@ const ExtraServiceManagement: React.FC = () => {
             value={formData.name}
             onChange={handleInputChange}
             required
-            placeholder="VD: Nước suối, Giặt ủi..."
+            placeholder="VD: Gói tiệc BBQ, Giặt ủi cao cấp..."
           />
           <div>
             <label className="block text-xs font-semibold text-on-surface mb-1">Mô tả</label>
@@ -261,10 +370,100 @@ const ExtraServiceManagement: React.FC = () => {
               value={formData.unit}
               onChange={handleInputChange}
               required
-              placeholder="VD: Chai, Kg, Lần..."
+              placeholder="VD: Chai, Kg, Lần, Phần..."
             />
           </div>
-          <div className="flex items-center gap-2 pt-2">
+
+          {/* Phần liên kết đồ dùng trong kho */}
+          <div className="p-3.5 bg-surface-container-low rounded-lg border border-border-grey space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <IoCubeOutline size={18} className="text-primary" />
+                <span className="text-xs font-bold uppercase tracking-wider text-on-surface">
+                  Định mức trừ kho đồ dùng (BOM)
+                </span>
+              </div>
+              {inventoryItemsList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAddInventoryRow}
+                  className="text-xs font-semibold text-primary hover:text-primary-dark inline-flex items-center gap-1 transition-colors"
+                >
+                  <IoAddOutline size={15} /> Thêm đồ dùng
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-on-surface-variant leading-relaxed">
+              Mỗi khi nhân viên ghi nhận dịch vụ này cho khách lưu trú, hệ thống sẽ <strong>tự động trừ số lượng tương ứng</strong> trong kho đồ dùng.
+            </p>
+
+            {inventoryItemsList.length === 0 ? (
+              <div className="p-2.5 bg-surface rounded border border-dashed border-border-grey text-xs text-on-surface-variant text-center">
+                Chưa có mặt hàng nào trong kho đồ dùng. Bạn có thể thêm hàng vào kho tại mục "Kho đồ dùng".
+              </div>
+            ) : formData.inventoryItems.length === 0 ? (
+              <div className="p-3 bg-surface rounded border border-dashed border-border-grey text-center space-y-1.5">
+                <p className="text-xs text-on-surface-variant">
+                  Chưa chọn đồ dùng kho nào cho dịch vụ này.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAddInventoryRow}
+                  className="px-2.5 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                >
+                  + Liên kết mặt hàng trong kho
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {formData.inventoryItems.map((row, index) => {
+                  const selectedItem = inventoryItemsList.find(i => Number(i.id) === Number(row.inventoryItemId));
+                  return (
+                    <div key={index} className="flex items-center gap-2 bg-surface p-2 rounded-md border border-border-grey">
+                      <div className="flex-1">
+                        <select
+                          value={row.inventoryItemId}
+                          onChange={(e) => handleInventoryRowChange(index, 'inventoryItemId', e.target.value)}
+                          className="w-full text-xs rounded border border-border-grey px-2 py-1.5 bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          {inventoryItemsList.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name} (Tồn: {item.quantityOnHand} {item.unit})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-24 flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="1"
+                          value={row.quantity}
+                          onChange={(e) => handleInventoryRowChange(index, 'quantity', e.target.value)}
+                          className="w-14 text-xs rounded border border-border-grey px-2 py-1.5 text-center focus:outline-none focus:ring-1 focus:ring-primary"
+                          placeholder="SL"
+                          title="Số lượng trừ mỗi lần dùng dịch vụ"
+                        />
+                        <span className="text-[11px] text-on-surface-variant shrink-0">
+                          {selectedItem?.unit || row.unit || 'cái'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveInventoryRow(index)}
+                        className="p-1.5 text-on-surface-variant hover:text-error hover:bg-red-50 rounded transition-colors"
+                        title="Xóa liên kết mặt hàng này"
+                      >
+                        <IoTrashOutline size={15} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
             <input
               type="checkbox"
               id="active"

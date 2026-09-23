@@ -83,6 +83,14 @@ public class Booking {
     private String source = "WALKIN"; // WALKIN, ONLINE, hoặc mã kênh OTA (AIRBNB, BOOKING_COM,...)
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "negotiated_price_agreement_id")
+    private NegotiatedPriceAgreement appliedAgreement;
+
+    @Column(name = "price_source", length = 20)
+    @Builder.Default
+    private String priceSource = "STANDARD"; // STANDARD, NEGOTIATED
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "channel_id")
     private Channel channel; // Kênh phân phối nguồn (nếu chuyển từ lượt chặn phòng hoặc đặt qua OTA)
 

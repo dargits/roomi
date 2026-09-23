@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { IoBarChartOutline, IoCashOutline, IoDownloadOutline, IoGridOutline, IoSearchOutline, IoSparklesOutline, IoTrendingUpOutline } from 'react-icons/io5';
 import reportApi from '../../services/reportApi';
 import { useAuth } from '../../context/AuthContext';
@@ -104,8 +104,12 @@ const RevenueVisualChart: React.FC<{
           >
             {rows.map((row, idx) => {
               const rev = Number(row.revenue || 0);
-              const heightPct = maxRevenue > 0 ? (rev / maxRevenue) : 0;
-              const barHeightPx = Math.max(heightPct * usableHeight, rev > 0 ? 6 : 2);
+              const penalty = Number(row.penaltyRevenue || 0);
+              const totalRowRev = rev + penalty;
+              const sRev = Number(row.serviceRevenue || 0);
+              const rRev = row.roomRevenue !== undefined ? Number(row.roomRevenue) : Math.max(0, rev - sRev);
+              const heightPct = maxRevenue > 0 ? (totalRowRev / maxRevenue) : 0;
+              const barHeightPx = Math.max(heightPct * usableHeight, totalRowRev > 0 ? 6 : 2);
               const isHovered = hoveredIdx === idx;
               const dateLabel = fmtDate(row.period || row.date);
 
@@ -121,9 +125,15 @@ const RevenueVisualChart: React.FC<{
                     <div className="absolute bottom-full mb-3 z-30 flex flex-col items-center pointer-events-none animate-in fade-in zoom-in-95 duration-150">
                       <div className="bg-[#1A2411] text-white text-xs rounded-xl py-2 px-3 shadow-xl whitespace-nowrap text-center border border-[#303D20]">
                         <p className="font-semibold text-[#E4F2CC] border-b border-[#303D20] pb-1 mb-1">{dateLabel}</p>
-                        <p className="font-bold text-[#D4F63D] text-sm">{fmtCurrency(rev)}</p>
-                        {Number(row.penaltyRevenue || 0) > 0 && (
-                          <p className="text-[11px] text-[#F97316] mt-0.5">+ {fmtCurrency(Number(row.penaltyRevenue || 0))} phí hủy/cọc</p>
+                        <p className="font-bold text-[#D4F63D] text-sm">{fmtCurrency(totalRowRev)}</p>
+                        {rRev > 0 && (
+                          <p className="text-[11px] text-[#E2E8F0] mt-0.5">• Tiền phòng: {fmtCurrency(rRev)}</p>
+                        )}
+                        {sRev > 0 && (
+                          <p className="text-[11px] text-[#A7F3D0] mt-0.5">• Dịch vụ: {fmtCurrency(sRev)}</p>
+                        )}
+                        {penalty > 0 && (
+                          <p className="text-[11px] text-[#F97316] mt-0.5">• Phí phạt/hủy: {fmtCurrency(penalty)}</p>
                         )}
                         <p className="text-[11px] text-[#9AA88E] mt-0.5">{row.bookings || 0} lượt đặt phòng</p>
                       </div>
@@ -133,14 +143,14 @@ const RevenueVisualChart: React.FC<{
 
                   {/* Revenue value label above bar */}
                   <div className="h-5 flex items-center justify-center mb-1 text-[11px] font-semibold text-primary/90 transition-opacity">
-                    {rev > 0 ? fmtCompactCurrency(rev) : ''}
+                    {totalRowRev > 0 ? fmtCompactCurrency(totalRowRev) : ''}
                   </div>
 
                   {/* The Bar */}
                   <div className="w-full h-[176px] flex items-end justify-center">
                     <div
                       className={`w-full max-w-[42px] rounded-t-lg transition-all duration-300 relative ${
-                        rev > 0
+                        totalRowRev > 0
                           ? isHovered
                             ? 'bg-gradient-to-t from-primary to-blue-400 shadow-md scale-x-105'
                             : 'bg-gradient-to-t from-primary/85 to-primary/60 hover:from-primary hover:to-primary/80'
@@ -192,9 +202,16 @@ const SummaryCard: React.FC<{ label: string; value?: string | number; sub?: stri
 const RevenueReport: React.FC = () => {
   const { user } = useAuth();
 
+  const formatLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay  = today.toISOString().split('T')[0];
+  const firstDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDay  = formatLocalDate(today);
 
   const [from,    setFrom]    = useState(firstDay);
   const [to,      setTo]      = useState(lastDay);
@@ -205,22 +222,18 @@ const RevenueReport: React.FC = () => {
   const [searched, setSearched] = useState(false);
 
   const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role || '');
-  if (!hasAccess) {
-    return (
-      <div className="p-6 bg-red-50 border border-red-200 text-error rounded-xl text-sm">
-        Bạn không có quyền xem trang này.
-      </div>
-    );
-  }
 
-  const handleSearch = async () => {
-    if (!from || !to)  { setError('Vui lòng chọn đủ khoảng thời gian.'); return; }
-    if (from > to)     { setError('Ngày bắt đầu phải trước ngày kết thúc.'); return; }
+  const handleSearch = async (overrideFrom?: string, overrideTo?: string, overrideGroup?: string) => {
+    const qFrom = overrideFrom ?? from;
+    const qTo = overrideTo ?? to;
+    const qGroup = overrideGroup ?? groupBy;
+    if (!qFrom || !qTo)  { setError('Vui lòng chọn đủ khoảng thời gian.'); return; }
+    if (qFrom > qTo)     { setError('Ngày bắt đầu phải trước ngày kết thúc.'); return; }
     setError(null);
     setLoading(true);
     setSearched(true);
     try {
-      const result = await reportApi.getRevenueReport(from, to, groupBy);
+      const result = await reportApi.getRevenueReport(qFrom, qTo, qGroup);
       setData(result);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Không thể tải báo cáo. Vui lòng kiểm tra kết nối.');
@@ -230,8 +243,25 @@ const RevenueReport: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (hasAccess) {
+      handleSearch(firstDay, lastDay, 'day');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAccess]);
+
+  if (!hasAccess) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 text-error rounded-xl text-sm">
+        Bạn không có quyền xem trang này.
+      </div>
+    );
+  }
+
   // Parse response
   const totalRevenue   = Number(data?.totalRevenue   ?? 0);
+  const serviceRevenue = Number(data?.serviceRevenue ?? 0);
+  const roomRevenue    = Number(data?.roomRevenue    ?? (totalRevenue - serviceRevenue));
   const penaltyRevenue = Number(data?.penaltyRevenue ?? 0);
   const grandTotal     = Number(data?.grandTotal     ?? (totalRevenue + penaltyRevenue));
   const bookingCount   = Number(data?.bookingCount   ?? 0);
@@ -241,15 +271,17 @@ const RevenueReport: React.FC = () => {
   // Export CSV
   const exportCSV = () => {
     if (!rows.length) return;
-    const headers = ['Kỳ', 'Doanh thu phòng (đ)', 'Phí hủy & Cọc phạt (đ)', 'Tổng cộng (đ)', 'Số đặt phòng'];
+    const headers = ['Kỳ', 'Lượt đặt', 'Doanh thu phòng (đ)', 'Dịch vụ phụ thu (đ)', 'Phí hủy & Cọc phạt (đ)', 'Tổng cộng (đ)'];
     const csvContent = [
       headers.join(','),
       ...rows.map(r => {
-        const rev     = Number(r.revenue || 0);
+        const totalRowRev = Number(r.revenue || 0);
+        const sRev = Number(r.serviceRevenue || 0);
+        const rRev = r.roomRevenue !== undefined ? Number(r.roomRevenue) : Math.max(0, totalRowRev - sRev);
         const penalty = Number(r.penaltyRevenue || 0);
-        return [r.period || r.date, rev, penalty, rev + penalty, Number(r.bookings || 0)].join(',');
+        return [r.period || r.date, Number(r.bookings || 0), rRev, sRev, penalty, totalRowRev + penalty].join(',');
       }),
-      ['Tổng cộng', totalRevenue, penaltyRevenue, grandTotal, bookingCount].join(',')
+      ['Tổng cộng', bookingCount, roomRevenue, serviceRevenue, penaltyRevenue, grandTotal].join(',')
     ].join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -278,7 +310,7 @@ const RevenueReport: React.FC = () => {
             onChange={e => setGroupBy(e.target.value)}
           />
           <div className="flex flex-col gap-2">
-            <Button onClick={handleSearch} isLoading={loading} icon={IoSearchOutline}>
+            <Button onClick={() => handleSearch()} isLoading={loading} icon={IoSearchOutline}>
               Xem báo cáo
             </Button>
             {rows.length > 0 && (
@@ -303,18 +335,24 @@ const RevenueReport: React.FC = () => {
       {!loading && searched && data !== null && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <SummaryCard
               label="Tổng thực thu toàn bộ"
               value={fmtCurrency(grandTotal)}
-              sub="Bao gồm lưu trú + phạt hủy cọc"
+              sub="Bao gồm phòng + dịch vụ + phạt cọc"
               color="text-primary font-bold"
             />
             <SummaryCard
               label="Doanh thu tiền phòng"
-              value={fmtCurrency(totalRevenue)}
-              sub="Từ các booking đã checkout"
+              value={fmtCurrency(roomRevenue)}
+              sub="Từ tiền thuê các phòng đã checkout"
               color="text-on-surface font-bold"
+            />
+            <SummaryCard
+              label="Dịch vụ phụ thu"
+              value={fmtCurrency(serviceRevenue)}
+              sub="Minibar, nước uống, giặt ủi..."
+              color="text-emerald-700 font-bold"
             />
             <SummaryCard
               label="Phí hủy & Phạt cọc"
@@ -363,8 +401,9 @@ const RevenueReport: React.FC = () => {
                   <thead>
                     <tr className="bg-surface-container-low border-b border-border-grey text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
                       <th className="p-4">Thời gian</th>
-                      <th className="p-4 text-right">Lượt đặt phòng</th>
-                      <th className="p-4 text-right">Doanh thu phòng</th>
+                      <th className="p-4 text-right">Lượt đặt</th>
+                      <th className="p-4 text-right">Tiền phòng</th>
+                      <th className="p-4 text-right">Dịch vụ phụ thu</th>
                       <th className="p-4 text-right">Phí hủy & Cọc phạt</th>
                       <th className="p-4 text-right">Tổng cộng</th>
                       <th className="p-4 w-36">Tỷ trọng</th>
@@ -372,9 +411,11 @@ const RevenueReport: React.FC = () => {
                   </thead>
                   <tbody>
                     {rows.map((row, idx) => {
-                      const rev     = Number(row.revenue || 0);
+                      const totalRowRev = Number(row.revenue || 0);
+                      const sRev = Number(row.serviceRevenue || 0);
+                      const rRev = row.roomRevenue !== undefined ? Number(row.roomRevenue) : Math.max(0, totalRowRev - sRev);
                       const penalty = Number(row.penaltyRevenue || 0);
-                      const rowTotal = rev + penalty;
+                      const rowTotal = totalRowRev + penalty;
                       const pct = maxRevenue > 0 ? (rowTotal / maxRevenue) * 100 : 0;
                       return (
                         <tr key={idx} className="border-b border-border-grey hover:bg-surface-container-low/60 transition-colors">
@@ -384,8 +425,11 @@ const RevenueReport: React.FC = () => {
                           <td className="p-4 text-right font-body-md text-on-surface">
                             {(row.bookings || 0).toLocaleString('vi-VN')}
                           </td>
-                          <td className="p-4 text-right font-title-sm text-primary font-bold">
-                            {fmtCurrency(rev)}
+                          <td className="p-4 text-right font-title-sm text-on-surface font-medium">
+                            {fmtCurrency(rRev)}
+                          </td>
+                          <td className="p-4 text-right font-title-sm text-emerald-700 font-medium">
+                            {sRev > 0 ? fmtCurrency(sRev) : <span className="text-on-surface-variant/50">—</span>}
                           </td>
                           <td className="p-4 text-right font-title-sm font-semibold">
                             {penalty > 0 ? (
@@ -394,7 +438,7 @@ const RevenueReport: React.FC = () => {
                               <span className="text-on-surface-variant/50">—</span>
                             )}
                           </td>
-                          <td className="p-4 text-right font-title-sm text-on-surface font-bold">
+                          <td className="p-4 text-right font-title-sm text-primary font-bold">
                             {fmtCurrency(rowTotal)}
                           </td>
                           <td className="p-4">
@@ -418,7 +462,8 @@ const RevenueReport: React.FC = () => {
                     <tr className="bg-surface-container-low/80 border-t-2 border-border-grey font-bold">
                       <td className="p-4 font-title-sm text-on-surface">Tổng cộng</td>
                       <td className="p-4 text-right font-title-sm text-on-surface">{bookingCount.toLocaleString('vi-VN')}</td>
-                      <td className="p-4 text-right font-title-sm text-primary">{fmtCurrency(totalRevenue)}</td>
+                      <td className="p-4 text-right font-title-sm text-on-surface">{fmtCurrency(roomRevenue)}</td>
+                      <td className="p-4 text-right font-title-sm text-emerald-700">{serviceRevenue > 0 ? fmtCurrency(serviceRevenue) : '—'}</td>
                       <td className="p-4 text-right font-title-sm text-amber-700">
                         {penaltyRevenue > 0 ? fmtCurrency(penaltyRevenue) : '—'}
                       </td>
