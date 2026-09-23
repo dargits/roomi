@@ -365,9 +365,9 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
           <span>Không cần thanh toán trước. Lễ tân sẽ gọi điện xác nhận và hỗ trợ sắp xếp phòng cho đoàn.</span>
         </div>
       </form>
-      <div className="mt-6 flex justify-end gap-3 border-t border-border-grey pt-5">
-        <Button variant="ghost" onClick={handleClose} disabled={loading}>Hủy bỏ</Button>
-        <Button type="submit" form="publicGroupBookingForm" isLoading={loading} className="px-6 py-2.5 font-bold shadow-md">GỬI YÊU CẦU ĐẶT ĐOÀN</Button>
+      <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-border-grey pt-5">
+        <Button variant="ghost" onClick={handleClose} disabled={loading} className="w-full sm:w-auto justify-center">Hủy bỏ</Button>
+        <Button type="submit" form="publicGroupBookingForm" isLoading={loading} className="w-full sm:w-auto px-6 py-2.5 font-bold shadow-md justify-center">GỬI YÊU CẦU ĐẶT ĐOÀN</Button>
       </div>
     </Modal>
   );

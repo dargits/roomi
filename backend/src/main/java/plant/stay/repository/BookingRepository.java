@@ -90,7 +90,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "LEFT JOIN FETCH b.room r " +
            "LEFT JOIN FETCH b.roomType rt " +
            "LEFT JOIN FETCH b.guest g " +
-           "WHERE b.checkOutDate BETWEEN :from AND :to " +
+           "WHERE ((b.checkedOutAt IS NOT NULL AND CAST(b.checkedOutAt AS LocalDate) BETWEEN :from AND :to) " +
+           "       OR (b.checkedOutAt IS NULL AND b.checkOutDate BETWEEN :from AND :to)) " +
            "AND b.status = 'CHECKED_OUT'")
     List<Booking> findCheckedOutBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
@@ -141,4 +142,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "AND b.status IN ('CHECKED_OUT', 'CHECKED_IN') " +
            "ORDER BY CASE WHEN b.checkedOutAt IS NOT NULL THEN b.checkedOutAt ELSE b.createdAt END DESC, b.checkOutDate DESC, b.id DESC")
     List<Booking> findRecentStaysForRoom(@Param("roomId") Long roomId, org.springframework.data.domain.Pageable pageable);
+
+    // Tìm ngày nhận phòng sớm nhất để đánh giá thời gian tích lũy dữ liệu công suất
+    @Query("SELECT MIN(b.checkInDate) FROM Booking b WHERE b.status NOT IN ('CANCELLED', 'NO_SHOW')")
+    LocalDate findEarliestBookingDate();
 }

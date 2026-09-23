@@ -53,6 +53,9 @@ export interface BookingResponse {
   isChannelBlock?: boolean;
   blockId?: number;
   isExcess?: boolean;
+  priceSource?: 'STANDARD' | 'NEGOTIATED' | string;
+  appliedAgreementId?: number;
+  appliedAgreementName?: string;
   stayingGuests?: Array<{
     id?: number;
     name?: string;
@@ -73,6 +76,7 @@ export interface BookingRequest {
   note?: string;
   source?: string;
   roomId?: number;
+  corporateClientId?: number;
 }
 
 export interface GuestCheckInDto {

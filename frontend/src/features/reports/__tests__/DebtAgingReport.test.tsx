@@ -134,11 +134,11 @@ describe('DebtAgingReport Component', () => {
     render(<DebtAgingReport />);
 
     await waitFor(() => {
-      expect(screen.getByText('Báo cáo Tuổi nợ & Nhắc thu công nợ')).toBeInTheDocument();
+      expect(screen.getByText('Trên 30 ngày')).toBeInTheDocument();
     });
 
     // Check bucket cards
-    expect(screen.getByText('Trên 30 ngày')).toBeInTheDocument();
+    expect(screen.getByText('Báo cáo Tuổi nợ & Nhắc thu công nợ')).toBeInTheDocument();
     expect(screen.getByText('Từ 15 - 30 ngày')).toBeInTheDocument();
     expect(screen.getByText('Quá hạn < 15 ngày')).toBeInTheDocument();
     expect(screen.getAllByText('Trong hạn').length).toBeGreaterThan(0);

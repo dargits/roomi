@@ -23,6 +23,10 @@ public class GroupBooking {
     @JoinColumn(name = "representative_guest_id", nullable = false)
     private Guest representativeGuest;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "corporate_client_id")
+    private CorporateClient corporateClient;
+
     @Column(name = "check_in_date", nullable = false)
     private LocalDate checkInDate;
 

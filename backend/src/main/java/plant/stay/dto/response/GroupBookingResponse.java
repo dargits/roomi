@@ -16,6 +16,8 @@ public class GroupBookingResponse {
     private String representativeName;
     private String representativePhone;
     private String representativeEmail;
+    private Long corporateClientId;
+    private String corporateClientName;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private String note;

@@ -34,6 +34,7 @@ export interface CashierShiftOpenRequest {
 
 export interface CashierShiftCloseRequest {
   actualCash: number;
+  explanation?: string;
   discrepancyNote?: string;
 }
 
@@ -42,6 +43,8 @@ export interface RevenueReportRow {
   date?: string;
   bookings?: number;
   revenue: number;
+  roomRevenue?: number;
+  serviceRevenue?: number;
   collectedRevenue?: number;
   debtRevenue?: number;
   penaltyRevenue?: number;
@@ -52,6 +55,8 @@ export interface RevenueReportResponse {
   to: string;
   groupBy: string;
   totalRevenue: number;
+  roomRevenue?: number;
+  serviceRevenue?: number;
   collectedRevenue: number;
   debtRevenue: number;
   penaltyRevenue: number;
@@ -422,4 +427,76 @@ export interface PeriodComparisonReportResponse {
   timeline: ComparisonTimelinePoint[];
   roomTypes: RoomTypeComparisonDto[];
   executiveInsights: string[];
+}
+
+export interface SurchargeReportSummary {
+  totalSurchargeRevenue: number;
+  catalogServicesRevenue: number;
+  autoSurchargeRevenue: number;
+  totalSalesCount: number;
+  totalQuantity: number;
+  totalCatalogServices: number;
+  activeCatalogServices: number;
+  zeroSalesCatalogServices: number;
+  topServiceName: string;
+  topServiceRevenue: number;
+}
+
+export interface RoomTypeBreakdownItem {
+  roomTypeId: number;
+  roomTypeName: string;
+  salesCount: number;
+  totalQuantity: number;
+  revenue: number;
+  shareInService: number;
+}
+
+export interface CatalogServiceItem {
+  serviceId: number;
+  serviceName: string;
+  unitPrice: number;
+  unit: string;
+  active: boolean;
+  salesCount: number;
+  totalQuantity: number;
+  revenue: number;
+  revenueShare: number;
+  roomTypeBreakdown: RoomTypeBreakdownItem[];
+}
+
+export interface AutoSurchargeItem {
+  code: string;
+  name: string;
+  salesCount: number;
+  totalQuantity: number;
+  revenue: number;
+  revenueShare: number;
+  roomTypeBreakdown: RoomTypeBreakdownItem[];
+}
+
+export interface SimpleServiceStat {
+  name: string;
+  revenue: number;
+  quantity: number;
+}
+
+export interface RoomTypeComparisonItem {
+  roomTypeId: number;
+  roomTypeName: string;
+  totalRevenue: number;
+  totalQuantity: number;
+  salesCount: number;
+  revenueShare: number;
+  topServices: SimpleServiceStat[];
+}
+
+export interface BestSellingServicesReportResponse {
+  from: string;
+  to: string;
+  selectedRoomTypeId?: number;
+  selectedRoomTypeName?: string;
+  summary: SurchargeReportSummary;
+  catalogServices: CatalogServiceItem[];
+  autoSurcharges: AutoSurchargeItem[];
+  roomTypeComparisons: RoomTypeComparisonItem[];
 }

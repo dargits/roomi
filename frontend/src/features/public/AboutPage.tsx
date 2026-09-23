@@ -58,23 +58,25 @@ const AboutPage: React.FC = () => {
         </div>
         <div className="relative z-10 text-center max-w-3xl mx-auto px-4 animate-fade-in-up">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Chào mừng quý khách đến với</span>
-          <h1 className="font-display-lg text-white mt-2 mb-3 drop-shadow-md">{hotelSetting?.propertyName || 'Khách Sạn Của Chúng Tôi'}</h1>
-          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
+          <h1 className="font-display-lg text-2xl sm:text-3xl md:text-display-lg text-white mt-2 mb-3 drop-shadow-md leading-tight">
+            {hotelSetting?.propertyName || 'Khách Sạn Của Chúng Tôi'}
+          </h1>
+          <p className="text-white/90 text-xs sm:text-sm md:text-body-lg leading-relaxed drop-shadow-sm">
             Điểm dừng chân lý tưởng kết hợp hoàn hảo giữa không gian nghỉ dưỡng sang trọng, dịch vụ chuyên nghiệp và lòng hiếu khách nồng hậu.
           </p>
         </div>
       </section>
 
       {/* Key Stats */}
-      <section className="bg-surface-container-low border-b border-border-grey py-8 px-margin-desktop">
-        <div className="max-w-container-max-width mx-auto grid grid-cols-2 md:grid-cols-4 gap-6">
+      <section className="bg-surface-container-low border-b border-border-grey py-6 md:py-8 px-4 md:px-margin-desktop">
+        <div className="max-w-container-max-width mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
           {STATS.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <div key={index} className="flex flex-col items-center text-center p-4 bg-surface rounded-xl border border-border-grey shadow-xs">
-                <Icon size={28} className="text-primary mb-2" />
-                <span className="text-2xl md:text-3xl font-extrabold text-on-surface font-title-lg">{stat.value}</span>
-                <span className="text-xs text-on-surface-variant font-medium mt-1">{stat.label}</span>
+              <div key={index} className="flex flex-col items-center text-center p-3.5 sm:p-4 bg-surface rounded-xl border border-border-grey shadow-xs">
+                <Icon size={24} className="text-primary mb-1.5 sm:mb-2" />
+                <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-on-surface font-title-lg">{stat.value}</span>
+                <span className="text-[11px] sm:text-xs text-on-surface-variant font-medium mt-1">{stat.label}</span>
               </div>
             );
           })}
@@ -82,12 +84,12 @@ const AboutPage: React.FC = () => {
       </section>
 
       {/* Story & Vision Section */}
-      <main className="max-w-container-max-width mx-auto px-margin-desktop py-16 flex-1 w-full space-y-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <main className="max-w-container-max-width mx-auto px-4 md:px-margin-desktop py-10 md:py-16 pb-20 sm:pb-16 flex-1 w-full space-y-12 md:space-y-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-center">
           <div className="lg:col-span-6 space-y-6">
             <div>
               <span className="text-primary font-bold text-xs uppercase tracking-wider">Về chúng tôi</span>
-              <h2 className="font-headline-lg text-on-surface font-bold mt-1">Hành Trình Kiến Tạo Trải Nghiệm Khác Biệt</h2>
+              <h2 className="text-xl sm:text-2xl md:text-headline-lg text-on-surface font-bold mt-1">Hành Trình Kiến Tạo Trải Nghiệm Khác Biệt</h2>
             </div>
             <p className="text-on-surface-variant leading-relaxed text-sm md:text-base">
               Tọa lạc tại vị trí đắc địa ở <strong>{hotelSetting?.address || 'trung tâm thành phố'}</strong>, {hotelSetting?.propertyName || 'StayGO'} được xây dựng với mục tiêu mang đến cho khách lưu trú một không gian tiện nghi, ấm cúng như chính ngôi nhà của mình nhưng vẫn ngập tràn trải nghiệm đẳng cấp.

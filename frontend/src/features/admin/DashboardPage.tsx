@@ -78,47 +78,63 @@ const HeroStatCard: React.FC<{
   actionText?: string;
   onAction?: () => void;
 }> = ({ title, rawValue, collectedAmount = 0, debtAmount = 0, collectionPercent = 0, actionText, onAction }) => (
-  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#E8FAA0] via-[#DDF672] to-[#D2F346] border border-[#C5EB34] p-6 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:-translate-y-0.5 duration-200">
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#16220E]/80 animate-pulse" />
-          <p className="text-xs font-bold uppercase tracking-wider text-[#16220E]/80">{title}</p>
+  <div 
+    onClick={onAction}
+    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#E8FAA0] via-[#DDF672] to-[#D2F346] border border-[#C5EB34] p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:-translate-y-0.5 duration-200 cursor-pointer group h-full"
+  >
+    <div>
+      {/* Top Header: Title & Pill Badge */}
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#16220E]/80 animate-pulse shrink-0" />
+          <p className="text-xs font-bold uppercase text-[#16220E]/80 truncate">{title}</p>
         </div>
-        <h3 className="text-3xl sm:text-4xl font-extrabold text-[#16220E] mt-2.5 tracking-tight leading-none">
+        <div className="inline-flex items-center gap-1 bg-[#16220E] text-[#D4F63D] px-2 py-0.5 rounded-full text-[11px] font-bold shadow-xs shrink-0 whitespace-nowrap">
+          <IoArrowUpOutline size={12} className="shrink-0" />
+          <span>
+            <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
+          </span>
+        </div>
+      </div>
+
+      {/* Main Metric Value */}
+      <div className="mt-3">
+        <h3 className="text-2xl sm:text-3xl font-extrabold text-[#16220E] tracking-tight leading-none truncate" title={fmtCurrency(rawValue)}>
           <AnimatedCounter value={rawValue} formatter={fmtCurrency} />
         </h3>
       </div>
-      <div className="inline-flex items-center gap-1.5 bg-[#16220E] text-[#D4F63D] px-3 py-1 rounded-full text-xs font-bold shadow-xs shrink-0">
-        <IoArrowUpOutline size={13} />
-        <span>
-          <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
-        </span>
-      </div>
     </div>
 
-    <div className="mt-6 pt-4 border-t border-[#16220E]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#16220E]/90">
-      <div className="flex items-center gap-4 flex-wrap font-medium">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#16220E]" />
-          <span>
-            Đã thu: <strong><AnimatedCounter value={collectedAmount} formatter={fmtCurrency} /></strong>
+    {/* Bottom Footer: Collected & Debt + Action Button */}
+    <div className="mt-4 pt-3 border-t border-[#16220E]/15 flex items-center justify-between gap-2 text-xs text-[#16220E]/90">
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16220E] shrink-0" />
+          <span className="truncate text-[#16220E]/90">
+            Đã thu: <strong className="font-bold text-[#16220E]"><AnimatedCounter value={collectedAmount} formatter={fmtCurrency} /></strong>
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#16220E]/40" />
-          <span>
-            Công nợ: <strong><AnimatedCounter value={debtAmount} formatter={fmtCurrency} /></strong>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16220E]/40 shrink-0" />
+          <span className="truncate text-[#16220E]/90">
+            Công nợ: <strong className="font-bold text-[#16220E]"><AnimatedCounter value={debtAmount} formatter={fmtCurrency} /></strong>
           </span>
         </div>
       </div>
       {actionText && (
         <button
-          onClick={onAction}
-          className="inline-flex items-center gap-1 text-xs font-bold text-[#16220E] hover:underline cursor-pointer"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onAction) onAction();
+          }}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#16220E] hover:underline cursor-pointer group text-right shrink-0"
+          title="Mở Báo cáo doanh thu & Chi tiết tài chính"
         >
-          <span>{actionText}</span>
-          <IoArrowForwardOutline size={12} />
+          <span className="leading-tight">
+            Chi tiết tài<br />chính
+          </span>
+          <IoArrowForwardOutline size={14} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
         </button>
       )}
     </div>
@@ -157,7 +173,7 @@ const LodgifyStatCard: React.FC<{
 }) => (
   <div
     onClick={onClick}
-    className={`bg-white border border-border-grey rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 shadow-2xs hover:-translate-y-0.5 ${
+    className={`bg-white border border-border-grey rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 shadow-2xs hover:-translate-y-0.5 h-full ${
       onClick ? 'cursor-pointer hover:shadow-md hover:border-[#BEDF2E]' : 'hover:shadow-xs'
     }`}
   >
@@ -216,13 +232,15 @@ const WeeklyOccupancyChart: React.FC<{
   activeRange: 'week' | 'month';
   onRangeChange: (range: 'week' | 'month') => void;
   isLoading?: boolean;
+  className?: string;
 }> = ({
   occupancyRows,
   revenueRows,
   totalRooms,
   activeRange,
   onRangeChange,
-  isLoading
+  isLoading,
+  className = ''
 }) => {
   // Chuẩn hóa dữ liệu theo 7 ngày gần nhất hoặc các ngày trong tháng
   const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
@@ -280,8 +298,8 @@ const WeeklyOccupancyChart: React.FC<{
   const maxBookings = Math.max(...chartItems.map(item => item.newBookings), 1);
 
   return (
-    <div className="bg-white border border-border-grey rounded-2xl p-5 md:p-6 shadow-2xs flex flex-col justify-between">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-grey">
+    <div className={`bg-white border border-border-grey rounded-2xl p-5 md:p-6 shadow-2xs flex flex-col justify-between h-full ${className}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-grey shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <IoBarChartOutline size={18} className="text-[#626F47]" />
@@ -292,7 +310,7 @@ const WeeklyOccupancyChart: React.FC<{
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="inline-flex p-1 bg-[#F2F6ED] rounded-xl border border-border-grey text-xs">
             <button
               onClick={() => onRangeChange('week')}
@@ -315,7 +333,7 @@ const WeeklyOccupancyChart: React.FC<{
       </div>
 
       {/* Dual Bar Chart Canvas */}
-      <div className="mt-6 flex items-end justify-between gap-2 sm:gap-4 h-48 px-2">
+      <div className="my-auto py-3 flex items-end justify-between gap-2 sm:gap-4 flex-1 min-h-[190px] px-2">
         {chartItems.length === 0 ? (
           <div className="w-full h-full flex flex-col items-center justify-center text-xs text-[#606D56]">
             <IoBarChartOutline size={32} className="text-[#86967B]/40 mb-2" />
@@ -329,7 +347,7 @@ const WeeklyOccupancyChart: React.FC<{
 
             return (
               <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                <div className="w-full max-w-[42px] flex items-end justify-center gap-1 sm:gap-1.5 h-full">
+                <div className="w-full max-w-[42px] flex items-end justify-center gap-1 sm:gap-1.5 flex-1 min-h-0">
                   {/* Bar 1: Lime Accent (Đặt mới) */}
                   <div
                     className="w-1/2 bg-[#D4F63D] hover:bg-[#C2E232] rounded-t-md transition-all duration-300 relative group/bar min-h-[4px]"
@@ -351,7 +369,7 @@ const WeeklyOccupancyChart: React.FC<{
                   </div>
                 </div>
 
-                <span className="text-[11px] font-bold text-[#606D56] group-hover:text-[#1A2411] transition-colors">
+                <span className="text-[11px] font-bold text-[#606D56] group-hover:text-[#1A2411] transition-colors shrink-0">
                   {item.dayLabel}
                 </span>
               </div>
@@ -361,7 +379,7 @@ const WeeklyOccupancyChart: React.FC<{
       </div>
 
       {/* Legend */}
-      <div className="mt-5 pt-3 border-t border-border-grey flex items-center justify-center gap-6 text-xs text-[#606D56] font-medium">
+      <div className="mt-4 pt-3 border-t border-border-grey flex items-center justify-center gap-6 text-xs text-[#606D56] font-medium shrink-0">
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-md bg-[#D4F63D]" />
           <span>Lượt đặt phòng mới</span>
@@ -382,12 +400,14 @@ const BookingSourceDonut: React.FC<{
   totalRooms: number;
   occupiedRooms: number;
   isLoading?: boolean;
+  className?: string;
 }> = ({
   channelReport,
   overallOccupancyRate,
   totalRooms,
   occupiedRooms,
-  isLoading
+  isLoading,
+  className = ''
 }) => {
   const totalBookings = channelReport?.summary?.totalBookings ?? 0;
   const rows = channelReport?.rows || [];
@@ -415,8 +435,8 @@ const BookingSourceDonut: React.FC<{
   const circumference = 2 * Math.PI * 38; // ~238.76
 
   return (
-    <div className="bg-white border border-border-grey rounded-2xl p-5 md:p-6 shadow-2xs flex flex-col justify-between">
-      <div className="flex items-center justify-between pb-3 border-b border-border-grey">
+    <div className={`bg-white border border-border-grey rounded-2xl p-5 md:p-6 shadow-2xs flex flex-col justify-between overflow-hidden h-full ${className}`}>
+      <div className="flex items-center justify-between pb-4 border-b border-border-grey shrink-0">
         <div className="flex items-center gap-2">
           <IoPieChartOutline size={18} className="text-[#626F47]" />
           <h3 className="font-bold text-base text-[#1A2411]">Phân bổ Nguồn Đặt</h3>
@@ -427,9 +447,9 @@ const BookingSourceDonut: React.FC<{
       </div>
 
       {/* Donut Graphic */}
-      <div className="my-4 flex flex-col sm:flex-row items-center justify-around gap-4">
+      <div className="my-auto py-3 flex flex-col sm:flex-row lg:flex-col 2xl:flex-row items-center justify-around gap-4 min-w-0 flex-1">
         {/* SVG Donut */}
-        <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+        <div className="relative w-32 h-32 flex items-center justify-center shrink-0">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
             {/* Base Ring */}
             <circle cx="50" cy="50" r="38" fill="transparent" stroke="#EBF0E3" strokeWidth="14" />
@@ -457,14 +477,14 @@ const BookingSourceDonut: React.FC<{
               });
             })()}
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-black text-[#1A2411] leading-none">{overallOccupancyRate}%</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-xl sm:text-2xl font-black text-[#1A2411] leading-none">{overallOccupancyRate}%</span>
             <span className="text-[10px] uppercase font-bold text-[#606D56] mt-0.5">Lấp đầy</span>
           </div>
         </div>
 
         {/* Legend List */}
-        <div className="space-y-2 text-xs w-full max-w-[210px]">
+        <div className="space-y-2 text-xs w-full min-w-0">
           {channelSlices.length === 0 ? (
             <div className="text-center py-4 text-[#606D56]">
               <p className="font-medium text-xs">Chưa có lượt đặt phòng nào theo kênh trong kỳ này</p>
@@ -472,19 +492,21 @@ const BookingSourceDonut: React.FC<{
             </div>
           ) : (
             channelSlices.map((src, i) => (
-              <div key={i} className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 truncate">
+              <div key={i} className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: src.color }} />
-                  <span className="text-[#606D56] truncate font-medium">{src.label}</span>
+                  <span className="text-[#606D56] truncate font-medium" title={`${src.label}: ${src.count}`}>
+                    {src.label}
+                  </span>
                 </div>
-                <span className="font-bold text-[#1A2411] shrink-0">{src.percent}%</span>
+                <span className="font-bold text-[#1A2411] shrink-0 tabular-nums">{src.percent}%</span>
               </div>
             ))
           )}
         </div>
       </div>
 
-      <div className="pt-3 border-t border-border-grey flex items-center justify-between text-xs text-[#606D56]">
+      <div className="pt-3 border-t border-border-grey flex items-center justify-between text-xs text-[#606D56] shrink-0">
         <span>Hiện tại: {occupiedRooms} / {totalRooms} phòng có khách</span>
         <span className="font-bold text-[#4F5E37]">{overallOccupancyRate}% công suất</span>
       </div>
@@ -493,44 +515,67 @@ const BookingSourceDonut: React.FC<{
 };
 
 /** Hotel Quick Operations Bar */
-const QuickActionBar: React.FC = () => {
+const QuickActionBar: React.FC<{ userRole?: string }> = ({ userRole }) => {
   const navigate = useNavigate();
+  const canBooking = userRole ? ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(userRole) : false;
+  const canChannels = userRole ? ['OWNER', 'ADMIN'].includes(userRole) : false;
+  const canHousekeeping = userRole ? ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(userRole) : false;
+  const canPriceSuggestions = userRole ? ['OWNER', 'ADMIN'].includes(userRole) : false;
+  const canReports = userRole ? ['OWNER', 'ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'].includes(userRole) : false;
+
   return (
     <div className="bg-white border border-border-grey rounded-2xl p-4 shadow-2xs">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
         <div className="flex items-center gap-2 text-xs font-bold text-[#606D56] uppercase tracking-wider">
           <IoFlashOutline size={16} className="text-primary" />
-          <span>Tác Vụ Nhanh (Quick Actions)</span>
+          <span>Tác Vụ Nhanh</span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => navigate('/manage/bookings')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
-          >
-            <IoAddCircleOutline size={15} className="text-primary" />
-            <span>Tạo Đặt Phòng</span>
-          </button>
-          <button
-            onClick={() => navigate('/manage/channels')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
-          >
-            <IoCalendarOutline size={15} className="text-primary" />
-            <span>Kiểm Tra Kênh OTA</span>
-          </button>
-          <button
-            onClick={() => navigate('/manage/housekeeping')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
-          >
-            <IoBrushOutline size={15} className="text-[#B45309]" />
-            <span>Xử Lý Buồng Phòng</span>
-          </button>
-          <button
-            onClick={() => navigate('/manage/reports')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#D4F63D] hover:bg-[#C2E232] text-xs font-bold text-[#1A2411] transition-all cursor-pointer shadow-2xs"
-          >
-            <IoBarChartOutline size={15} />
-            <span>Báo Cáo Toàn Diện</span>
-          </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {canBooking && (
+            <button
+              onClick={() => navigate('/manage/bookings')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
+            >
+              <IoAddCircleOutline size={15} className="text-primary" />
+              <span>Tạo Đặt Phòng</span>
+            </button>
+          )}
+          {canChannels && (
+            <button
+              onClick={() => navigate('/manage/channels')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
+            >
+              <IoCalendarOutline size={15} className="text-primary" />
+              <span>Kiểm Tra Kênh OTA</span>
+            </button>
+          )}
+          {canHousekeeping && (
+            <button
+              onClick={() => navigate('/manage/housekeeping')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
+            >
+              <IoBrushOutline size={15} className="text-[#B45309]" />
+              <span>Xử Lý Buồng Phòng</span>
+            </button>
+          )}
+          {canPriceSuggestions && (
+            <button
+              onClick={() => navigate('/manage/price-suggestions')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-xs font-bold text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
+            >
+              <IoTrendingUpOutline size={15} className="text-primary" />
+              <span>Gợi Ý Điều Chỉnh Giá</span>
+            </button>
+          )}
+          {canReports && (
+            <button
+              onClick={() => navigate('/manage/reports')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#D4F63D] hover:bg-[#C2E232] text-xs font-bold text-[#1A2411] transition-all cursor-pointer shadow-2xs"
+            >
+              <IoBarChartOutline size={15} />
+              <span>Báo Cáo Toàn Diện</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -651,21 +696,21 @@ const RoomStatusSpectrum: React.FC<{
   );
 };
 
-/** Hotel KPI Ticker: ADR, RevPAR, Collection Efficiency, Today Bookings */
+/** Hotel KPI Ticker: Giá phòng TB, Doanh thu/phòng, Tỷ lệ thu tiền, Đặt mới hôm nay */
 const HotelKpiTicker: React.FC<{
   adr: number;
   revPar: number;
   collectionRate: number;
   todayBookings: number;
 }> = ({ adr, revPar, collectionRate, todayBookings }) => (
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
     <div className="bg-white border border-border-grey rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all flex items-center gap-3">
       <div className="w-10 h-10 rounded-xl bg-[#EAF5CD] text-[#3F4F24] flex items-center justify-center shrink-0">
         <IoBusinessOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#606D56] block truncate">
-          ADR (Giá TB/Phòng)
+        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
+          Giá Phòng Trung Bình
         </span>
         <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
           <AnimatedCounter value={adr} formatter={fmtCurrency} />
@@ -678,8 +723,8 @@ const HotelKpiTicker: React.FC<{
         <IoTrendingUpOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#606D56] block truncate">
-          RevPAR (Doanh Thu/Phòng)
+        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
+          Doanh Thu Trên Phòng
         </span>
         <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
           <AnimatedCounter value={revPar} formatter={fmtCurrency} />
@@ -692,7 +737,7 @@ const HotelKpiTicker: React.FC<{
         <IoWalletOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#606D56] block truncate">
+        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
           Tỷ Lệ Thu Tiền
         </span>
         <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
@@ -706,7 +751,7 @@ const HotelKpiTicker: React.FC<{
         <IoCalendarOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#606D56] block truncate">
+        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
           Đặt Mới Hôm Nay
         </span>
         <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
@@ -718,6 +763,7 @@ const HotelKpiTicker: React.FC<{
 );
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { pendingCount: pendingResetCount } = usePasswordResetNotification();
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
@@ -942,7 +988,7 @@ const DashboardPage: React.FC = () => {
               Tổng quan Khách sạn
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#D4F63D] text-[#1A2411] border border-[#C2E232]">
-              Live
+              Trực tiếp
             </span>
           </div>
           <p className="text-xs text-[#606D56] flex items-center gap-1.5 mt-1 font-medium">
@@ -960,13 +1006,15 @@ const DashboardPage: React.FC = () => {
             <span>Làm mới dữ liệu</span>
           </button>
 
-          <Link
-            to="/manage/reports"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#D4F63D] hover:bg-[#C2E232] text-xs font-bold text-[#1A2411] shadow-xs transition-all cursor-pointer"
-          >
-            <IoDownloadOutline size={15} />
-            <span>Báo cáo doanh thu</span>
-          </Link>
+          {user?.role && ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'].includes(user.role) && (
+            <Link
+              to="/manage/reports"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#D4F63D] hover:bg-[#C2E232] text-xs font-bold text-[#1A2411] shadow-xs transition-all cursor-pointer"
+            >
+              <IoDownloadOutline size={15} />
+              <span>Báo cáo doanh thu</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -1014,14 +1062,14 @@ const DashboardPage: React.FC = () => {
 
       {/* ── Lodgify Stats Cards Grid — OWNER / ADMIN ── */}
       {!loading && isOwnerOrAdmin && dashboard && (
-        <>
+        <div className="space-y-6 sm:space-y-7">
           {/* Quick Action Navigation Bar */}
-          <QuickActionBar />
+          <QuickActionBar userRole={user?.role} />
 
           {/* Top Row: Hero Stat Card + 3 Secondary Metric Cards (Real Data + Animated Counter) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
             {/* Card 1: Hero Card (Lime Gradient) */}
-            <div className="md:col-span-2 lg:col-span-1">
+            <div className="md:col-span-2 lg:col-span-1 flex flex-col">
               <HeroStatCard
                 title="Doanh thu Tháng"
                 rawValue={dashboard.monthRevenue || 0}
@@ -1029,7 +1077,7 @@ const DashboardPage: React.FC = () => {
                 debtAmount={dashboard.monthDebtRevenue || 0}
                 collectionPercent={realCollectionPercent}
                 actionText="Chi tiết tài chính"
-                onAction={() => {}}
+                onAction={() => navigate('/manage/reports?tab=revenue')}
               />
             </div>
 
@@ -1050,6 +1098,7 @@ const DashboardPage: React.FC = () => {
               iconColor="text-[#3F4F24]"
               progressPercent={dashboard.totalRooms ? ((dashboard.availableRooms || 0) / dashboard.totalRooms) * 100 : 0}
               progressBarColor="bg-[#A4B465]"
+              onClick={() => navigate('/manage/rooms')}
             />
 
             {/* Card 3: Đang có khách */}
@@ -1065,6 +1114,7 @@ const DashboardPage: React.FC = () => {
               iconColor="text-[#1E40AF]"
               progressPercent={realOccupancyRate}
               progressBarColor="bg-[#626F47]"
+              onClick={() => navigate('/manage/in-house-guests')}
             />
 
             {/* Card 4: Chờ dọn dẹp */}
@@ -1080,10 +1130,11 @@ const DashboardPage: React.FC = () => {
               iconColor="text-[#B45309]"
               progressPercent={dashboard.totalRooms ? (dirtyRoomsCount / dashboard.totalRooms) * 100 : 0}
               progressBarColor="bg-[#F59E0B]"
+              onClick={() => navigate('/manage/housekeeping')}
             />
           </div>
 
-          {/* Hotel KPI Ticker: ADR, RevPAR, Collection %, Today Bookings */}
+          {/* Hotel KPI Ticker: Giá phòng TB, Doanh thu/phòng, Tỷ lệ thu tiền, Đặt mới */}
           <HotelKpiTicker 
             adr={adr}
             revPar={revPar}
@@ -1101,26 +1152,28 @@ const DashboardPage: React.FC = () => {
           />
 
           {/* Middle Row: Analytics Thật (Biểu đồ cột 2 tầng + Biểu đồ phân bổ Donut) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch">
+            <div className="lg:col-span-2 flex flex-col">
               <WeeklyOccupancyChart 
                 occupancyRows={occupancyRows}
                 revenueRows={revenueRows}
                 totalRooms={dashboard.totalRooms || 0}
                 activeRange={chartRange}
                 onRangeChange={handleChartRangeChange}
+                className="h-full flex-1"
               />
             </div>
-            <div>
+            <div className="flex flex-col">
               <BookingSourceDonut 
                 channelReport={channelReport}
                 overallOccupancyRate={realOccupancyRate}
                 totalRooms={dashboard.totalRooms || 0}
                 occupiedRooms={dashboard.occupiedRooms || 0}
+                className="h-full flex-1"
               />
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* ── Receptionist Chào mừng ── */}

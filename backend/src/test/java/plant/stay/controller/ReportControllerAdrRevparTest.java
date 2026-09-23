@@ -227,13 +227,13 @@ public class ReportControllerAdrRevparTest {
     }
 
     @Test
-    @DisplayName("Test 3: Người dùng không có quyền (RECEPTIONIST) bị từ chối")
+    @DisplayName("Test 3: Người dùng không có quyền (HOUSEKEEPER) bị từ chối")
     public void testUnauthorizedRoleForbidden() {
-        User receptionist = new User();
-        receptionist.setId(2L);
-        receptionist.setRole(Role.RECEPTIONIST);
+        User housekeeper = new User();
+        housekeeper.setId(2L);
+        housekeeper.setRole(Role.HOUSEKEEPER);
 
-        when(authUtil.getUserFromRequest(any())).thenReturn(receptionist);
+        when(authUtil.getUserFromRequest(any())).thenReturn(housekeeper);
 
         HttpServletRequest request = Mockito.mock(HttpServletRequest.class);
         LocalDate from = LocalDate.of(2026, 9, 1);

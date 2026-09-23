@@ -152,10 +152,10 @@ const RoomsPage: React.FC = () => {
           <div className="absolute inset-0 bg-black/40" />
         </div>
         <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6 animate-fade-in-up">
-          <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">
+          <h1 className="font-display-lg text-2xl sm:text-3xl md:text-display-lg text-white mb-2 drop-shadow-md leading-tight">
             Danh Sách Phòng & Bảng Giá{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
           </h1>
-          <p className="font-title-lg text-title-lg text-white drop-shadow-md">
+          <p className="text-xs sm:text-sm md:text-title-lg text-white/90 drop-shadow-md">
             Tìm kiếm để so sánh giá cả và lựa chọn không gian nghỉ dưỡng lý tưởng
           </p>
         </div>
@@ -166,15 +166,15 @@ const RoomsPage: React.FC = () => {
       </section>
 
       {/* Main Room Grid */}
-      <main className="max-w-container-max-width mx-auto px-margin-desktop mt-24 mb-16 flex-1 w-full">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-4 border-b border-border-grey">
+      <main className="max-w-container-max-width mx-auto px-3 sm:px-6 md:px-margin-desktop mt-28 sm:mt-24 mb-16 pb-16 sm:pb-0 flex-1 w-full">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8 pb-4 border-b border-border-grey">
           <div>
-            <h2 className="font-headline-md text-on-surface font-bold">Lựa chọn phòng phù hợp ({filteredRooms.length} loại phòng)</h2>
-            <p className="text-sm text-on-surface-variant mt-1">Giá đã bao gồm thuế phí, nước suối chào đón và wifi miễn phí</p>
+            <h2 className="text-xl sm:text-2xl md:text-headline-md text-on-surface font-bold">Lựa chọn phòng phù hợp ({filteredRooms.length} loại phòng)</h2>
+            <p className="text-xs sm:text-sm text-on-surface-variant mt-1">Giá đã bao gồm thuế phí, nước suối chào đón và wifi miễn phí</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Quick Capacity Filter Buttons */}
-            <div className="flex bg-surface-container-low border border-border-grey rounded p-1 gap-1 text-xs">
+            <div className="flex bg-surface-container-low border border-border-grey rounded-lg p-1 gap-1 text-xs overflow-x-auto no-scrollbar w-full sm:w-auto">
               {[
                 { id: 'ALL', label: 'Tất cả' },
                 { id: '1', label: '1 khách' },

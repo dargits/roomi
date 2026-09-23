@@ -381,11 +381,11 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         </div>
       </form>
       
-      <div className="flex justify-end gap-3 pt-5 border-t border-border-grey mt-6">
-        <Button variant="ghost" onClick={handleClose} disabled={loading} className="rounded-none">
+      <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-5 border-t border-border-grey mt-6">
+        <Button variant="ghost" onClick={handleClose} disabled={loading} className="w-full sm:w-auto rounded-none justify-center">
           Hủy bỏ
         </Button>
-        <Button type="submit" form="publicBookingForm" isLoading={loading} className="px-6 py-2.5 font-bold shadow-md rounded-none">
+        <Button type="submit" form="publicBookingForm" isLoading={loading} className="w-full sm:w-auto px-6 py-2.5 font-bold shadow-md rounded-none justify-center">
           GỬI YÊU CẦU ĐẶT PHÒNG
         </Button>
       </div>

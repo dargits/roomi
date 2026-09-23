@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Min;
 import lombok.Data;
 import java.math.BigDecimal;
+import java.util.List;
+import plant.stay.dto.ExtraServiceInventoryItemDto;
 
 @Data
 public class ExtraServiceRequest {
@@ -21,4 +23,7 @@ public class ExtraServiceRequest {
     private String unit;
 
     private Boolean active;
+
+    private List<ExtraServiceInventoryItemDto> inventoryItems;
 }
+
