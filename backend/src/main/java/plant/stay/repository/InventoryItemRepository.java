@@ -12,4 +12,6 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     List<InventoryItem> findLowStock();
 
     boolean existsByName(String name);
+    boolean existsByNameIgnoreCase(String name);
+    java.util.Optional<InventoryItem> findByNameIgnoreCase(String name);
 }
