@@ -46,19 +46,24 @@ export interface HotelSettingRequest {
 export interface InventoryItemResponse {
   id: number;
   name: string;
-  category: string;
-  quantity: number;
+  category?: string;
+  quantity?: number;
+  quantityOnHand: number;
   unit: string;
+  lowStockThreshold?: number;
   minimumThreshold?: number;
+  lowStock?: boolean;
   pricePerUnit?: number;
   updatedAt?: string;
 }
 
 export interface InventoryItemRequest {
   name: string;
-  category: string;
-  quantity: number;
+  category?: string;
+  quantity?: number;
+  quantityOnHand?: number;
   unit: string;
+  lowStockThreshold?: number;
   minimumThreshold?: number;
   pricePerUnit?: number;
 }
