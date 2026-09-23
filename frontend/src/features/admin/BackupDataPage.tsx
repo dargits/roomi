@@ -185,6 +185,11 @@ const BackupDataPage: React.FC = () => {
   const [confirmPhrase, setConfirmPhrase] = useState<string>('');
   const [restoring, setRestoring] = useState<boolean>(false);
   const [restoreResult, setRestoreResult] = useState<RestoreSummary | null>(null);
+  const [restoreProgress, setRestoreProgress] = useState<{
+    percent: number;
+    message: string;
+    subMessage?: string;
+  } | null>(null);
 
   // Export State
   const [exportingType, setExportingType] = useState<string | null>(null);
@@ -459,6 +464,7 @@ const BackupDataPage: React.FC = () => {
     setRestoreSource('server');
     setConfirmPhrase('');
     setRestoreResult(null);
+    setRestoreProgress(null);
     setIsRestoreModalOpen(true);
   };
 
@@ -470,28 +476,61 @@ const BackupDataPage: React.FC = () => {
 
     setRestoring(true);
     setRestoreResult(null);
+    setRestoreProgress({
+      percent: 10,
+      message: 'Đang chuẩn bị tệp sao lưu...',
+      subMessage: restoreSource === 'server' ? 'Kết nối tới bản sao lưu trên máy chủ' : `Tệp: ${uploadFile?.name || ''}`
+    });
+
     try {
       let res: RestoreSummary;
       if (restoreSource === 'server') {
         if (!selectedBackupId) {
           toastWarning('Vui lòng chọn một bản sao lưu trên máy chủ');
           setRestoring(false);
+          setRestoreProgress(null);
           return;
         }
+        setRestoreProgress({
+          percent: 35,
+          message: 'Đang đọc và thực thi bản sao lưu máy chủ...',
+          subMessage: 'Hệ thống đang khôi phục cấu trúc và toàn bộ dữ liệu'
+        });
         res = await dataApi.restoreBackup(selectedBackupId, 'RESTORE');
       } else {
         if (!uploadFile) {
           toastWarning('Vui lòng chọn tệp tin .sql hoặc .zip từ máy tính');
           setRestoring(false);
+          setRestoreProgress(null);
           return;
         }
-        res = await dataApi.restoreBackupFromUpload(uploadFile, 'RESTORE');
+        res = await dataApi.restoreBackupFromUpload(uploadFile, 'RESTORE', (uploadPct) => {
+          if (uploadPct < 100) {
+            setRestoreProgress({
+              percent: Math.min(75, Math.round(10 + uploadPct * 0.65)),
+              message: `Đang tải tệp sao lưu lên máy chủ (${uploadPct}%)...`,
+              subMessage: 'Vui lòng giữ cửa sổ này trong khi tệp đang được tải lên'
+            });
+          } else {
+            setRestoreProgress({
+              percent: 85,
+              message: 'Đang giải nén & nạp cơ sở dữ liệu...',
+              subMessage: 'Hệ thống đang thực thi các câu lệnh khôi phục dữ liệu'
+            });
+          }
+        });
       }
 
+      setRestoreProgress({
+        percent: 100,
+        message: 'Khôi phục hệ thống thành công!',
+        subMessage: `Đã nạp ${res.statementsExecuted} câu lệnh trong ${res.durationMs} ms.`
+      });
       setRestoreResult(res);
       toastSuccess(`Khôi phục thành công! Đã thực thi ${res.statementsExecuted} câu lệnh.`);
       fetchBackupsAndConfig();
     } catch (err: any) {
+      setRestoreProgress(null);
       toastError('Lỗi khôi phục cơ sở dữ liệu: ' + (err.response?.data?.message || err.message));
     } finally {
       setRestoring(false);
@@ -1657,6 +1696,28 @@ const BackupDataPage: React.FC = () => {
               <p>Tệp nguồn: <strong>{restoreResult.fileName}</strong></p>
               <p>Số câu lệnh SQL thực thi: <strong>{restoreResult.statementsExecuted}</strong></p>
               <p>Thời gian thực thi: <strong>{restoreResult.durationMs} ms</strong></p>
+            </div>
+          )}
+
+          {/* Progress Bar during Restore */}
+          {restoring && restoreProgress && (
+            <div className="p-3.5 bg-surface-container-low border border-border-grey rounded-xl space-y-2 text-xs animate-in fade-in duration-200">
+              <div className="flex items-center justify-between text-on-surface">
+                <span className="font-semibold flex items-center gap-2">
+                  <IoSyncOutline className="animate-spin text-primary" size={16} />
+                  {restoreProgress.message}
+                </span>
+                <span className="font-mono font-bold text-primary">{restoreProgress.percent}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  style={{ width: `${restoreProgress.percent}%` }}
+                />
+              </div>
+              {restoreProgress.subMessage && (
+                <p className="text-[11px] text-on-surface-variant">{restoreProgress.subMessage}</p>
+              )}
             </div>
           )}
 
