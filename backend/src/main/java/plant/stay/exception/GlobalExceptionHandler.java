@@ -41,7 +41,29 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<MessageResponse> handleUnauthorizedException(UnauthorizedException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse(ex.getMessage()));
+        String msg = ex.getMessage();
+        // Nếu là lỗi phân quyền theo vai trò (Role/Permission denied) -> HTTP 403 FORBIDDEN
+        if (msg != null) {
+            String lower = msg.toLowerCase();
+            boolean isPermissionDenied = lower.contains("quyền") ||
+                                         lower.contains("chỉ chủ sở hữu") ||
+                                         lower.contains("chỉ owner") ||
+                                         lower.contains("chỉ admin") ||
+                                         lower.contains("chỉ lễ tân") ||
+                                         lower.contains("chỉ quản trị viên") ||
+                                         lower.contains("dành cho") ||
+                                         lower.contains("không có quyền");
+            boolean isSessionExpired = lower.contains("hết hạn") ||
+                                       lower.contains("đăng nhập lại") ||
+                                       lower.contains("vui lòng đăng nhập") ||
+                                       lower.contains("bị khóa") ||
+                                       lower.contains("không chính xác");
+
+            if (isPermissionDenied && !isSessionExpired) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(msg));
+            }
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse(msg));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
