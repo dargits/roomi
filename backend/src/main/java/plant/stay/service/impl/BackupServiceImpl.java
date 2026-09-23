@@ -208,10 +208,9 @@ public class BackupServiceImpl implements BackupService {
     }
 
     @Override
-    @Transactional
     public RestoreSummaryDto restoreBackup(Long id, User actor) {
-        if (actor == null || actor.getRole() != Role.OWNER) {
-            throw new BusinessException("Chỉ Chủ cơ sở (OWNER) mới có quyền thực hiện khôi phục hệ thống");
+        if (actor == null || (actor.getRole() != Role.OWNER && actor.getRole() != Role.ADMIN)) {
+            throw new BusinessException("Chỉ Quản trị viên (ADMIN) hoặc Chủ cơ sở (OWNER) mới có quyền thực hiện khôi phục hệ thống");
         }
 
         SystemBackup backup = systemBackupRepository.findById(id)
@@ -229,10 +228,9 @@ public class BackupServiceImpl implements BackupService {
     }
 
     @Override
-    @Transactional
     public RestoreSummaryDto restoreFromUpload(MultipartFile file, User actor) {
-        if (actor == null || actor.getRole() != Role.OWNER) {
-            throw new BusinessException("Chỉ Chủ cơ sở (OWNER) mới có quyền thực hiện khôi phục hệ thống");
+        if (actor == null || (actor.getRole() != Role.OWNER && actor.getRole() != Role.ADMIN)) {
+            throw new BusinessException("Chỉ Quản trị viên (ADMIN) hoặc Chủ cơ sở (OWNER) mới có quyền thực hiện khôi phục hệ thống");
         }
 
         if (file.isEmpty()) {
@@ -662,39 +660,49 @@ public class BackupServiceImpl implements BackupService {
 
             List<String> statements = parseSqlStatements(sqlContent);
 
-            try (Connection conn = dataSource.getConnection();
-                 Statement stmt = conn.createStatement()) {
-                conn.setAutoCommit(false);
-                try {
-                    stmt.execute("SET FOREIGN_KEY_CHECKS=0;");
-                    stmt.execute("SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';");
+            try (Connection conn = dataSource.getConnection()) {
+                // Cấu hình session để việc khôi phục chạy trơn tru, không bị lock wait timeout
+                try (Statement initStmt = conn.createStatement()) {
+                    initStmt.execute("SET SESSION lock_wait_timeout = 60;");
+                    initStmt.execute("SET FOREIGN_KEY_CHECKS = 0;");
+                    initStmt.execute("SET UNIQUE_CHECKS = 0;");
+                    initStmt.execute("SET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';");
+                }
 
+                try (Statement stmt = conn.createStatement()) {
                     for (String sql : statements) {
                         String trimmed = sql.trim();
                         if (!trimmed.isEmpty()) {
-                            stmt.execute(trimmed);
-                            statementsExecuted++;
-                            if (trimmed.toUpperCase().startsWith("CREATE TABLE")) {
-                                tablesRestored++;
+                            try {
+                                stmt.execute(trimmed);
+                                statementsExecuted++;
+                                if (trimmed.toUpperCase().startsWith("CREATE TABLE")) {
+                                    tablesRestored++;
+                                }
+                            } catch (SQLException ex) {
+                                log.warn("Cảnh báo khi chạy lệnh SQL khôi phục: {} - Lỗi: {}",
+                                        trimmed.length() > 100 ? trimmed.substring(0, 100) + "..." : trimmed, ex.getMessage());
+                                if (!trimmed.toUpperCase().startsWith("DROP TABLE")) {
+                                    throw ex;
+                                }
                             }
                         }
                     }
 
-                    stmt.execute("SET FOREIGN_KEY_CHECKS=1;");
-                    conn.commit();
-                } catch (Exception ex) {
-                    conn.rollback();
-                    throw new RuntimeException("Lỗi khi thực thi câu lệnh SQL khôi phục: " + ex.getMessage(), ex);
-                } finally {
-                    conn.setAutoCommit(true);
+                    stmt.execute("SET FOREIGN_KEY_CHECKS = 1;");
+                    stmt.execute("SET UNIQUE_CHECKS = 1;");
                 }
             }
 
             long duration = System.currentTimeMillis() - startTime;
 
-            auditLogService.log("SystemBackup", null, "RESTORE_DATABASE", actor,
-                    String.format("Khôi phục CSDL thành công từ tệp %s (%d câu lệnh, %d bảng, %d ms)",
-                            originalName, statementsExecuted, tablesRestored, duration));
+            try {
+                auditLogService.log("SystemBackup", null, "RESTORE_DATABASE", actor,
+                        String.format("Khôi phục CSDL thành công từ tệp %s (%d câu lệnh, %d bảng, %d ms)",
+                                originalName, statementsExecuted, tablesRestored, duration));
+            } catch (Exception auditEx) {
+                log.warn("Không thể ghi audit log sau khi khôi phục CSDL: {}", auditEx.getMessage());
+            }
 
             log.info("Khôi phục hệ thống thành công từ tệp {}: {} câu lệnh thực thi trong {} ms",
                     originalName, statementsExecuted, duration);
