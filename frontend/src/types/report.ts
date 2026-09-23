@@ -43,6 +43,8 @@ export interface RevenueReportRow {
   date?: string;
   bookings?: number;
   revenue: number;
+  roomRevenue?: number;
+  serviceRevenue?: number;
   collectedRevenue?: number;
   debtRevenue?: number;
   penaltyRevenue?: number;
@@ -53,6 +55,8 @@ export interface RevenueReportResponse {
   to: string;
   groupBy: string;
   totalRevenue: number;
+  roomRevenue?: number;
+  serviceRevenue?: number;
   collectedRevenue: number;
   debtRevenue: number;
   penaltyRevenue: number;

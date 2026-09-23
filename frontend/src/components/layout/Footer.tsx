@@ -8,7 +8,7 @@ const Footer: React.FC = () => {
   const { hotelSetting } = useAppConfig();
 
   return (
-    <footer className="w-full py-12 px-4 md:px-margin-desktop bg-surface-container border-t border-border-grey mt-auto">
+    <footer className="w-full pt-10 sm:pt-12 pb-24 sm:pb-12 px-4 md:px-margin-desktop bg-surface-container border-t border-border-grey mt-auto">
       <div className="max-w-container-max-width mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {/* Col 1: Brand & Bio */}
         <div className="flex flex-col gap-4">

@@ -43,6 +43,12 @@ public class BookingServiceUsageTest {
     @Autowired
     private ExtraServiceRepository extraServiceRepository;
 
+    @Autowired
+    private InventoryItemRepository inventoryItemRepository;
+
+    @Autowired
+    private ExtraServiceInventoryItemRepository extraServiceInventoryItemRepository;
+
     private User testUser;
     private Booking testBooking;
     private ExtraService testExtraService;
@@ -130,5 +136,94 @@ public class BookingServiceUsageTest {
 
         List<BookingServiceUsageResponse> usages = usageService.getByBooking(testBooking.getId());
         assertTrue(usages.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Tự động trừ tồn kho đồ dùng khi thêm dịch vụ và hoàn trả khi xóa dịch vụ")
+    void testInventoryDeductionAndRestoration() {
+        // Tạo mặt hàng trong kho với tồn kho ban đầu 50
+        InventoryItem water = inventoryItemRepository.save(InventoryItem.builder()
+                .name("Nước khoáng Lavie 500ml")
+                .unit("chai")
+                .quantityOnHand(50)
+                .lowStockThreshold(10)
+                .build());
+
+        // Tạo dịch vụ phụ thu có liên kết trừ kho: mỗi suất tiêu hao 2 chai nước
+        ExtraService drinkService = extraServiceRepository.save(ExtraService.builder()
+                .name("Gói Nước Uống Phòng")
+                .unitPrice(new BigDecimal("30000"))
+                .unit("suất")
+                .active(true)
+                .build());
+
+        extraServiceInventoryItemRepository.save(ExtraServiceInventoryItem.builder()
+                .extraService(drinkService)
+                .inventoryItem(water)
+                .quantity(2)
+                .build());
+
+        // Ghi nhận dịch vụ 4 suất -> Cần xuất: 4 * 2 = 8 chai
+        BookingServiceUsageRequest req = new BookingServiceUsageRequest();
+        req.setExtraServiceId(drinkService.getId());
+        req.setQuantity(4);
+
+        BookingServiceUsageResponse usage = usageService.add(testBooking.getId(), req, testUser);
+        assertNotNull(usage);
+        assertNotNull(usage.getDeductedInventoryItems());
+        assertEquals(1, usage.getDeductedInventoryItems().size());
+        assertEquals(8, usage.getDeductedInventoryItems().get(0).getQuantity());
+
+        // Kiểm tra tồn kho đã bị trừ từ 50 xuống 42 (50 - 8)
+        InventoryItem updatedWater = inventoryItemRepository.findById(water.getId()).orElseThrow();
+        assertEquals(42, updatedWater.getQuantityOnHand());
+
+        // Xóa dịch vụ khỏi booking -> Tồn kho phải được tự động hoàn lại thành 50 (42 + 8)
+        usageService.remove(testBooking.getId(), usage.getId(), testUser);
+
+        InventoryItem restoredWater = inventoryItemRepository.findById(water.getId()).orElseThrow();
+        assertEquals(50, restoredWater.getQuantityOnHand());
+    }
+
+    @Test
+    @DisplayName("Kiểm tra chặn ghi nhận dịch vụ nếu tồn kho không đủ (Insufficient Stock)")
+    void testAddServiceUsageInsufficientStockFails() {
+        // Tạo mặt hàng chỉ còn tồn kho 3 cái
+        InventoryItem towel = inventoryItemRepository.save(InventoryItem.builder()
+                .name("Khăn tắm VIP")
+                .unit("chiếc")
+                .quantityOnHand(3)
+                .lowStockThreshold(5)
+                .build());
+
+        // Dịch vụ yêu cầu 2 chiếc / suất
+        ExtraService spaService = extraServiceRepository.save(ExtraService.builder()
+                .name("Dịch vụ Tắm khoáng Spa")
+                .unitPrice(new BigDecimal("100000"))
+                .unit("lượt")
+                .active(true)
+                .build());
+
+        extraServiceInventoryItemRepository.save(ExtraServiceInventoryItem.builder()
+                .extraService(spaService)
+                .inventoryItem(towel)
+                .quantity(2)
+                .build());
+
+        // Yêu cầu 2 lượt -> Cần: 4 chiếc, nhưng chỉ có 3 chiếc -> Phải quăng IllegalArgumentException
+        BookingServiceUsageRequest req = new BookingServiceUsageRequest();
+        req.setExtraServiceId(spaService.getId());
+        req.setQuantity(2);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            usageService.add(testBooking.getId(), req, testUser);
+        });
+
+        assertTrue(ex.getMessage().contains("Không đủ tồn kho"));
+        assertTrue(ex.getMessage().contains("Khăn tắm VIP"));
+
+        // Kiểm tra tồn kho vẫn nguyên vẹn 3 chiếc
+        InventoryItem intactTowel = inventoryItemRepository.findById(towel.getId()).orElseThrow();
+        assertEquals(3, intactTowel.getQuantityOnHand());
     }
 }

@@ -31,14 +31,14 @@ public class InventoryItemController {
 
     @GetMapping
     public ResponseEntity<List<InventoryItemResponse>> getAll(HttpServletRequest request) {
-        checkOwner(request);
+        checkStaffOrOwner(request);
         return ResponseEntity.ok(inventoryItemRepository.findAll().stream()
                 .map(this::toResponse).collect(Collectors.toList()));
     }
 
     @GetMapping("/low-stock")
     public ResponseEntity<List<InventoryItemResponse>> getLowStock(HttpServletRequest request) {
-        checkOwner(request);
+        checkStaffOrOwner(request);
         return ResponseEntity.ok(inventoryItemRepository.findLowStock().stream()
                 .map(this::toResponse).collect(Collectors.toList()));
     }
@@ -82,6 +82,12 @@ public class InventoryItemController {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || user.getRole() != Role.OWNER)
             throw new UnauthorizedException("Chỉ OWNER mới có quyền thực hiện chức năng này");
+    }
+
+    private void checkStaffOrOwner(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || user.getRole() == Role.CUSTOMER || user.getRole() == Role.NONE)
+            throw new UnauthorizedException("Vui lòng đăng nhập bằng tài khoản quản lý / nhân viên");
     }
 
     private InventoryItemResponse toResponse(InventoryItem item) {

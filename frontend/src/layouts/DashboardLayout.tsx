@@ -290,6 +290,8 @@ const SubmenuNav: React.FC<{
 const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { hotelSetting } = useAppConfig();
+  const rawPropertyName = hotelSetting?.propertyName?.trim() || 'StayAway';
+  const displayBrandName = rawPropertyName.toUpperCase() === 'STAY AWAY' ? 'StayAway' : rawPropertyName;
   const navigate = useNavigate();
   const location = useLocation();
   const { pendingCount: pendingResetCount } = usePasswordResetNotification();
@@ -448,32 +450,53 @@ const DashboardLayout: React.FC = () => {
           `}
         >
           {/* Sidebar Header: Brand & Logo */}
-          <div className="h-16 px-4 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
+          <div className="h-16 px-3 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
             <Link
               to="/"
-              className={`flex items-center group py-1 ${isCollapsed ? 'justify-center w-full' : 'px-1 gap-3'}`}
-              title={isCollapsed ? (hotelSetting?.propertyName || 'STAY AWAY') : 'Về trang chủ'}
+              className={`flex items-center group transition-all duration-200 ${
+                isCollapsed
+                  ? 'justify-center w-full'
+                  : 'gap-3 w-full p-1.5 rounded-2xl hover:bg-[#F4F6F0]'
+              }`}
+              title={displayBrandName}
             >
-              {isCollapsed ? (
-                <div className="flex flex-col items-center justify-center">
-                  <span className="font-logo font-bold text-2xl text-primary leading-none">
-                    {(hotelSetting?.propertyName || 'S')[0]}
-                  </span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] mt-1.5"></div>
+              {/* Bespoke Boutique Hotel Emblem */}
+              <div className="relative shrink-0 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1A2411] via-[#253319] to-[#1A2411] text-[#D4F63D] flex items-center justify-center shadow-xs shadow-[#1A2411]/25 border border-[#D4F63D]/25 group-hover:scale-105 group-hover:border-[#D4F63D]/50 transition-all duration-200">
+                  <svg
+                    className="w-5 h-5 text-[#D4F63D]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 10.5L12 3l9 7.5" />
+                    <path d="M5 9.5V20a1 1 0 001 1h12a1 1 0 001-1V9.5" />
+                    <path d="M10 21V13a2 2 0 012-2h0a2 2 0 012 2v8" />
+                    <circle cx="12" cy="7" r="0.8" fill="currentColor" stroke="none" />
+                  </svg>
                 </div>
-              ) : (
-                <div className="flex flex-col select-none">
-                  <span className="font-logo font-bold text-[22px] tracking-wide text-primary leading-none uppercase group-hover:opacity-85 transition-opacity">
-                    {hotelSetting?.propertyName || 'STAY AWAY'}
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#FDD835] animate-bounce [animation-delay:150ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#43A047] animate-bounce [animation-delay:300ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#8E24AA] animate-bounce [animation-delay:450ms]"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]"></div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#73826B] ml-1.5">
-                      QUẢN LÝ KHÁCH SẠN
+                {/* Active live pulse dot */}
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#D4F63D] ring-2 ring-white shadow-2xs" />
+              </div>
+
+              {/* Brand Text & Badge (Expanded Mode) */}
+              {!isCollapsed && (
+                <div className="flex flex-col min-w-0 select-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-[15.5px] tracking-tight text-[#1A2411] font-display truncate leading-tight group-hover:text-primary transition-colors">
+                      {displayBrandName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[5px] bg-[#E8EFE0] text-[#2D381F] text-[9.5px] font-bold tracking-wider uppercase leading-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      PMS
+                    </span>
+                    <span className="text-[11px] font-medium text-[#73826B] truncate">
+                      Quản lý lưu trú
                     </span>
                   </div>
                 </div>
@@ -484,7 +507,7 @@ const DashboardLayout: React.FC = () => {
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer ml-1"
               title="Đóng menu"
             >
               <IoCloseOutline size={22} />

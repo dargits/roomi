@@ -2,10 +2,20 @@ import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
 import AuthContext from '../../context/AuthContext';
-import { IoMenu, IoClose, IoReceiptOutline, IoSearchOutline } from 'react-icons/io5';
+import { 
+  IoMenu, 
+  IoClose, 
+  IoReceiptOutline, 
+  IoSearchOutline,
+  IoHomeOutline,
+  IoBedOutline,
+  IoPricetagOutline,
+  IoCallOutline
+} from 'react-icons/io5';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
+import PublicChatbot from '../chatbot/PublicChatbot';
 
 export const PUBLIC_NAV_LINKS = [
   { path: '/', label: 'Trang chủ' },
@@ -295,6 +305,62 @@ const PublicHeader: React.FC = () => {
           </div>
         </form>
       </Modal>
+      {/* Trợ lý Chatbot trực tuyến hỗ trợ khách đặt phòng */}
+      <PublicChatbot
+        onOpenLookup={() => {
+          setLookupError(null);
+          setIsLookupOpen(true);
+        }}
+      />
+
+      {/* Mobile Bottom Navigation Bar (Tối ưu trải nghiệm truy cập bằng smartphone) */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-border-grey px-2 py-1.5 flex items-center justify-around shadow-lg">
+        <Link
+          to="/"
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors ${
+            location.pathname === '/' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-primary'
+          }`}
+        >
+          <IoHomeOutline size={20} />
+          <span className="text-[10px] mt-0.5">Trang chủ</span>
+        </Link>
+        <Link
+          to="/rooms"
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors ${
+            location.pathname === '/rooms' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-primary'
+          }`}
+        >
+          <IoBedOutline size={20} />
+          <span className="text-[10px] mt-0.5">Phòng & Giá</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            setLookupError(null);
+            setIsLookupOpen(true);
+          }}
+          className="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+        >
+          <IoSearchOutline size={20} />
+          <span className="text-[10px] mt-0.5">Tra cứu</span>
+        </button>
+        <Link
+          to="/promotions"
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors ${
+            location.pathname === '/promotions' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-primary'
+          }`}
+        >
+          <IoPricetagOutline size={20} />
+          <span className="text-[10px] mt-0.5">Ưu đãi</span>
+        </Link>
+        <a
+          href={`tel:${hotelSetting?.phone || '0365224245'}`}
+          className="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-primary hover:text-primary-hover transition-colors"
+        >
+          <IoCallOutline size={20} />
+          <span className="text-[10px] mt-0.5 font-semibold">Hotline</span>
+        </a>
+      </div>
     </nav>
   );
 };
