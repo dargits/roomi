@@ -104,45 +104,47 @@ const AmenitiesPage: React.FC = () => {
         </div>
         <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl px-4">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Dịch vụ & Tiện ích đẳng cấp</span>
-          <h1 className="font-display-lg text-white mt-2 mb-3 drop-shadow-md">Trải Nghiệm Hoàn Hảo Tại {hotelSetting?.propertyName || 'Khách Sạn'}</h1>
-          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
+          <h1 className="font-display-lg text-2xl sm:text-3xl md:text-display-lg text-white mt-2 mb-3 drop-shadow-md leading-tight">
+            Trải Nghiệm Hoàn Hảo Tại {hotelSetting?.propertyName || 'Khách Sạn'}
+          </h1>
+          <p className="text-white/90 text-xs sm:text-sm md:text-body-lg leading-relaxed drop-shadow-sm">
             Chúng tôi tự hào mang đến cho quý khách chuỗi tiện ích đa dạng, từ ẩm thực, thư giãn đến hỗ trợ di chuyển và công việc, giúp kỳ nghỉ trọn vẹn nhất.
           </p>
         </div>
       </section>
 
       {/* Highlights Bar */}
-      <section className="bg-surface-container-low border-b border-border-grey py-6 px-margin-desktop">
-        <div className="max-w-container-max-width mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <div className="flex flex-col items-center">
+      <section className="bg-surface-container-low border-b border-border-grey py-6 px-4 md:px-margin-desktop">
+        <div className="max-w-container-max-width mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
+          <div className="flex flex-col items-center p-2">
             <IoCheckmarkCircleOutline className="text-primary mb-1.5" size={28} />
-            <span className="font-title-sm font-bold text-on-surface">Miễn phí bữa sáng</span>
-            <span className="text-xs text-on-surface-variant">Áp dụng cho mọi hạng phòng</span>
+            <span className="font-title-sm font-bold text-on-surface text-xs sm:text-sm">Miễn phí bữa sáng</span>
+            <span className="text-[11px] sm:text-xs text-on-surface-variant">Áp dụng cho mọi hạng phòng</span>
           </div>
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center p-2">
             <IoWifiOutline className="text-primary mb-1.5" size={28} />
-            <span className="font-title-sm font-bold text-on-surface">Wifi 500Mbps</span>
-            <span className="text-xs text-on-surface-variant">Phủ sóng khắp khách sạn</span>
+            <span className="font-title-sm font-bold text-on-surface text-xs sm:text-sm">Wifi 500Mbps</span>
+            <span className="text-[11px] sm:text-xs text-on-surface-variant">Phủ sóng khắp khách sạn</span>
           </div>
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center p-2">
             <IoHeadsetOutline className="text-primary mb-1.5" size={28} />
-            <span className="font-title-sm font-bold text-on-surface">Lễ tân 24/7</span>
-            <span className="text-xs text-on-surface-variant">Hỗ trợ quý khách mọi lúc</span>
+            <span className="font-title-sm font-bold text-on-surface text-xs sm:text-sm">Lễ tân 24/7</span>
+            <span className="text-[11px] sm:text-xs text-on-surface-variant">Hỗ trợ quý khách mọi lúc</span>
           </div>
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center p-2">
             <IoShieldCheckmarkOutline className="text-primary mb-1.5" size={28} />
-            <span className="font-title-sm font-bold text-on-surface">An ninh tối đa</span>
-            <span className="text-xs text-on-surface-variant">Camera & Bảo vệ 24/24</span>
+            <span className="font-title-sm font-bold text-on-surface text-xs sm:text-sm">An ninh tối đa</span>
+            <span className="text-[11px] sm:text-xs text-on-surface-variant">Camera & Bảo vệ 24/24</span>
           </div>
         </div>
       </section>
 
       {/* Featured Facilities Section */}
-      <main className="max-w-container-max-width mx-auto px-margin-desktop py-14 flex-1 w-full space-y-16">
+      <main className="max-w-container-max-width mx-auto px-4 md:px-margin-desktop py-10 md:py-14 pb-20 sm:pb-14 flex-1 w-full space-y-12 md:space-y-16">
         <section>
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="font-headline-lg text-on-surface font-bold">Khu Vực & Tiện Nghi Nổi Bật</h2>
-            <p className="text-on-surface-variant text-sm mt-2">Được thiết kế hiện đại nhằm mang lại sự thoải mái và tiện nghi tối đa cho kỳ nghỉ của bạn</p>
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
+            <h2 className="text-xl sm:text-2xl md:text-headline-lg text-on-surface font-bold">Khu Vực & Tiện Nghi Nổi Bật</h2>
+            <p className="text-on-surface-variant text-xs sm:text-sm mt-1.5">Được thiết kế hiện đại nhằm mang lại sự thoải mái và tiện nghi tối đa cho kỳ nghỉ của bạn</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

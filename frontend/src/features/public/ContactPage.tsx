@@ -54,15 +54,17 @@ const ContactPage: React.FC = () => {
         </div>
         <div className="relative z-10 max-w-container-max-width mx-auto text-center max-w-3xl px-4 animate-fade-in-up">
           <span className="text-secondary-300 font-label-md uppercase tracking-wider font-semibold">Hỗ trợ & Giải đáp 24/7</span>
-          <h1 className="font-display-lg text-white mt-2 mb-3 drop-shadow-md">Liên Hệ Với Chúng Tôi</h1>
-          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
+          <h1 className="font-display-lg text-2xl sm:text-3xl md:text-display-lg text-white mt-2 mb-3 drop-shadow-md leading-tight">
+            Liên Hệ Với Chúng Tôi
+          </h1>
+          <p className="text-white/90 text-xs sm:text-sm md:text-body-lg leading-relaxed drop-shadow-sm">
             Đội ngũ lễ tân và chăm sóc khách hàng của {hotelSetting?.propertyName || 'Khách sạn'} luôn sẵn sàng hỗ trợ quý khách mọi lúc, mọi nơi.
           </p>
         </div>
       </section>
 
       {/* Main Content Area */}
-      <main className="max-w-container-max-width mx-auto px-margin-desktop py-14 flex-1 w-full space-y-16">
+      <main className="max-w-container-max-width mx-auto px-4 md:px-margin-desktop py-10 md:py-14 pb-20 sm:pb-14 flex-1 w-full space-y-12 md:space-y-16">
         
         {/* Contact Info Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

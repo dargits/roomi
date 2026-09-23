@@ -223,7 +223,7 @@ const PublicBookingDetailPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-surface-container-low/40">
       <PublicHeader />
 
-      <main className="flex-1 mt-16 py-8 px-4 md:px-margin-desktop max-w-5xl mx-auto w-full">
+      <main className="flex-1 mt-16 py-6 sm:py-8 px-3 sm:px-4 md:px-margin-desktop pb-20 sm:pb-8 max-w-5xl mx-auto w-full">
         {/* Banner thông báo trang chia sẻ & nút sao chép link */}
         <div className="bg-gradient-to-r from-primary/10 via-blue-50 to-primary/5 border border-primary/20 rounded-xl p-4 md:p-5 mb-6 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
@@ -252,7 +252,7 @@ const PublicBookingDetailPage: React.FC = () => {
         </div>
 
         {/* Thẻ Header tổng quan đặt phòng */}
-        <div className="bg-surface-container-lowest rounded-2xl border border-border-grey p-6 md:p-8 shadow-sm mb-6">
+        <div className="bg-surface-container-lowest rounded-2xl border border-border-grey p-4 sm:p-6 md:p-8 shadow-sm mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-border-grey">
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -276,11 +276,11 @@ const PublicBookingDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-surface-container-low p-3.5 rounded-xl border border-border-grey w-full md:w-auto text-right">
+            <div className="bg-surface-container-low p-3.5 rounded-xl border border-border-grey w-full md:w-auto text-left sm:text-right">
               <div className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">
                 Thời gian lưu trú
               </div>
-              <div className="font-title-sm text-on-surface flex items-center justify-end gap-2">
+              <div className="font-title-sm text-on-surface flex items-center justify-start sm:justify-end gap-2 flex-wrap">
                 <span className="font-semibold">{formatStayDateTime(booking.checkInDate, 'checkin')}</span>
                 <span className="text-on-surface-variant">→</span>
                 <span className="font-semibold">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span>

@@ -16,6 +16,7 @@ import plant.stay.model.Role;
 import plant.stay.model.RoomStatus;
 import plant.stay.model.User;
 import plant.stay.model.Invoice;
+import plant.stay.model.InvoiceStatus;
 import plant.stay.repository.BookingRepository;
 import plant.stay.repository.DepositRepository;
 import plant.stay.repository.InvoiceRepository;
@@ -75,25 +76,66 @@ public class ReportController {
         this(bookingRepository, roomRepository, invoiceRepository, depositRepository, paymentRepository, roomTypeRepository, null, authUtil);
     }
 
+    private Invoice getBookingInvoice(Booking b) {
+        if (b == null || b.getId() == null) return null;
+        try {
+            Optional<Invoice> invOpt = invoiceRepository.findByBookingId(b.getId());
+            if (invOpt.isPresent() && invOpt.get().getStatus() != InvoiceStatus.CANCELLED) {
+                return invOpt.get();
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     /**
      * Tính toán doanh thu thực tế của booking một cách an toàn:
-     * Ưu tiên actualPrice > Invoice totalAmount > expectedPrice
+     * Ưu tiên Invoice totalAmount > actualPrice > expectedPrice
      */
     private BigDecimal getEffectiveRevenue(Booking b) {
         if (b == null) return BigDecimal.ZERO;
+        Invoice inv = getBookingInvoice(b);
+        if (inv != null && inv.getTotalAmount() != null && inv.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+            return inv.getTotalAmount();
+        }
         if (b.getActualPrice() != null && b.getActualPrice().compareTo(BigDecimal.ZERO) > 0) {
             return b.getActualPrice();
         }
-        try {
-            Optional<Invoice> invOpt = invoiceRepository.findByBookingId(b.getId());
-            if (invOpt.isPresent() && invOpt.get().getTotalAmount() != null && invOpt.get().getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-                return invOpt.get().getTotalAmount();
-            }
-        } catch (Exception ignored) {}
         if (b.getExpectedPrice() != null && b.getExpectedPrice().compareTo(BigDecimal.ZERO) > 0) {
             return b.getExpectedPrice();
         }
         return BigDecimal.ZERO;
+    }
+
+    private BigDecimal getEffectiveRoomRevenue(Booking b) {
+        if (b == null) return BigDecimal.ZERO;
+        Invoice inv = getBookingInvoice(b);
+        if (inv != null && inv.getRoomAmount() != null && inv.getRoomAmount().compareTo(BigDecimal.ZERO) > 0) {
+            return inv.getRoomAmount();
+        }
+        if (b.getActualPrice() != null && b.getActualPrice().compareTo(BigDecimal.ZERO) > 0) {
+            return b.getActualPrice();
+        }
+        if (b.getExpectedPrice() != null && b.getExpectedPrice().compareTo(BigDecimal.ZERO) > 0) {
+            return b.getExpectedPrice();
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal getEffectiveServiceRevenue(Booking b) {
+        if (b == null) return BigDecimal.ZERO;
+        Invoice inv = getBookingInvoice(b);
+        if (inv != null && inv.getServiceAmount() != null && inv.getServiceAmount().compareTo(BigDecimal.ZERO) > 0) {
+            return inv.getServiceAmount();
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private LocalDate getActualCheckOutDate(Booking b) {
+        if (b == null) return null;
+        if (b.getCheckedOutAt() != null) {
+            return b.getCheckedOutAt().toLocalDate();
+        }
+        return b.getCheckOutDate();
     }
 
     private BigDecimal getBookingPaidAmount(Booking b) {
@@ -172,64 +214,17 @@ public class ReportController {
         BigDecimal totalRevenue = bookings.stream()
                 .map(this::getEffectiveRevenue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal roomRevenue = bookings.stream()
+                .map(this::getEffectiveRoomRevenue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal serviceRevenue = bookings.stream()
+                .map(this::getEffectiveServiceRevenue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCollected = bookings.stream()
                 .map(this::getBookingPaidAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalDebt = totalRevenue.subtract(totalCollected).max(BigDecimal.ZERO);
         int bookingCount = bookings.size();
-
-        // Tạo rows chi tiết theo ngày hoặc tháng
-        List<Map<String, Object>> rows;
-        if ("month".equalsIgnoreCase(groupBy)) {
-            // Group by month: YYYY-MM
-            Map<String, List<Booking>> grouped = bookings.stream()
-                    .filter(b -> b.getCheckOutDate() != null)
-                    .collect(Collectors.groupingBy(b ->
-                            b.getCheckOutDate().format(DateTimeFormatter.ofPattern("yyyy-MM"))));
-            rows = grouped.entrySet().stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(e -> {
-                        BigDecimal rev = e.getValue().stream()
-                                .map(this::getEffectiveRevenue)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal collected = e.getValue().stream()
-                                .map(this::getBookingPaidAmount)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
-                        Map<String, Object> row = new LinkedHashMap<>();
-                        row.put("period", e.getKey());
-                        row.put("bookings", e.getValue().size());
-                        row.put("revenue", rev);
-                        row.put("collectedRevenue", collected);
-                        row.put("debtRevenue", debt);
-                        return row;
-                    })
-                    .collect(Collectors.toList());
-        } else {
-            // Group by day: YYYY-MM-DD
-            Map<LocalDate, List<Booking>> grouped = bookings.stream()
-                    .filter(b -> b.getCheckOutDate() != null)
-                    .collect(Collectors.groupingBy(Booking::getCheckOutDate));
-            rows = grouped.entrySet().stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(e -> {
-                        BigDecimal rev = e.getValue().stream()
-                                .map(this::getEffectiveRevenue)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal collected = e.getValue().stream()
-                                .map(this::getBookingPaidAmount)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
-                        Map<String, Object> row = new LinkedHashMap<>();
-                        row.put("period", e.getKey().toString());
-                        row.put("bookings", e.getValue().size());
-                        row.put("revenue", rev);
-                        row.put("collectedRevenue", collected);
-                        row.put("debtRevenue", debt);
-                        return row;
-                    })
-                    .collect(Collectors.toList());
-        }
 
         // Tính phí hủy/cọc phạt trong kỳ (FORFEITED và PARTIALLY_REFUNDED)
         java.util.List<plant.stay.model.DepositStatus> penaltyStatuses =
@@ -241,6 +236,88 @@ public class ReportController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal grandTotal = totalRevenue.add(penaltyRevenue);
 
+        // Tạo rows chi tiết theo ngày hoặc tháng
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if ("month".equalsIgnoreCase(groupBy)) {
+            // Group bookings and penalties by month: YYYY-MM
+            Map<String, List<Booking>> groupedBookings = bookings.stream()
+                    .filter(b -> getActualCheckOutDate(b) != null)
+                    .collect(Collectors.groupingBy(b ->
+                            getActualCheckOutDate(b).format(DateTimeFormatter.ofPattern("yyyy-MM"))));
+
+            Map<String, BigDecimal> penaltyByPeriod = new HashMap<>();
+            for (plant.stay.model.Deposit d : penaltyDeposits) {
+                LocalDate pDate = d.getProcessedAt() != null ? d.getProcessedAt().toLocalDate()
+                        : (d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : from);
+                String pKey = pDate.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+                BigDecimal pAmt = d.getPenaltyAmount() != null ? d.getPenaltyAmount() : BigDecimal.ZERO;
+                penaltyByPeriod.put(pKey, penaltyByPeriod.getOrDefault(pKey, BigDecimal.ZERO).add(pAmt));
+            }
+
+            Set<String> allPeriods = new TreeSet<>(groupedBookings.keySet());
+            allPeriods.addAll(penaltyByPeriod.keySet());
+
+            for (String period : allPeriods) {
+                List<Booking> pBookings = groupedBookings.getOrDefault(period, Collections.emptyList());
+                BigDecimal rRev = pBookings.stream().map(this::getEffectiveRoomRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal sRev = pBookings.stream().map(this::getEffectiveServiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rev = pBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal collected = pBookings.stream().map(this::getBookingPaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
+                BigDecimal pen = penaltyByPeriod.getOrDefault(period, BigDecimal.ZERO);
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("period", period);
+                row.put("bookings", pBookings.size());
+                row.put("roomRevenue", rRev);
+                row.put("serviceRevenue", sRev);
+                row.put("revenue", rev);
+                row.put("penaltyRevenue", pen);
+                row.put("grandTotal", rev.add(pen));
+                row.put("collectedRevenue", collected);
+                row.put("debtRevenue", debt);
+                rows.add(row);
+            }
+        } else {
+            // Group by day: YYYY-MM-DD
+            Map<LocalDate, List<Booking>> groupedBookings = bookings.stream()
+                    .filter(b -> getActualCheckOutDate(b) != null)
+                    .collect(Collectors.groupingBy(this::getActualCheckOutDate));
+
+            Map<LocalDate, BigDecimal> penaltyByDate = new HashMap<>();
+            for (plant.stay.model.Deposit d : penaltyDeposits) {
+                LocalDate pDate = d.getProcessedAt() != null ? d.getProcessedAt().toLocalDate()
+                        : (d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : from);
+                BigDecimal pAmt = d.getPenaltyAmount() != null ? d.getPenaltyAmount() : BigDecimal.ZERO;
+                penaltyByDate.put(pDate, penaltyByDate.getOrDefault(pDate, BigDecimal.ZERO).add(pAmt));
+            }
+
+            Set<LocalDate> allDates = new TreeSet<>(groupedBookings.keySet());
+            allDates.addAll(penaltyByDate.keySet());
+
+            for (LocalDate dKey : allDates) {
+                List<Booking> pBookings = groupedBookings.getOrDefault(dKey, Collections.emptyList());
+                BigDecimal rRev = pBookings.stream().map(this::getEffectiveRoomRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal sRev = pBookings.stream().map(this::getEffectiveServiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rev = pBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal collected = pBookings.stream().map(this::getBookingPaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
+                BigDecimal pen = penaltyByDate.getOrDefault(dKey, BigDecimal.ZERO);
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("period", dKey.toString());
+                row.put("bookings", pBookings.size());
+                row.put("roomRevenue", rRev);
+                row.put("serviceRevenue", sRev);
+                row.put("revenue", rev);
+                row.put("penaltyRevenue", pen);
+                row.put("grandTotal", rev.add(pen));
+                row.put("collectedRevenue", collected);
+                row.put("debtRevenue", debt);
+                rows.add(row);
+            }
+        }
+
         // Thống kê doanh thu giá thỏa thuận
         List<Booking> negotiatedBookings = bookings.stream()
                 .filter(b -> "NEGOTIATED".equalsIgnoreCase(b.getPriceSource()) || b.getAppliedAgreement() != null)
@@ -250,8 +327,8 @@ public class ReportController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         long negotiatedRoomNights = 0;
         for (Booking b : negotiatedBookings) {
-            if (b.getCheckInDate() != null && b.getCheckOutDate() != null) {
-                negotiatedRoomNights += Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()));
+            if (b.getCheckInDate() != null && getActualCheckOutDate(b) != null) {
+                negotiatedRoomNights += Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), getActualCheckOutDate(b)));
             }
         }
         BigDecimal negotiatedSharePercent = totalRevenue.compareTo(BigDecimal.ZERO) > 0
@@ -263,6 +340,8 @@ public class ReportController {
         result.put("to", to.toString());
         result.put("groupBy", groupBy);
         result.put("totalRevenue", totalRevenue);
+        result.put("roomRevenue", roomRevenue);
+        result.put("serviceRevenue", serviceRevenue);
         result.put("collectedRevenue", totalCollected);
         result.put("debtRevenue", totalDebt);
         result.put("penaltyRevenue", penaltyRevenue);
