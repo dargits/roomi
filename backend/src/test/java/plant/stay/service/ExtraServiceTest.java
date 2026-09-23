@@ -5,10 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import plant.stay.dto.ExtraServiceInventoryItemDto;
 import plant.stay.dto.request.ExtraServiceRequest;
 import plant.stay.dto.response.ExtraServiceResponse;
 import plant.stay.dto.response.MessageResponse;
 import plant.stay.exception.ResourceNotFoundException;
+import plant.stay.model.InventoryItem;
+import plant.stay.repository.InventoryItemRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,6 +24,9 @@ public class ExtraServiceTest {
 
     @Autowired
     private ExtraServiceService extraServiceService;
+
+    @Autowired
+    private InventoryItemRepository inventoryItemRepository;
 
     @Test
     @DisplayName("Tạo dịch vụ phụ thu mới thành công")
@@ -39,6 +45,52 @@ public class ExtraServiceTest {
         assertEquals("Dịch vụ thuê xe máy", response.getName());
         assertEquals(0, new BigDecimal("150000").compareTo(response.getUnitPrice()));
         assertEquals("Ngày", response.getUnit());
+    }
+
+    @Test
+    @DisplayName("Tạo dịch vụ phụ thu có liên kết đồ dùng kho")
+    void testCreateExtraServiceWithInventoryItems() {
+        InventoryItem item1 = inventoryItemRepository.save(InventoryItem.builder()
+                .name("Khăn tắm lớn test")
+                .unit("chiếc")
+                .quantityOnHand(100)
+                .lowStockThreshold(10)
+                .build());
+
+        InventoryItem item2 = inventoryItemRepository.save(InventoryItem.builder()
+                .name("Nước suối test")
+                .unit("chai")
+                .quantityOnHand(200)
+                .lowStockThreshold(20)
+                .build());
+
+        ExtraServiceRequest request = new ExtraServiceRequest();
+        request.setName("Combo Tiện Nghi Test");
+        request.setUnitPrice(new BigDecimal("80000"));
+        request.setUnit("Gói");
+        request.setActive(true);
+        request.setInventoryItems(List.of(
+                ExtraServiceInventoryItemDto.builder()
+                        .inventoryItemId(item1.getId())
+                        .quantity(2)
+                        .build(),
+                ExtraServiceInventoryItemDto.builder()
+                        .inventoryItemId(item2.getId())
+                        .quantity(3)
+                        .build()
+        ));
+
+        ExtraServiceResponse response = extraServiceService.create(request);
+
+        assertNotNull(response);
+        assertNotNull(response.getInventoryItems());
+        assertEquals(2, response.getInventoryItems().size());
+        assertTrue(response.getInventoryItems().stream().anyMatch(i -> i.getInventoryItemId().equals(item1.getId()) && i.getQuantity() == 2));
+        assertTrue(response.getInventoryItems().stream().anyMatch(i -> i.getInventoryItemId().equals(item2.getId()) && i.getQuantity() == 3));
+
+        // Get by ID test
+        ExtraServiceResponse fetched = extraServiceService.getById(response.getId());
+        assertEquals(2, fetched.getInventoryItems().size());
     }
 
     @Test

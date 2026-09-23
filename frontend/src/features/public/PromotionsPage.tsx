@@ -130,15 +130,17 @@ const PromotionsPage: React.FC = () => {
           <div className="inline-flex items-center gap-2 bg-amber-400/25 text-amber-300 border border-amber-400/40 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-3">
             <IoFlashOutline size={16} /> Ưu Đãi Mới Nhất 2026
           </div>
-          <h1 className="font-display-lg text-white mb-3 drop-shadow-md">Chương Trình Khuyến Mãi & Ưu Đãi Đặc Biệt</h1>
-          <p className="text-white/90 font-body-lg leading-relaxed drop-shadow-sm">
+          <h1 className="font-display-lg text-2xl sm:text-3xl md:text-display-lg text-white mb-3 drop-shadow-md leading-tight">
+            Chương Trình Khuyến Mãi & Ưu Đãi Đặc Biệt
+          </h1>
+          <p className="text-white/90 text-xs sm:text-sm md:text-body-lg leading-relaxed drop-shadow-sm">
             Khám phá các gói ưu đãi nghỉ dưỡng hấp dẫn tại {hotelSetting?.propertyName || 'Khách Sạn'}. Tiết kiệm nhiều hơn cho kỳ nghỉ tuyệt vời của bạn và gia đình!
           </p>
         </div>
       </section>
 
       {/* Promotions Grid */}
-      <main className="max-w-container-max-width mx-auto px-margin-desktop py-14 flex-1 w-full space-y-12">
+      <main className="max-w-container-max-width mx-auto px-4 md:px-margin-desktop py-10 md:py-14 pb-20 sm:pb-14 flex-1 w-full space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {PROMOTIONS_DATA.map((promo) => {
             const isCopied = copiedCode === promo.code;

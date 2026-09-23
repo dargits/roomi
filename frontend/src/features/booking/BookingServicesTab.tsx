@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { IoAddOutline, IoCartOutline, IoTrashOutline, IoInformationCircleOutline } from 'react-icons/io5';
+import { 
+  IoAddOutline, 
+  IoCartOutline, 
+  IoTrashOutline, 
+  IoInformationCircleOutline,
+  IoCubeOutline,
+  IoWarningOutline
+} from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
 import { extraServiceApi } from '../../services/extraServiceApi';
 import { invoiceApi } from '../../services/invoiceApi';
@@ -69,9 +76,24 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
   const { success: toastSuccess, error: toastError } = useToast();
   const confirm = useConfirm();
 
+  // Dịch vụ đang được chọn trong form
+  const selectedService = availableServices.find(s => String(s.id) === String(newService.serviceId));
+  const linkedInventory = selectedService?.inventoryItems || [];
+  const reqQty = Math.max(1, Number(newService.quantity) || 1);
+  const outOfStockItems = linkedInventory.filter(
+    item => item.currentStock != null && item.currentStock < (item.quantity * reqQty)
+  );
+  const hasOutOfStock = outOfStockItems.length > 0;
+
   const handleAddService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newService.serviceId) return;
+
+    if (hasOutOfStock) {
+      const itemNames = outOfStockItems.map(i => i.itemName).join(', ');
+      toastError(`Không thể thêm: Kho không đủ số lượng cho [${itemNames}]!`);
+      return;
+    }
     
     setAdding(true);
     try {
@@ -80,7 +102,7 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
         quantity: parseInt(String(newService.quantity)) || 1,
         note: newService.note
       });
-      toastSuccess("Thêm dịch vụ thành công!");
+      toastSuccess("Thêm dịch vụ và cập nhật xuất kho thành công!");
       setNewService({ serviceId: '', quantity: 1, note: '' });
       fetchData();
     } catch (error: any) {
@@ -93,7 +115,7 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
   const handleDelete = async (usageId: number | string) => {
     const isConfirmed = await confirm({
       title: 'Xác nhận xóa dịch vụ',
-      message: 'Bạn có chắc chắn muốn xóa dịch vụ này khỏi đặt phòng?',
+      message: 'Bạn có chắc chắn muốn xóa dịch vụ này khỏi đặt phòng? Số lượng đồ dùng tương ứng sẽ được tự động hoàn lại vào kho.',
       confirmText: 'Xóa dịch vụ',
       type: 'danger'
     });
@@ -101,7 +123,7 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
     
     try {
       await bookingApi.removeBookingService(bookingId, usageId);
-      toastSuccess("Đã xóa dịch vụ thành công!");
+      toastSuccess("Đã xóa dịch vụ và hoàn trả tồn kho thành công!");
       fetchData();
     } catch (error: any) {
       toastError(error.response?.data?.message || "Không thể xóa dịch vụ");
@@ -138,8 +160,8 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
 
       {/* Thêm dịch vụ mới */}
       {canEdit && (
-        <div className="bg-surface-container-low p-4 rounded-lg border border-border-grey shadow-sm">
-          <h4 className="font-title-md text-on-surface mb-3 flex items-center gap-2">
+        <div className="bg-surface-container-low p-4 rounded-lg border border-border-grey shadow-sm space-y-3">
+          <h4 className="font-title-md text-on-surface flex items-center gap-2">
             <IoCartOutline size={18} className="text-primary"/> Thêm dịch vụ phụ thu
           </h4>
           <form onSubmit={handleAddService} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
@@ -160,7 +182,7 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
                 type="number"
                 min="1"
                 value={String(newService.quantity)}
-                onChange={(e) => setNewService(prev => ({...prev, quantity: Number(e.target.value)}))}
+                onChange={(e) => setNewService(prev => ({...prev, quantity: Math.max(1, Number(e.target.value) || 1)}))}
                 required
               />
             </div>
@@ -173,11 +195,70 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
               />
             </div>
             <div className="sm:col-span-2">
-              <Button type="submit" isLoading={adding} icon={IoAddOutline} className="w-full">
+              <Button 
+                type="submit" 
+                isLoading={adding} 
+                icon={IoAddOutline} 
+                className="w-full"
+                disabled={hasOutOfStock}
+              >
                 Thêm
               </Button>
             </div>
           </form>
+
+          {/* Cảnh báo / Preview định mức xuất kho đồ dùng */}
+          {linkedInventory.length > 0 && (
+            <div className={`p-3 rounded-lg border text-xs flex flex-col gap-2 transition-all ${
+              hasOutOfStock 
+                ? 'bg-red-50 border-red-200 text-red-900' 
+                : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <IoCubeOutline size={16} className={hasOutOfStock ? 'text-error' : 'text-emerald-700'} />
+                  <span>Tự động xuất kho ({linkedInventory.length} mặt hàng):</span>
+                </div>
+                {hasOutOfStock && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-error text-white">
+                    <IoWarningOutline size={13} /> Không đủ tồn kho
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {linkedInventory.map((item, idx) => {
+                  const totalNeeded = item.quantity * reqQty;
+                  const isItemShort = item.currentStock != null && item.currentStock < totalNeeded;
+                  return (
+                    <span 
+                      key={idx}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium ${
+                        isItemShort 
+                          ? 'bg-red-100 text-red-900 border-red-300 font-bold shadow-sm' 
+                          : 'bg-surface border-emerald-200 text-emerald-800'
+                      }`}
+                    >
+                      <span>{item.itemName}:</span>
+                      <strong>{totalNeeded} {item.unit || 'cái'}</strong>
+                      <span className="text-[11px] text-on-surface-variant font-normal">
+                        (Còn lại trong kho: {item.currentStock ?? '?'})
+                      </span>
+                      {isItemShort && (
+                        <span className="text-error font-bold ml-1">
+                          ⚠️ Thiếu {totalNeeded - (item.currentStock || 0)}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+              {hasOutOfStock && (
+                <p className="text-[11px] text-error font-medium">
+                  Kho hiện không có đủ số lượng để cung cấp dịch vụ này. Vui lòng nhập thêm hàng hoặc giảm số lượng yêu cầu.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -220,7 +301,24 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
                     <td className="p-3">
                       <div className="font-title-sm text-on-surface">{item.serviceName}</div>
                       {item.note && <div className="text-xs text-on-surface-variant mt-0.5 italic">{item.note}</div>}
-                      <div className="text-[11px] text-on-surface-variant/80 mt-0.5">
+                      
+                      {/* Hiển thị đồ dùng kho đã trừ */}
+                      {item.deductedInventoryItems && item.deductedInventoryItems.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {item.deductedInventoryItems.map((inv: any, iIdx: number) => (
+                            <span 
+                              key={iIdx} 
+                              className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant border border-border-grey"
+                              title={`Đã xuất trừ ${inv.quantity} ${inv.unit || ''} khỏi kho`}
+                            >
+                              <IoCubeOutline size={11} className="text-primary shrink-0" />
+                              {inv.itemName}: <strong>{inv.quantity} {inv.unit}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="text-[11px] text-on-surface-variant/80 mt-1">
                         {new Date(item.usageTime || item.createdAt).toLocaleString('vi-VN')}
                       </div>
                     </td>
@@ -242,7 +340,7 @@ const BookingServicesTab: React.FC<BookingServicesTabProps> = ({ bookingId, stat
                           <button 
                             onClick={() => handleDelete(item.id)}
                             className="p-1.5 text-on-surface-variant hover:text-error hover:bg-red-50 rounded transition-colors"
-                            title="Xóa dịch vụ"
+                            title="Xóa dịch vụ (Tự động hoàn trả đồ dùng vào kho)"
                           >
                             <IoTrashOutline size={16} />
                           </button>
