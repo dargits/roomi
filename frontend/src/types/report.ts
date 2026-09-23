@@ -34,6 +34,7 @@ export interface CashierShiftOpenRequest {
 
 export interface CashierShiftCloseRequest {
   actualCash: number;
+  explanation?: string;
   discrepancyNote?: string;
 }
 
