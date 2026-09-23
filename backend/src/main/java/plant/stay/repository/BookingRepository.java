@@ -90,7 +90,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "LEFT JOIN FETCH b.room r " +
            "LEFT JOIN FETCH b.roomType rt " +
            "LEFT JOIN FETCH b.guest g " +
-           "WHERE b.checkOutDate BETWEEN :from AND :to " +
+           "WHERE ((b.checkedOutAt IS NOT NULL AND CAST(b.checkedOutAt AS LocalDate) BETWEEN :from AND :to) " +
+           "       OR (b.checkedOutAt IS NULL AND b.checkOutDate BETWEEN :from AND :to)) " +
            "AND b.status = 'CHECKED_OUT'")
     List<Booking> findCheckedOutBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 

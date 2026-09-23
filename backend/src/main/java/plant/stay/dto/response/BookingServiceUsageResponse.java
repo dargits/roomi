@@ -5,6 +5,8 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import plant.stay.dto.ExtraServiceInventoryItemDto;
 
 @Data
 @Builder
@@ -19,4 +21,6 @@ public class BookingServiceUsageResponse {
     private String note;
     private Boolean isSystemMandatory;
     private LocalDateTime createdAt;
+    private List<ExtraServiceInventoryItemDto> deductedInventoryItems;
 }
+
