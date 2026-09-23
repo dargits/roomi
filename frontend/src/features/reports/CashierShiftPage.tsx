@@ -96,9 +96,14 @@ const CashierShiftPage: React.FC = () => {
     });
     if (!confirmed) return;
     try {
-      const closed = await cashierShiftApi.close(shift.id, { actualCash: actual, discrepancyNote: explanation });
+      const closed = await cashierShiftApi.close(shift.id, {
+        actualCash: actual,
+        explanation: explanation.trim(),
+        discrepancyNote: explanation.trim()
+      });
       setShift(closed);
       success('Đã chốt ca và lưu phiếu đối soát.');
+      load();
     } catch (requestError: any) {
       error(requestError.response?.data?.message || 'Không thể chốt ca.');
     }

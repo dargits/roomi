@@ -36,6 +36,10 @@ export interface RoomResponse {
   lastCleanedAt?: string;
   cleaningReason?: string;
   vacantDays?: number;
+  cleaningStartedAt?: string;
+  activeCleaningRecordId?: number;
+  isCleaningInProgress?: boolean;
+  standardCleaningMinutes?: number;
 }
 
 export interface RoomRequest {
@@ -59,6 +63,8 @@ export interface RoomTypeResponse {
   priceSourceName?: string;
   amenitiesDescription?: string;
   imageUrls?: string[];
+  standardCheckoutCleaningMinutes?: number;
+  standardPeriodicCleaningMinutes?: number;
   active: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -73,5 +79,7 @@ export interface RoomTypeRequest {
   basePrice: number;
   amenitiesDescription?: string;
   imageUrls?: string[];
+  standardCheckoutCleaningMinutes?: number;
+  standardPeriodicCleaningMinutes?: number;
   active?: boolean;
 }

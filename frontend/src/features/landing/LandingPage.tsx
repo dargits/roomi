@@ -204,8 +204,8 @@ const LandingPage: React.FC = () => {
       {isInitialLoading && (
         <LoadingScreen
           fullScreen
-          message="Đang tải dữ liệu..."
-          submessage="Vui lòng chờ trong giây lát"
+          message="Đang chuẩn bị không gian lưu trú..."
+          submessage="Khám phá phòng nghỉ & ưu đãi giá tốt nhất"
         />
       )}
 
@@ -221,10 +221,12 @@ const LandingPage: React.FC = () => {
           <div className="absolute inset-0 bg-black/40" />
         </div>
         <div className="relative z-10 text-center px-4 max-w-container-max-width mx-auto mb-6 animate-fade-in-up">
-          <h1 className="font-display-lg text-display-lg text-white mb-2 drop-shadow-md">
+          <h1 className="font-display-lg text-2xl sm:text-3xl md:text-display-lg text-white mb-2 drop-shadow-md leading-tight">
             Khách sạn và nơi để ở{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
           </h1>
-          <p className="font-title-lg text-title-lg text-white drop-shadow-md">Tìm kiếm để so sánh giá cả và khám phá ưu đãi tuyệt vời có miễn phí hủy</p>
+          <p className="text-xs sm:text-sm md:text-title-lg text-white/90 drop-shadow-md max-w-2xl mx-auto">
+            Tìm kiếm để so sánh giá cả và khám phá ưu đãi tuyệt vời có miễn phí hủy
+          </p>
         </div>
         
         <div className="w-full flex justify-center animate-fade-in-up animate-delay-100">
@@ -233,7 +235,7 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Main Content Area */}
-      <main className="max-w-container-max-width mx-auto px-margin-desktop mt-24 mb-16 grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 w-full">
+      <main className="max-w-container-max-width mx-auto px-3 sm:px-6 md:px-margin-desktop mt-28 sm:mt-24 mb-16 pb-16 sm:pb-0 grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 w-full">
         <FilterSidebar 
           roomTypes={rooms.map(r => r.name)} 
           selectedTypes={selectedTypes} 
@@ -247,8 +249,8 @@ const LandingPage: React.FC = () => {
         
         {/* Room List Area */}
         <section className="md:col-span-9">
-          <div className="flex items-center justify-between mb-6 border-b border-border-grey pb-2">
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">
+          <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-border-grey pb-2">
+            <h2 className="text-xl sm:text-2xl md:text-headline-lg font-bold text-on-surface">
               Các loại phòng{hotelSetting?.propertyName ? ` tại ${hotelSetting.propertyName}` : ''}
             </h2>
           </div>

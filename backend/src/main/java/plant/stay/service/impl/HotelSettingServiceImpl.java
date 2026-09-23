@@ -72,6 +72,18 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         if (request.getPublicInvoiceLookupEnabled() != null) {
             setting.setPublicInvoiceLookupEnabled(request.getPublicInvoiceLookupEnabled());
         }
+        if (request.getPriceSuggestionHighThreshold() != null) {
+            setting.setPriceSuggestionHighThreshold(request.getPriceSuggestionHighThreshold());
+        }
+        if (request.getPriceSuggestionLowThreshold() != null) {
+            setting.setPriceSuggestionLowThreshold(request.getPriceSuggestionLowThreshold());
+        }
+        if (request.getPriceSuggestionImminentDays() != null) {
+            setting.setPriceSuggestionImminentDays(request.getPriceSuggestionImminentDays());
+        }
+        if (request.getPriceSuggestionConfigured() != null) {
+            setting.setPriceSuggestionConfigured(request.getPriceSuggestionConfigured());
+        }
         setting.setUpdatedBy(updatedBy);
 
         // Với @Transactional và Managed Entity, save() sẽ hoạt động đúng và an toàn
@@ -100,6 +112,10 @@ public class HotelSettingServiceImpl implements HotelSettingService {
                 .maxConcurrentSessions(setting.getMaxConcurrentSessions() != null ? setting.getMaxConcurrentSessions() : 0)
                 .maxSessionLifetimeHours(setting.getMaxSessionLifetimeHours() != null ? setting.getMaxSessionLifetimeHours() : 24)
                 .publicInvoiceLookupEnabled(setting.getPublicInvoiceLookupEnabled() != null ? setting.getPublicInvoiceLookupEnabled() : true)
+                .priceSuggestionHighThreshold(setting.getPriceSuggestionHighThreshold() != null ? setting.getPriceSuggestionHighThreshold() : 80.0)
+                .priceSuggestionLowThreshold(setting.getPriceSuggestionLowThreshold() != null ? setting.getPriceSuggestionLowThreshold() : 30.0)
+                .priceSuggestionImminentDays(setting.getPriceSuggestionImminentDays() != null ? setting.getPriceSuggestionImminentDays() : 7)
+                .priceSuggestionConfigured(setting.getPriceSuggestionConfigured() != null ? setting.getPriceSuggestionConfigured() : true)
                 .build();
     }
 }

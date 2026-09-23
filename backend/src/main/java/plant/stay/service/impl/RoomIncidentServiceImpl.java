@@ -33,6 +33,7 @@ public class RoomIncidentServiceImpl implements RoomIncidentService {
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
+    private final plant.stay.repository.RoomCleaningRecordRepository roomCleaningRecordRepository;
 
     @Override
     @Transactional
@@ -51,6 +52,15 @@ public class RoomIncidentServiceImpl implements RoomIncidentService {
             // Kiểm tra các booking sắp tới gán phòng này
             List<Booking> affectedBookings = bookingRepository.findUpcomingBookingsForRoom(room.getId(), LocalDate.now());
             affectedCount = affectedBookings.size();
+        }
+
+        // Đánh dấu có sự cố vào phiên dọn phòng đang hoạt động (để loại trừ khỏi thời gian trung bình)
+        if (room.getActiveCleaningRecordId() != null) {
+            roomCleaningRecordRepository.findById(room.getActiveCleaningRecordId()).ifPresent(record -> {
+                record.setHasIncident(true);
+                record.setIncidentCount((record.getIncidentCount() != null ? record.getIncidentCount() : 0) + 1);
+                roomCleaningRecordRepository.save(record);
+            });
         }
 
         RoomIncident incident = RoomIncident.builder()

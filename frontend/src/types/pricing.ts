@@ -52,6 +52,15 @@ export interface WeekendPriceConfigRequest {
   active?: boolean;
 }
 
+export interface ExtraServiceInventoryItemDto {
+  id?: number;
+  inventoryItemId: number;
+  itemName?: string;
+  unit?: string;
+  quantity: number;
+  currentStock?: number;
+}
+
 export interface ExtraServiceResponse {
   id: number;
   name: string;
@@ -62,6 +71,7 @@ export interface ExtraServiceResponse {
   active: boolean;
   createdAt?: string;
   updatedAt?: string;
+  inventoryItems?: ExtraServiceInventoryItemDto[];
 }
 
 export interface ExtraServiceRequest {
@@ -71,6 +81,7 @@ export interface ExtraServiceRequest {
   price?: number;
   unit: string;
   active?: boolean;
+  inventoryItems?: ExtraServiceInventoryItemDto[];
 }
 
 export interface DepositPolicyResponse {

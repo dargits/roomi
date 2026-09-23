@@ -59,6 +59,18 @@ public class Room {
     @Column(name = "cleaning_reason", length = 50)
     private String cleaningReason;
 
+    /**
+     * Thời điểm nhân viên buồng phòng bấm bắt đầu dọn dẹp phiên hiện tại.
+     */
+    @Column(name = "cleaning_started_at")
+    private LocalDateTime cleaningStartedAt;
+
+    /**
+     * ID của bản ghi RoomCleaningRecord đang diễn ra hoặc đang chờ duyệt.
+     */
+    @Column(name = "active_cleaning_record_id")
+    private Long activeCleaningRecordId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

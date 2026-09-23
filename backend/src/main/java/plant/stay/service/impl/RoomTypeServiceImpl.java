@@ -68,6 +68,8 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 .basePrice(request.getBasePrice())
                 .amenitiesDescription(request.getAmenitiesDescription())
                 .imageUrls(request.getImageUrls() != null ? request.getImageUrls() : new java.util.ArrayList<>())
+                .standardCheckoutCleaningMinutes(request.getStandardCheckoutCleaningMinutes() != null ? request.getStandardCheckoutCleaningMinutes() : 45)
+                .standardPeriodicCleaningMinutes(request.getStandardPeriodicCleaningMinutes() != null ? request.getStandardPeriodicCleaningMinutes() : 20)
                 .active(request.getActive() != null ? request.getActive() : true)
                 .build();
         
@@ -95,6 +97,12 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         }
         roomType.setBasePrice(request.getBasePrice());
         roomType.setAmenitiesDescription(request.getAmenitiesDescription());
+        if (request.getStandardCheckoutCleaningMinutes() != null) {
+            roomType.setStandardCheckoutCleaningMinutes(request.getStandardCheckoutCleaningMinutes());
+        }
+        if (request.getStandardPeriodicCleaningMinutes() != null) {
+            roomType.setStandardPeriodicCleaningMinutes(request.getStandardPeriodicCleaningMinutes());
+        }
         if (request.getImageUrls() != null) {
             roomType.setImageUrls(request.getImageUrls());
         }
@@ -196,6 +204,8 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 .priceSourceName(priceSourceName)
                 .amenitiesDescription(roomType.getAmenitiesDescription())
                 .imageUrls(roomType.getImageUrls())
+                .standardCheckoutCleaningMinutes(roomType.getStandardCheckoutCleaningMinutes() != null ? roomType.getStandardCheckoutCleaningMinutes() : 45)
+                .standardPeriodicCleaningMinutes(roomType.getStandardPeriodicCleaningMinutes() != null ? roomType.getStandardPeriodicCleaningMinutes() : 20)
                 .active(roomType.isActive())
                 .totalRooms(totalRooms)
                 .availableRoomsToday(availableToday)

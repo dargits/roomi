@@ -37,4 +37,10 @@ public class RoomResponse {
     private LocalDateTime lastCleanedAt;
     private String cleaningReason; // "PERIODIC_VACANT", "CHECKOUT", "MANUAL", "INCIDENT"
     private Long vacantDays; // Số ngày phòng đã để trống
+
+    // Đo thời gian dọn và định mức
+    private LocalDateTime cleaningStartedAt;
+    private Long activeCleaningRecordId;
+    private Boolean isCleaningInProgress;
+    private Integer standardCleaningMinutes;
 }
