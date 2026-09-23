@@ -46,13 +46,36 @@ api.interceptors.response.use(
     return response;
   },
   (error: AxiosError<ApiErrorResponse>) => {
-    if (error.response && error.response.status === 401) {
+    const status = error.response?.status;
+    const msg = extractErrorMessage(error, '');
+
+    // Kiểm tra nếu là lỗi phân quyền (Forbidden / Không đủ quyền hạn)
+    // Tuyệt đối KHÔNG đăng xuất, KHÔNG xóa token và KHÔNG chuyển hướng về login
+    const isPermissionError =
+      status === 403 ||
+      (msg && (
+        msg.toLowerCase().includes('quyền') ||
+        msg.toLowerCase().includes('chỉ chủ sở hữu') ||
+        msg.toLowerCase().includes('chỉ owner') ||
+        msg.toLowerCase().includes('chỉ admin') ||
+        msg.toLowerCase().includes('chỉ lễ tân') ||
+        msg.toLowerCase().includes('dành cho') ||
+        msg.toLowerCase().includes('không được phép')
+      ));
+
+    if (isPermissionError) {
+      console.warn('[API] Permission denied (không đủ quyền hạn) — giữ nguyên phiên đăng nhập:', msg);
+      return Promise.reject(error);
+    }
+
+    // Chỉ khi là 401 thực sự (hết phiên đăng nhập, token không hợp lệ hoặc bị hủy phiên từ xa)
+    if (status === 401) {
       console.warn('[API] Unauthorized — token có thể đã hết hạn hoặc bị kết thúc.');
-      const msg = extractErrorMessage(error, 'Phiên đăng nhập đã hết hạn hoặc bị kết thúc từ xa.');
+      const logoutMsg = msg || 'Phiên đăng nhập đã hết hạn hoặc bị kết thúc từ xa.';
       
       // Không ghi đè nếu đang ở màn hình login
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        sessionStorage.setItem('stayaway_logout_reason', msg);
+        sessionStorage.setItem('stayaway_logout_reason', logoutMsg);
         localStorage.removeItem(STORAGE_KEYS.TOKEN);
         localStorage.removeItem(STORAGE_KEYS.USER);
         sessionStorage.removeItem(STORAGE_KEYS.TOKEN);

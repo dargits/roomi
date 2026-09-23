@@ -12,6 +12,7 @@ import {
 import Button from '../../components/ui/Button';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import ForceChangePasswordModal from './ForceChangePasswordModal';
+import { getDefaultRouteForRole } from '../../routes/ProtectedRoute';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const LoginPage: React.FC = () => {
         setPendingChangeAccount(user.account);
         setShowForceChangeModal(true);
       } else {
-        navigate('/manage/dashboard');
+        navigate(getDefaultRouteForRole(user?.role));
       }
     }
   }, [isAuthenticated, user, navigate]);
@@ -70,7 +71,7 @@ const LoginPage: React.FC = () => {
         setShowForceChangeModal(true);
         isLoggingInRef.current = false;
       } else {
-        navigate('/manage/dashboard');
+        navigate(getDefaultRouteForRole(result.user?.role));
       }
     } else {
       isLoggingInRef.current = false;
@@ -95,7 +96,7 @@ const LoginPage: React.FC = () => {
     if (user) {
       updateUser({ ...user, mustChangePassword: false });
     }
-    navigate('/manage/dashboard');
+    navigate(getDefaultRouteForRole(user?.role));
   };
 
   const handleForceChangeCancel = () => {

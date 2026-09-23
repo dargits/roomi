@@ -15,4 +15,14 @@ public class CashierShiftCloseRequest {
 
     @Size(max = 2000)
     private String explanation;
+
+    @Size(max = 2000)
+    private String discrepancyNote;
+
+    public String getExplanation() {
+        if (explanation != null && !explanation.isBlank()) {
+            return explanation;
+        }
+        return discrepancyNote;
+    }
 }
