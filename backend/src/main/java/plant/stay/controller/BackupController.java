@@ -163,8 +163,8 @@ public class BackupController {
 
     private User checkOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || user.getRole() != Role.OWNER) {
-            throw new UnauthorizedException("Chỉ Chủ cơ sở (OWNER) mới có quyền thực hiện thao tác này");
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN)) {
+            throw new UnauthorizedException("Chỉ Chủ cơ sở (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền thực hiện thao tác này");
         }
         return user;
     }

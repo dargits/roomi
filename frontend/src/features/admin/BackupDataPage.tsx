@@ -155,8 +155,8 @@ const BackupDataPage: React.FC = () => {
   const { user } = useAuth();
   const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
 
-  const isOwner = user?.role === 'OWNER';
   const hasAccess = ['OWNER', 'ADMIN'].includes(user?.role || '');
+  const isOwner = hasAccess; // Cho phép cả OWNER và ADMIN quản lý, khôi phục hệ thống
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'full_backup' | 'export' | 'import'>('full_backup');
@@ -879,16 +879,15 @@ const BackupDataPage: React.FC = () => {
                 </button>
 
                 {/* Nút 3: Khôi phục */}
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenRestoreModal()}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 font-semibold text-xs border border-amber-400/40 backdrop-blur-sm transition-all cursor-pointer"
-                  >
-                    <IoRefreshOutline size={16} />
-                    <span>Khôi Phục Dữ Liệu</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => handleOpenRestoreModal()}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 backdrop-blur-sm transition-all cursor-pointer shadow-xs"
+                  title="Khôi phục toàn bộ hệ thống từ file hoặc bản sao lưu máy chủ"
+                >
+                  <IoRefreshOutline size={16} />
+                  <span>Khôi Phục Dữ Liệu</span>
+                </button>
 
                 {/* Nút 4: Toggle Config */}
                 <button
@@ -1124,16 +1123,14 @@ const BackupDataPage: React.FC = () => {
                             </button>
 
                             {/* Khôi phục */}
-                            {isOwner && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRestoreModal(item.id)}
-                                className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer border border-transparent hover:border-amber-200"
-                                title="Khôi phục hệ thống từ bản này"
-                              >
-                                <IoRefreshOutline size={16} />
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenRestoreModal(item.id)}
+                              className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-100 hover:text-amber-800 transition-colors cursor-pointer border border-transparent hover:border-amber-200"
+                              title="Khôi phục hệ thống từ bản này"
+                            >
+                              <IoRefreshOutline size={16} />
+                            </button>
 
                             {/* Xóa */}
                             <button
@@ -1365,79 +1362,59 @@ const BackupDataPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* BẢNG ĐIỀU KHIỂN TIẾN ĐỘ NHẬP DỮ LIỆU THỜI GIAN THỰC */}
+              {/* TIẾN TRÌNH NHẬP DỮ LIỆU TINH GỌN & THÂN THIỆN */}
               {importProgress && importProgress.active && (
-                <div className="p-4 rounded-2xl bg-surface-container-low border border-primary/30 shadow-xs space-y-3 animate-in fade-in duration-200">
+                <div className="p-4 rounded-xl bg-surface-container-low border border-border-grey space-y-2.5 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                        {importProgress.percent === 100 ? (
-                          <IoCheckmarkCircleOutline size={20} className="text-emerald-600" />
-                        ) : (
-                          <IoSyncOutline size={18} className="animate-spin text-primary" />
-                        )}
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-on-surface block">
-                          Giai đoạn {importProgress.stageIndex}/4: {importProgress.stageName}
-                        </span>
-                        <span className="text-[11px] text-on-surface-variant block">
-                          {importProgress.subMessage}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <IoSyncOutline size={16} className={`text-primary ${importProgress.percent === 100 ? '' : 'animate-spin'}`} />
+                      <span className="text-xs font-semibold text-on-surface">
+                        {importProgress.statusMessage}
+                      </span>
                     </div>
-                    <span className="font-mono text-lg font-black text-primary">
+                    <span className="font-mono text-xs font-bold text-primary">
                       {importProgress.percent}%
                     </span>
                   </div>
 
-                  {/* Thanh Tiến Độ Động */}
-                  <div className="w-full h-2.5 bg-zinc-200/80 rounded-full overflow-hidden p-0.5">
+                  {/* Thanh tiến độ đơn sắc, nhẹ nhàng */}
+                  <div className="w-full h-1.5 bg-zinc-200/80 rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-lodgify-lime via-emerald-500 to-teal-400 transition-all duration-300 ease-out shadow-xs"
+                      className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
                       style={{ width: `${importProgress.percent}%` }}
                     />
                   </div>
 
-                  <p className="text-[11px] text-zinc-600 font-medium flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-                    <span>{importProgress.statusMessage}</span>
-                  </p>
-
-                  {/* 4 Giai đoạn xử lý trực quan */}
-                  <div className="grid grid-cols-4 gap-1.5 pt-1">
+                  {/* Dòng trạng thái các bước tinh gọn */}
+                  <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-0.5">
                     {[
-                      { idx: 1, label: 'Đọc cú pháp' },
-                      { idx: 2, label: 'Tải lên máy chủ' },
+                      { idx: 1, label: 'Đọc tệp' },
+                      { idx: 2, label: 'Tải lên' },
                       { idx: 3, label: 'Ghi CSDL' },
-                      { idx: 4, label: 'Đối soát kết quả' }
-                    ].map((step) => {
+                      { idx: 4, label: 'Hoàn tất' }
+                    ].map((step, sIdx, arr) => {
                       const isDone = importProgress.stageIndex > step.idx || importProgress.percent === 100;
                       const isCurrent = importProgress.stageIndex === step.idx && importProgress.percent < 100;
                       return (
-                        <div
-                          key={step.idx}
-                          className={`p-1.5 rounded-lg text-center border text-[10px] font-semibold transition-all ${
-                            isDone
-                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                              : isCurrent
-                              ? 'bg-primary-50/70 border-primary text-primary shadow-xs ring-1 ring-primary/20'
-                              : 'bg-zinc-50 border-zinc-200 text-zinc-400'
-                          }`}
-                        >
-                          <div className="flex items-center justify-center mb-0.5">
+                        <React.Fragment key={step.idx}>
+                          <span
+                            className={`flex items-center gap-1 ${
+                              isDone
+                                ? 'text-emerald-700 font-semibold'
+                                : isCurrent
+                                ? 'text-primary font-bold'
+                                : 'text-zinc-400'
+                            }`}
+                          >
                             {isDone ? (
-                              <IoCheckmarkCircleOutline size={14} className="text-emerald-600" />
+                              <IoCheckmarkCircleOutline size={13} className="text-emerald-600" />
                             ) : isCurrent ? (
-                              <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                            ) : (
-                              <span className="w-3 h-3 rounded-full bg-zinc-200 text-zinc-500 text-[8px] flex items-center justify-center font-mono">
-                                {step.idx}
-                              </span>
-                            )}
-                          </div>
-                          <span className="truncate block">{step.label}</span>
-                        </div>
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+                            ) : null}
+                            {step.label}
+                          </span>
+                          {sIdx < arr.length - 1 && <span className="text-zinc-300">→</span>}
+                        </React.Fragment>
                       );
                     })}
                   </div>
@@ -1775,82 +1752,49 @@ const BackupDataPage: React.FC = () => {
       </Modal>
 
       {/* ══════════════════════════════════════════════ */}
-      {/* WIDGET TIẾN ĐỘ XUẤT DỮ LIỆU (FLOATING EXPORT)  */}
+      {/* THÔNG BÁO TIẾN TRÌNH XUẤT TỆP THÂN THIỆN       */}
       {/* ══════════════════════════════════════════════ */}
       {exportProgress && exportProgress.active && (
-        <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-2rem)] bg-[#1C2612]/95 backdrop-blur-md border border-[#8FA876]/40 shadow-2xl rounded-2xl p-4.5 text-white animate-in slide-in-from-bottom-5 duration-300">
-          <div className="flex items-start justify-between gap-3 mb-2.5">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  exportProgress.stage === 'done'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'
-                    : 'bg-[#8FA876]/20 text-[#C2D8B9] border border-[#8FA876]/30'
-                }`}
-              >
-                {exportProgress.stage === 'done' ? (
-                  <IoCheckmarkDoneOutline size={20} />
-                ) : (
-                  <IoCloudDownloadOutline size={20} className="animate-bounce" />
-                )}
-              </div>
-              <div>
-                <h5 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>{exportProgress.stage === 'done' ? 'Xuất Tệp Thành Công!' : 'Đang Xuất Dữ Liệu...'}</span>
-                </h5>
-                <p className="text-[11px] text-[#C2D8B9] font-medium truncate max-w-[210px]" title={exportProgress.targetName}>
+        <div className="fixed bottom-5 right-5 z-50 w-80 max-w-[calc(100vw-2rem)] bg-white border border-border-grey shadow-lg rounded-xl p-3.5 text-on-surface animate-in slide-in-from-bottom-3 duration-200">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              {exportProgress.stage === 'done' ? (
+                <IoCheckmarkCircleOutline size={18} className="text-emerald-600 flex-shrink-0" />
+              ) : (
+                <IoSyncOutline size={16} className="text-primary animate-spin flex-shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-on-surface truncate">
+                  {exportProgress.stage === 'done' ? 'Xuất tệp thành công' : 'Đang xuất dữ liệu'}
+                </p>
+                <p className="text-[11px] text-on-surface-variant truncate">
                   {exportProgress.targetName}
                 </p>
               </div>
             </div>
-
             <button
               type="button"
               onClick={() => setExportProgress(null)}
-              className="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-              title="Đóng tiến trình"
+              className="text-zinc-400 hover:text-zinc-600 p-1 rounded-md hover:bg-zinc-100 transition-colors cursor-pointer flex-shrink-0"
+              title="Đóng thông báo"
             >
-              <IoCloseOutline size={18} />
+              <IoCloseOutline size={16} />
             </button>
           </div>
 
-          {/* Thanh Tiến Độ Hoạt Họa */}
-          <div className="space-y-1.5 mb-2.5">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-white/80 font-medium truncate pr-2">{exportProgress.statusMessage}</span>
-              <span className="font-mono font-bold text-lodgify-lime flex-shrink-0">{exportProgress.percent}%</span>
-            </div>
-            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden p-0.5">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-lodgify-lime via-emerald-400 to-teal-300 transition-all duration-300 ease-out shadow-xs"
-                style={{ width: `${exportProgress.percent}%` }}
-              />
-            </div>
+          {/* Thanh tiến độ mảnh & thanh thoát */}
+          <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ease-out ${
+                exportProgress.stage === 'done' ? 'bg-emerald-600' : 'bg-primary'
+              }`}
+              style={{ width: `${exportProgress.percent}%` }}
+            />
           </div>
 
-          {/* 3 Bước Mini Tracker */}
-          <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-white/10 text-[10px]">
-            <div
-              className={`p-1 rounded-lg text-center font-medium ${
-                exportProgress.percent >= 25 ? 'bg-white/15 text-white font-bold' : 'text-white/40'
-              }`}
-            >
-              1. CSDL
-            </div>
-            <div
-              className={`p-1 rounded-lg text-center font-medium ${
-                exportProgress.percent >= 60 ? 'bg-white/15 text-white font-bold' : 'text-white/40'
-              }`}
-            >
-              2. UTF-8 BOM
-            </div>
-            <div
-              className={`p-1 rounded-lg text-center font-medium ${
-                exportProgress.percent === 100 ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'text-white/40'
-              }`}
-            >
-              3. Tải về máy
-            </div>
+          <div className="flex items-center justify-between text-[10px] text-zinc-500 mt-1.5">
+            <span className="truncate pr-2">{exportProgress.statusMessage}</span>
+            <span className="font-mono font-bold text-primary flex-shrink-0">{exportProgress.percent}%</span>
           </div>
         </div>
       )}
