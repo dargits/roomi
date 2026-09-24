@@ -19,5 +19,7 @@ public class ExtraServiceResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ExtraServiceInventoryItemDto> inventoryItems;
+    private Long usageCount;
+    private boolean hasBookings;
 }
 

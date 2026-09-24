@@ -90,14 +90,29 @@ public class ExtraServiceController {
             @RequestBody List<Long> ids,
             HttpServletRequest request) {
         checkOwnerAuth(request);
+        int deletedCount = 0;
+        int deactivatedCount = 0;
         if (ids != null && !ids.isEmpty()) {
             for (Long id : ids) {
                 try {
-                    extraServiceService.delete(id);
+                    MessageResponse res = extraServiceService.delete(id);
+                    if (res != null && res.getMessage() != null && res.getMessage().contains("Ngừng hoạt động")) {
+                        deactivatedCount++;
+                    } else {
+                        deletedCount++;
+                    }
                 } catch (Exception ignored) {
                 }
             }
         }
-        return ResponseEntity.ok(new MessageResponse("Đã xóa hàng loạt dịch vụ phụ thu thành công"));
+        String msg;
+        if (deactivatedCount > 0 && deletedCount > 0) {
+            msg = String.format("Đã xóa vĩnh viễn %d dịch vụ và chuyển %d dịch vụ sang Ngừng hoạt động (do đã phát sinh giao dịch).", deletedCount, deactivatedCount);
+        } else if (deactivatedCount > 0) {
+            msg = String.format("Đã chuyển %d dịch vụ sang Ngừng hoạt động để bảo toàn lịch sử hóa đơn.", deactivatedCount);
+        } else {
+            msg = String.format("Đã xóa thành công %d dịch vụ.", deletedCount);
+        }
+        return ResponseEntity.ok(new MessageResponse(msg));
     }
 }
