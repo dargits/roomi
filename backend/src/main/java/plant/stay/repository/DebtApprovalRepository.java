@@ -27,6 +27,9 @@ public interface DebtApprovalRepository extends JpaRepository<DebtApprovalReques
     @Query("SELECT COUNT(d) > 0 FROM DebtApprovalRequest d WHERE d.booking.id = :bookingId AND d.status = 'APPROVED'")
     boolean existsActiveApprovedDebtByBookingId(@Param("bookingId") Long bookingId);
 
+    @Query("SELECT DISTINCT d.booking.id FROM DebtApprovalRequest d WHERE d.booking.id IN :bookingIds AND d.status = 'APPROVED'")
+    List<Long> findApprovedBookingIdsIn(@Param("bookingIds") List<Long> bookingIds);
+
     /**
      * Lấy các khoản nợ còn hiệu lực trong một kỳ trả phòng (để đối soát Báo cáo Doanh thu).
      */

@@ -870,8 +870,8 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                               </div>
                             )}
 
-                            {/* Báo không đến (No-Show) cho đơn CONFIRMED */}
-                            {booking.status === 'CONFIRMED' && !isAccountant && (
+                            {/* Báo không đến (No-Show) cho đơn NEW hoặc CONFIRMED */}
+                            {(booking.status === 'NEW' || booking.status === 'CONFIRMED') && !isAccountant && (
                               <div className="py-1">
                                 <button
                                   type="button"
