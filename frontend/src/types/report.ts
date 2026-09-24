@@ -87,6 +87,7 @@ export interface DashboardStatsResponse {
   availableRooms: number;
   occupiedRooms: number;
   dirtyRooms: number;
+  inspectingRooms?: number;
   maintenanceRooms: number;
   todayCheckIns: number;
   todayCheckOuts: number;
