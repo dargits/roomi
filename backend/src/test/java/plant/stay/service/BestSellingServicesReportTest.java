@@ -89,8 +89,7 @@ public class BestSellingServicesReportTest {
         Invoice inv1 = Invoice.builder().id(1L).booking(b1).status(InvoiceStatus.PAID).build();
         Invoice inv2 = Invoice.builder().id(2L).booking(b2).status(InvoiceStatus.PAID).build();
 
-        when(invoiceRepository.findInvoicesCoveringBooking(101L)).thenReturn(Collections.singletonList(inv1));
-        when(invoiceRepository.findInvoicesCoveringBooking(102L)).thenReturn(Collections.singletonList(inv2));
+        when(invoiceRepository.findInvoicesCoveringBookingIds(anyList())).thenReturn(Arrays.asList(inv1, inv2));
 
         when(extraServiceRepository.findAll()).thenReturn(Arrays.asList(
                 breakfastService, laundryService, airportPickupService, autoSurchargeTemplate));
@@ -194,7 +193,7 @@ public class BestSellingServicesReportTest {
 
         // Hóa đơn bị CANCELLED
         Invoice cancelledInv = Invoice.builder().id(999L).booking(b1).status(InvoiceStatus.CANCELLED).build();
-        when(invoiceRepository.findInvoicesCoveringBooking(201L)).thenReturn(Collections.singletonList(cancelledInv));
+        when(invoiceRepository.findInvoicesCoveringBookingIds(anyList())).thenReturn(Collections.singletonList(cancelledInv));
 
         when(extraServiceRepository.findAll()).thenReturn(Collections.singletonList(breakfastService));
         when(roomTypeRepository.findAll()).thenReturn(Collections.singletonList(standardRoomType));
@@ -222,8 +221,7 @@ public class BestSellingServicesReportTest {
         Invoice inv1 = Invoice.builder().id(11L).booking(b1).status(InvoiceStatus.PAID).build();
         Invoice inv2 = Invoice.builder().id(12L).booking(b2).status(InvoiceStatus.PAID).build();
 
-        when(invoiceRepository.findInvoicesCoveringBooking(301L)).thenReturn(Collections.singletonList(inv1));
-        when(invoiceRepository.findInvoicesCoveringBooking(302L)).thenReturn(Collections.singletonList(inv2));
+        when(invoiceRepository.findInvoicesCoveringBookingIds(anyList())).thenReturn(Arrays.asList(inv1, inv2));
 
         when(roomTypeRepository.findById(1L)).thenReturn(Optional.of(standardRoomType));
         when(roomTypeRepository.findAll()).thenReturn(Arrays.asList(standardRoomType, deluxeRoomType));

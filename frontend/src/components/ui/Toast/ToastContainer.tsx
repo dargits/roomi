@@ -21,7 +21,7 @@ const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onClose }) => {
     <div
       aria-live="polite"
       aria-atomic="true"
-      className="fixed top-4 right-4 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3 sm:px-0"
+      className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 max-w-[380px] w-full pointer-events-none px-4 sm:px-0"
     >
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onClose={onClose} />

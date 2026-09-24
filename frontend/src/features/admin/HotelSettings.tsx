@@ -20,7 +20,9 @@ import {
   IoSparklesOutline,
   IoRefreshOutline,
   IoCalendarOutline,
-  IoKeyOutline
+  IoKeyOutline,
+  IoEyeOutline,
+  IoEyeOffOutline
 } from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -54,9 +56,41 @@ const HotelSettings: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [, setUploadProgress] = useState(0);
 
+  // === Google API Keys state ===
+  const [googleApiKeys, setGoogleApiKeys] = useState('');
+  const [isSavingKeys, setIsSavingKeys] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
+
   useEffect(() => {
     fetchSettings();
+    fetchGoogleApiKeys();
   }, []);
+
+  const fetchGoogleApiKeys = async () => {
+    try {
+      const data = await hotelSettingApi.getGoogleApiKeys();
+      setGoogleApiKeys(data.googleApiKeys || '');
+    } catch (err) {
+      console.error('Failed to fetch Google API Keys', err);
+    }
+  };
+
+  const handleSaveGoogleApiKeys = async () => {
+    setIsSavingKeys(true);
+    try {
+      await hotelSettingApi.updateGoogleApiKeys(googleApiKeys);
+      toastSuccess('Đã lưu Google API Key thành công!');
+      await fetchGoogleApiKeys();
+    } catch (err: any) {
+      toastError(err.response?.data?.message || 'Lỗi khi lưu Google API Key.');
+    } finally {
+      setIsSavingKeys(false);
+    }
+  };
+
+  const getKeyCount = () => {
+    return googleApiKeys.split('\n').map(k => k.trim()).filter(k => k.length > 0).length;
+  };
 
   const fetchSettings = async () => {
     try {
@@ -572,6 +606,78 @@ const HotelSettings: React.FC = () => {
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
+          </div>
+        </div>
+
+        {/* === Cấu hình Google AI API Keys === */}
+        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
+          <div className="flex items-center gap-2 border-b border-border-grey pb-3">
+            <IoSparklesOutline size={20} className="text-primary" />
+            <div className="flex-1">
+              <h3 className="font-title-md text-on-surface font-semibold">
+                Google AI API Keys
+              </h3>
+              <p className="text-xs text-on-surface-variant">
+                Nhập các Google API Key dùng cho tính năng AI. Mỗi key trên một dòng.
+              </p>
+            </div>
+            {getKeyCount() > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full">
+                <IoKeyOutline size={12} />
+                {getKeyCount()} key
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="relative">
+              <textarea
+                id="google-api-keys-textarea"
+                value={showKeys ? googleApiKeys : googleApiKeys.replace(/[A-Za-z0-9_\-]{10,}/g, (m) => m.slice(0, 8) + '••••••••')}
+                onChange={(e) => setGoogleApiKeys(e.target.value)}
+                onFocus={() => setShowKeys(true)}
+                onBlur={() => setShowKeys(false)}
+                rows={Math.max(3, getKeyCount() + 1)}
+                placeholder={"AIzaSy...key1\nAIzaSy...key2\nAIzaSy...key3"}
+                spellCheck={false}
+                className="w-full font-mono text-sm bg-surface-container-low border border-border-grey rounded-lg px-4 py-3 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary resize-none transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKeys(v => !v)}
+                className="absolute right-3 top-3 text-on-surface-variant hover:text-primary transition-colors"
+                title={showKeys ? 'Ẩn key' : 'Hiện key'}
+              >
+                {showKeys ? <IoEyeOffOutline size={18} /> : <IoEyeOutline size={18} />}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-on-surface-variant">
+                {getKeyCount() > 0
+                  ? `Hiện có ${getKeyCount()} key. Hệ thống sẽ xoay vòng key khi gọi AI.`
+                  : 'Chưa có key nào. Tính năng AI sẽ không hoạt động.'}
+              </p>
+              <Button
+                type="button"
+                variant="primary"
+                icon={IoSaveOutline}
+                isLoading={isSavingKeys}
+                onClick={handleSaveGoogleApiKeys}
+                size="sm"
+              >
+                Lưu API Keys
+              </Button>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 space-y-1">
+              <div className="font-semibold flex items-center gap-1.5">
+                <IoAlertCircleOutline size={14} /> Lưu ý bảo mật:
+              </div>
+              <div>• Không chia sẻ API Key với người khác. Key được lưu mã hóa trong cơ sở dữ liệu.</div>
+              <div>• Mỗi key trên một dòng riêng. Dòng trống sẽ tự động bỏ qua khi lưu.</div>
+              <div>• Lấy key tại <strong>console.cloud.google.com</strong> → APIs &amp; Services → Credentials.</div>
+            </div>
           </div>
         </div>
 
