@@ -165,6 +165,7 @@ public class ReportController {
         long availableRooms = roomRepository.countByStatus(RoomStatus.AVAILABLE);
         long occupiedRooms  = roomRepository.countByStatus(RoomStatus.OCCUPIED);
         long dirtyRooms     = roomRepository.countByStatus(RoomStatus.DIRTY);
+        long inspectingRooms = roomRepository.countByStatus(RoomStatus.INSPECTING);
         long maintenanceRooms = roomRepository.countByStatus(RoomStatus.MAINTENANCE);
 
         // Booking hôm nay
@@ -188,6 +189,7 @@ public class ReportController {
         result.put("availableRooms", availableRooms);
         result.put("occupiedRooms", occupiedRooms);
         result.put("dirtyRooms", dirtyRooms);
+        result.put("inspectingRooms", inspectingRooms);
         result.put("maintenanceRooms", maintenanceRooms);
         result.put("todayCheckIns", todayCheckIns);
         result.put("todayCheckOuts", todayCheckOuts);
