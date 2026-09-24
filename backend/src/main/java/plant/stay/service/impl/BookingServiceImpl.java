@@ -3,6 +3,8 @@ package plant.stay.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +73,22 @@ public class BookingServiceImpl implements BookingService {
     public List<BookingResponse> getAll() {
         return bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id"))
                 .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookingResponse> getAllPaged(Pageable pageable) {
+        return bookingRepository.findAllWithDetails(pageable).map(this::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookingResponse> searchPaged(String query, BookingStatus status, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+        if (query != null && !query.trim().isEmpty() && query.trim().length() < 3) {
+            throw new IllegalArgumentException("Từ khóa tìm kiếm phải có ít nhất 3 ký tự");
+        }
+        String q = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
+        return bookingRepository.searchPaged(q, status, fromDate, toDate, pageable).map(this::toResponse);
     }
 
     @Override

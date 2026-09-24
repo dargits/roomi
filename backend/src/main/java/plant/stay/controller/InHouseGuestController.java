@@ -29,15 +29,26 @@ public class InHouseGuestController {
     private final AuthUtil authUtil;
 
     @GetMapping
-    public ResponseEntity<List<InHouseGuestResponse>> getInHouseGuests(
+    public ResponseEntity<?> getInHouseGuests(
             HttpServletRequest request,
             @RequestParam(required = false) String floor,
             @RequestParam(required = false) Long roomTypeId,
             @RequestParam(required = false) Boolean checkingOutToday,
             @RequestParam(required = false) Boolean hasDebt,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         User actor = checkStaffOrAccountant(request);
-        return ResponseEntity.ok(inHouseGuestService.getInHouseGuests(actor, floor, roomTypeId, checkingOutToday, hasDebt, search));
+        List<InHouseGuestResponse> all = inHouseGuestService.getInHouseGuests(actor, floor, roomTypeId, checkingOutToday, hasDebt, search);
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            int start = Math.min(page * pageSize, all.size());
+            int end = Math.min((page + 1) * pageSize, all.size());
+            org.springframework.data.domain.Page<InHouseGuestResponse> pageResult = 
+                new org.springframework.data.domain.PageImpl<>(all.subList(start, end), org.springframework.data.domain.PageRequest.of(page, pageSize), all.size());
+            return ResponseEntity.ok(pageResult);
+        }
+        return ResponseEntity.ok(all);
     }
 
     @GetMapping("/filter-options")

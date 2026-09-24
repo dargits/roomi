@@ -3,6 +3,9 @@ package plant.stay.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,9 +31,20 @@ public class GuestController {
     private final AuthUtil authUtil;
 
     @GetMapping
-    public ResponseEntity<List<GuestResponse>> getAll(@RequestParam(required = false) String search,
-                                                      HttpServletRequest request) {
+    public ResponseEntity<?> getAll(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "id") String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String direction,
+            HttpServletRequest request) {
         checkStaff(request);
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            Sort.Direction dir = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
+            Pageable pageable = PageRequest.of(page, pageSize, Sort.by(dir, sortBy));
+            return ResponseEntity.ok(guestService.getAllPaged(search, pageable));
+        }
         return ResponseEntity.ok(guestService.getAll(search));
     }
 
