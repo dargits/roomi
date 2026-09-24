@@ -23,15 +23,17 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            countQuery = "SELECT count(b) FROM Booking b")
     Page<Booking> findAllWithDetails(Pageable pageable);
 
-    @Query(value = "SELECT b FROM Booking b LEFT JOIN FETCH b.guest g LEFT JOIN FETCH b.roomType LEFT JOIN FETCH b.room " +
+    @Query(value = "SELECT b FROM Booking b LEFT JOIN FETCH b.guest g LEFT JOIN FETCH b.roomType LEFT JOIN FETCH b.room r " +
            "WHERE (:query IS NULL OR CAST(b.id AS string) LIKE CONCAT('%', :query, '%') " +
+           "       OR (r IS NOT NULL AND r.roomNumber LIKE CONCAT('%', :query, '%')) " +
            "       OR LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
            "  AND (:status IS NULL OR b.status = :status) " +
            "  AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
            "  AND (:toDate IS NULL OR b.checkInDate <= :toDate)",
-           countQuery = "SELECT count(b) FROM Booking b LEFT JOIN b.guest g " +
+           countQuery = "SELECT count(b) FROM Booking b LEFT JOIN b.guest g LEFT JOIN b.room r " +
            "WHERE (:query IS NULL OR CAST(b.id AS string) LIKE CONCAT('%', :query, '%') " +
+           "       OR (r IS NOT NULL AND r.roomNumber LIKE CONCAT('%', :query, '%')) " +
            "       OR LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
            "  AND (:status IS NULL OR b.status = :status) " +
