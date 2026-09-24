@@ -97,9 +97,8 @@ public class InvoiceDiscountServiceImpl implements InvoiceDiscountService {
         BigDecimal calculatedAmount = calculateDiscount(request, discountBase);
 
         // 5. Lấy ngưỡng phê duyệt từ cấu hình cơ sở (lấy bản ghi đầu tiên vì 1 hệ thống 1 cơ sở)
-        HotelSetting setting = hotelSettingRepository.findAll().stream()
-                .findFirst()
-                .orElse(null);
+        HotelSetting setting = hotelSettingRepository.findById(1L)
+                .orElseGet(() -> hotelSettingRepository.findAll().stream().findFirst().orElse(null));
 
         BigDecimal threshold = (setting != null) ? setting.getDiscountApprovalThreshold() : null;
 

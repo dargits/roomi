@@ -159,6 +159,14 @@ public class HotelSetting {
     @Column(name = "last_backup_status")
     private String lastBackupStatus;
 
+    /**
+     * Danh sách Google API Key dùng cho tính năng AI.
+     * Mỗi key nằm trên một dòng (phân cách bằng ký tự xuống dòng '\n').
+     * Lưu dưới dạng TEXT để hỗ trợ nhiều key.
+     */
+    @Column(name = "google_api_keys", columnDefinition = "TEXT")
+    private String googleApiKeys;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
