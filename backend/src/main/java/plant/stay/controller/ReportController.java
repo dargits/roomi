@@ -184,6 +184,23 @@ public class ReportController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal monthDebt = monthRevenue.subtract(monthCollected).max(BigDecimal.ZERO);
 
+        // Tính đêm phòng thực bán trong tháng để tính Giá phòng trung bình (ADR) chuẩn
+        long monthSoldNights = monthBookings.stream()
+                .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                        ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                        : 1)
+                .sum();
+
+        BigDecimal adr = monthSoldNights > 0
+                ? monthRevenue.divide(BigDecimal.valueOf(monthSoldNights), 0, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        // RevPAR chuẩn ngành: ADR × Tỷ lệ công suất (Occupancy Rate) hiện tại
+        BigDecimal revPar = totalRooms > 0 && adr.compareTo(BigDecimal.ZERO) > 0
+                ? adr.multiply(BigDecimal.valueOf(occupiedRooms))
+                     .divide(BigDecimal.valueOf(totalRooms), 0, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalRooms", totalRooms);
         result.put("availableRooms", availableRooms);
@@ -197,6 +214,9 @@ public class ReportController {
         result.put("monthRevenue", monthRevenue);
         result.put("monthCollectedRevenue", monthCollected);
         result.put("monthDebtRevenue", monthDebt);
+        result.put("monthSoldNights", monthSoldNights);
+        result.put("adr", adr);
+        result.put("revPar", revPar);
 
         return ResponseEntity.ok(result);
     }
