@@ -17,17 +17,18 @@ export const CorporateClientManagement: React.FC = () => {
   const [search, setSearch] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<CorporateClient | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { success: toastSuccess, error: toastError } = useToast();
   const navigate = useNavigate();
 
-  const totalPages = Math.max(1, Math.ceil(clients.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(clients.length / pageSize));
   const paginatedClients = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return clients.slice(start, start + ITEMS_PER_PAGE);
-  }, [clients, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return clients.slice(start, start + pageSize);
+  }, [clients, currentPage, pageSize]);
 
   const fetchClients = async () => {
     setLoading(true);
@@ -226,14 +227,20 @@ export const CorporateClientManagement: React.FC = () => {
           </div>
 
           {/* Phân trang */}
-          {clients.length > ITEMS_PER_PAGE && (
-            <div className="p-3 border-t border-border-grey bg-surface-container-low/30">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
+          {clients.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={clients.length}
+              itemsPerPage={pageSize}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              itemsPerPageOptions={[5, 10, 20, 50]}
+              itemLabel="khách hàng công ty"
+            />
           )}
         </div>
       )}

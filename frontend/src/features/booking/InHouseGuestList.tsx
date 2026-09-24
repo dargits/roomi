@@ -78,6 +78,7 @@ export const InHouseGuestList: React.FC = () => {
 
   // Phân trang
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // 1. Tải Filter Options và KPI Summary từ API
   const loadSummaryAndOptions = async () => {
@@ -166,11 +167,11 @@ export const InHouseGuestList: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const totalPages = Math.max(1, Math.ceil(guests.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(guests.length / pageSize));
   const paginatedGuests = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return guests.slice(start, start + ITEMS_PER_PAGE);
-  }, [guests, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return guests.slice(start, start + pageSize);
+  }, [guests, currentPage, pageSize]);
 
   const hasActiveFilters = searchTerm !== '' || selectedFloor !== 'ALL' || selectedRoomType !== 'ALL' || checkOutTodayOnly || debtFilter !== 'ALL';
 
@@ -634,7 +635,15 @@ export const InHouseGuestList: React.FC = () => {
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
+            totalItems={guests.length}
+            itemsPerPage={pageSize}
             onPageChange={setCurrentPage}
+            onItemsPerPageChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            itemsPerPageOptions={[5, 10, 20, 50]}
+            itemLabel="phòng lưu trú"
           />
         )}
       </div>
