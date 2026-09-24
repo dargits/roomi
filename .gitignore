@@ -164,6 +164,10 @@ $RECYCLE.BIN/
 *.sqlite3
 *.db-journal
 *.dump
+*.sql
 *.sql.gz
 *.xlsx
 *.xls
+backups/
+**/backups/
+
