@@ -21,7 +21,7 @@ export const CorporateClientManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<CorporateClient | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { success: toastSuccess, error: toastError } = useToast();
+  const { success: toastSuccess, error: toastError, confirm } = useToast();
   const navigate = useNavigate();
 
   const totalPages = Math.max(1, Math.ceil(clients.length / pageSize));
@@ -78,7 +78,13 @@ export const CorporateClientManagement: React.FC = () => {
   };
 
   const handleDeactivate = async (client: CorporateClient) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn vô hiệu hóa hồ sơ "${client.companyName}"?`)) {
+    const isConfirmed = await confirm({
+      title: 'Vô hiệu hóa khách hàng công ty',
+      message: `Bạn có chắc chắn muốn vô hiệu hóa hồ sơ "${client.companyName}"?`,
+      confirmText: 'Vô hiệu hóa',
+      type: 'warning'
+    });
+    if (!isConfirmed) {
       return;
     }
     try {

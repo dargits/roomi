@@ -20,43 +20,33 @@ export interface ToastData {
 const TOAST_STYLES: Record<
   ToastType,
   {
-    container: string;
     iconColor: string;
     iconBg: string;
-    titleColor: string;
     barColor: string;
     Icon: React.ComponentType<{ className?: string }>;
   }
 > = {
   success: {
-    container: 'bg-white border-l-4 border-emerald-500 shadow-emerald-500/10',
-    iconColor: 'text-emerald-500',
-    iconBg: 'bg-emerald-50',
-    titleColor: 'text-emerald-950',
-    barColor: 'bg-emerald-500',
+    iconColor: 'text-[#4A6326]',
+    iconBg: 'bg-[#EAF3DE] border-[#CDE1AF]',
+    barColor: 'bg-[#5E7144]',
     Icon: IoCheckmarkCircle
   },
   error: {
-    container: 'bg-white border-l-4 border-rose-500 shadow-rose-500/10',
-    iconColor: 'text-rose-500',
-    iconBg: 'bg-rose-50',
-    titleColor: 'text-rose-950',
-    barColor: 'bg-rose-500',
+    iconColor: 'text-error',
+    iconBg: 'bg-[#FEE2E2] border-[#FCA5A5]/50',
+    barColor: 'bg-error',
     Icon: IoAlertCircle
   },
   warning: {
-    container: 'bg-white border-l-4 border-amber-500 shadow-amber-500/10',
-    iconColor: 'text-amber-500',
-    iconBg: 'bg-amber-50',
-    titleColor: 'text-amber-950',
+    iconColor: 'text-amber-700',
+    iconBg: 'bg-[#FEF3C7] border-[#FDE68A]',
     barColor: 'bg-amber-500',
     Icon: IoWarning
   },
   info: {
-    container: 'bg-white border-l-4 border-primary shadow-primary/10',
     iconColor: 'text-primary',
-    iconBg: 'bg-sky-50',
-    titleColor: 'text-slate-900',
+    iconBg: 'bg-[#E8EFE0] border-primary/20',
     barColor: 'bg-primary',
     Icon: IoInformationCircle
   }
@@ -106,9 +96,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
   return (
     <div
       role="alert"
-      className={`relative overflow-hidden rounded-none shadow-2xl border border-slate-300 p-4 transition-all pointer-events-auto transform ${
-        style.container
-      } ${
+      className={`relative overflow-hidden rounded-2xl bg-white/98 backdrop-blur-md border border-border-grey shadow-[0_12px_32px_-4px_rgba(26,36,17,0.12),0_4px_12px_-2px_rgba(26,36,17,0.06)] p-3.5 sm:p-4 transition-all pointer-events-auto transform ${
         isClosing 
           ? 'animate-toast-slide-out' 
           : 'animate-toast-slide-in'
@@ -118,19 +106,19 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
     >
       <div className="flex items-start gap-3">
         {/* Status Icon */}
-        <div className={`p-2 shrink-0 ${style.iconBg} ${style.iconColor}`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs ${style.iconBg} ${style.iconColor}`}>
           <IconComponent className="w-5 h-5" />
         </div>
 
         {/* Message Content */}
         <div className="flex-1 pt-0.5 pr-2 min-w-0">
           {title && (
-            <h4 className={`text-sm font-bold tracking-normal uppercase-none leading-5 ${style.titleColor}`}>
+            <h4 className="text-sm font-bold text-[#1A2411] tracking-tight leading-tight">
               {title}
             </h4>
           )}
           {message && (
-            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed break-words font-normal normal-case">
+            <p className="text-xs text-[#586650] mt-1 leading-relaxed break-words font-medium normal-case">
               {message}
             </p>
           )}
@@ -141,11 +129,24 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
           type="button"
           onClick={triggerClose}
           aria-label="Đóng thông báo"
-          className="btn-override text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1 rounded-none transition-colors shrink-0 normal-case font-normal cursor-pointer"
+          className="btn-override w-7 h-7 rounded-lg flex items-center justify-center text-[#606D56] hover:text-[#1A2411] hover:bg-[#F2F6ED] transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
         >
           <IoClose className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Progress Bar */}
+      {duration > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#F1F5EB] overflow-hidden">
+          <div
+            className={`h-full ${style.barColor} animate-toast-progress`}
+            style={{
+              animationDuration: `${duration}ms`,
+              animationPlayState: isPaused ? 'paused' : 'running'
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
