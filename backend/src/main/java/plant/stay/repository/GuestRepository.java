@@ -1,5 +1,7 @@
 package plant.stay.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,10 +14,27 @@ public interface GuestRepository extends JpaRepository<Guest, Long> {
     Optional<Guest> findByPhone(String phone);
     Optional<Guest> findFirstByIdNumberOrderByIdDesc(String idNumber);
 
-    @Query("SELECT g FROM Guest g WHERE " +
+    @Query("SELECT g FROM Guest g LEFT JOIN FETCH g.loyaltyTier WHERE " +
            "LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "g.phone LIKE CONCAT('%', :keyword, '%') OR " +
            "g.idNumber LIKE CONCAT('%', :keyword, '%') " +
            "ORDER BY g.id DESC")
     List<Guest> search(@Param("keyword") String keyword);
+
+    @Query(value = "SELECT g FROM Guest g LEFT JOIN FETCH g.loyaltyTier WHERE " +
+           "LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "g.phone LIKE CONCAT('%', :keyword, '%') OR " +
+           "g.idNumber LIKE CONCAT('%', :keyword, '%')",
+           countQuery = "SELECT count(g) FROM Guest g WHERE " +
+           "LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "g.phone LIKE CONCAT('%', :keyword, '%') OR " +
+           "g.idNumber LIKE CONCAT('%', :keyword, '%')")
+    Page<Guest> searchPaged(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query(value = "SELECT g FROM Guest g LEFT JOIN FETCH g.loyaltyTier",
+           countQuery = "SELECT count(g) FROM Guest g")
+    Page<Guest> findAllWithTier(Pageable pageable);
+
+    @Query("SELECT g FROM Guest g LEFT JOIN FETCH g.loyaltyTier ORDER BY g.id DESC")
+    List<Guest> findAllWithTier();
 }

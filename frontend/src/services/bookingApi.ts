@@ -7,7 +7,8 @@ import {
   BulkCheckInResultResponse,
   RescheduleDatePreviewResponse,
   UpgradeRoomRequest,
-  MessageResponse
+  MessageResponse,
+  PageResponse
 } from '../types';
 
 export interface BookingSearchParams {
@@ -18,7 +19,19 @@ export interface BookingSearchParams {
 }
 
 const bookingApi = {
-  // Lấy danh sách đặt phòng
+  // Lấy danh sách đặt phòng có phân trang
+  getBookingsPaged: async (params: { page?: number; size?: number; sortBy?: string; direction?: string } = {}): Promise<PageResponse<BookingResponse>> => {
+    const response = await api.get<PageResponse<BookingResponse>>('/bookings', { params });
+    return response.data;
+  },
+
+  // Tra cứu nhanh đặt phòng có phân trang
+  searchBookingsPaged: async (params: BookingSearchParams & { page?: number; size?: number; sortBy?: string; direction?: string } = {}): Promise<PageResponse<BookingResponse>> => {
+    const response = await api.get<PageResponse<BookingResponse>>('/bookings/search', { params });
+    return response.data;
+  },
+
+  // Lấy danh sách đặt phòng (toàn bộ)
   getAllBookings: async (): Promise<BookingResponse[]> => {
     const response = await api.get<BookingResponse[]>('/bookings');
     return response.data;
