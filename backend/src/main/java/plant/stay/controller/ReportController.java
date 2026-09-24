@@ -449,7 +449,7 @@ public class ReportController {
         checkOwner(request);
         long totalRooms = roomRepository.count();
         List<Booking> bookings = bookingRepository.findForCalendar(from, to);
-        long days = Math.max(0, ChronoUnit.DAYS.between(from, to));
+        long days = Math.max(1, ChronoUnit.DAYS.between(from, to) + 1);
 
         long occupiedRoomDays = bookings.stream()
                 .filter(b -> b.getRoom() != null && b.getCheckInDate() != null && b.getCheckOutDate() != null)
@@ -463,14 +463,20 @@ public class ReportController {
                 ? (double) occupiedRoomDays / (totalRooms * days) * 100
                 : 0;
 
-        // Tạo rows theo từng ngày trong khoảng
+        LocalDate today = LocalDate.now();
+
+        // Tạo rows theo từng ngày trong khoảng (bao gồm cả ngày 'to')
         List<Map<String, Object>> rows = new ArrayList<>();
         for (long i = 0; i < days; i++) {
             LocalDate day = from.plusDays(i);
             // Đếm số phòng có booking active ngày đó
             long bookedThisDay = bookings.stream()
                     .filter(b -> b.getRoom() != null && b.getCheckInDate() != null && b.getCheckOutDate() != null)
-                    .filter(b -> !b.getCheckInDate().isAfter(day) && b.getCheckOutDate().isAfter(day))
+                    .filter(b -> {
+                        boolean inStayDate = !b.getCheckInDate().isAfter(day) && b.getCheckOutDate().isAfter(day);
+                        boolean isCurrentlyCheckedInToday = day.equals(today) && b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN && !b.getCheckInDate().isAfter(day);
+                        return inStayDate || isCurrentlyCheckedInToday;
+                    })
                     .count();
             double dayRate = totalRooms > 0 ? (double) bookedThisDay / totalRooms * 100 : 0;
 

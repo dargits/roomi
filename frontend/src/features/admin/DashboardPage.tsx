@@ -233,6 +233,8 @@ const WeeklyOccupancyChart: React.FC<{
   occupancyRows: OccupancyReportRow[];
   revenueRows: RevenueReportRow[];
   totalRooms: number;
+  currentOccupiedRooms?: number;
+  todayBookingsCount?: number;
   activeRange: 'week' | 'month';
   onRangeChange: (range: 'week' | 'month') => void;
   isLoading?: boolean;
@@ -241,6 +243,8 @@ const WeeklyOccupancyChart: React.FC<{
   occupancyRows,
   revenueRows,
   totalRooms,
+  currentOccupiedRooms = 0,
+  todayBookingsCount = 0,
   activeRange,
   onRangeChange,
   isLoading,
@@ -279,10 +283,11 @@ const WeeklyOccupancyChart: React.FC<{
         const occ = occupancyRows.find(r => r.date === dateStr);
         const rev = revenueRows.find(r => r.date === dateStr || r.period === dateStr);
 
-        const occupiedRooms = occ?.occupiedRooms ?? 0;
+        const rawOcc = occ?.occupiedRooms ?? 0;
+        const occupiedRooms = isToday && rawOcc === 0 && currentOccupiedRooms > 0 ? currentOccupiedRooms : rawOcc;
         const availableRooms = occ?.availableRooms ?? Math.max(0, totalRooms - occupiedRooms);
         const occupancyRate = occ?.occupancyRate ?? (totalRooms > 0 && occupiedRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
-        const newBookings = rev?.bookings ?? 0;
+        const newBookings = rev?.bookings ?? (isToday && todayBookingsCount > 0 ? todayBookingsCount : 0);
         const revenue = rev?.revenue ?? 0;
 
         result.push({
@@ -300,23 +305,33 @@ const WeeklyOccupancyChart: React.FC<{
       }
       return result;
     } else {
-      // Month mode: Lấy tối đa 14 ngày gần nhất để cột cân đối, không bị chật
-      const sliced = occupancyRows.length > 14 ? occupancyRows.slice(-14) : occupancyRows;
+      // Month mode: Đảm bảo có ngày hôm nay nếu nằm trong tháng hiện tại
+      const rows = [...occupancyRows];
+      if (!rows.some(r => r.date === todayStr)) {
+        rows.push({
+          date: todayStr,
+          occupiedRooms: currentOccupiedRooms,
+          availableRooms: Math.max(0, totalRooms - currentOccupiedRooms),
+          occupancyRate: totalRooms > 0 ? Math.round((currentOccupiedRooms / totalRooms) * 100) : 0
+        });
+      }
+      const sliced = rows.length > 14 ? rows.slice(-14) : rows;
       if (sliced.length === 0) return [];
 
       return sliced.map(occ => {
         const d = new Date(occ.date);
         const dayOfWeek = isNaN(d.getDay()) ? 0 : d.getDay();
-        const dayLabel = `${d.getDate()}/${d.getMonth() + 1}`;
-        const fullDayLabel = `${dayNames[dayOfWeek]}, ${d.getDate()}/${d.getMonth() + 1}`;
+        const dayLabel = dayNames[dayOfWeek];
+        const fullDayLabel = `${fullDayNames[dayOfWeek]}, ${d.getDate()}/${d.getMonth() + 1}`;
         const shortDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
         const isToday = occ.date === todayStr;
         const rev = revenueRows.find(r => r.date === occ.date || r.period === occ.date);
 
-        const occupiedRooms = occ.occupiedRooms ?? 0;
+        const rawOcc = occ.occupiedRooms ?? 0;
+        const occupiedRooms = isToday && rawOcc === 0 && currentOccupiedRooms > 0 ? currentOccupiedRooms : rawOcc;
         const availableRooms = occ.availableRooms ?? Math.max(0, totalRooms - occupiedRooms);
         const occupancyRate = occ.occupancyRate ?? (totalRooms > 0 && occupiedRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
-        const newBookings = rev?.bookings ?? 0;
+        const newBookings = rev?.bookings ?? (isToday && todayBookingsCount > 0 ? todayBookingsCount : 0);
         const revenue = rev?.revenue ?? 0;
 
         return {
@@ -333,7 +348,7 @@ const WeeklyOccupancyChart: React.FC<{
         };
       });
     }
-  }, [occupancyRows, revenueRows, totalRooms, activeRange]);
+  }, [occupancyRows, revenueRows, totalRooms, activeRange, currentOccupiedRooms, todayBookingsCount]);
 
   // Thống kê nhanh tổng quan biểu đồ
   const summary = React.useMemo(() => {
@@ -1026,14 +1041,21 @@ const DashboardPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      const formatLocalDate = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
       const now = new Date();
       const past7Days = new Date(now);
       past7Days.setDate(now.getDate() - 6);
-      const from7Str = past7Days.toISOString().split('T')[0];
-      const toStr = now.toISOString().split('T')[0];
+      const from7Str = formatLocalDate(past7Days);
+      const toStr = formatLocalDate(now);
 
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthStartStr = monthStart.toISOString().split('T')[0];
+      const monthStartStr = formatLocalDate(monthStart);
 
       // Gọi đồng thời tất cả các endpoint thật
       const [
@@ -1127,17 +1149,24 @@ const DashboardPage: React.FC = () => {
   // Xử lý đổi range cho biểu đồ cột giữa 7 ngày qua và tháng này
   const handleChartRangeChange = async (range: 'week' | 'month') => {
     setChartRange(range);
+    const formatLocalDate = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
     const now = new Date();
-    const toStr = now.toISOString().split('T')[0];
+    const toStr = formatLocalDate(now);
     let fromStr = '';
 
     if (range === 'week') {
       const past7 = new Date(now);
       past7.setDate(now.getDate() - 6);
-      fromStr = past7.toISOString().split('T')[0];
+      fromStr = formatLocalDate(past7);
     } else {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      fromStr = monthStart.toISOString().split('T')[0];
+      fromStr = formatLocalDate(monthStart);
     }
 
     try {
@@ -1413,6 +1442,8 @@ const DashboardPage: React.FC = () => {
                 occupancyRows={occupancyRows}
                 revenueRows={revenueRows}
                 totalRooms={dashboard.totalRooms || 0}
+                currentOccupiedRooms={dashboard.occupiedRooms || 0}
+                todayBookingsCount={dashboard.todayBookings || 0}
                 activeRange={chartRange}
                 onRangeChange={handleChartRangeChange}
                 className="h-full flex-1"
