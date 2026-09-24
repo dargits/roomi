@@ -18,6 +18,7 @@ export const NegotiatedPriceManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [targetFilter, setTargetFilter] = useState<'ALL' | 'CORPORATE' | 'GROUP'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<NegotiatedPriceAgreement | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -31,15 +32,15 @@ export const NegotiatedPriceManagement: React.FC = () => {
     });
   }, [agreements, targetFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredAgreements.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredAgreements.length / pageSize));
   const paginatedAgreements = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredAgreements.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredAgreements, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredAgreements.slice(start, start + pageSize);
+  }, [filteredAgreements, currentPage, pageSize]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [targetFilter]);
+  }, [targetFilter, pageSize]);
 
   const fetchAgreements = async () => {
     setLoading(true);
@@ -263,14 +264,20 @@ export const NegotiatedPriceManagement: React.FC = () => {
           </div>
 
           {/* Phân trang */}
-          {filteredAgreements.length > ITEMS_PER_PAGE && (
-            <div className="p-3 border-t border-border-grey bg-surface-container-low/30">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
+          {filteredAgreements.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredAgreements.length}
+              itemsPerPage={pageSize}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              itemsPerPageOptions={[5, 10, 20, 50]}
+              itemLabel="thỏa thuận giá"
+            />
           )}
         </div>
       )}

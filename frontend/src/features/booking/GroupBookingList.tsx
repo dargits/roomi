@@ -755,12 +755,15 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
       </table>
     </div>
 
-    {groups.length > ITEMS_PER_PAGE && (
+    {groups.length > 0 && (
       <div className="mt-auto">
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
+          totalItems={groups.length}
+          itemsPerPage={ITEMS_PER_PAGE}
           onPageChange={setCurrentPage}
+          itemLabel="hồ sơ đoàn"
         />
       </div>
     )}

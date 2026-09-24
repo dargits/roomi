@@ -116,13 +116,14 @@ const StayDeclarationPage: React.FC = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyExporting, setHistoryExporting] = useState(false);
   const [historyPage, setHistoryPage] = useState<number>(1);
+  const [historyPageSize, setHistoryPageSize] = useState<number>(15);
 
-  const totalHistoryPages = Math.max(1, Math.ceil((historyData?.guests?.length || 0) / HISTORY_PAGE_SIZE));
+  const totalHistoryPages = Math.max(1, Math.ceil((historyData?.guests?.length || 0) / historyPageSize));
   const paginatedHistoryGuests = React.useMemo(() => {
     if (!historyData?.guests) return [];
-    const start = (historyPage - 1) * HISTORY_PAGE_SIZE;
-    return historyData.guests.slice(start, start + HISTORY_PAGE_SIZE);
-  }, [historyData?.guests, historyPage]);
+    const start = (historyPage - 1) * historyPageSize;
+    return historyData.guests.slice(start, start + historyPageSize);
+  }, [historyData?.guests, historyPage, historyPageSize]);
 
   // Modal xác nhận hoàn tất khai báo
   const [confirmModal, setConfirmModal] = useState({ open: false, guest: null });
@@ -931,7 +932,15 @@ const StayDeclarationPage: React.FC = () => {
                 <Pagination
                   currentPage={historyPage}
                   totalPages={totalHistoryPages}
+                  totalItems={historyData?.guests?.length || 0}
+                  itemsPerPage={historyPageSize}
                   onPageChange={setHistoryPage}
+                  onItemsPerPageChange={(newSize) => {
+                    setHistoryPageSize(newSize);
+                    setHistoryPage(1);
+                  }}
+                  itemsPerPageOptions={[10, 15, 25, 50]}
+                  itemLabel="lượt lưu trú"
                 />
               )}
             </>

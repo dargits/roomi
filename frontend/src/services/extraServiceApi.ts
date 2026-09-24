@@ -32,6 +32,11 @@ export const extraServiceApi = {
   deleteService: async (id: number | string): Promise<MessageResponse> => {
     const response = await api.delete<MessageResponse>(`/extra-services/${id}`);
     return response.data;
+  },
+
+  bulkDelete: async (ids: number[]): Promise<MessageResponse> => {
+    const response = await api.delete<MessageResponse>('/extra-services/bulk', { data: ids });
+    return response.data;
   }
 };
 

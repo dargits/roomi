@@ -249,12 +249,15 @@ const PendingDepositList: React.FC = () => {
           </div>
         )}
 
-        {filteredDeposits.length > ITEMS_PER_PAGE && (
+        {filteredDeposits.length > 0 && (
           <div className="mt-auto">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
+              totalItems={filteredDeposits.length}
+              itemsPerPage={ITEMS_PER_PAGE}
               onPageChange={setCurrentPage}
+              itemLabel="giao dịch đặt cọc"
             />
           </div>
         )}
