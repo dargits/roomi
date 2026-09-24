@@ -11,7 +11,8 @@ import {
   IoAlertCircleOutline,
   IoSearchOutline,
   IoCloseOutline,
-  IoCheckmarkDoneOutline
+  IoCheckmarkDoneOutline,
+  IoInformationCircleOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
@@ -208,13 +209,14 @@ const ExtraServiceManagement: React.FC = () => {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      await extraServiceApi.deleteService(itemToDelete.id);
-      toastSuccess(`Đã xóa dịch vụ "${itemToDelete.name}" thành công!`);
+      const res = await extraServiceApi.deleteService(itemToDelete.id);
+      toastSuccess(res.message || `Đã cập nhật dịch vụ "${itemToDelete.name}" thành công!`);
       setIsDeleteModalOpen(false);
+      setItemToDelete(null);
       fetchServicesAndInventory();
     } catch (error: any) {
       console.error("Delete error", error);
-      toastError(error.response?.data?.message || "Lỗi khi xóa dịch vụ.");
+      toastError(error.response?.data?.message || "Lỗi khi xử lý dịch vụ.");
     }
   };
 
@@ -286,18 +288,18 @@ const ExtraServiceManagement: React.FC = () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
     const isConfirmed = await confirm({
-      title: `Xác nhận xóa ${count} dịch vụ`,
-      message: `Bạn có chắc chắn muốn xóa ${count} dịch vụ phụ thu đã chọn? Hành động này không thể hoàn tác.`,
-      confirmText: `Xóa ${count} dịch vụ`,
+      title: `Xác nhận xóa / ngừng kinh doanh ${count} dịch vụ`,
+      message: `Bạn có chắc chắn muốn xử lý ${count} dịch vụ phụ thu đã chọn? Những dịch vụ chưa từng phát sinh giao dịch sẽ được xóa vĩnh viễn, những dịch vụ đã có khách sử dụng sẽ được tự động chuyển sang trạng thái "Ngừng hoạt động" để bảo toàn lịch sử hóa đơn.`,
+      confirmText: `Xác nhận (${count})`,
       cancelText: 'Hủy',
-      type: 'danger'
+      type: 'warning'
     });
     if (!isConfirmed) return;
 
     setBulkDeleting(true);
     try {
-      await extraServiceApi.bulkDelete(Array.from(selectedIds));
-      toastSuccess(`Đã xóa thành công ${count} dịch vụ phụ thu!`);
+      const res = await extraServiceApi.bulkDelete(Array.from(selectedIds));
+      toastSuccess(res.message || `Đã xử lý thành công ${count} dịch vụ phụ thu!`);
       setSelectedIds(new Set());
       fetchServicesAndInventory();
     } catch (err: any) {
@@ -451,7 +453,17 @@ const ExtraServiceManagement: React.FC = () => {
                       </td>
                     )}
                   <td className="p-3 font-semibold text-on-surface">
-                    {service.name}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>{service.name}</span>
+                      {((service.usageCount ?? 0) > 0 || service.hasBookings) && (
+                        <span
+                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                          title={`Dịch vụ đã phát sinh trong ${service.usageCount || 1} đơn đặt phòng`}
+                        >
+                          {service.usageCount || 1} booking
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3 text-on-surface-variant">{service.description || '—'}</td>
                   <td className="p-3 font-medium text-primary">{formatPrice(service.unitPrice ?? (service as any).price)}</td>
@@ -495,8 +507,16 @@ const ExtraServiceManagement: React.FC = () => {
                         </button>
                         <button
                           onClick={() => openDeleteModal(service)}
-                          className="p-1 rounded hover:bg-red-50 text-error transition-colors"
-                          title="Xóa"
+                          className={`p-1 rounded transition-colors ${
+                            (service.hasBookings || (service.usageCount ?? 0) > 0)
+                              ? (!service.active ? 'text-on-surface-variant hover:bg-surface-container' : 'text-amber-700 hover:bg-amber-50')
+                              : 'text-error hover:bg-red-50'
+                          }`}
+                          title={
+                            (service.hasBookings || (service.usageCount ?? 0) > 0)
+                              ? (!service.active ? 'Dịch vụ có lịch sử đặt phòng (được bảo lưu)' : 'Ngừng cung cấp (Đã có khách đặt)')
+                              : 'Xóa vĩnh viễn'
+                          }
                         >
                           <IoTrashOutline size={16} />
                         </button>
@@ -692,25 +712,98 @@ const ExtraServiceManagement: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Modal xác nhận xóa */}
+      {/* Modal xác nhận xóa / ngừng hoạt động */}
       <Modal
         isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Xác nhận xóa dịch vụ"
-        maxWidth="max-w-sm"
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }}
+        title={
+          itemToDelete && (itemToDelete.hasBookings || (itemToDelete.usageCount ?? 0) > 0)
+            ? (itemToDelete.active ? "Xác nhận ngừng cung cấp dịch vụ" : "Dịch vụ đã được bảo lưu lịch sử")
+            : "Xác nhận xóa dịch vụ"
+        }
+        maxWidth="max-w-md"
       >
         <div className="space-y-4">
-          <p className="text-sm text-on-surface">
-            Bạn có chắc chắn muốn xóa dịch vụ <strong>{itemToDelete?.name}</strong>? Thao tác này không thể hoàn tác.
-          </p>
-          <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
-            <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="danger" onClick={confirmDelete}>
-              Xóa
-            </Button>
-          </div>
+          {itemToDelete && (itemToDelete.hasBookings || (itemToDelete.usageCount ?? 0) > 0) ? (
+            itemToDelete.active ? (
+              <div className="space-y-3 text-xs">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 leading-relaxed">
+                  <div className="flex items-center gap-1.5 font-bold mb-1 text-amber-800">
+                    <IoAlertCircleOutline size={18} />
+                    <span>Dịch vụ đã phát sinh giao dịch ({itemToDelete.usageCount || 1} đặt phòng)</span>
+                  </div>
+                  Dịch vụ <strong>{itemToDelete.name}</strong> đã được thêm vào đơn đặt phòng của khách. Để đảm bảo tính toàn vẹn của dữ liệu kế toán và hóa đơn, dịch vụ này <strong>không thể xóa vĩnh viễn</strong> khỏi cơ sở dữ liệu.
+                </div>
+
+                <div className="p-3 bg-surface-container-low rounded-xl border border-border-grey text-on-surface-variant leading-relaxed">
+                  Khi bạn bấm <strong>"Ngừng hoạt động"</strong>, hệ thống sẽ chuyển dịch vụ sang trạng thái <em>Tạm dừng</em>. Dịch vụ này sẽ không còn hiển thị khi khách đặt phòng hoặc lễ tân thêm mới dịch vụ, nhưng toàn bộ lịch sử hóa đơn trước đây vẫn được bảo lưu trọn vẹn.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setItemToDelete(null);
+                    }}
+                  >
+                    Hủy bỏ
+                  </Button>
+                  <Button
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                    onClick={confirmDelete}
+                  >
+                    Ngừng hoạt động (Tạm ẩn)
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 leading-relaxed">
+                  <div className="flex items-center gap-1.5 font-bold mb-1 text-blue-800">
+                    <IoInformationCircleOutline size={18} />
+                    <span>Dịch vụ đang ở trạng thái Ngừng hoạt động</span>
+                  </div>
+                  Dịch vụ <strong>{itemToDelete.name}</strong> đã có lịch sử giao dịch trong <strong>{itemToDelete.usageCount || 1} đặt phòng</strong> và hiện đang ở trạng thái ngừng cung cấp. Theo quy định kế toán, các bản ghi đã phát sinh doanh thu không được phép xóa khỏi cơ sở dữ liệu.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                  <Button 
+                    variant="primary" 
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setItemToDelete(null);
+                    }}
+                  >
+                    Đã hiểu
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="space-y-3 text-xs">
+              <p className="text-sm text-on-surface">
+                Bạn có chắc chắn muốn xóa dịch vụ <strong>{itemToDelete?.name}</strong>? Dịch vụ này chưa từng phát sinh giao dịch và sẽ bị xóa hoàn toàn khỏi hệ thống.
+              </p>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => {
+                    setIsDeleteModalOpen(false);
+                    setItemToDelete(null);
+                  }}
+                >
+                  Hủy
+                </Button>
+                <Button variant="danger" onClick={confirmDelete}>
+                  Xóa vĩnh viễn
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
