@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { guestApi } from '../../services/guestApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { IoAddOutline, IoCallOutline, IoDocumentOutline, IoMailOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoStarOutline, IoTimeOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
+import { 
+  IoAddOutline, IoCallOutline, IoDocumentOutline, IoMailOutline, 
+  IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, 
+  IoStarOutline, IoTimeOutline, IoTrashOutline, IoWarningOutline,
+  IoChevronBackOutline, IoChevronForwardOutline
+} from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -31,6 +36,12 @@ const GuestManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Pagination states
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(15);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   
   // Modal states
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -66,26 +77,37 @@ const GuestManagement: React.FC = () => {
   const [deleteDataLoading, setDeleteDataLoading] = useState(false);
   const [deleteDataError, setDeleteDataError] = useState('');
 
-  // Debounce search
+  // Debounce search - reset to page 0 on search query change
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-    }, 500);
+      setPage(0);
+    }, 400);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
   useEffect(() => {
     fetchGuests();
-  }, [debouncedSearch]);
+  }, [debouncedSearch, page, size]);
 
   const fetchGuests = async () => {
     setLoading(true);
     try {
-      const data = await guestApi.searchGuests(debouncedSearch);
-      const sorted = (data || []).sort((a, b) => (b.id || 0) - (a.id || 0));
-      setGuests(sorted);
+      if (guestApi.getGuestsPaged) {
+        const res = await guestApi.getGuestsPaged({ search: debouncedSearch, page, size });
+        setGuests(res.content || []);
+        setTotalPages(res.totalPages || 0);
+        setTotalElements(res.totalElements || 0);
+      } else {
+        const data = await guestApi.searchGuests(debouncedSearch);
+        const sorted = (data || []).sort((a, b) => (b.id || 0) - (a.id || 0));
+        setGuests(sorted);
+        setTotalPages(Math.ceil((sorted.length || 0) / size) || 1);
+        setTotalElements(sorted.length || 0);
+      }
     } catch (error) {
       console.error("Failed to fetch guests", error);
+      setGuests([]);
     } finally {
       setLoading(false);
     }
@@ -276,6 +298,63 @@ const GuestManagement: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Phân trang */}
+      {!loading && totalElements > 0 && (
+        <div className="px-4 py-3 border-t border-border-grey bg-surface-container-lowest flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant">
+          <div className="flex items-center gap-2">
+            <span>
+              Hiển thị <strong>{page * size + 1}</strong> - <strong>{Math.min((page + 1) * size, totalElements)}</strong> trong tổng số <strong>{totalElements.toLocaleString()}</strong> khách hàng
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span>Hiển thị:</span>
+              <select
+                value={size}
+                onChange={(e) => {
+                  setSize(Number(e.target.value));
+                  setPage(0);
+                }}
+                className="px-2 py-1 border border-border-grey rounded-md bg-white text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+              >
+                <option value={10}>10 / trang</option>
+                <option value={15}>15 / trang</option>
+                <option value={25}>25 / trang</option>
+                <option value={50}>50 / trang</option>
+                <option value={100}>100 / trang</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                title="Trang trước"
+                className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+              >
+                <IoChevronBackOutline size={15} />
+              </button>
+              
+              <span className="px-3 py-1 font-semibold text-on-surface">
+                Trang {page + 1} / {totalPages || 1}
+              </span>
+
+              <button
+                type="button"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage(p => p + 1)}
+                title="Trang sau"
+                className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+              >
+                <IoChevronForwardOutline size={15} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Form Modal */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? 'Cập nhật Khách hàng' : 'Thêm Khách hàng mới'} maxWidth="max-w-md">

@@ -64,9 +64,21 @@ public class DebtApprovalController {
 
     // Danh sách công nợ chờ thu (sắp xếp theo ngày quá hạn giảm dần)
     @GetMapping("/debts")
-    public ResponseEntity<List<DebtItemResponse>> getActiveDebts(HttpServletRequest request) {
+    public ResponseEntity<?> getActiveDebts(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            HttpServletRequest request) {
         checkStaff(request);
-        return ResponseEntity.ok(debtApprovalService.getActiveDebts());
+        List<DebtItemResponse> all = debtApprovalService.getActiveDebts();
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            int start = Math.min(page * pageSize, all.size());
+            int end = Math.min((page + 1) * pageSize, all.size());
+            org.springframework.data.domain.Page<DebtItemResponse> pageResult = 
+                new org.springframework.data.domain.PageImpl<>(all.subList(start, end), org.springframework.data.domain.PageRequest.of(page, pageSize), all.size());
+            return ResponseEntity.ok(pageResult);
+        }
+        return ResponseEntity.ok(all);
     }
 
     // Danh sách yêu cầu chờ duyệt (cho Chủ cơ sở)
@@ -78,9 +90,21 @@ public class DebtApprovalController {
 
     // Tất cả yêu cầu
     @GetMapping("/all")
-    public ResponseEntity<List<DebtItemResponse>> getAllRequests(HttpServletRequest request) {
+    public ResponseEntity<?> getAllRequests(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            HttpServletRequest request) {
         checkStaff(request);
-        return ResponseEntity.ok(debtApprovalService.getAllRequests());
+        List<DebtItemResponse> all = debtApprovalService.getAllRequests();
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            int start = Math.min(page * pageSize, all.size());
+            int end = Math.min((page + 1) * pageSize, all.size());
+            org.springframework.data.domain.Page<DebtItemResponse> pageResult = 
+                new org.springframework.data.domain.PageImpl<>(all.subList(start, end), org.springframework.data.domain.PageRequest.of(page, pageSize), all.size());
+            return ResponseEntity.ok(pageResult);
+        }
+        return ResponseEntity.ok(all);
     }
 
     // Báo cáo tuổi nợ và nhắc thu

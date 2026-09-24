@@ -1,5 +1,7 @@
 package plant.stay.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import plant.stay.dto.request.GuestRequest;
 import plant.stay.dto.response.GuestResponse;
 import plant.stay.model.User;
@@ -8,6 +10,7 @@ import java.util.List;
 
 public interface GuestService {
     List<GuestResponse> getAll(String search);
+    Page<GuestResponse> getAllPaged(String search, Pageable pageable);
     GuestResponse getById(Long id);
     GuestResponse getByIdNumber(String idNumber);
     GuestResponse create(GuestRequest request);
