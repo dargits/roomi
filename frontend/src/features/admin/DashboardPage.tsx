@@ -92,7 +92,11 @@ const HeroStatCard: React.FC<{
         <div className="inline-flex items-center gap-1 bg-[#16220E] text-[#D4F63D] px-2 py-0.5 rounded-full text-[11px] font-bold shadow-xs shrink-0 whitespace-nowrap">
           <IoArrowUpOutline size={12} className="shrink-0" />
           <span>
-            <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
+            {rawValue > 0 ? (
+              <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
+            ) : (
+              '0% Đã thu'
+            )}
           </span>
         </div>
       </div>
@@ -588,19 +592,22 @@ const RoomStatusSpectrum: React.FC<{
   availableRooms: number;
   occupiedRooms: number;
   dirtyRooms: number;
+  inspectingRooms?: number;
   maintenanceRooms: number;
 }> = ({
   totalRooms,
   availableRooms,
   occupiedRooms,
   dirtyRooms,
+  inspectingRooms = 0,
   maintenanceRooms
 }) => {
   const safeTotal = totalRooms > 0 ? totalRooms : 1;
+  const housekeepingRooms = dirtyRooms + inspectingRooms;
   const pctAvailable = Math.round((availableRooms / safeTotal) * 100);
   const pctOccupied = Math.round((occupiedRooms / safeTotal) * 100);
-  const pctDirty = Math.round((dirtyRooms / safeTotal) * 100);
-  const pctMaint = Math.max(0, 100 - pctAvailable - pctOccupied - pctDirty);
+  const pctDirty = Math.round((housekeepingRooms / safeTotal) * 100);
+  const pctMaint = Math.round((maintenanceRooms / safeTotal) * 100);
 
   return (
     <div className="bg-white border border-border-grey rounded-2xl p-5 shadow-2xs">
@@ -622,30 +629,30 @@ const RoomStatusSpectrum: React.FC<{
       {/* Multi-segment spectrum bar */}
       <div className="mt-4">
         <div className="h-4 w-full bg-[#EBF0E3] rounded-full overflow-hidden flex gap-0.5 p-0.5 shadow-inner">
-          {pctOccupied > 0 && (
+          {occupiedRooms > 0 && (
             <div
-              style={{ width: `${pctOccupied}%` }}
+              style={{ flex: occupiedRooms }}
               title={`Đang có khách: ${occupiedRooms} phòng (${pctOccupied}%)`}
               className="h-full bg-[#626F47] rounded-l-full transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
           )}
-          {pctAvailable > 0 && (
+          {availableRooms > 0 && (
             <div
-              style={{ width: `${pctAvailable}%` }}
+              style={{ flex: availableRooms }}
               title={`Sẵn sàng: ${availableRooms} phòng (${pctAvailable}%)`}
               className="h-full bg-[#D4F63D] transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
           )}
-          {pctDirty > 0 && (
+          {housekeepingRooms > 0 && (
             <div
-              style={{ width: `${pctDirty}%` }}
-              title={`Cần dọn: ${dirtyRooms} phòng (${pctDirty}%)`}
+              style={{ flex: housekeepingRooms }}
+              title={`Chờ buồng phòng: ${housekeepingRooms} phòng (${pctDirty}%)${inspectingRooms > 0 ? ` (${dirtyRooms} cần dọn, ${inspectingRooms} chờ duyệt)` : ''}`}
               className="h-full bg-[#F59E0B] transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
           )}
-          {pctMaint > 0 && (
+          {maintenanceRooms > 0 && (
             <div
-              style={{ width: `${pctMaint}%` }}
+              style={{ flex: maintenanceRooms }}
               title={`Bảo trì: ${maintenanceRooms} phòng (${pctMaint}%)`}
               className="h-full bg-[#94A3B8] rounded-r-full transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
@@ -678,7 +685,7 @@ const RoomStatusSpectrum: React.FC<{
           <div className="truncate">
             <span className="text-[#606D56] block text-[11px]">Cần dọn dẹp:</span>
             <strong className="text-[#1A2411]">
-              <AnimatedCounter value={dirtyRooms} /> ({pctDirty}%)
+              <AnimatedCounter value={housekeepingRooms} /> ({pctDirty}%)
             </strong>
           </div>
         </div>
@@ -810,7 +817,7 @@ const DashboardPage: React.FC = () => {
       ] = await Promise.all([
         isOwnerOrAdmin ? reportApi.getDashboard().catch(() => null) : Promise.resolve(null),
         canSeeToday ? reportApi.getTodayCheckInOut().catch(() => []) : Promise.resolve([]),
-        user?.role === 'HOUSEKEEPER' ? roomApi.getAllRooms('DIRTY').catch(() => []) : Promise.resolve([]),
+        user?.role === 'HOUSEKEEPER' ? roomApi.getAllRooms('DIRTY').catch(() => []) : Promise.resolve(null),
         isOwnerOrAdmin ? reportApi.getOccupancyReport(from7Str, toStr).catch(() => null) : Promise.resolve(null),
         isOwnerOrAdmin ? reportApi.getRevenueReport(from7Str, toStr, 'day').catch(() => null) : Promise.resolve(null),
         isOwnerOrAdmin ? reportApi.getChannelReport(monthStartStr, toStr).catch(() => null) : Promise.resolve(null)
@@ -826,6 +833,7 @@ const DashboardPage: React.FC = () => {
           availableRooms: 0,
           occupiedRooms: 0,
           dirtyRooms: 0,
+          inspectingRooms: 0,
           maintenanceRooms: 0,
           todayCheckIns: 0,
           todayCheckOuts: 0,
@@ -836,11 +844,12 @@ const DashboardPage: React.FC = () => {
         });
       }
 
-      // Gán số phòng bẩn thật
-      if (dirtyRoomsData && Array.isArray(dirtyRoomsData)) {
-        setDirtyRoomsCount(dirtyRoomsData.length);
-      } else if (dashData?.dirtyRooms != null) {
-        setDirtyRoomsCount(dashData.dirtyRooms);
+      // Gán số phòng buồng phòng thật
+      if (user?.role === 'HOUSEKEEPER') {
+        setDirtyRoomsCount(Array.isArray(dirtyRoomsData) ? dirtyRoomsData.length : 0);
+      } else if (dashData) {
+        const totalHk = (dashData.dirtyRooms || 0) + (dashData.inspectingRooms || 0);
+        setDirtyRoomsCount(totalHk);
       }
 
       // Gán danh sách sự kiện hôm nay thật từ backend
@@ -937,7 +946,7 @@ const DashboardPage: React.FC = () => {
   // Tính tỷ lệ thu hồi doanh thu thật
   const realCollectionPercent = useMemo(() => {
     if (!dashboard || !dashboard.monthRevenue || dashboard.monthRevenue === 0) {
-      return 100;
+      return 0;
     }
     return Math.min(100, Math.round(((dashboard.monthCollectedRevenue || 0) / dashboard.monthRevenue) * 100));
   }, [dashboard]);
@@ -1123,8 +1132,18 @@ const DashboardPage: React.FC = () => {
               label="Chờ Buồng Phòng"
               rawValue={dirtyRoomsCount}
               valueSuffix=" phòng"
-              subLabel={dirtyRoomsCount > 0 ? 'Cần dọn để sẵn sàng đón khách' : 'Tất cả phòng sạch sẽ'}
-              badgeText={dirtyRoomsCount > 0 ? 'Cần dọn' : 'Đã sạch'}
+              subLabel={
+                dirtyRoomsCount > 0
+                  ? (dashboard.inspectingRooms && dashboard.inspectingRooms > 0
+                      ? `${dashboard.dirtyRooms || 0} cần dọn, ${dashboard.inspectingRooms} chờ duyệt`
+                      : `${dirtyRoomsCount} phòng cần dọn dẹp`)
+                  : 'Tất cả phòng sạch sẽ'
+              }
+              badgeText={
+                dirtyRoomsCount > 0
+                  ? (dashboard.dirtyRooms && dashboard.dirtyRooms > 0 ? 'Cần dọn' : 'Chờ duyệt')
+                  : 'Đã sạch'
+              }
               badgeType={dirtyRoomsCount > 0 ? 'warning' : 'positive'}
               iconBg="bg-[#FEF3C7]"
               iconColor="text-[#B45309]"
@@ -1147,7 +1166,8 @@ const DashboardPage: React.FC = () => {
             totalRooms={dashboard.totalRooms || 0}
             availableRooms={dashboard.availableRooms || 0}
             occupiedRooms={dashboard.occupiedRooms || 0}
-            dirtyRooms={dirtyRoomsCount}
+            dirtyRooms={dashboard.dirtyRooms || 0}
+            inspectingRooms={dashboard.inspectingRooms || 0}
             maintenanceRooms={dashboard.maintenanceRooms || 0}
           />
 
