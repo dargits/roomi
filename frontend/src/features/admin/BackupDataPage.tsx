@@ -153,7 +153,7 @@ function parseClientCsvLine(line: string): string[] {
 
 const BackupDataPage: React.FC = () => {
   const { user } = useAuth();
-  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
+  const { success: toastSuccess, error: toastError, warning: toastWarning, confirm } = useToast();
 
   const hasAccess = ['OWNER', 'ADMIN'].includes(user?.role || '');
   const isOwner = hasAccess; // Cho phép cả OWNER và ADMIN quản lý, khôi phục hệ thống
@@ -417,7 +417,13 @@ const BackupDataPage: React.FC = () => {
   };
 
   const handleDeleteBackup = async (item: BackupHistoryItem) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa bản sao lưu "${item.fileName}" khỏi máy chủ không?`)) {
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa bản sao lưu',
+      message: `Bạn có chắc chắn muốn xóa bản sao lưu "${item.fileName}" khỏi máy chủ không?`,
+      confirmText: 'Xóa vĩnh viễn',
+      type: 'danger'
+    });
+    if (!isConfirmed) {
       return;
     }
     setDeletingId(item.id);
