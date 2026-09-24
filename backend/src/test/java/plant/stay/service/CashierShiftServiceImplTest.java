@@ -55,8 +55,9 @@ class CashierShiftServiceImplTest {
                 .id(100L).openedBy(receptionist).openedAt(LocalDateTime.now().minusHours(2))
                 .openingCash(BigDecimal.ZERO).status(CashierShiftStatus.OPEN).build();
         when(shiftRepository.findById(shift.getId())).thenReturn(Optional.of(shift));
-        lenient().when(paymentRepository.findAll()).thenReturn(List.of());
-        lenient().when(depositRepository.findAll()).thenReturn(List.of());
+        lenient().when(paymentRepository.findByCollectedByIdAndPaidAtBetween(any(), any(), any())).thenReturn(List.of());
+        lenient().when(depositRepository.findByCollectedByIdAndCollectedAtBetween(any(), any(), any())).thenReturn(List.of());
+        lenient().when(depositRepository.findByProcessedByIdAndProcessedAtBetween(any(), any(), any())).thenReturn(List.of());
         lenient().when(shiftRepository.save(any(CashierShift.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(closingRepository.save(any(CashierShiftClosing.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -67,7 +68,7 @@ class CashierShiftServiceImplTest {
         Booking booking = Booking.builder().id(10L).status(BookingStatus.CHECKED_OUT)
                 .checkedOutAt(LocalDateTime.now().minusMinutes(30)).build();
         Invoice invoice = Invoice.builder().id(20L).booking(booking).status(InvoiceStatus.PENDING_PAYMENT).build();
-        when(invoiceRepository.findAll()).thenReturn(List.of(invoice));
+        when(invoiceRepository.findPendingCheckoutInvoicesBetween(any(), any())).thenReturn(List.of(invoice));
         when(debtApprovalRepository.existsActiveApprovedDebtByBookingId(booking.getId())).thenReturn(true);
 
         CashierShiftCloseRequest request = new CashierShiftCloseRequest();
@@ -82,7 +83,7 @@ class CashierShiftServiceImplTest {
         Booking booking = Booking.builder().id(11L).status(BookingStatus.CHECKED_OUT)
                 .checkedOutAt(LocalDateTime.now().minusMinutes(30)).build();
         Invoice invoice = Invoice.builder().id(21L).booking(booking).status(InvoiceStatus.PENDING_PAYMENT).build();
-        when(invoiceRepository.findAll()).thenReturn(List.of(invoice));
+        when(invoiceRepository.findPendingCheckoutInvoicesBetween(any(), any())).thenReturn(List.of(invoice));
         when(debtApprovalRepository.existsActiveApprovedDebtByBookingId(booking.getId())).thenReturn(false);
 
         CashierShiftCloseRequest request = new CashierShiftCloseRequest();
@@ -97,7 +98,7 @@ class CashierShiftServiceImplTest {
         Booking booking = Booking.builder().id(12L).status(BookingStatus.CHECKED_OUT)
                 .checkedOutAt(LocalDateTime.now().minusMinutes(30)).build();
         Invoice invoice = Invoice.builder().id(22L).booking(booking).status(InvoiceStatus.PENDING_DISCOUNT_APPROVAL).build();
-        when(invoiceRepository.findAll()).thenReturn(List.of(invoice));
+        when(invoiceRepository.findPendingCheckoutInvoicesBetween(any(), any())).thenReturn(List.of(invoice));
 
         CashierShiftCloseRequest request = new CashierShiftCloseRequest();
         request.setActualCash(BigDecimal.ZERO);
@@ -108,7 +109,7 @@ class CashierShiftServiceImplTest {
     @Test
     @DisplayName("Cho phép chốt ca khi có chênh lệch và có nhập discrepancyNote")
     void closeAllowsDiscrepancyWithDiscrepancyNote() {
-        when(invoiceRepository.findAll()).thenReturn(List.of());
+        when(invoiceRepository.findPendingCheckoutInvoicesBetween(any(), any())).thenReturn(List.of());
 
         CashierShiftCloseRequest request = new CashierShiftCloseRequest();
         request.setActualCash(BigDecimal.valueOf(100_000));
@@ -120,7 +121,7 @@ class CashierShiftServiceImplTest {
     @Test
     @DisplayName("Cho phép chốt ca khi có chênh lệch và có nhập explanation")
     void closeAllowsDiscrepancyWithExplanation() {
-        when(invoiceRepository.findAll()).thenReturn(List.of());
+        when(invoiceRepository.findPendingCheckoutInvoicesBetween(any(), any())).thenReturn(List.of());
 
         CashierShiftCloseRequest request = new CashierShiftCloseRequest();
         request.setActualCash(BigDecimal.valueOf(100_000));
@@ -132,7 +133,7 @@ class CashierShiftServiceImplTest {
     @Test
     @DisplayName("Chặn chốt ca khi có chênh lệch nhưng không nhập giải thích")
     void closeBlocksDiscrepancyWithoutExplanation() {
-        when(invoiceRepository.findAll()).thenReturn(List.of());
+        when(invoiceRepository.findPendingCheckoutInvoicesBetween(any(), any())).thenReturn(List.of());
 
         CashierShiftCloseRequest request = new CashierShiftCloseRequest();
         request.setActualCash(BigDecimal.valueOf(100_000));

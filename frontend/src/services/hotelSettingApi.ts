@@ -19,6 +19,18 @@ const hotelSettingApi = {
     const response = await api.put<HotelSettingResponse>('/hotel-setting', data);
     return response.data;
   },
+
+  /** Lấy danh sách Google API Key đã lưu (chỉ OWNER) */
+  getGoogleApiKeys: async (): Promise<{ googleApiKeys: string }> => {
+    const response = await api.get<{ googleApiKeys: string }>('/hotel-setting/google-api-keys');
+    return response.data;
+  },
+
+  /** Lưu/cập nhật danh sách Google API Key (chỉ OWNER) */
+  updateGoogleApiKeys: async (googleApiKeys: string): Promise<{ message: string }> => {
+    const response = await api.put<{ message: string }>('/hotel-setting/google-api-keys', { googleApiKeys });
+    return response.data;
+  },
 };
 
 export default hotelSettingApi;

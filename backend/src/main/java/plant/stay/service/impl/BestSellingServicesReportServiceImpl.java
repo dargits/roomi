@@ -50,14 +50,27 @@ public class BestSellingServicesReportServiceImpl implements BestSellingServices
         List<Booking> validInvoicedBookings = new ArrayList<>();
         Map<Long, Invoice> bookingInvoiceMap = new HashMap<>();
 
-        for (Booking b : checkedOutBookings) {
-            List<Invoice> invoices = invoiceRepository.findInvoicesCoveringBooking(b.getId());
-            Optional<Invoice> validInv = invoices.stream()
-                    .filter(inv -> inv.getStatus() != InvoiceStatus.CANCELLED)
-                    .findFirst();
-            if (validInv.isPresent()) {
-                validInvoicedBookings.add(b);
-                bookingInvoiceMap.put(b.getId(), validInv.get());
+        if (!checkedOutBookings.isEmpty()) {
+            List<Long> allBookingIds = checkedOutBookings.stream().map(Booking::getId).toList();
+            List<Invoice> allInvoices = invoiceRepository.findInvoicesCoveringBookingIds(allBookingIds);
+            for (Invoice inv : allInvoices) {
+                if (inv.getStatus() != InvoiceStatus.CANCELLED) {
+                    if (inv.getBooking() != null) {
+                        bookingInvoiceMap.putIfAbsent(inv.getBooking().getId(), inv);
+                    }
+                    if (inv.getGroupBooking() != null) {
+                        for (Booking b : checkedOutBookings) {
+                            if (b.getGroupBooking() != null && b.getGroupBooking().getId().equals(inv.getGroupBooking().getId())) {
+                                bookingInvoiceMap.putIfAbsent(b.getId(), inv);
+                            }
+                        }
+                    }
+                }
+            }
+            for (Booking b : checkedOutBookings) {
+                if (bookingInvoiceMap.containsKey(b.getId())) {
+                    validInvoicedBookings.add(b);
+                }
             }
         }
 

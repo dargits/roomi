@@ -33,4 +33,6 @@ public class HotelSettingResponse {
     private Double priceSuggestionLowThreshold;
     private Integer priceSuggestionImminentDays;
     private Boolean priceSuggestionConfigured;
+    /** Danh sách Google API Key (mỗi key 1 dòng) */
+    private String googleApiKeys;
 }

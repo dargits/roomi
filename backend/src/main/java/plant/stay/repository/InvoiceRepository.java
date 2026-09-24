@@ -33,5 +33,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
            "  (i.groupBooking IS NOT NULL AND i.groupBooking.representativeGuest.id = :guestId)" +
            ")")
     List<Invoice> findByGuestIdAndStatusPending(@Param("guestId") Long guestId);
+
+    @Query("SELECT i FROM Invoice i JOIN FETCH i.booking b WHERE b.status = 'CHECKED_OUT' " +
+           "AND b.checkedOutAt >= :start AND b.checkedOutAt <= :end " +
+           "AND i.status IN ('PENDING_DISCOUNT_APPROVAL', 'PENDING', 'PENDING_PAYMENT')")
+    List<Invoice> findPendingCheckoutInvoicesBetween(@Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
 }
 
