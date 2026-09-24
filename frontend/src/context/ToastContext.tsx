@@ -24,7 +24,8 @@ export interface ConfirmDialogConfig {
   message?: string;
   confirmText?: string;
   cancelText?: string;
-  type?: 'warning' | 'danger' | 'error' | 'info';
+  type?: 'warning' | 'danger' | 'error' | 'info' | 'success';
+  icon?: React.ComponentType<{ className?: string; size?: number }>;
 }
 
 export interface ToastContextType {
@@ -82,13 +83,14 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     message: string;
     confirmText: string;
     cancelText: string;
-    type: 'warning' | 'danger' | 'error' | 'info';
+    type: 'warning' | 'danger' | 'error' | 'info' | 'success';
+    icon?: React.ComponentType<{ className?: string; size?: number }>;
     resolve: ((val: boolean) => void) | null;
   }>({
     isOpen: false,
     title: '',
     message: '',
-    confirmText: 'Xác nhận',
+    confirmText: 'Đồng ý',
     cancelText: 'Hủy',
     type: 'warning',
     resolve: null
@@ -166,6 +168,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         confirmText: config.confirmText || 'Đồng ý',
         cancelText: config.cancelText || 'Hủy',
         type: config.type || 'warning',
+        icon: config.icon,
         resolve
       });
     });
@@ -241,6 +244,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         confirmText={confirmDialog.confirmText}
         cancelText={confirmDialog.cancelText}
         type={confirmDialog.type}
+        icon={confirmDialog.icon}
         onConfirm={() => handleConfirmClose(true)}
         onCancel={() => handleConfirmClose(false)}
       />
