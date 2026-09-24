@@ -24,12 +24,12 @@ const Pagination: React.FC<PaginationProps> = ({
   itemsPerPageOptions = [5, 10, 20, 50],
   itemLabel = 'mục',
   className = '',
-  showAlways = true
+  showAlways = false
 }) => {
   // If no items at all, don't show
   if (totalItems !== undefined && totalItems === 0) return null;
-  // If neither totalItems nor totalPages > 1, and showAlways is false
-  if (!showAlways && totalItems === undefined && totalPages <= 1) return null;
+  // If classic call without totalItems and totalPages <= 1, return null
+  if (totalItems === undefined && totalPages <= 1 && !showAlways) return null;
 
   const pagesCount = Math.max(1, totalPages);
   const getPageNumbers = (): (number | string)[] => {
@@ -52,18 +52,14 @@ const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div className={`px-4 py-3 border-t border-border-grey bg-surface-container-lowest flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant ${className}`}>
-      {/* Thông tin số lượng bản ghi hiển thị */}
-      <div className="flex items-center gap-2">
-        {totalItems !== undefined ? (
+      {/* Thông tin số lượng bản ghi hiển thị nếu có totalItems */}
+      {totalItems !== undefined ? (
+        <div className="flex items-center gap-2">
           <span>
             Hiển thị <strong>{startItem}</strong> - <strong>{endItem}</strong> trong tổng số <strong>{totalItems.toLocaleString()}</strong> {itemLabel}
           </span>
-        ) : (
-          <span>
-            Trang <strong>{currentPage}</strong> / <strong>{pagesCount}</strong>
-          </span>
-        )}
-      </div>
+        </div>
+      ) : <div />}
 
       <div className="flex items-center gap-3">
         {/* Dropdown chọn số lượng / trang nếu có callback */}
