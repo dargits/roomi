@@ -47,6 +47,7 @@ public class BookingPortalController {
     private final plant.stay.service.PricingService pricingService;
     private final InvoiceRepository invoiceRepository;
     private final HotelSettingRepository hotelSettingRepository;
+    private final PublicGroupBookingRequestRepository publicGroupBookingRequestRepository;
 
     // === PUBLIC: Lấy thông tin đặt phòng chi tiết để chia sẻ ===
     @GetMapping("/api/v1/public/bookings/{id}")
@@ -312,6 +313,21 @@ public class BookingPortalController {
         checkStaff(request);
         return ResponseEntity.ok(bookingRequestRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::toResponse).collect(Collectors.toList()));
+    }
+
+    // === STAFF: Thống kê số lượng yêu cầu đang chờ duyệt (để hiển thị badge thông báo cho Lễ tân) ===
+    @GetMapping("/api/v1/booking-requests/pending-count")
+    public ResponseEntity<Map<String, Long>> getPendingCount(HttpServletRequest request) {
+        checkStaff(request);
+        long individual = bookingRequestRepository.countByStatus(BookingRequestStatus.PENDING);
+        long group = publicGroupBookingRequestRepository != null 
+                ? publicGroupBookingRequestRepository.countByStatus(plant.stay.model.PublicGroupBookingRequestStatus.PENDING) 
+                : 0L;
+        return ResponseEntity.ok(Map.of(
+                "individualPending", individual,
+                "groupPending", group,
+                "totalPending", individual + group
+        ));
     }
 
     // === STAFF: Duyệt yêu cầu ===

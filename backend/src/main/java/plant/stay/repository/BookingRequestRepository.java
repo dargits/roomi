@@ -9,4 +9,5 @@ import java.util.List;
 public interface BookingRequestRepository extends JpaRepository<BookingRequest, Long> {
     List<BookingRequest> findByStatusOrderByCreatedAtDesc(BookingRequestStatus status);
     List<BookingRequest> findAllByOrderByCreatedAtDesc();
+    long countByStatus(BookingRequestStatus status);
 }

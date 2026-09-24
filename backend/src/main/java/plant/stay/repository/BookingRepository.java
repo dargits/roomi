@@ -19,7 +19,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByGroupBookingId(Long groupBookingId);
     Booking findTopByRoomIdAndStatusOrderByCheckOutDateDesc(Long roomId, BookingStatus status);
 
-    @Query(value = "SELECT b FROM Booking b LEFT JOIN FETCH b.guest LEFT JOIN FETCH b.roomType LEFT JOIN FETCH b.room",
+    @Query(value = "SELECT b FROM Booking b LEFT JOIN FETCH b.guest LEFT JOIN FETCH b.roomType LEFT JOIN FETCH b.room " +
+           "ORDER BY " +
+           "  CASE " +
+           "    WHEN (b.status = 'CONFIRMED' OR b.status = 'NEW') AND b.checkInDate <= CURRENT_DATE THEN 1 " +
+           "    WHEN b.status = 'CHECKED_IN' AND b.checkOutDate <= CURRENT_DATE THEN 2 " +
+           "    WHEN b.status = 'NEW' THEN 3 " +
+           "    WHEN b.status = 'CHECKED_IN' THEN 4 " +
+           "    WHEN b.status = 'CONFIRMED' THEN 5 " +
+           "    WHEN b.status = 'CHECKED_OUT' THEN 6 " +
+           "    WHEN b.status = 'NO_SHOW' THEN 7 " +
+           "    WHEN b.status = 'CANCELLED' THEN 8 " +
+           "    ELSE 9 " +
+           "  END ASC, b.checkInDate ASC, b.id DESC",
            countQuery = "SELECT count(b) FROM Booking b")
     Page<Booking> findAllWithDetails(Pageable pageable);
 
@@ -30,7 +42,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
            "  AND (:status IS NULL OR b.status = :status) " +
            "  AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
-           "  AND (:toDate IS NULL OR b.checkInDate <= :toDate)",
+           "  AND (:toDate IS NULL OR b.checkInDate <= :toDate) " +
+           "ORDER BY " +
+           "  CASE " +
+           "    WHEN (b.status = 'CONFIRMED' OR b.status = 'NEW') AND b.checkInDate <= CURRENT_DATE THEN 1 " +
+           "    WHEN b.status = 'CHECKED_IN' AND b.checkOutDate <= CURRENT_DATE THEN 2 " +
+           "    WHEN b.status = 'NEW' THEN 3 " +
+           "    WHEN b.status = 'CHECKED_IN' THEN 4 " +
+           "    WHEN b.status = 'CONFIRMED' THEN 5 " +
+           "    WHEN b.status = 'CHECKED_OUT' THEN 6 " +
+           "    WHEN b.status = 'NO_SHOW' THEN 7 " +
+           "    WHEN b.status = 'CANCELLED' THEN 8 " +
+           "    ELSE 9 " +
+           "  END ASC, b.checkInDate ASC, b.id DESC",
            countQuery = "SELECT count(b) FROM Booking b LEFT JOIN b.guest g LEFT JOIN b.room r " +
            "WHERE (:query IS NULL OR CAST(b.id AS string) LIKE CONCAT('%', :query, '%') " +
            "       OR (r IS NOT NULL AND r.roomNumber LIKE CONCAT('%', :query, '%')) " +

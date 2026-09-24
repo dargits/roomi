@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { IoAddOutline, IoCalendarOutline, IoCloseCircleOutline, IoListOutline, IoLogInOutline, IoLogOutOutline, IoMapOutline, IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, IoCashOutline, IoBedOutline, IoCloudUploadOutline } from 'react-icons/io5';
 import bookingApi from '../../services/bookingApi';
+import bookingRequestApi from '../../services/bookingRequestApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 
@@ -51,6 +52,29 @@ const BookingManagement: React.FC = () => {
   const [isGroupFormOpen, setIsGroupFormOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const res = await bookingRequestApi.getPendingCount();
+      setPendingRequestsCount(res?.totalPending || 0);
+    } catch {
+      try {
+        const data = await bookingRequestApi.getAllBookingRequests();
+        const count = (data || []).filter((r: any) => r.status === 'PENDING').length;
+        setPendingRequestsCount(count);
+      } catch (err) {
+        console.error('Không thể kiểm tra yêu cầu từ web:', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingCount();
+    // Tự động kiểm tra yêu cầu mới mỗi 15 giây để Lễ tân nắm bắt tức thì
+    const interval = setInterval(fetchPendingCount, 15000);
+    return () => clearInterval(interval);
+  }, [fetchPendingCount, refreshKey]);
 
   const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'].includes(user?.role);
   const isAccountant = user?.role === 'ACCOUNTANT';
@@ -175,13 +199,20 @@ const BookingManagement: React.FC = () => {
             {!isAccountant && (
               <button
                 onClick={() => handleTabChange('requests')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap relative ${
                   activeTab === 'requests' 
                     ? 'bg-white text-primary shadow-xs' 
                     : 'text-on-surface-variant hover:text-on-surface hover:bg-surface/50'
                 }`}
+                title="Các yêu cầu đặt phòng trực tuyến từ website gửi về"
               >
-                <IoPersonOutline size={15} /> Yêu cầu từ Web
+                <IoPersonOutline size={15} />
+                <span>Yêu cầu từ Web</span>
+                {pendingRequestsCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-xs animate-pulse">
+                    {pendingRequestsCount}
+                  </span>
+                )}
               </button>
             )}
           </div>
@@ -195,7 +226,7 @@ const BookingManagement: React.FC = () => {
         {activeTab === 'groups' && <GroupBookingList refreshKey={refreshKey} autoOpenAssignGroup={autoAssignGroup} />}
         {activeTab === 'in-house' && <InHouseGuestList />}
         {/* Tạm ẩn: {activeTab === 'deposits' && <PendingDepositList />} */}
-        {activeTab === 'requests' && <BookingRequestList key={`req-${refreshKey}`} />}
+        {activeTab === 'requests' && <BookingRequestList key={`req-${refreshKey}`} onRequestHandled={fetchPendingCount} />}
       </div>
 
       <BookingForm 

@@ -1,23 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { corporateClientApi, CorporateClient, CorporateClientRequest } from '../../services/corporateClientApi';
 import { CorporateClientModal } from './CorporateClientModal';
 import { IoAddOutline, IoBusinessOutline, IoPencilOutline, IoTrashOutline, IoSearchOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoPricetagOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
+
+const ITEMS_PER_PAGE = 10;
 
 export const CorporateClientManagement: React.FC = () => {
   const [clients, setClients] = useState<CorporateClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<CorporateClient | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { success: toastSuccess, error: toastError } = useToast();
   const navigate = useNavigate();
+
+  const totalPages = Math.max(1, Math.ceil(clients.length / ITEMS_PER_PAGE));
+  const paginatedClients = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return clients.slice(start, start + ITEMS_PER_PAGE);
+  }, [clients, currentPage]);
 
   const fetchClients = async () => {
     setLoading(true);
@@ -151,7 +161,7 @@ export const CorporateClientManagement: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  clients.map((c) => (
+                  paginatedClients.map((c) => (
                     <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4 font-medium text-gray-900">
                         {c.companyName}
@@ -214,6 +224,17 @@ export const CorporateClientManagement: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Phân trang */}
+          {clients.length > ITEMS_PER_PAGE && (
+            <div className="p-3 border-t border-border-grey bg-surface-container-low/30">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </div>
       )}
 

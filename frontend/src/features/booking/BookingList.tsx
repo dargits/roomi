@@ -107,17 +107,77 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
     fetchBookings();
   }, []);
 
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const getBookingPriorityRank = (b: any, today: string): number => {
+    if (!b || !b.status) return 9;
+    const cin = b.checkInDate ? String(b.checkInDate).slice(0, 10) : '';
+    const cout = b.checkOutDate ? String(b.checkOutDate).slice(0, 10) : '';
+
+    // 1. Nhận phòng hôm nay hoặc quá hạn mà chưa nhận phòng
+    if ((b.status === 'CONFIRMED' || b.status === 'NEW') && cin && cin <= today) {
+      return 1;
+    }
+    // 2. Trả phòng hôm nay hoặc quá hạn (đang ở)
+    if (b.status === 'CHECKED_IN' && cout && cout <= today) {
+      return 2;
+    }
+    // 3. Đơn mới cần xếp phòng / xác nhận
+    if (b.status === 'NEW') {
+      return 3;
+    }
+    // 4. Khách đang ở các ngày tiếp theo
+    if (b.status === 'CHECKED_IN') {
+      return 4;
+    }
+    // 5. Đơn đã xác nhận tương lai (sắp đến)
+    if (b.status === 'CONFIRMED') {
+      return 5;
+    }
+    // 6. Đã trả phòng hoàn tất
+    if (b.status === 'CHECKED_OUT') {
+      return 6;
+    }
+    // 7. Khách không đến
+    if (b.status === 'NO_SHOW') {
+      return 7;
+    }
+    // 8. Đã hủy
+    if (b.status === 'CANCELLED') {
+      return 8;
+    }
+    return 9;
+  };
+
+  const compareBookingsByImportance = (a: any, b: any, today: string): number => {
+    const r1 = getBookingPriorityRank(a, today);
+    const r2 = getBookingPriorityRank(b, today);
+    if (r1 !== r2) {
+      return r1 - r2;
+    }
+    // Cùng rank trong nhóm đã hoàn tất (CHECKED_OUT, NO_SHOW, CANCELLED): đơn gần đây đứng trước
+    if (r1 >= 6) {
+      const d1 = a.checkOutDate || a.checkInDate || '';
+      const d2 = b.checkOutDate || b.checkInDate || '';
+      if (d1 !== d2) {
+        return d2.localeCompare(d1);
+      }
+      return (b.id || 0) - (a.id || 0);
+    }
+    // Nhóm đang hoạt động / sắp đến: ngày nhận phòng gần nhất trước
+    const cinA = a.checkInDate ? String(a.checkInDate).slice(0, 10) : '';
+    const cinB = b.checkInDate ? String(b.checkInDate).slice(0, 10) : '';
+    if (cinA !== cinB) {
+      return cinA.localeCompare(cinB);
+    }
+    return (b.id || 0) - (a.id || 0);
+  };
+
   const fetchBookings = async () => {
     setLoading(true);
     try {
       const data = await bookingApi.getAllBookings();
-      const sorted = (data || []).sort((a: any, b: any) => {
-        if (a.createdAt && b.createdAt) {
-          const diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          if (diff !== 0) return diff;
-        }
-        return (b.id || 0) - (a.id || 0);
-      });
+      const sorted = (data || []).sort((a: any, b: any) => compareBookingsByImportance(a, b, todayStr));
       setBookings(sorted);
     } catch (error) {
       console.error("Failed to fetch bookings", error);
@@ -126,8 +186,6 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
       setLoading(false);
     }
   };
-
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   // Chỉ số thống kê nhanh trên thanh KPI
   const stats = useMemo(() => {
@@ -225,7 +283,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
       return true;
     });
 
-    return list.sort((a, b) => (b.id || 0) - (a.id || 0));
+    return list.sort((a, b) => compareBookingsByImportance(a, b, todayStr));
   }, [bookings, searchText, activeFilter, statusFilter, dateFrom, dateTo, todayStr]);
 
   // Reset trang về 1 khi đổi bộ lọc

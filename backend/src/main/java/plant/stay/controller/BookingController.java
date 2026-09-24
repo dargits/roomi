@@ -66,8 +66,13 @@ public class BookingController {
         checkReadBooking(request);
         if (page != null) {
             int pageSize = (size != null && size > 0) ? size : 15;
-            Sort.Direction dir = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
-            Pageable pageable = PageRequest.of(page, pageSize, Sort.by(dir, sortBy));
+            Pageable pageable;
+            if (sortBy == null || "id".equalsIgnoreCase(sortBy) || "priority".equalsIgnoreCase(sortBy)) {
+                pageable = PageRequest.of(page, pageSize);
+            } else {
+                Sort.Direction dir = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
+                pageable = PageRequest.of(page, pageSize, Sort.by(dir, sortBy));
+            }
             return ResponseEntity.ok(bookingService.searchPaged(q, status, from, to, pageable));
         }
         return ResponseEntity.ok(bookingService.search(q, status, from, to));
