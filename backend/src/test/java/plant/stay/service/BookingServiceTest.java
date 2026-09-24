@@ -42,6 +42,9 @@ public class BookingServiceTest {
     @Autowired
     private InvoiceRepository invoiceRepository;
 
+    @Autowired
+    private DebtApprovalRepository debtApprovalRepository;
+
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private EmailService emailService;
 
@@ -428,5 +431,83 @@ public class BookingServiceTest {
 
         Booking updated = bookingRepository.findById(created.getId()).orElseThrow();
         assertNotNull(updated.getReminderSentAt());
+    }
+
+    @Test
+    @DisplayName("Tạo đặt phòng có sẵn phòng cụ thể sẽ tự động xác nhận CONFIRMED")
+    void testCreateBookingWithAssignedRoomDirectlyConfirmed() {
+        BookingRequest request = new BookingRequest();
+        request.setGuestId(testGuest.getId());
+        request.setRoomTypeId(testRoomType.getId());
+        request.setRoomId(testRoom.getId());
+        request.setCheckInDate(LocalDate.now().plusDays(15));
+        request.setCheckOutDate(LocalDate.now().plusDays(17));
+
+        BookingResponse created = bookingService.create(request, testUser);
+
+        assertNotNull(created);
+        assertEquals(BookingStatus.CONFIRMED, created.getStatus());
+        assertEquals(testRoom.getRoomNumber(), created.getRoomNumber());
+    }
+
+    @Test
+    @DisplayName("Đánh dấu No-Show thành công ngay từ trạng thái NEW")
+    void testNoShowFromNewStatus() {
+        BookingRequest request = new BookingRequest();
+        request.setGuestId(testGuest.getId());
+        request.setRoomTypeId(testRoomType.getId());
+        request.setCheckInDate(LocalDate.now().plusDays(25));
+        request.setCheckOutDate(LocalDate.now().plusDays(27));
+
+        BookingResponse created = bookingService.create(request, testUser);
+        assertEquals(BookingStatus.NEW, created.getStatus());
+
+        BookingResponse noShow = bookingService.noShow(created.getId(), testUser);
+        assertEquals(BookingStatus.NO_SHOW, noShow.getStatus());
+    }
+
+    @Test
+    @DisplayName("Cho phép trả phòng khi có phê duyệt công nợ trả sau (APPROVED Debt) dù hóa đơn chưa thanh toán")
+    void testCheckOutWithApprovedDebtWithoutPaidInvoice() {
+        BookingRequest request = new BookingRequest();
+        request.setGuestId(testGuest.getId());
+        request.setRoomTypeId(testRoomType.getId());
+        request.setRoomId(testRoom.getId());
+        request.setCheckInDate(LocalDate.now());
+        request.setCheckOutDate(LocalDate.now().plusDays(1));
+
+        BookingResponse created = bookingService.create(request, testUser);
+        BookingResponse checkedIn = bookingService.checkIn(created.getId(), testUser);
+        assertEquals(BookingStatus.CHECKED_IN, checkedIn.getStatus());
+
+        Booking bookingEntity = bookingRepository.findById(checkedIn.getId()).orElseThrow();
+
+        // Tạo hóa đơn chưa thanh toán (PENDING)
+        Invoice invoice = invoiceRepository.save(Invoice.builder()
+                .booking(bookingEntity)
+                .roomAmount(new BigDecimal("500000"))
+                .serviceAmount(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .totalAmount(new BigDecimal("500000"))
+                .status(InvoiceStatus.PENDING)
+                .createdBy(testUser)
+                .build());
+
+        // Tạo yêu cầu công nợ đã được phê duyệt (APPROVED)
+        debtApprovalRepository.save(DebtApprovalRequest.builder()
+                .booking(bookingEntity)
+                .invoice(invoice)
+                .guest(testGuest)
+                .requestedBy(testUser)
+                .approvedBy(testUser)
+                .status(DebtApprovalStatus.APPROVED)
+                .debtAmount(new BigDecimal("500000"))
+                .dueDate(LocalDate.now().plusDays(7))
+                .reason("Khách đoàn VIP ký nợ thanh toán chuyển khoản sau")
+                .build());
+
+        // Check-out thành công mà không văng lỗi thiếu hóa đơn thanh toán
+        BookingResponse checkedOut = bookingService.checkOut(checkedIn.getId(), testUser);
+        assertEquals(BookingStatus.CHECKED_OUT, checkedOut.getStatus());
     }
 }
