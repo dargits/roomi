@@ -14,7 +14,7 @@ public final class PersonalDataMasker {
     }
 
     public static boolean canViewFull(Role role) {
-        return role == Role.OWNER || role == Role.RECEPTIONIST || role == Role.ADMIN;
+        return role == Role.OWNER || role == Role.RECEPTIONIST;
     }
 
     public static String displayIdentifier(String value, Role role) {
