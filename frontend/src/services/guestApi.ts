@@ -1,7 +1,30 @@
 import api from './api';
-import { GuestResponse, GuestRequest, MessageResponse } from '../types';
+import { GuestResponse, GuestRequest, MessageResponse, PageResponse } from '../types';
+
+export interface GuestFilterParams {
+  page?: number;
+  size?: number;
+  search?: string;
+  sortBy?: string;
+  direction?: 'asc' | 'desc';
+}
 
 export const guestApi = {
+  // Lấy danh sách khách hàng có phân trang và tìm kiếm
+  getGuestsPaged: async (params: GuestFilterParams = {}): Promise<PageResponse<GuestResponse>> => {
+    const { page = 0, size = 15, search = '', sortBy = 'id', direction = 'desc' } = params;
+    const query = new URLSearchParams();
+    query.append('page', page.toString());
+    query.append('size', size.toString());
+    query.append('sortBy', sortBy);
+    query.append('direction', direction);
+    if (search && search.trim()) {
+      query.append('search', search.trim());
+    }
+    const response = await api.get<PageResponse<GuestResponse>>(`/guests?${query.toString()}`);
+    return response.data;
+  },
+
   // Tim kiem theo ten/SDT/CCCD
   searchGuests: async (keyword = ''): Promise<GuestResponse[]> => {
     const url = keyword ? `/guests?search=${encodeURIComponent(keyword)}` : '/guests';

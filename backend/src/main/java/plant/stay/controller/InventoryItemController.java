@@ -3,6 +3,9 @@ package plant.stay.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +33,19 @@ public class InventoryItemController {
     private final AuthUtil authUtil;
 
     @GetMapping
-    public ResponseEntity<List<InventoryItemResponse>> getAll(HttpServletRequest request) {
+    public ResponseEntity<?> getAll(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "id") String sortBy,
+            @RequestParam(required = false, defaultValue = "asc") String direction,
+            HttpServletRequest request) {
         checkStaffOrOwner(request);
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            Sort.Direction dir = "desc".equalsIgnoreCase(direction) ? Sort.Direction.DESC : Sort.Direction.ASC;
+            Pageable pageable = PageRequest.of(page, pageSize, Sort.by(dir, sortBy));
+            return ResponseEntity.ok(inventoryItemRepository.findAll(pageable).map(this::toResponse));
+        }
         return ResponseEntity.ok(inventoryItemRepository.findAll().stream()
                 .map(this::toResponse).collect(Collectors.toList()));
     }

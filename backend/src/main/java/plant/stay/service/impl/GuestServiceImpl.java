@@ -1,6 +1,8 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,11 +32,30 @@ public class GuestServiceImpl implements GuestService {
 
 
     @Override
+    @Transactional(readOnly = true)
     public List<GuestResponse> getAll(String search) {
+        List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByMinPointsAsc();
         if (search != null && !search.isBlank()) {
-            return guestRepository.search(search).stream().map(this::toResponse).collect(Collectors.toList());
+            return guestRepository.search(search.trim()).stream()
+                    .map(g -> toResponse(g, tiers))
+                    .collect(Collectors.toList());
         }
-        return guestRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream().map(this::toResponse).collect(Collectors.toList());
+        return guestRepository.findAllWithTier().stream()
+                .map(g -> toResponse(g, tiers))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<GuestResponse> getAllPaged(String search, Pageable pageable) {
+        Page<Guest> page;
+        if (search != null && !search.isBlank()) {
+            page = guestRepository.searchPaged(search.trim(), pageable);
+        } else {
+            page = guestRepository.findAllWithTier(pageable);
+        }
+        List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByMinPointsAsc();
+        return page.map(g -> toResponse(g, tiers));
     }
 
     @Override
@@ -195,20 +216,29 @@ public class GuestServiceImpl implements GuestService {
     }
 
     public GuestResponse toResponse(Guest guest) {
-        if (guest.getLoyaltyPoints() != null && guest.getLoyaltyPoints() >= 0) {
-            List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByMinPointsAsc();
+        return toResponse(guest, null);
+    }
+
+    public GuestResponse toResponse(Guest guest, List<LoyaltyTier> cachedTiers) {
+        Long tierId = null;
+        String tierName = null;
+
+        if (guest.getLoyaltyTier() != null) {
+            tierId = guest.getLoyaltyTier().getId();
+            tierName = guest.getLoyaltyTier().getName();
+        } else if (guest.getLoyaltyPoints() != null && guest.getLoyaltyPoints() > 0) {
+            List<LoyaltyTier> tiers = cachedTiers != null
+                    ? cachedTiers
+                    : loyaltyTierRepository.findAllByOrderByMinPointsAsc();
             LoyaltyTier bestTier = null;
             for (LoyaltyTier tier : tiers) {
                 if (guest.getLoyaltyPoints() >= tier.getMinPoints()) {
                     bestTier = tier;
                 }
             }
-            LoyaltyTier currentTier = guest.getLoyaltyTier();
-            if ((bestTier != null && currentTier == null) || 
-                (bestTier != null && currentTier != null && !bestTier.getId().equals(currentTier.getId())) ||
-                (bestTier == null && currentTier != null)) {
-                guest.setLoyaltyTier(bestTier);
-                guestRepository.save(guest);
+            if (bestTier != null) {
+                tierId = bestTier.getId();
+                tierName = bestTier.getName();
             }
         }
 
@@ -219,8 +249,8 @@ public class GuestServiceImpl implements GuestService {
                 .idNumber(guest.getIdNumber())
                 .email(guest.getEmail())
                 .loyaltyPoints(guest.getLoyaltyPoints())
-                .loyaltyTierId(guest.getLoyaltyTier() != null ? guest.getLoyaltyTier().getId() : null)
-                .loyaltyTierName(guest.getLoyaltyTier() != null ? guest.getLoyaltyTier().getName() : null)
+                .loyaltyTierId(tierId)
+                .loyaltyTierName(tierName)
                 .createdAt(guest.getCreatedAt())
                 .build();
     }

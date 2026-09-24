@@ -9,6 +9,8 @@ import {
   IoTrashOutline,
   IoEyeOutline,
   IoCloseCircleOutline,
+  IoChevronBackOutline,
+  IoChevronForwardOutline,
 } from 'react-icons/io5';
 import auditLogApi from '../../services/auditLogApi';
 import { useToast } from '../../context/ToastContext';
@@ -55,29 +57,44 @@ const PersonalDataAuditLogPage: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<{ from: string; to: string }>({ from: '', to: '' });
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
-  const fetchLogs = useCallback(async () => {
+  const fetchLogs = useCallback(async (targetPage = page, targetSize = size) => {
     setLoading(true);
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, any> = { page: targetPage, size: targetSize };
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
       const result = await auditLogApi.getPersonalDataLogs(params);
-      setLogs(result || []);
+      if (result && 'content' in result) {
+        setLogs(result.content);
+        setTotalPages(result.totalPages);
+        setTotalElements(result.totalElements);
+        setPage(result.number);
+      } else {
+        const arr = Array.isArray(result) ? result : [];
+        setLogs(arr);
+        setTotalPages(1);
+        setTotalElements(arr.length);
+        setPage(0);
+      }
     } catch (err: any) {
       toastError(err.response?.data?.message || 'Không thể tải nhật ký dữ liệu cá nhân.');
     } finally {
       setLoading(false);
     }
-  }, [filters, toastError]);
+  }, [filters, page, size, toastError]);
 
   useEffect(() => {
-    fetchLogs();
+    fetchLogs(0, size);
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchLogs();
+    fetchLogs(0, size);
   };
 
   return (
@@ -151,7 +168,7 @@ const PersonalDataAuditLogPage: React.FC = () => {
           <button
             id="audit-refresh-btn"
             type="button"
-            onClick={fetchLogs}
+            onClick={() => fetchLogs(0, size)}
             disabled={loading}
             className="flex items-center gap-2 rounded-md border border-border-grey bg-surface px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50"
           >
@@ -237,9 +254,56 @@ const PersonalDataAuditLogPage: React.FC = () => {
                 })}
               </tbody>
             </table>
-            <div className="border-t border-border-grey px-4 py-3 text-sm text-on-surface-variant">
-              Tổng: <strong>{logs.length}</strong> bản ghi
-            </div>
+            {!loading && totalElements > 0 && (
+              <div className="px-4 py-3 border-t border-border-grey bg-surface-container-lowest flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant">
+                <div>
+                  Hiển thị <strong>{page * size + 1}</strong> - <strong>{Math.min((page + 1) * size, totalElements)}</strong> trong tổng số <strong>{totalElements.toLocaleString()}</strong> bản ghi
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span>Hiển thị:</span>
+                    <select
+                      value={size}
+                      onChange={(e) => {
+                        const newSize = Number(e.target.value);
+                        setSize(newSize);
+                        fetchLogs(0, newSize);
+                      }}
+                      className="px-2 py-1 border border-border-grey rounded-md bg-white text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+                    >
+                      <option value={10}>10 / trang</option>
+                      <option value={20}>20 / trang</option>
+                      <option value={50}>50 / trang</option>
+                      <option value={100}>100 / trang</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={page === 0}
+                      onClick={() => fetchLogs(Math.max(0, page - 1), size)}
+                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+                      title="Trang trước"
+                    >
+                      <IoChevronBackOutline size={14} />
+                    </button>
+                    <span className="px-3 py-1 font-semibold text-on-surface">
+                      Trang {page + 1} / {totalPages || 1}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={page >= totalPages - 1}
+                      onClick={() => fetchLogs(page + 1, size)}
+                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+                      title="Trang sau"
+                    >
+                      <IoChevronForwardOutline size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
