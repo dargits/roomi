@@ -72,6 +72,8 @@ export interface ExtraServiceResponse {
   createdAt?: string;
   updatedAt?: string;
   inventoryItems?: ExtraServiceInventoryItemDto[];
+  usageCount?: number;
+  hasBookings?: boolean;
 }
 
 export interface ExtraServiceRequest {

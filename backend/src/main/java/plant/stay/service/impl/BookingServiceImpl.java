@@ -73,9 +73,9 @@ public class BookingServiceImpl implements BookingService {
     private String appDomain;
 
     @Override
+    @Transactional(readOnly = true)
     public List<BookingResponse> getAll() {
-        List<Booking> all = bookingRepository.findAll();
-        all.sort(this::compareBookingPriority);
+        List<Booking> all = bookingRepository.findAllWithDetails();
         return toResponseList(all);
     }
 
@@ -97,40 +97,10 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<BookingResponse> search(String query, BookingStatus status, LocalDate fromDate, LocalDate toDate) {
-        List<Booking> all = bookingRepository.findAll();
-
-        List<Booking> filtered = all.stream()
-                .filter(b -> {
-                    if (query != null && !query.trim().isEmpty()) {
-                        String q = query.trim().toLowerCase();
-                        String cleanIdQuery = q.startsWith("#") ? q.substring(1).trim() : q;
-                        boolean matchId = !cleanIdQuery.isEmpty() && String.valueOf(b.getId()).contains(cleanIdQuery);
-                        boolean matchRoom = b.getRoom() != null && b.getRoom().getRoomNumber() != null
-                                && b.getRoom().getRoomNumber().toLowerCase().contains(q);
-                        boolean matchName = b.getGuest() != null && b.getGuest().getName() != null 
-                                && b.getGuest().getName().toLowerCase().contains(q);
-                        boolean matchPhone = b.getGuest() != null && b.getGuest().getPhone() != null 
-                                && b.getGuest().getPhone().contains(q);
-                        if (!matchId && !matchRoom && !matchName && !matchPhone) {
-                            return false;
-                        }
-                    }
-                    if (status != null && b.getStatus() != status) {
-                        return false;
-                    }
-                    if (fromDate != null && b.getCheckInDate() != null && b.getCheckInDate().isBefore(fromDate)) {
-                        return false;
-                    }
-                    if (toDate != null && b.getCheckInDate() != null && b.getCheckInDate().isAfter(toDate)) {
-                        return false;
-                    }
-                    return true;
-                })
-                .sorted(this::compareBookingPriority)
-                .collect(Collectors.toList());
-
-        return toResponseList(filtered);
+        Page<BookingResponse> paged = searchPaged(query, status, fromDate, toDate, org.springframework.data.domain.PageRequest.of(0, 100));
+        return paged.getContent();
     }
 
     private int getBookingPriorityRank(Booking b, LocalDate today) {

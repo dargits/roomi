@@ -76,6 +76,49 @@ public class ReportController {
         this(bookingRepository, roomRepository, invoiceRepository, depositRepository, paymentRepository, roomTypeRepository, null, authUtil);
     }
 
+    private static class RevenueContext {
+        final Map<Long, Invoice> invoiceMap = new HashMap<>();
+        final Map<Long, BigDecimal> paidMap = new HashMap<>();
+    }
+
+    private RevenueContext buildRevenueContext(List<Booking> bookings) {
+        RevenueContext ctx = new RevenueContext();
+        if (bookings == null || bookings.isEmpty()) return ctx;
+
+        List<Long> bookingIds = bookings.stream().map(Booking::getId).filter(Objects::nonNull).toList();
+        List<Invoice> invoices = invoiceRepository.findInvoicesCoveringBookingIds(bookingIds);
+        List<Long> invoiceIds = new ArrayList<>();
+
+        for (Invoice inv : invoices) {
+            if (inv.getStatus() != InvoiceStatus.CANCELLED) {
+                if (inv.getBooking() != null) {
+                    ctx.invoiceMap.putIfAbsent(inv.getBooking().getId(), inv);
+                }
+                if (inv.getGroupBooking() != null) {
+                    for (Booking b : bookings) {
+                        if (b.getGroupBooking() != null && b.getGroupBooking().getId().equals(inv.getGroupBooking().getId())) {
+                            ctx.invoiceMap.putIfAbsent(b.getId(), inv);
+                        }
+                    }
+                }
+                if (inv.getId() != null) {
+                    invoiceIds.add(inv.getId());
+                }
+            }
+        }
+
+        if (!invoiceIds.isEmpty()) {
+            List<plant.stay.model.Payment> payments = paymentRepository.findByInvoiceIdIn(invoiceIds);
+            for (plant.stay.model.Payment p : payments) {
+                if (p.getInvoice() != null && p.getAmount() != null) {
+                    Long iId = p.getInvoice().getId();
+                    ctx.paidMap.put(iId, ctx.paidMap.getOrDefault(iId, BigDecimal.ZERO).add(p.getAmount()));
+                }
+            }
+        }
+        return ctx;
+    }
+
     private Invoice getBookingInvoice(Booking b) {
         if (b == null || b.getId() == null) return null;
         try {
@@ -87,13 +130,13 @@ public class ReportController {
         return null;
     }
 
-    /**
-     * Tính toán doanh thu thực tế của booking một cách an toàn:
-     * Ưu tiên Invoice totalAmount > actualPrice > expectedPrice
-     */
     private BigDecimal getEffectiveRevenue(Booking b) {
+        return getEffectiveRevenue(b, null);
+    }
+
+    private BigDecimal getEffectiveRevenue(Booking b, RevenueContext ctx) {
         if (b == null) return BigDecimal.ZERO;
-        Invoice inv = getBookingInvoice(b);
+        Invoice inv = (ctx != null && b.getId() != null) ? ctx.invoiceMap.get(b.getId()) : getBookingInvoice(b);
         if (inv != null && inv.getTotalAmount() != null && inv.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
             return inv.getTotalAmount();
         }
@@ -107,8 +150,12 @@ public class ReportController {
     }
 
     private BigDecimal getEffectiveRoomRevenue(Booking b) {
+        return getEffectiveRoomRevenue(b, null);
+    }
+
+    private BigDecimal getEffectiveRoomRevenue(Booking b, RevenueContext ctx) {
         if (b == null) return BigDecimal.ZERO;
-        Invoice inv = getBookingInvoice(b);
+        Invoice inv = (ctx != null && b.getId() != null) ? ctx.invoiceMap.get(b.getId()) : getBookingInvoice(b);
         if (inv != null && inv.getRoomAmount() != null && inv.getRoomAmount().compareTo(BigDecimal.ZERO) > 0) {
             return inv.getRoomAmount();
         }
@@ -122,8 +169,12 @@ public class ReportController {
     }
 
     private BigDecimal getEffectiveServiceRevenue(Booking b) {
+        return getEffectiveServiceRevenue(b, null);
+    }
+
+    private BigDecimal getEffectiveServiceRevenue(Booking b, RevenueContext ctx) {
         if (b == null) return BigDecimal.ZERO;
-        Invoice inv = getBookingInvoice(b);
+        Invoice inv = (ctx != null && b.getId() != null) ? ctx.invoiceMap.get(b.getId()) : getBookingInvoice(b);
         if (inv != null && inv.getServiceAmount() != null && inv.getServiceAmount().compareTo(BigDecimal.ZERO) > 0) {
             return inv.getServiceAmount();
         }
@@ -139,7 +190,18 @@ public class ReportController {
     }
 
     private BigDecimal getBookingPaidAmount(Booking b) {
+        return getBookingPaidAmount(b, null);
+    }
+
+    private BigDecimal getBookingPaidAmount(Booking b, RevenueContext ctx) {
         if (b == null) return BigDecimal.ZERO;
+        if (ctx != null && b.getId() != null) {
+            Invoice inv = ctx.invoiceMap.get(b.getId());
+            if (inv != null && inv.getId() != null) {
+                return ctx.paidMap.getOrDefault(inv.getId(), BigDecimal.ZERO);
+            }
+            return getEffectiveRevenue(b, ctx);
+        }
         try {
             Optional<Invoice> invOpt = invoiceRepository.findByBookingId(b.getId());
             if (invOpt.isPresent()) {
@@ -176,11 +238,12 @@ public class ReportController {
         // Doanh thu tháng (chỉ từ booking đã CHECKED_OUT trong tháng)
         LocalDate firstOfMonth = today.withDayOfMonth(1);
         List<Booking> monthBookings = bookingRepository.findCheckedOutBetween(firstOfMonth, today);
+        RevenueContext monthCtx = buildRevenueContext(monthBookings);
         BigDecimal monthRevenue = monthBookings.stream()
-                .map(this::getEffectiveRevenue)
+                .map(b -> getEffectiveRevenue(b, monthCtx))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal monthCollected = monthBookings.stream()
-                .map(this::getBookingPaidAmount)
+                .map(b -> getBookingPaidAmount(b, monthCtx))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal monthDebt = monthRevenue.subtract(monthCollected).max(BigDecimal.ZERO);
 
@@ -232,18 +295,19 @@ public class ReportController {
             HttpServletRequest request) {
         checkFinance(request);
         List<Booking> bookings = bookingRepository.findCheckedOutBetween(from, to);
+        RevenueContext ctx = buildRevenueContext(bookings);
 
         BigDecimal totalRevenue = bookings.stream()
-                .map(this::getEffectiveRevenue)
+                .map(b -> getEffectiveRevenue(b, ctx))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal roomRevenue = bookings.stream()
-                .map(this::getEffectiveRoomRevenue)
+                .map(b -> getEffectiveRoomRevenue(b, ctx))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal serviceRevenue = bookings.stream()
-                .map(this::getEffectiveServiceRevenue)
+                .map(b -> getEffectiveServiceRevenue(b, ctx))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCollected = bookings.stream()
-                .map(this::getBookingPaidAmount)
+                .map(b -> getBookingPaidAmount(b, ctx))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalDebt = totalRevenue.subtract(totalCollected).max(BigDecimal.ZERO);
         int bookingCount = bookings.size();
@@ -281,10 +345,10 @@ public class ReportController {
 
             for (String period : allPeriods) {
                 List<Booking> pBookings = groupedBookings.getOrDefault(period, Collections.emptyList());
-                BigDecimal rRev = pBookings.stream().map(this::getEffectiveRoomRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal sRev = pBookings.stream().map(this::getEffectiveServiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal rev = pBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal collected = pBookings.stream().map(this::getBookingPaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rRev = pBookings.stream().map(b -> getEffectiveRoomRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal sRev = pBookings.stream().map(b -> getEffectiveServiceRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rev = pBookings.stream().map(b -> getEffectiveRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal collected = pBookings.stream().map(b -> getBookingPaidAmount(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
                 BigDecimal pen = penaltyByPeriod.getOrDefault(period, BigDecimal.ZERO);
 
@@ -319,10 +383,10 @@ public class ReportController {
 
             for (LocalDate dKey : allDates) {
                 List<Booking> pBookings = groupedBookings.getOrDefault(dKey, Collections.emptyList());
-                BigDecimal rRev = pBookings.stream().map(this::getEffectiveRoomRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal sRev = pBookings.stream().map(this::getEffectiveServiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal rev = pBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal collected = pBookings.stream().map(this::getBookingPaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rRev = pBookings.stream().map(b -> getEffectiveRoomRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal sRev = pBookings.stream().map(b -> getEffectiveServiceRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rev = pBookings.stream().map(b -> getEffectiveRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal collected = pBookings.stream().map(b -> getBookingPaidAmount(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal debt = rev.subtract(collected).max(BigDecimal.ZERO);
                 BigDecimal pen = penaltyByDate.getOrDefault(dKey, BigDecimal.ZERO);
 
@@ -345,7 +409,7 @@ public class ReportController {
                 .filter(b -> "NEGOTIATED".equalsIgnoreCase(b.getPriceSource()) || b.getAppliedAgreement() != null)
                 .collect(Collectors.toList());
         BigDecimal negotiatedRevenue = negotiatedBookings.stream()
-                .map(this::getEffectiveRevenue)
+                .map(b -> getEffectiveRevenue(b, ctx))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         long negotiatedRoomNights = 0;
         for (Booking b : negotiatedBookings) {
@@ -385,12 +449,13 @@ public class ReportController {
             HttpServletRequest request) {
         checkFinance(request);
         List<Booking> bookings = bookingRepository.findCheckedOutBetween(from, to);
+        RevenueContext ctx = buildRevenueContext(bookings);
         List<Booking> negotiatedBookings = bookings.stream()
                 .filter(b -> "NEGOTIATED".equalsIgnoreCase(b.getPriceSource()) || b.getAppliedAgreement() != null)
                 .collect(Collectors.toList());
 
-        BigDecimal totalRevenue = bookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal negotiatedRevenue = negotiatedBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalRevenue = bookings.stream().map(b -> getEffectiveRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal negotiatedRevenue = negotiatedBookings.stream().map(b -> getEffectiveRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         long negotiatedRoomNights = 0;
         for (Booking b : negotiatedBookings) {
@@ -408,7 +473,7 @@ public class ReportController {
 
         List<Map<String, Object>> agreementBreakdown = byAgreement.entrySet().stream()
                 .map(e -> {
-                    BigDecimal rev = e.getValue().stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal rev = e.getValue().stream().map(b -> getEffectiveRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
                     long nights = e.getValue().stream().mapToLong(b -> {
                         if (b.getCheckInDate() != null && b.getCheckOutDate() != null) {
                             return Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()));
@@ -513,6 +578,8 @@ public class ReportController {
         List<Booking> bookings = bookingRepository.findCheckedOutBetween(from, to);
         if (bookings == null) bookings = Collections.emptyList();
 
+        RevenueContext ctx = buildRevenueContext(bookings);
+
         List<plant.stay.model.Room> allRooms = roomRepository.findAllWithRoomType();
         if (allRooms == null) allRooms = Collections.emptyList();
 
@@ -528,7 +595,7 @@ public class ReportController {
         long totalSoldNights = 0;
 
         for (Booking b : bookings) {
-            BigDecimal rev = getEffectiveRevenue(b);
+            BigDecimal rev = getEffectiveRevenue(b, ctx);
             totalRevenue = totalRevenue.add(rev != null ? rev : BigDecimal.ZERO);
             long nights = 1;
             if (b.getCheckInDate() != null && b.getCheckOutDate() != null) {
@@ -562,7 +629,7 @@ public class ReportController {
                         String periodStr = e.getKey();
                         List<Booking> bList = e.getValue() != null ? e.getValue() : Collections.emptyList();
                         BigDecimal rev = bList.stream()
-                                .map(this::getEffectiveRevenue)
+                                .map(b -> getEffectiveRevenue(b, ctx))
                                 .reduce(BigDecimal.ZERO, BigDecimal::add);
                         long soldNights = bList.stream()
                                 .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
@@ -609,7 +676,7 @@ public class ReportController {
                         LocalDate d = e.getKey();
                         List<Booking> bList = e.getValue() != null ? e.getValue() : Collections.emptyList();
                         BigDecimal rev = bList.stream()
-                                .map(this::getEffectiveRevenue)
+                                .map(b -> getEffectiveRevenue(b, ctx))
                                 .reduce(BigDecimal.ZERO, BigDecimal::add);
                         long soldNights = bList.stream()
                                 .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
@@ -656,7 +723,7 @@ public class ReportController {
                     .collect(Collectors.toList());
 
             BigDecimal rtRevenue = rtBookings.stream()
-                    .map(this::getEffectiveRevenue)
+                    .map(b -> getEffectiveRevenue(b, ctx))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             long rtSoldNights = rtBookings.stream()
@@ -708,7 +775,7 @@ public class ReportController {
                     .collect(Collectors.toList());
 
             BigDecimal rRevenue = rBookings.stream()
-                    .map(this::getEffectiveRevenue)
+                    .map(b -> getEffectiveRevenue(b, ctx))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             long rSoldNights = rBookings.stream()
@@ -811,6 +878,8 @@ public class ReportController {
         List<Booking> bookings = bookingRepository.findBookingsForChannelReport(from, to);
         if (bookings == null) bookings = Collections.emptyList();
 
+        RevenueContext ctx = buildRevenueContext(bookings);
+
         List<String> channelKeys = List.of("WALKIN", "PHONE", "SOCIAL", "ONLINE", "SIMULATION", "UNKNOWN");
         Map<String, List<Booking>> channelGrouped = new LinkedHashMap<>();
         for (String k : channelKeys) {
@@ -841,7 +910,7 @@ public class ReportController {
 
             // Doanh thu theo kênh: lấy từ hóa đơn đã lập, không lấy tiền phòng dự kiến
             BigDecimal channelRevenue = bList.stream()
-                    .map(this::getInvoiceRevenue)
+                    .map(b -> getInvoiceRevenue(b, ctx))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             // Số đêm phòng bán được: tính từ các booking đã hoàn thành hoặc đang lưu trú trong kỳ
@@ -1044,10 +1113,14 @@ public class ReportController {
         List<Booking> yoyBookings = bookingRepository.findCheckedOutBetween(yoyFrom, yoyTo);
         if (yoyBookings == null) yoyBookings = Collections.emptyList();
 
+        RevenueContext curCtx = buildRevenueContext(curBookings);
+        RevenueContext prevCtx = buildRevenueContext(prevBookings);
+        RevenueContext yoyCtx = buildRevenueContext(yoyBookings);
+
         // 3. Tính toán các chỉ số cho từng kỳ
-        PeriodComparisonReportResponse.PeriodMetrics curMetrics = calculatePeriodMetrics(from, to, curBookings, allRooms);
-        PeriodComparisonReportResponse.PeriodMetrics prevMetrics = calculatePeriodMetrics(prevFrom, prevTo, prevBookings, allRooms);
-        PeriodComparisonReportResponse.PeriodMetrics yoyMetrics = calculatePeriodMetrics(yoyFrom, yoyTo, yoyBookings, allRooms);
+        PeriodComparisonReportResponse.PeriodMetrics curMetrics = calculatePeriodMetrics(from, to, curBookings, allRooms, curCtx);
+        PeriodComparisonReportResponse.PeriodMetrics prevMetrics = calculatePeriodMetrics(prevFrom, prevTo, prevBookings, allRooms, prevCtx);
+        PeriodComparisonReportResponse.PeriodMetrics yoyMetrics = calculatePeriodMetrics(yoyFrom, yoyTo, yoyBookings, allRooms, yoyCtx);
 
         // 4. Tính toán độ chênh lệch Delta và % Tăng trưởng
         PeriodComparisonReportResponse.MetricComparisonSummary popComp = buildComparisonSummary(curMetrics, prevMetrics);
@@ -1063,7 +1136,7 @@ public class ReportController {
 
             BigDecimal cRev = curBookings.stream()
                     .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(curDay))
-                    .map(this::getEffectiveRevenue)
+                    .map(b -> getEffectiveRevenue(b, curCtx))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             long cNights = curBookings.stream()
                     .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(curDay))
@@ -1078,7 +1151,7 @@ public class ReportController {
             if (prDay != null) {
                 pRev = prevBookings.stream()
                         .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(prDay))
-                        .map(this::getEffectiveRevenue)
+                        .map(b -> getEffectiveRevenue(b, prevCtx))
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
                 long pNights = prevBookings.stream()
                         .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(prDay))
@@ -1094,7 +1167,7 @@ public class ReportController {
             if (yyDay != null) {
                 yRev = yoyBookings.stream()
                         .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(yyDay))
-                        .map(this::getEffectiveRevenue)
+                        .map(b -> getEffectiveRevenue(b, yoyCtx))
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
                 long yNights = yoyBookings.stream()
                         .filter(b -> b.getCheckOutDate() != null && b.getCheckOutDate().equals(yyDay))
@@ -1131,7 +1204,7 @@ public class ReportController {
             List<Booking> rtCurBookings = curBookings.stream()
                     .filter(b -> b.getRoomType() != null && b.getRoomType().getId() != null && b.getRoomType().getId().equals(rt.getId()))
                     .collect(Collectors.toList());
-            BigDecimal curRev = rtCurBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal curRev = rtCurBookings.stream().map(b -> getEffectiveRevenue(b, curCtx)).reduce(BigDecimal.ZERO, BigDecimal::add);
             long curSold = rtCurBookings.stream()
                     .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
                             ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
@@ -1146,7 +1219,7 @@ public class ReportController {
             List<Booking> rtPrevBookings = prevBookings.stream()
                     .filter(b -> b.getRoomType() != null && b.getRoomType().getId() != null && b.getRoomType().getId().equals(rt.getId()))
                     .collect(Collectors.toList());
-            BigDecimal prevRev = rtPrevBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal prevRev = rtPrevBookings.stream().map(b -> getEffectiveRevenue(b, prevCtx)).reduce(BigDecimal.ZERO, BigDecimal::add);
             long prevSold = rtPrevBookings.stream()
                     .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
                             ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
@@ -1164,7 +1237,7 @@ public class ReportController {
             List<Booking> rtYoyBookings = yoyBookings.stream()
                     .filter(b -> b.getRoomType() != null && b.getRoomType().getId() != null && b.getRoomType().getId().equals(rt.getId()))
                     .collect(Collectors.toList());
-            BigDecimal yyRev = rtYoyBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal yyRev = rtYoyBookings.stream().map(b -> getEffectiveRevenue(b, yoyCtx)).reduce(BigDecimal.ZERO, BigDecimal::add);
             long yySold = rtYoyBookings.stream()
                     .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
                             ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
@@ -1232,7 +1305,7 @@ public class ReportController {
     }
 
     private PeriodComparisonReportResponse.PeriodMetrics calculatePeriodMetrics(
-            LocalDate f, LocalDate t, List<Booking> bookings, List<plant.stay.model.Room> allRooms) {
+            LocalDate f, LocalDate t, List<Booking> bookings, List<plant.stay.model.Room> allRooms, RevenueContext ctx) {
         long days = Math.max(1, ChronoUnit.DAYS.between(f, t) + 1);
         long totalRooms = allRooms.size();
         long availableRoomNights = totalRooms * days;
@@ -1242,9 +1315,9 @@ public class ReportController {
         long soldRoomNights = 0;
 
         for (Booking b : bookings) {
-            BigDecimal rev = getEffectiveRevenue(b);
+            BigDecimal rev = getEffectiveRevenue(b, ctx);
             roomRevenue = roomRevenue.add(rev != null ? rev : BigDecimal.ZERO);
-            BigDecimal paid = getBookingPaidAmount(b);
+            BigDecimal paid = getBookingPaidAmount(b, ctx);
             collectedRevenue = collectedRevenue.add(paid != null ? paid : BigDecimal.ZERO);
 
             long nights = (b.getCheckInDate() != null && b.getCheckOutDate() != null)
@@ -1469,29 +1542,32 @@ public class ReportController {
         StringBuilder csv = new StringBuilder();
         if ("bookings".equals(type)) {
             csv.append("ID,Khách,Phòng,Nhận phòng,Trả phòng,Trạng thái,Tiền phòng\n");
-            bookingRepository.findCheckedOutBetween(from, to).forEach(b ->
+            List<Booking> exportBookings = bookingRepository.findCheckedOutBetween(from, to);
+            RevenueContext ctx = buildRevenueContext(exportBookings);
+            exportBookings.forEach(b ->
                     csv.append(String.format("%d,%s,%s,%s,%s,%s,%s\n",
                             b.getId(), b.getGuest().getName(),
                             b.getRoom() != null ? b.getRoom().getRoomNumber() : "",
                             b.getCheckInDate(), b.getCheckOutDate(),
                             b.getStatus().name(),
-                            getEffectiveRevenue(b))));
+                            getEffectiveRevenue(b, ctx))));
         } else if ("adr_revpar".equals(type)) {
             csv.append("BÁO CÁO GIÁ BÁN TRUNG BÌNH (ADR) VÀ DOANH THU TRÊN MỖI PHÒNG (RevPAR)\n");
             csv.append(String.format("Khoảng thời gian: %s đến %s\n\n", from, to));
             csv.append("Số phòng,Tầng,Loại phòng,Lượt đặt,Đêm phòng bán,Đêm sẵn có,Công suất (%),Doanh thu (đ),ADR (đ),RevPAR (đ),Tỷ trọng (%)\n");
 
             List<Booking> bookings = bookingRepository.findCheckedOutBetween(from, to);
+            RevenueContext ctx = buildRevenueContext(bookings);
             List<plant.stay.model.Room> allRooms = roomRepository.findAll();
             long daysInRange = Math.max(1, ChronoUnit.DAYS.between(from, to) + 1);
 
-            BigDecimal totalRevenue = bookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalRevenue = bookings.stream().map(b -> getEffectiveRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
 
             for (plant.stay.model.Room room : allRooms) {
                 List<Booking> rBookings = bookings.stream()
                         .filter(b -> b.getRoom() != null && b.getRoom().getId().equals(room.getId()))
                         .collect(Collectors.toList());
-                BigDecimal rRev = rBookings.stream().map(this::getEffectiveRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rRev = rBookings.stream().map(b -> getEffectiveRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
                 long rSoldNights = rBookings.stream().mapToLong(b -> Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))).sum();
                 BigDecimal rAdr = rSoldNights > 0 ? rRev.divide(BigDecimal.valueOf(rSoldNights), 2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
                 BigDecimal rRevpar = daysInRange > 0 ? rRev.divide(BigDecimal.valueOf(daysInRange), 2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
@@ -1518,6 +1594,7 @@ public class ReportController {
 
             List<Booking> bookings = bookingRepository.findBookingsForChannelReport(from, to);
             if (bookings == null) bookings = Collections.emptyList();
+            RevenueContext ctx = buildRevenueContext(bookings);
 
             List<String> channelKeys = List.of("WALKIN", "PHONE", "SOCIAL", "ONLINE", "SIMULATION", "UNKNOWN");
             Map<String, List<Booking>> channelGrouped = new LinkedHashMap<>();
@@ -1534,13 +1611,15 @@ public class ReportController {
             long totalNights = 0;
             long totalCancel = 0;
             long totalNoShow = 0;
+            Map<String, BigDecimal> channelRevs = new HashMap<>();
 
             for (String k : channelKeys) {
                 List<Booking> bList = channelGrouped.get(k);
                 long cnt = bList.size();
                 long can = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CANCELLED).count();
                 long ns = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.NO_SHOW).count();
-                BigDecimal rev = bList.stream().map(this::getInvoiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rev = bList.stream().map(b -> getInvoiceRevenue(b, ctx)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                channelRevs.put(k, rev);
                 long nights = bList.stream()
                         .filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT || b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN)
                         .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
@@ -1559,7 +1638,7 @@ public class ReportController {
                 long cnt = bList.size();
                 long can = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CANCELLED).count();
                 long ns = bList.stream().filter(b -> b.getStatus() == plant.stay.model.BookingStatus.NO_SHOW).count();
-                BigDecimal rev = bList.stream().map(this::getInvoiceRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal rev = channelRevs.getOrDefault(k, BigDecimal.ZERO);
                 long nights = bList.stream()
                         .filter(b -> b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT || b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN)
                         .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
@@ -1680,16 +1759,26 @@ public class ReportController {
     }
 
     private BigDecimal getInvoiceRevenue(Booking b) {
+        return getInvoiceRevenue(b, null);
+    }
+
+    private BigDecimal getInvoiceRevenue(Booking b, RevenueContext ctx) {
         if (b == null) return BigDecimal.ZERO;
-        try {
-            Optional<Invoice> invOpt = invoiceRepository.findByBookingId(b.getId());
-            if (invOpt.isPresent()) {
-                Invoice inv = invOpt.get();
-                if (inv.getTotalAmount() != null && inv.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-                    return inv.getTotalAmount();
+        Invoice inv = (ctx != null && b.getId() != null) ? ctx.invoiceMap.get(b.getId()) : null;
+        if (inv != null && inv.getTotalAmount() != null && inv.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+            return inv.getTotalAmount();
+        }
+        if (inv == null) {
+            try {
+                Optional<Invoice> invOpt = invoiceRepository.findByBookingId(b.getId());
+                if (invOpt.isPresent()) {
+                    Invoice fallbackInv = invOpt.get();
+                    if (fallbackInv.getTotalAmount() != null && fallbackInv.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        return fallbackInv.getTotalAmount();
+                    }
                 }
-            }
-        } catch (Exception ignored) {}
+            } catch (Exception ignored) {}
+        }
         if (b.getStatus() == plant.stay.model.BookingStatus.CHECKED_OUT && b.getActualPrice() != null && b.getActualPrice().compareTo(BigDecimal.ZERO) > 0) {
             return b.getActualPrice();
         }

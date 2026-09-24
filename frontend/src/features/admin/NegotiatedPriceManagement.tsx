@@ -22,7 +22,7 @@ export const NegotiatedPriceManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<NegotiatedPriceAgreement | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { success: toastSuccess, error: toastError } = useToast();
+  const { success: toastSuccess, error: toastError, confirm } = useToast();
 
   const filteredAgreements = useMemo(() => {
     return agreements.filter(a => {
@@ -85,7 +85,13 @@ export const NegotiatedPriceManagement: React.FC = () => {
   };
 
   const handleDeactivate = async (agreement: NegotiatedPriceAgreement) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn vô hiệu hóa thỏa thuận "${agreement.name}"?`)) {
+    const isConfirmed = await confirm({
+      title: 'Vô hiệu hóa thỏa thuận giá',
+      message: `Bạn có chắc chắn muốn vô hiệu hóa thỏa thuận "${agreement.name}"?`,
+      confirmText: 'Vô hiệu hóa',
+      type: 'warning'
+    });
+    if (!isConfirmed) {
       return;
     }
     try {
