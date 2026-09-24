@@ -92,7 +92,11 @@ const HeroStatCard: React.FC<{
         <div className="inline-flex items-center gap-1 bg-[#16220E] text-[#D4F63D] px-2 py-0.5 rounded-full text-[11px] font-bold shadow-xs shrink-0 whitespace-nowrap">
           <IoArrowUpOutline size={12} className="shrink-0" />
           <span>
-            <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
+            {rawValue > 0 ? (
+              <AnimatedCounter value={collectionPercent} suffix="% Đã thu" />
+            ) : (
+              '0% Đã thu'
+            )}
           </span>
         </div>
       </div>
@@ -229,6 +233,8 @@ const WeeklyOccupancyChart: React.FC<{
   occupancyRows: OccupancyReportRow[];
   revenueRows: RevenueReportRow[];
   totalRooms: number;
+  currentOccupiedRooms?: number;
+  todayBookingsCount?: number;
   activeRange: 'week' | 'month';
   onRangeChange: (range: 'week' | 'month') => void;
   isLoading?: boolean;
@@ -237,77 +243,148 @@ const WeeklyOccupancyChart: React.FC<{
   occupancyRows,
   revenueRows,
   totalRooms,
+  currentOccupiedRooms = 0,
+  todayBookingsCount = 0,
   activeRange,
   onRangeChange,
   isLoading,
   className = ''
 }) => {
-  // Chuẩn hóa dữ liệu theo 7 ngày gần nhất hoặc các ngày trong tháng
-  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
 
-  // Tạo danh sách ngày thực tế
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const fullDayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+  // Hàm format ngày địa phương chuẩn YYYY-MM-DD
+  const formatLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // Chuẩn hóa dữ liệu theo 7 ngày gần nhất hoặc các ngày trong tháng
   const chartItems = React.useMemo(() => {
+    const now = new Date();
+    const todayStr = formatLocalDate(now);
+
     if (activeRange === 'week') {
       const result = [];
-      const now = new Date();
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        const dayLabel = dayNames[d.getDay()];
+        const dateStr = formatLocalDate(d);
+        const dayOfWeek = d.getDay();
+        const dayLabel = dayNames[dayOfWeek];
+        const fullDayLabel = fullDayNames[dayOfWeek];
+        const shortDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
 
         const occ = occupancyRows.find(r => r.date === dateStr);
         const rev = revenueRows.find(r => r.date === dateStr || r.period === dateStr);
 
+        const rawOcc = occ?.occupiedRooms ?? 0;
+        const occupiedRooms = isToday && rawOcc === 0 && currentOccupiedRooms > 0 ? currentOccupiedRooms : rawOcc;
+        const availableRooms = occ?.availableRooms ?? Math.max(0, totalRooms - occupiedRooms);
+        const occupancyRate = occ?.occupancyRate ?? (totalRooms > 0 && occupiedRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
+        const newBookings = rev?.bookings ?? (isToday && todayBookingsCount > 0 ? todayBookingsCount : 0);
+        const revenue = rev?.revenue ?? 0;
+
         result.push({
           dateStr,
           dayLabel,
-          occupiedRooms: occ?.occupiedRooms ?? 0,
-          availableRooms: occ?.availableRooms ?? Math.max(0, totalRooms - (occ?.occupiedRooms ?? 0)),
-          occupancyRate: occ?.occupancyRate ?? (totalRooms > 0 && occ?.occupiedRooms ? Math.round((occ.occupiedRooms / totalRooms) * 100) : 0),
-          newBookings: rev?.bookings ?? 0,
-          revenue: rev?.revenue ?? 0
+          fullDayLabel,
+          shortDate,
+          isToday,
+          occupiedRooms,
+          availableRooms,
+          occupancyRate,
+          newBookings,
+          revenue
         });
       }
       return result;
     } else {
-      // Month mode: lấy theo các ngày có trong occupancyRows hoặc tối đa 14 ngày gần nhất
-      const sliced = occupancyRows.slice(-14);
-      if (sliced.length === 0) {
-        return [];
+      // Month mode: Đảm bảo có ngày hôm nay nếu nằm trong tháng hiện tại
+      const rows = [...occupancyRows];
+      if (!rows.some(r => r.date === todayStr)) {
+        rows.push({
+          date: todayStr,
+          occupiedRooms: currentOccupiedRooms,
+          availableRooms: Math.max(0, totalRooms - currentOccupiedRooms),
+          occupancyRate: totalRooms > 0 ? Math.round((currentOccupiedRooms / totalRooms) * 100) : 0
+        });
       }
+      const sliced = rows.length > 14 ? rows.slice(-14) : rows;
+      if (sliced.length === 0) return [];
+
       return sliced.map(occ => {
         const d = new Date(occ.date);
-        const dayLabel = `${d.getDate()}/${d.getMonth() + 1}`;
+        const dayOfWeek = isNaN(d.getDay()) ? 0 : d.getDay();
+        const dayLabel = dayNames[dayOfWeek];
+        const fullDayLabel = `${fullDayNames[dayOfWeek]}, ${d.getDate()}/${d.getMonth() + 1}`;
+        const shortDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const isToday = occ.date === todayStr;
         const rev = revenueRows.find(r => r.date === occ.date || r.period === occ.date);
+
+        const rawOcc = occ.occupiedRooms ?? 0;
+        const occupiedRooms = isToday && rawOcc === 0 && currentOccupiedRooms > 0 ? currentOccupiedRooms : rawOcc;
+        const availableRooms = occ.availableRooms ?? Math.max(0, totalRooms - occupiedRooms);
+        const occupancyRate = occ.occupancyRate ?? (totalRooms > 0 && occupiedRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
+        const newBookings = rev?.bookings ?? (isToday && todayBookingsCount > 0 ? todayBookingsCount : 0);
+        const revenue = rev?.revenue ?? 0;
+
         return {
           dateStr: occ.date,
           dayLabel,
-          occupiedRooms: occ.occupiedRooms ?? 0,
-          availableRooms: occ.availableRooms ?? Math.max(0, totalRooms - (occ.occupiedRooms ?? 0)),
-          occupancyRate: occ.occupancyRate ?? 0,
-          newBookings: rev?.bookings ?? 0,
-          revenue: rev?.revenue ?? 0
+          fullDayLabel,
+          shortDate,
+          isToday,
+          occupiedRooms,
+          availableRooms,
+          occupancyRate,
+          newBookings,
+          revenue
         };
       });
     }
-  }, [occupancyRows, revenueRows, totalRooms, activeRange]);
+  }, [occupancyRows, revenueRows, totalRooms, activeRange, currentOccupiedRooms, todayBookingsCount]);
 
-  // Tìm giá trị max thực tế để chuẩn hóa scale cột
-  const maxRooms = Math.max(totalRooms, ...chartItems.map(item => item.occupiedRooms), 1);
-  const maxBookings = Math.max(...chartItems.map(item => item.newBookings), 1);
+  // Thống kê nhanh tổng quan biểu đồ
+  const summary = React.useMemo(() => {
+    const totalNewBookings = chartItems.reduce((acc, it) => acc + it.newBookings, 0);
+    const avgOccupancyRate = chartItems.length > 0
+      ? Math.round(chartItems.reduce((acc, it) => acc + it.occupancyRate, 0) / chartItems.length)
+      : 0;
+
+    let peakDay = chartItems[0];
+    for (const it of chartItems) {
+      if (!peakDay || it.occupiedRooms > peakDay.occupiedRooms) {
+        peakDay = it;
+      }
+    }
+
+    const totalRevenue = chartItems.reduce((acc, it) => acc + it.revenue, 0);
+
+    return { totalNewBookings, avgOccupancyRate, peakDay, totalRevenue };
+  }, [chartItems]);
 
   return (
     <div className={`bg-white border border-border-grey rounded-2xl p-5 md:p-6 shadow-2xs flex flex-col justify-between h-full ${className}`}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-grey shrink-0">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-grey shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <IoBarChartOutline size={18} className="text-[#626F47]" />
-            <h3 className="font-bold text-base text-[#1A2411]">Công suất & Lượng khách</h3>
+            <div className="p-1.5 rounded-lg bg-[#EBF0E3] text-[#626F47]">
+              <IoBarChartOutline size={18} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-[#1A2411] leading-tight">Công suất & Lượng khách</h3>
+              <p className="text-xs text-[#606D56] mt-0.5">
+                Số phòng lưu trú thực tế & lượng đơn đặt phòng mới phát sinh
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-[#606D56] mt-0.5">
-            Dữ liệu thực tế: số phòng có khách và đơn đặt mới theo từng ngày
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -332,61 +409,212 @@ const WeeklyOccupancyChart: React.FC<{
         </div>
       </div>
 
-      {/* Dual Bar Chart Canvas */}
-      <div className="my-auto py-3 flex items-end justify-between gap-2 sm:gap-4 flex-1 min-h-[190px] px-2">
+      {/* Mini KPI Summary Strip */}
+      <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-[#F9FAF6] rounded-xl border border-[#E8EEE0] my-3 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#D4F63D] border border-[#B5D625] shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[11px] text-[#606D56] block truncate">Tổng đặt mới</span>
+            <span className="font-extrabold text-[#1A2411] text-xs sm:text-sm">
+              {summary.totalNewBookings} <span className="text-[11px] font-normal text-[#606D56]">đơn</span>
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 min-w-0 border-x border-[#E2E8D7] px-2 sm:px-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#626F47] shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[11px] text-[#606D56] block truncate">Công suất TB</span>
+            <span className="font-extrabold text-[#1A2411] text-xs sm:text-sm">
+              {summary.avgOccupancyRate}%
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 min-w-0 pl-1">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[11px] text-[#606D56] block truncate">Đông nhất</span>
+            <span className="font-extrabold text-[#1A2411] text-xs sm:text-sm truncate block" title={summary.peakDay && summary.peakDay.occupiedRooms > 0 ? `${summary.peakDay.dayLabel} (${summary.peakDay.occupiedRooms} phòng)` : 'Chưa có'}>
+              {summary.peakDay && summary.peakDay.occupiedRooms > 0
+                ? `${summary.peakDay.dayLabel} (${summary.peakDay.occupiedRooms} ph)`
+                : '0 phòng'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart Canvas with Y-Axis & Gridlines */}
+      <div className="flex-1 flex flex-col justify-between min-h-[230px] relative pt-2">
         {chartItems.length === 0 ? (
-          <div className="w-full h-full flex flex-col items-center justify-center text-xs text-[#606D56]">
+          <div className="w-full h-full flex flex-col items-center justify-center text-xs text-[#606D56] py-12">
             <IoBarChartOutline size={32} className="text-[#86967B]/40 mb-2" />
             <span>Chưa có dữ liệu công suất trong khoảng thời gian này</span>
           </div>
         ) : (
-          chartItems.map((item, idx) => {
-            // Tỷ lệ phần trăm cột: Cột 1 (Đặt mới), Cột 2 (Đang ở)
-            const hBookings = maxBookings > 0 ? Math.round((item.newBookings / maxBookings) * 100) : 0;
-            const hOccupied = maxRooms > 0 ? Math.round((item.occupiedRooms / maxRooms) * 100) : 0;
+          <div className="flex items-stretch flex-1 gap-1.5 sm:gap-2 relative">
+            {/* Trục Y mốc giá trị bên trái */}
+            <div className="w-9 sm:w-11 flex flex-col justify-between items-end pb-8 pr-1.5 text-[10px] font-mono text-[#86967B] shrink-0 select-none">
+              <span>100%</span>
+              <span>75%</span>
+              <span>50%</span>
+              <span>25%</span>
+              <span>0%</span>
+            </div>
 
-            return (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                <div className="w-full max-w-[42px] flex items-end justify-center gap-1 sm:gap-1.5 flex-1 min-h-0">
-                  {/* Bar 1: Lime Accent (Đặt mới) */}
-                  <div
-                    className="w-1/2 bg-[#D4F63D] hover:bg-[#C2E232] rounded-t-md transition-all duration-300 relative group/bar min-h-[4px]"
-                    style={{ height: `${Math.max(4, hBookings)}%` }}
-                  >
-                    <div className="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-[#1A2411] text-white text-[10px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-md">
-                      {item.newBookings} đơn mới
-                    </div>
-                  </div>
-
-                  {/* Bar 2: Deep Olive (Đang ở) */}
-                  <div
-                    className="w-1/2 bg-[#626F47] hover:bg-[#525E3B] rounded-t-md transition-all duration-300 relative group/bar min-h-[4px]"
-                    style={{ height: `${Math.max(4, hOccupied)}%` }}
-                  >
-                    <div className="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-[#1A2411] text-white text-[10px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-md">
-                      {item.occupiedRooms} phòng đang ở ({item.occupancyRate}%)
-                    </div>
-                  </div>
-                </div>
-
-                <span className="text-[11px] font-bold text-[#606D56] group-hover:text-[#1A2411] transition-colors shrink-0">
-                  {item.dayLabel}
-                </span>
+            {/* Vùng vẽ biểu đồ */}
+            <div className="flex-1 relative flex flex-col justify-between">
+              {/* Background Grid Lines aligned with the bars area */}
+              <div className="absolute inset-x-0 top-0 bottom-8 flex flex-col justify-between pointer-events-none">
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-[#D8DFCE] w-full" />
               </div>
-            );
-          })
+
+              {/* Các cột dữ liệu theo ngày */}
+              <div className="relative z-10 flex items-stretch justify-between gap-1 sm:gap-2 flex-1">
+                {chartItems.map((item, idx) => {
+                  // Tỷ lệ % cho cột phòng có khách: chuẩn theo tỷ lệ công suất 0-100%
+                  const hOccupied = Math.min(100, Math.max(0, item.occupancyRate));
+
+                  // Tỷ lệ % cho cột đặt phòng mới: scale theo trần tối thiểu 5 để không bị vọt lố
+                  const maxBookingsCeil = Math.max(5, ...chartItems.map(i => i.newBookings));
+                  const hBookings = Math.min(100, Math.round((item.newBookings / maxBookingsCeil) * 100));
+
+                  const isHovered = hoveredIdx === idx;
+
+                  // Tooltip position alignment to avoid edge overflows
+                  const tooltipPosClass = idx === 0
+                    ? 'left-0'
+                    : idx === chartItems.length - 1
+                      ? 'right-0'
+                      : 'left-1/2 -translate-x-1/2';
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex-1 flex flex-col items-center justify-end rounded-xl p-1 transition-all relative ${
+                        isHovered ? 'bg-[#F2F6ED]/90 shadow-2xs' : 'hover:bg-[#F8FAF4]'
+                      }`}
+                      onMouseEnter={() => setHoveredIdx(idx)}
+                      onMouseLeave={() => setHoveredIdx(null)}
+                    >
+                      {/* Unified Hover Tooltip Card */}
+                      {isHovered && (
+                        <div
+                          className={`absolute bottom-full mb-3 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-150 ${tooltipPosClass}`}
+                        >
+                          <div className="bg-[#1A2411] text-white text-xs rounded-xl p-3 shadow-xl whitespace-nowrap border border-[#303D20] min-w-[190px]">
+                            <div className="flex items-center justify-between border-b border-[#303D20] pb-1.5 mb-2">
+                              <span className="font-bold text-[#E4F2CC] text-xs">
+                                {item.fullDayLabel}
+                              </span>
+                              {item.isToday && (
+                                <span className="text-[10px] bg-[#D4F63D] text-[#1A2411] px-1.5 py-0.2 rounded font-bold">
+                                  Hôm nay
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1.5 text-[11px]">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-[#A4B495] flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-[#626F47] shrink-0" />
+                                  Phòng có khách:
+                                </span>
+                                <span className="font-bold text-white">
+                                  {item.occupiedRooms} / {totalRooms} ({item.occupancyRate}%)
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-[#A4B495] flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-[#D4F63D] shrink-0" />
+                                  Đặt phòng mới:
+                                </span>
+                                <span className="font-bold text-[#D4F63D]">
+                                  {item.newBookings} đơn
+                                </span>
+                              </div>
+                              {item.revenue > 0 && (
+                                <div className="flex items-center justify-between gap-3 pt-1 border-t border-[#303D20]/60">
+                                  <span className="text-[#A4B495]">Doanh thu:</span>
+                                  <span className="font-bold text-[#F3FCE3]">
+                                    {fmtCurrency(item.revenue)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Tooltip arrow */}
+                          <div className="w-2.5 h-2.5 bg-[#1A2411] rotate-45 mx-auto -mt-1 border-r border-b border-[#303D20]" />
+                        </div>
+                      )}
+
+                      {/* Bars Pair Container */}
+                      <div className="w-full max-w-[44px] flex items-end justify-center gap-1 sm:gap-1.5 flex-1 min-h-0 pb-0.5">
+                        {/* Cột 1: Lime Accent (Lượt đặt mới) */}
+                        <div className="w-1/2 flex flex-col items-center justify-end h-full">
+                          {item.newBookings > 0 && (
+                            <span className="text-[9px] sm:text-[10px] font-extrabold text-[#5B6E14] mb-0.5 leading-none transition-transform">
+                              +{item.newBookings}
+                            </span>
+                          )}
+                          <div
+                            className="w-full bg-[#D4F63D] hover:bg-[#C2E232] rounded-t-md transition-all duration-300 relative min-h-[2px]"
+                            style={{
+                              height: item.newBookings > 0 ? `${Math.max(8, hBookings)}%` : '0%'
+                            }}
+                          />
+                        </div>
+
+                        {/* Cột 2: Deep Olive (Phòng đang có khách) */}
+                        <div className="w-1/2 flex flex-col items-center justify-end h-full">
+                          {item.occupiedRooms > 0 && (
+                            <span className="text-[9px] sm:text-[10px] font-extrabold text-[#38421F] mb-0.5 leading-none transition-transform">
+                              {item.occupiedRooms}
+                            </span>
+                          )}
+                          <div
+                            className="w-full bg-[#626F47] hover:bg-[#525E3B] rounded-t-md transition-all duration-300 relative min-h-[2px]"
+                            style={{
+                              height: item.occupiedRooms > 0 ? `${Math.max(8, hOccupied)}%` : '0%'
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Day & Date Labels */}
+                      <div className="h-8 flex flex-col items-center justify-center shrink-0 pt-1">
+                        <span className={`text-[11px] font-bold leading-tight ${
+                          item.isToday
+                            ? 'text-emerald-700 bg-emerald-100/70 px-1 rounded'
+                            : isHovered
+                              ? 'text-[#1A2411]'
+                              : 'text-[#606D56]'
+                        }`}>
+                          {item.dayLabel}
+                        </span>
+                        <span className="text-[9px] text-[#86967B] font-medium leading-none mt-0.5">
+                          {item.shortDate}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
       {/* Legend */}
       <div className="mt-4 pt-3 border-t border-border-grey flex items-center justify-center gap-6 text-xs text-[#606D56] font-medium shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-md bg-[#D4F63D]" />
-          <span>Lượt đặt phòng mới</span>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-md bg-[#D4F63D] border border-[#BBDC28]" />
+          <span>Lượt đặt mới (Đơn)</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-md bg-[#626F47]" />
-          <span>Số phòng đang có khách</span>
+          <span>Phòng có khách (Công suất %)</span>
         </div>
       </div>
     </div>
@@ -588,19 +816,22 @@ const RoomStatusSpectrum: React.FC<{
   availableRooms: number;
   occupiedRooms: number;
   dirtyRooms: number;
+  inspectingRooms?: number;
   maintenanceRooms: number;
 }> = ({
   totalRooms,
   availableRooms,
   occupiedRooms,
   dirtyRooms,
+  inspectingRooms = 0,
   maintenanceRooms
 }) => {
   const safeTotal = totalRooms > 0 ? totalRooms : 1;
+  const housekeepingRooms = dirtyRooms + inspectingRooms;
   const pctAvailable = Math.round((availableRooms / safeTotal) * 100);
   const pctOccupied = Math.round((occupiedRooms / safeTotal) * 100);
-  const pctDirty = Math.round((dirtyRooms / safeTotal) * 100);
-  const pctMaint = Math.max(0, 100 - pctAvailable - pctOccupied - pctDirty);
+  const pctDirty = Math.round((housekeepingRooms / safeTotal) * 100);
+  const pctMaint = Math.round((maintenanceRooms / safeTotal) * 100);
 
   return (
     <div className="bg-white border border-border-grey rounded-2xl p-5 shadow-2xs">
@@ -622,30 +853,30 @@ const RoomStatusSpectrum: React.FC<{
       {/* Multi-segment spectrum bar */}
       <div className="mt-4">
         <div className="h-4 w-full bg-[#EBF0E3] rounded-full overflow-hidden flex gap-0.5 p-0.5 shadow-inner">
-          {pctOccupied > 0 && (
+          {occupiedRooms > 0 && (
             <div
-              style={{ width: `${pctOccupied}%` }}
+              style={{ flex: occupiedRooms }}
               title={`Đang có khách: ${occupiedRooms} phòng (${pctOccupied}%)`}
               className="h-full bg-[#626F47] rounded-l-full transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
           )}
-          {pctAvailable > 0 && (
+          {availableRooms > 0 && (
             <div
-              style={{ width: `${pctAvailable}%` }}
+              style={{ flex: availableRooms }}
               title={`Sẵn sàng: ${availableRooms} phòng (${pctAvailable}%)`}
               className="h-full bg-[#D4F63D] transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
           )}
-          {pctDirty > 0 && (
+          {housekeepingRooms > 0 && (
             <div
-              style={{ width: `${pctDirty}%` }}
-              title={`Cần dọn: ${dirtyRooms} phòng (${pctDirty}%)`}
+              style={{ flex: housekeepingRooms }}
+              title={`Chờ buồng phòng: ${housekeepingRooms} phòng (${pctDirty}%)${inspectingRooms > 0 ? ` (${dirtyRooms} cần dọn, ${inspectingRooms} chờ duyệt)` : ''}`}
               className="h-full bg-[#F59E0B] transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
           )}
-          {pctMaint > 0 && (
+          {maintenanceRooms > 0 && (
             <div
-              style={{ width: `${pctMaint}%` }}
+              style={{ flex: maintenanceRooms }}
               title={`Bảo trì: ${maintenanceRooms} phòng (${pctMaint}%)`}
               className="h-full bg-[#94A3B8] rounded-r-full transition-all duration-700 hover:brightness-110 cursor-pointer"
             />
@@ -678,7 +909,7 @@ const RoomStatusSpectrum: React.FC<{
           <div className="truncate">
             <span className="text-[#606D56] block text-[11px]">Cần dọn dẹp:</span>
             <strong className="text-[#1A2411]">
-              <AnimatedCounter value={dirtyRooms} /> ({pctDirty}%)
+              <AnimatedCounter value={housekeepingRooms} /> ({pctDirty}%)
             </strong>
           </div>
         </div>
@@ -702,19 +933,27 @@ const HotelKpiTicker: React.FC<{
   revPar: number;
   collectionRate: number;
   todayBookings: number;
-}> = ({ adr, revPar, collectionRate, todayBookings }) => (
+  soldNights?: number;
+  occupancyRate?: number;
+}> = ({ adr, revPar, collectionRate, todayBookings, soldNights = 0, occupancyRate = 0 }) => (
   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
     <div className="bg-white border border-border-grey rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all flex items-center gap-3">
       <div className="w-10 h-10 rounded-xl bg-[#EAF5CD] text-[#3F4F24] flex items-center justify-center shrink-0">
         <IoBusinessOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
-          Giá Phòng Trung Bình
-        </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
+            Giá Phòng Trung Bình
+          </span>
+          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#EAF5CD] text-[#3F4F24] border border-[#D5EBA3]">ADR</span>
+        </div>
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={adr} formatter={fmtCurrency} />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {soldNights > 0 ? `${soldNights} đêm phòng đã bán` : 'Chưa có đêm bán'}
+        </p>
       </div>
     </div>
 
@@ -723,12 +962,18 @@ const HotelKpiTicker: React.FC<{
         <IoTrendingUpOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
-          Doanh Thu Trên Phòng
-        </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
+            Doanh Thu Trên Phòng
+          </span>
+          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#E6F0FA] text-[#1E40AF] border border-[#BFDBFE]">RevPAR</span>
+        </div>
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={revPar} formatter={fmtCurrency} />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {occupancyRate > 0 ? `${occupancyRate}% công suất hiện tại` : 'Công suất 0%'}
+        </p>
       </div>
     </div>
 
@@ -740,9 +985,12 @@ const HotelKpiTicker: React.FC<{
         <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
           Tỷ Lệ Thu Tiền
         </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={collectionRate} suffix="%" />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {collectionRate >= 90 ? 'Thu hồi tốt' : (collectionRate === 0 ? 'Chưa phát sinh' : 'Cần đối soát')}
+        </p>
       </div>
     </div>
 
@@ -754,9 +1002,12 @@ const HotelKpiTicker: React.FC<{
         <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
           Đặt Mới Hôm Nay
         </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={todayBookings} suffix=" đơn" />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {todayBookings > 0 ? 'Có phát sinh trong ngày' : 'Chưa có đặt mới'}
+        </p>
       </div>
     </div>
   </div>
@@ -790,14 +1041,21 @@ const DashboardPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      const formatLocalDate = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
       const now = new Date();
       const past7Days = new Date(now);
       past7Days.setDate(now.getDate() - 6);
-      const from7Str = past7Days.toISOString().split('T')[0];
-      const toStr = now.toISOString().split('T')[0];
+      const from7Str = formatLocalDate(past7Days);
+      const toStr = formatLocalDate(now);
 
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthStartStr = monthStart.toISOString().split('T')[0];
+      const monthStartStr = formatLocalDate(monthStart);
 
       // Gọi đồng thời tất cả các endpoint thật
       const [
@@ -810,7 +1068,7 @@ const DashboardPage: React.FC = () => {
       ] = await Promise.all([
         isOwnerOrAdmin ? reportApi.getDashboard().catch(() => null) : Promise.resolve(null),
         canSeeToday ? reportApi.getTodayCheckInOut().catch(() => []) : Promise.resolve([]),
-        user?.role === 'HOUSEKEEPER' ? roomApi.getAllRooms('DIRTY').catch(() => []) : Promise.resolve([]),
+        user?.role === 'HOUSEKEEPER' ? roomApi.getAllRooms('DIRTY').catch(() => []) : Promise.resolve(null),
         isOwnerOrAdmin ? reportApi.getOccupancyReport(from7Str, toStr).catch(() => null) : Promise.resolve(null),
         isOwnerOrAdmin ? reportApi.getRevenueReport(from7Str, toStr, 'day').catch(() => null) : Promise.resolve(null),
         isOwnerOrAdmin ? reportApi.getChannelReport(monthStartStr, toStr).catch(() => null) : Promise.resolve(null)
@@ -826,6 +1084,7 @@ const DashboardPage: React.FC = () => {
           availableRooms: 0,
           occupiedRooms: 0,
           dirtyRooms: 0,
+          inspectingRooms: 0,
           maintenanceRooms: 0,
           todayCheckIns: 0,
           todayCheckOuts: 0,
@@ -836,11 +1095,12 @@ const DashboardPage: React.FC = () => {
         });
       }
 
-      // Gán số phòng bẩn thật
-      if (dirtyRoomsData && Array.isArray(dirtyRoomsData)) {
-        setDirtyRoomsCount(dirtyRoomsData.length);
-      } else if (dashData?.dirtyRooms != null) {
-        setDirtyRoomsCount(dashData.dirtyRooms);
+      // Gán số phòng buồng phòng thật
+      if (user?.role === 'HOUSEKEEPER') {
+        setDirtyRoomsCount(Array.isArray(dirtyRoomsData) ? dirtyRoomsData.length : 0);
+      } else if (dashData) {
+        const totalHk = (dashData.dirtyRooms || 0) + (dashData.inspectingRooms || 0);
+        setDirtyRoomsCount(totalHk);
       }
 
       // Gán danh sách sự kiện hôm nay thật từ backend
@@ -889,17 +1149,24 @@ const DashboardPage: React.FC = () => {
   // Xử lý đổi range cho biểu đồ cột giữa 7 ngày qua và tháng này
   const handleChartRangeChange = async (range: 'week' | 'month') => {
     setChartRange(range);
+    const formatLocalDate = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
     const now = new Date();
-    const toStr = now.toISOString().split('T')[0];
+    const toStr = formatLocalDate(now);
     let fromStr = '';
 
     if (range === 'week') {
       const past7 = new Date(now);
       past7.setDate(now.getDate() - 6);
-      fromStr = past7.toISOString().split('T')[0];
+      fromStr = formatLocalDate(past7);
     } else {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      fromStr = monthStart.toISOString().split('T')[0];
+      fromStr = formatLocalDate(monthStart);
     }
 
     try {
@@ -920,24 +1187,28 @@ const DashboardPage: React.FC = () => {
     return Math.round((dashboard.occupiedRooms / dashboard.totalRooms) * 100);
   }, [dashboard]);
 
-  // Tính ADR (Average Daily Rate): Doanh thu / (Số phòng có khách * 30 ngày)
+  // Tính ADR (Average Daily Rate): lấy từ backend hoặc tính chuẩn từ số đêm thực bán trong tháng
   const adr = useMemo(() => {
+    if (dashboard?.adr != null && dashboard.adr > 0) return dashboard.adr;
     if (!dashboard || !dashboard.monthRevenue) return 0;
-    const occupiedNights = Math.max(1, (dashboard.occupiedRooms || 1) * 30);
-    return Math.round(dashboard.monthRevenue / occupiedNights);
+    const soldNights = (dashboard.monthSoldNights && dashboard.monthSoldNights > 0) 
+      ? dashboard.monthSoldNights 
+      : 1;
+    return Math.round(dashboard.monthRevenue / soldNights);
   }, [dashboard]);
 
-  // Tính RevPAR (Revenue Per Available Room): Doanh thu / (Tổng số phòng * 30 ngày)
+  // Tính RevPAR (Revenue Per Available Room) chuẩn ngành: ADR × Tỷ lệ công suất (Occupancy Rate) hiện tại
   const revPar = useMemo(() => {
-    if (!dashboard || !dashboard.monthRevenue || !dashboard.totalRooms) return 0;
-    const totalRoomNights = Math.max(1, dashboard.totalRooms * 30);
-    return Math.round(dashboard.monthRevenue / totalRoomNights);
-  }, [dashboard]);
+    if (dashboard?.revPar != null && dashboard.revPar > 0) return dashboard.revPar;
+    if (!dashboard || !dashboard.totalRooms || adr === 0) return 0;
+    const occupancyRate = (dashboard.occupiedRooms || 0) / dashboard.totalRooms;
+    return Math.round(adr * occupancyRate);
+  }, [dashboard, adr]);
 
   // Tính tỷ lệ thu hồi doanh thu thật
   const realCollectionPercent = useMemo(() => {
     if (!dashboard || !dashboard.monthRevenue || dashboard.monthRevenue === 0) {
-      return 100;
+      return 0;
     }
     return Math.min(100, Math.round(((dashboard.monthCollectedRevenue || 0) / dashboard.monthRevenue) * 100));
   }, [dashboard]);
@@ -1123,8 +1394,18 @@ const DashboardPage: React.FC = () => {
               label="Chờ Buồng Phòng"
               rawValue={dirtyRoomsCount}
               valueSuffix=" phòng"
-              subLabel={dirtyRoomsCount > 0 ? 'Cần dọn để sẵn sàng đón khách' : 'Tất cả phòng sạch sẽ'}
-              badgeText={dirtyRoomsCount > 0 ? 'Cần dọn' : 'Đã sạch'}
+              subLabel={
+                dirtyRoomsCount > 0
+                  ? (dashboard.inspectingRooms && dashboard.inspectingRooms > 0
+                      ? `${dashboard.dirtyRooms || 0} cần dọn, ${dashboard.inspectingRooms} chờ duyệt`
+                      : `${dirtyRoomsCount} phòng cần dọn dẹp`)
+                  : 'Tất cả phòng sạch sẽ'
+              }
+              badgeText={
+                dirtyRoomsCount > 0
+                  ? (dashboard.dirtyRooms && dashboard.dirtyRooms > 0 ? 'Cần dọn' : 'Chờ duyệt')
+                  : 'Đã sạch'
+              }
               badgeType={dirtyRoomsCount > 0 ? 'warning' : 'positive'}
               iconBg="bg-[#FEF3C7]"
               iconColor="text-[#B45309]"
@@ -1140,6 +1421,8 @@ const DashboardPage: React.FC = () => {
             revPar={revPar}
             collectionRate={realCollectionPercent}
             todayBookings={dashboard.todayBookings || 0}
+            soldNights={dashboard.monthSoldNights || (dashboard.monthRevenue > 0 ? 1 : 0)}
+            occupancyRate={realOccupancyRate}
           />
 
           {/* Room Status Spectrum Bar */}
@@ -1147,7 +1430,8 @@ const DashboardPage: React.FC = () => {
             totalRooms={dashboard.totalRooms || 0}
             availableRooms={dashboard.availableRooms || 0}
             occupiedRooms={dashboard.occupiedRooms || 0}
-            dirtyRooms={dirtyRoomsCount}
+            dirtyRooms={dashboard.dirtyRooms || 0}
+            inspectingRooms={dashboard.inspectingRooms || 0}
             maintenanceRooms={dashboard.maintenanceRooms || 0}
           />
 
@@ -1158,6 +1442,8 @@ const DashboardPage: React.FC = () => {
                 occupancyRows={occupancyRows}
                 revenueRows={revenueRows}
                 totalRooms={dashboard.totalRooms || 0}
+                currentOccupiedRooms={dashboard.occupiedRooms || 0}
+                todayBookingsCount={dashboard.todayBookings || 0}
                 activeRange={chartRange}
                 onRangeChange={handleChartRangeChange}
                 className="h-full flex-1"

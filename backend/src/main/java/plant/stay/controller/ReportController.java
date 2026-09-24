@@ -165,6 +165,7 @@ public class ReportController {
         long availableRooms = roomRepository.countByStatus(RoomStatus.AVAILABLE);
         long occupiedRooms  = roomRepository.countByStatus(RoomStatus.OCCUPIED);
         long dirtyRooms     = roomRepository.countByStatus(RoomStatus.DIRTY);
+        long inspectingRooms = roomRepository.countByStatus(RoomStatus.INSPECTING);
         long maintenanceRooms = roomRepository.countByStatus(RoomStatus.MAINTENANCE);
 
         // Booking hôm nay
@@ -183,11 +184,29 @@ public class ReportController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal monthDebt = monthRevenue.subtract(monthCollected).max(BigDecimal.ZERO);
 
+        // Tính đêm phòng thực bán trong tháng để tính Giá phòng trung bình (ADR) chuẩn
+        long monthSoldNights = monthBookings.stream()
+                .mapToLong(b -> (b.getCheckInDate() != null && b.getCheckOutDate() != null)
+                        ? Math.max(1, ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate()))
+                        : 1)
+                .sum();
+
+        BigDecimal adr = monthSoldNights > 0
+                ? monthRevenue.divide(BigDecimal.valueOf(monthSoldNights), 0, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        // RevPAR chuẩn ngành: ADR × Tỷ lệ công suất (Occupancy Rate) hiện tại
+        BigDecimal revPar = totalRooms > 0 && adr.compareTo(BigDecimal.ZERO) > 0
+                ? adr.multiply(BigDecimal.valueOf(occupiedRooms))
+                     .divide(BigDecimal.valueOf(totalRooms), 0, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalRooms", totalRooms);
         result.put("availableRooms", availableRooms);
         result.put("occupiedRooms", occupiedRooms);
         result.put("dirtyRooms", dirtyRooms);
+        result.put("inspectingRooms", inspectingRooms);
         result.put("maintenanceRooms", maintenanceRooms);
         result.put("todayCheckIns", todayCheckIns);
         result.put("todayCheckOuts", todayCheckOuts);
@@ -195,6 +214,9 @@ public class ReportController {
         result.put("monthRevenue", monthRevenue);
         result.put("monthCollectedRevenue", monthCollected);
         result.put("monthDebtRevenue", monthDebt);
+        result.put("monthSoldNights", monthSoldNights);
+        result.put("adr", adr);
+        result.put("revPar", revPar);
 
         return ResponseEntity.ok(result);
     }
@@ -427,7 +449,7 @@ public class ReportController {
         checkOwner(request);
         long totalRooms = roomRepository.count();
         List<Booking> bookings = bookingRepository.findForCalendar(from, to);
-        long days = Math.max(0, ChronoUnit.DAYS.between(from, to));
+        long days = Math.max(1, ChronoUnit.DAYS.between(from, to) + 1);
 
         long occupiedRoomDays = bookings.stream()
                 .filter(b -> b.getRoom() != null && b.getCheckInDate() != null && b.getCheckOutDate() != null)
@@ -441,14 +463,20 @@ public class ReportController {
                 ? (double) occupiedRoomDays / (totalRooms * days) * 100
                 : 0;
 
-        // Tạo rows theo từng ngày trong khoảng
+        LocalDate today = LocalDate.now();
+
+        // Tạo rows theo từng ngày trong khoảng (bao gồm cả ngày 'to')
         List<Map<String, Object>> rows = new ArrayList<>();
         for (long i = 0; i < days; i++) {
             LocalDate day = from.plusDays(i);
             // Đếm số phòng có booking active ngày đó
             long bookedThisDay = bookings.stream()
                     .filter(b -> b.getRoom() != null && b.getCheckInDate() != null && b.getCheckOutDate() != null)
-                    .filter(b -> !b.getCheckInDate().isAfter(day) && b.getCheckOutDate().isAfter(day))
+                    .filter(b -> {
+                        boolean inStayDate = !b.getCheckInDate().isAfter(day) && b.getCheckOutDate().isAfter(day);
+                        boolean isCurrentlyCheckedInToday = day.equals(today) && b.getStatus() == plant.stay.model.BookingStatus.CHECKED_IN && !b.getCheckInDate().isAfter(day);
+                        return inStayDate || isCurrentlyCheckedInToday;
+                    })
                     .count();
             double dayRate = totalRooms > 0 ? (double) bookedThisDay / totalRooms * 100 : 0;
 
