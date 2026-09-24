@@ -591,20 +591,15 @@ const WeeklyOccupancyChart: React.FC<{
         )}
       </div>
 
-      {/* Legend & Footnote */}
-      <div className="mt-4 pt-3 border-t border-border-grey flex flex-wrap items-center justify-between gap-3 text-xs text-[#606D56] font-medium shrink-0">
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-md bg-[#D4F63D] border border-[#BBDC28]" />
-            <span>Lượt đặt mới (Đơn)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-md bg-[#626F47]" />
-            <span>Phòng có khách (Công suất %)</span>
-          </div>
+      {/* Legend */}
+      <div className="mt-4 pt-3 border-t border-border-grey flex items-center justify-center gap-6 text-xs text-[#606D56] font-medium shrink-0">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-md bg-[#D4F63D] border border-[#BBDC28]" />
+          <span>Lượt đặt mới (Đơn)</span>
         </div>
-        <div className="text-[11px] text-[#86967B] hidden sm:block">
-          💡 Rê chuột vào ngày để xem chi tiết
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-md bg-[#626F47]" />
+          <span>Phòng có khách (Công suất %)</span>
         </div>
       </div>
     </div>
