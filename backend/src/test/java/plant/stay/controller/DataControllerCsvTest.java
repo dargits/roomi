@@ -68,4 +68,27 @@ public class DataControllerCsvTest {
         assertEquals("hoang.tran@stayaway.vn", cols.get(3));
         assertEquals("RECEPTIONIST", cols.get(4));
     }
+
+    @Test
+    @DisplayName("parseCsvLine: Xử lý dấu chấm phẩy phân tách chuẩn Excel Việt Nam (;)")
+    void testParseSemicolonDelimiter() {
+        String line = "101;Phòng Tiêu Chuẩn;1;AVAILABLE";
+        List<String> cols = DataController.parseCsvLine(line, ';');
+        assertEquals(4, cols.size());
+        assertEquals("101", cols.get(0));
+        assertEquals("Phòng Tiêu Chuẩn", cols.get(1));
+        assertEquals("1", cols.get(2));
+        assertEquals("AVAILABLE", cols.get(3));
+    }
+
+    @Test
+    @DisplayName("parseCsvLine: Xử lý dấu tab phân tách (\\t)")
+    void testParseTabDelimiter() {
+        String line = "Dịch vụ giặt\t50000\tKg";
+        List<String> cols = DataController.parseCsvLine(line, '\t');
+        assertEquals(3, cols.size());
+        assertEquals("Dịch vụ giặt", cols.get(0));
+        assertEquals("50000", cols.get(1));
+        assertEquals("Kg", cols.get(2));
+    }
 }

@@ -1,5 +1,7 @@
 package plant.stay.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import plant.stay.dto.request.BookingRequest;
 import plant.stay.dto.request.ExtendStayRequest;
 import plant.stay.dto.request.RescheduleDateRequest;
@@ -13,7 +15,9 @@ import java.util.List;
 
 public interface BookingService {
     List<BookingResponse> getAll();
+    Page<BookingResponse> getAllPaged(Pageable pageable);
     List<BookingResponse> search(String query, plant.stay.model.BookingStatus status, LocalDate fromDate, LocalDate toDate);
+    Page<BookingResponse> searchPaged(String query, plant.stay.model.BookingStatus status, LocalDate fromDate, LocalDate toDate, Pageable pageable);
     BookingResponse getById(Long id);
     List<?> getCalendar(LocalDate from, LocalDate to);
     BookingResponse create(BookingRequest request, User actor);
