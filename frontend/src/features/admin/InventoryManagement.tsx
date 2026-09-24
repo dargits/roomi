@@ -25,6 +25,7 @@ const InventoryManagement: React.FC = () => {
   const [error, setError] = useState("");
   const [searchText, setSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -108,15 +109,15 @@ const InventoryManagement: React.FC = () => {
   }, [items, searchText]);
 
   // Phân trang
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchText]);
+  }, [searchText, pageSize]);
 
   const paginatedItems = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredItems.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredItems, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, currentPage, pageSize]);
 
   // Chọn / Bỏ chọn
   const isAllPageSelected = paginatedItems.length > 0 && paginatedItems.every(i => selectedIds.has(i.id));
@@ -418,14 +419,20 @@ const InventoryManagement: React.FC = () => {
         )}
 
         {/* Phân trang */}
-        {filteredItems.length > ITEMS_PER_PAGE && (
-          <div className="p-3 border-t border-border-grey bg-surface-container-low/30">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
+        {filteredItems.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredItems.length}
+            itemsPerPage={pageSize}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            itemsPerPageOptions={[5, 10, 20, 50]}
+            itemLabel="mặt hàng"
+          />
         )}
       </div>
     </div>

@@ -84,4 +84,20 @@ public class ExtraServiceController {
         checkOwnerAuth(request);
         return ResponseEntity.ok(extraServiceService.delete(id));
     }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<MessageResponse> bulkDelete(
+            @RequestBody List<Long> ids,
+            HttpServletRequest request) {
+        checkOwnerAuth(request);
+        if (ids != null && !ids.isEmpty()) {
+            for (Long id : ids) {
+                try {
+                    extraServiceService.delete(id);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return ResponseEntity.ok(new MessageResponse("Đã xóa hàng loạt dịch vụ phụ thu thành công"));
+    }
 }

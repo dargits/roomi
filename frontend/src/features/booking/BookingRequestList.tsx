@@ -279,12 +279,15 @@ const BookingRequestList: React.FC<BookingRequestListProps> = ({ onRequestHandle
       </table>
     </div>
 
-    {requests.length > ITEMS_PER_PAGE && (
+    {requests.length > 0 && (
       <div className="mt-auto">
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
+          totalItems={requests.length}
+          itemsPerPage={ITEMS_PER_PAGE}
           onPageChange={setCurrentPage}
+          itemLabel="yêu cầu đặt phòng"
         />
       </div>
     )}
