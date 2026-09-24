@@ -95,6 +95,9 @@ export interface DashboardStatsResponse {
   monthRevenue: number;
   monthCollectedRevenue: number;
   monthDebtRevenue: number;
+  adr?: number;
+  revPar?: number;
+  monthSoldNights?: number;
 }
 
 export interface AdrRevparSummary {

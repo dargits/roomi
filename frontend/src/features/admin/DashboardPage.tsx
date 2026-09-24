@@ -709,19 +709,27 @@ const HotelKpiTicker: React.FC<{
   revPar: number;
   collectionRate: number;
   todayBookings: number;
-}> = ({ adr, revPar, collectionRate, todayBookings }) => (
+  soldNights?: number;
+  occupancyRate?: number;
+}> = ({ adr, revPar, collectionRate, todayBookings, soldNights = 0, occupancyRate = 0 }) => (
   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
     <div className="bg-white border border-border-grey rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all flex items-center gap-3">
       <div className="w-10 h-10 rounded-xl bg-[#EAF5CD] text-[#3F4F24] flex items-center justify-center shrink-0">
         <IoBusinessOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
-          Giá Phòng Trung Bình
-        </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
+            Giá Phòng Trung Bình
+          </span>
+          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#EAF5CD] text-[#3F4F24] border border-[#D5EBA3]">ADR</span>
+        </div>
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={adr} formatter={fmtCurrency} />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {soldNights > 0 ? `${soldNights} đêm phòng đã bán` : 'Chưa có đêm bán'}
+        </p>
       </div>
     </div>
 
@@ -730,12 +738,18 @@ const HotelKpiTicker: React.FC<{
         <IoTrendingUpOutline size={20} />
       </div>
       <div className="min-w-0">
-        <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
-          Doanh Thu Trên Phòng
-        </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
+            Doanh Thu Trên Phòng
+          </span>
+          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#E6F0FA] text-[#1E40AF] border border-[#BFDBFE]">RevPAR</span>
+        </div>
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={revPar} formatter={fmtCurrency} />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {occupancyRate > 0 ? `${occupancyRate}% công suất hiện tại` : 'Công suất 0%'}
+        </p>
       </div>
     </div>
 
@@ -747,9 +761,12 @@ const HotelKpiTicker: React.FC<{
         <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
           Tỷ Lệ Thu Tiền
         </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={collectionRate} suffix="%" />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {collectionRate >= 90 ? 'Thu hồi tốt' : (collectionRate === 0 ? 'Chưa phát sinh' : 'Cần đối soát')}
+        </p>
       </div>
     </div>
 
@@ -761,9 +778,12 @@ const HotelKpiTicker: React.FC<{
         <span className="text-[11px] font-bold uppercase text-[#606D56] block truncate">
           Đặt Mới Hôm Nay
         </span>
-        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate">
+        <div className="text-base sm:text-lg font-extrabold text-[#1A2411] truncate mt-0.5">
           <AnimatedCounter value={todayBookings} suffix=" đơn" />
         </div>
+        <p className="text-[11px] text-[#606D56] truncate mt-0.5">
+          {todayBookings > 0 ? 'Có phát sinh trong ngày' : 'Chưa có đặt mới'}
+        </p>
       </div>
     </div>
   </div>
@@ -929,19 +949,23 @@ const DashboardPage: React.FC = () => {
     return Math.round((dashboard.occupiedRooms / dashboard.totalRooms) * 100);
   }, [dashboard]);
 
-  // Tính ADR (Average Daily Rate): Doanh thu / (Số phòng có khách * 30 ngày)
+  // Tính ADR (Average Daily Rate): lấy từ backend hoặc tính chuẩn từ số đêm thực bán trong tháng
   const adr = useMemo(() => {
+    if (dashboard?.adr != null && dashboard.adr > 0) return dashboard.adr;
     if (!dashboard || !dashboard.monthRevenue) return 0;
-    const occupiedNights = Math.max(1, (dashboard.occupiedRooms || 1) * 30);
-    return Math.round(dashboard.monthRevenue / occupiedNights);
+    const soldNights = (dashboard.monthSoldNights && dashboard.monthSoldNights > 0) 
+      ? dashboard.monthSoldNights 
+      : 1;
+    return Math.round(dashboard.monthRevenue / soldNights);
   }, [dashboard]);
 
-  // Tính RevPAR (Revenue Per Available Room): Doanh thu / (Tổng số phòng * 30 ngày)
+  // Tính RevPAR (Revenue Per Available Room) chuẩn ngành: ADR × Tỷ lệ công suất (Occupancy Rate) hiện tại
   const revPar = useMemo(() => {
-    if (!dashboard || !dashboard.monthRevenue || !dashboard.totalRooms) return 0;
-    const totalRoomNights = Math.max(1, dashboard.totalRooms * 30);
-    return Math.round(dashboard.monthRevenue / totalRoomNights);
-  }, [dashboard]);
+    if (dashboard?.revPar != null && dashboard.revPar > 0) return dashboard.revPar;
+    if (!dashboard || !dashboard.totalRooms || adr === 0) return 0;
+    const occupancyRate = (dashboard.occupiedRooms || 0) / dashboard.totalRooms;
+    return Math.round(adr * occupancyRate);
+  }, [dashboard, adr]);
 
   // Tính tỷ lệ thu hồi doanh thu thật
   const realCollectionPercent = useMemo(() => {
@@ -1159,6 +1183,8 @@ const DashboardPage: React.FC = () => {
             revPar={revPar}
             collectionRate={realCollectionPercent}
             todayBookings={dashboard.todayBookings || 0}
+            soldNights={dashboard.monthSoldNights || (dashboard.monthRevenue > 0 ? 1 : 0)}
+            occupancyRate={realOccupancyRate}
           />
 
           {/* Room Status Spectrum Bar */}
