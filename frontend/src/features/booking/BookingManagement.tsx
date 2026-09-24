@@ -71,82 +71,118 @@ const BookingManagement: React.FC = () => {
   const [autoAssignGroup, setAutoAssignGroup] = useState(null);
 
   return (
-    <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
-      <div className="px-4 py-3 border-b border-border-grey bg-surface-container-lowest">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
-          {/* Title */}
-          <div className="flex items-center gap-2 shrink-0">
-            <IoCalendarOutline size={22} className="text-primary" />
-            <h2 className="font-title-lg text-on-surface font-bold text-base sm:text-lg">
-              Quản lý Đặt phòng
-            </h2>
-          </div>
-          
-          {/* Tabs & Action buttons on single compact row */}
-          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-2.5 w-full lg:w-auto">
-            {/* Tabs */}
-            <div className="flex bg-surface-container-low rounded-lg p-0.5 border border-border-grey overflow-x-auto max-w-full">
-              <button
-                onClick={() => handleTabChange('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'list' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                <IoListOutline size={15} /> Danh sách
-              </button>
-              <button
-                onClick={() => handleTabChange('calendar')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'calendar' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                <IoMapOutline size={15} /> Lịch phòng
-              </button>
-              <button
-                onClick={() => handleTabChange('groups')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'groups' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                <IoPeopleOutline size={15} /> Đoàn
-              </button>
-              <button
-                onClick={() => handleTabChange('in-house')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'in-house' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                <IoBedOutline size={15} /> Khách lưu trú
-              </button>
-              {/* Tạm ẩn tính năng Cọc chưa quyết toán theo yêu cầu */}
-              {/* <button
-                onClick={() => handleTabChange('deposits')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'deposits' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                <IoCashOutline size={15} /> Cọc chưa quyết toán
-              </button> */}
-              {/* Kế toán không xử lý yêu cầu từ web */}
-              {!isAccountant && (
-                <button
-                  onClick={() => handleTabChange('requests')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${activeTab === 'requests' ? 'bg-white shadow-xs text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-                >
-                  <IoPersonOutline size={15} /> Yêu cầu từ Web
-                </button>
-              )}
+    <div className="bg-surface rounded-xl shadow-xs border border-border-grey overflow-hidden">
+      {/* Header 2 tầng hiện đại & ngăn nắp */}
+      <div className="px-5 py-4 border-b border-border-grey bg-surface-container-lowest">
+        {/* Tầng 1: Tiêu đề + Cụm nút tác vụ chính */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shrink-0">
+              <IoCalendarOutline size={22} />
             </div>
-            
-            {/* Action Buttons */}
-            {!isAccountant && (
-              <div className="flex gap-2 shrink-0">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => setIsImportModalOpen(true)} 
-                  icon={IoCloudUploadOutline}
-                  title="Nhập dữ liệu đặt phòng cũ từ file Excel hoặc CSV"
-                >
-                  Nhập dữ liệu cũ
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setIsGroupFormOpen(true)} icon={IoPeopleOutline}>
-                  Tạo đoàn
-                </Button>
-                <Button size="sm" onClick={openAddForm} icon={IoAddOutline}>
-                  Tạo đặt phòng
-                </Button>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-title-lg text-on-surface font-bold text-lg sm:text-xl">
+                  Quản lý Đặt phòng
+                </h1>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">
+                  PMS Core
+                </span>
               </div>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Trung tâm tiếp nhận, điều phối lưu trú, xếp phòng và thanh toán
+              </p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          {!isAccountant && (
+            <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 flex-wrap">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setIsImportModalOpen(true)} 
+                icon={IoCloudUploadOutline}
+                title="Nhập dữ liệu đặt phòng cũ từ file Excel hoặc CSV"
+                className="text-xs border-border-grey hover:bg-surface-container-low"
+              >
+                Nhập dữ liệu cũ
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setIsGroupFormOpen(true)} 
+                icon={IoPeopleOutline}
+                className="text-xs border-border-grey hover:bg-surface-container-low"
+              >
+                Tạo đoàn
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={openAddForm} 
+                icon={IoAddOutline}
+                className="text-xs font-semibold shadow-xs"
+              >
+                Tạo đặt phòng
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Tầng 2: Thanh Tabs chuyển View (Segmented Control) */}
+        <div className="mt-4 pt-3 border-t border-border-grey/60 flex items-center justify-between gap-3 overflow-x-auto">
+          <div className="inline-flex bg-surface-container-low p-1 rounded-xl border border-border-grey text-xs font-medium">
+            <button
+              onClick={() => handleTabChange('list')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'list' 
+                  ? 'bg-white text-primary shadow-xs' 
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface/50'
+              }`}
+            >
+              <IoListOutline size={15} /> Danh sách
+            </button>
+            <button
+              onClick={() => handleTabChange('calendar')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'calendar' 
+                  ? 'bg-white text-primary shadow-xs' 
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface/50'
+              }`}
+            >
+              <IoMapOutline size={15} /> Lịch phòng
+            </button>
+            <button
+              onClick={() => handleTabChange('groups')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'groups' 
+                  ? 'bg-white text-primary shadow-xs' 
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface/50'
+              }`}
+            >
+              <IoPeopleOutline size={15} /> Đoàn
+            </button>
+            <button
+              onClick={() => handleTabChange('in-house')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'in-house' 
+                  ? 'bg-white text-primary shadow-xs' 
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface/50'
+              }`}
+            >
+              <IoBedOutline size={15} /> Khách lưu trú
+            </button>
+            {!isAccountant && (
+              <button
+                onClick={() => handleTabChange('requests')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'requests' 
+                    ? 'bg-white text-primary shadow-xs' 
+                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface/50'
+                }`}
+              >
+                <IoPersonOutline size={15} /> Yêu cầu từ Web
+              </button>
             )}
           </div>
         </div>

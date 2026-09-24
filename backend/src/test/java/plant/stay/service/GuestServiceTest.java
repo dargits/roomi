@@ -67,6 +67,32 @@ public class GuestServiceTest {
     }
 
     @Test
+    @DisplayName("Phân trang danh sách khách hàng (getAllPaged)")
+    void testGetAllPaged() {
+        for (int i = 1; i <= 5; i++) {
+            GuestRequest req = new GuestRequest();
+            req.setName("Khách Paging " + i);
+            req.setPhone("091100000" + i);
+            req.setIdNumber("00109900000" + i);
+            guestService.create(req);
+        }
+
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(0, 3, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id"));
+        
+        org.springframework.data.domain.Page<GuestResponse> page = guestService.getAllPaged(null, pageable);
+        assertNotNull(page);
+        assertTrue(page.getTotalElements() >= 5);
+        assertEquals(3, page.getContent().size());
+
+        org.springframework.data.domain.Page<GuestResponse> searchedPage = guestService.getAllPaged("Paging", pageable);
+        assertNotNull(searchedPage);
+        assertEquals(5, searchedPage.getTotalElements());
+        assertEquals(3, searchedPage.getContent().size());
+        assertTrue(searchedPage.getContent().get(0).getName().contains("Paging"));
+    }
+
+    @Test
     @DisplayName("Cập nhật thông tin khách hàng")
     void testUpdateGuestInfo() {
         GuestRequest createReq = new GuestRequest();
