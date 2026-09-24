@@ -246,72 +246,130 @@ const WeeklyOccupancyChart: React.FC<{
   isLoading,
   className = ''
 }) => {
-  // Chuẩn hóa dữ liệu theo 7 ngày gần nhất hoặc các ngày trong tháng
-  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
 
-  // Tạo danh sách ngày thực tế
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const fullDayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+  // Hàm format ngày địa phương chuẩn YYYY-MM-DD
+  const formatLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // Chuẩn hóa dữ liệu theo 7 ngày gần nhất hoặc các ngày trong tháng
   const chartItems = React.useMemo(() => {
+    const now = new Date();
+    const todayStr = formatLocalDate(now);
+
     if (activeRange === 'week') {
       const result = [];
-      const now = new Date();
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        const dayLabel = dayNames[d.getDay()];
+        const dateStr = formatLocalDate(d);
+        const dayOfWeek = d.getDay();
+        const dayLabel = dayNames[dayOfWeek];
+        const fullDayLabel = fullDayNames[dayOfWeek];
+        const shortDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
 
         const occ = occupancyRows.find(r => r.date === dateStr);
         const rev = revenueRows.find(r => r.date === dateStr || r.period === dateStr);
 
+        const occupiedRooms = occ?.occupiedRooms ?? 0;
+        const availableRooms = occ?.availableRooms ?? Math.max(0, totalRooms - occupiedRooms);
+        const occupancyRate = occ?.occupancyRate ?? (totalRooms > 0 && occupiedRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
+        const newBookings = rev?.bookings ?? 0;
+        const revenue = rev?.revenue ?? 0;
+
         result.push({
           dateStr,
           dayLabel,
-          occupiedRooms: occ?.occupiedRooms ?? 0,
-          availableRooms: occ?.availableRooms ?? Math.max(0, totalRooms - (occ?.occupiedRooms ?? 0)),
-          occupancyRate: occ?.occupancyRate ?? (totalRooms > 0 && occ?.occupiedRooms ? Math.round((occ.occupiedRooms / totalRooms) * 100) : 0),
-          newBookings: rev?.bookings ?? 0,
-          revenue: rev?.revenue ?? 0
+          fullDayLabel,
+          shortDate,
+          isToday,
+          occupiedRooms,
+          availableRooms,
+          occupancyRate,
+          newBookings,
+          revenue
         });
       }
       return result;
     } else {
-      // Month mode: lấy theo các ngày có trong occupancyRows hoặc tối đa 14 ngày gần nhất
-      const sliced = occupancyRows.slice(-14);
-      if (sliced.length === 0) {
-        return [];
-      }
+      // Month mode: Lấy tối đa 14 ngày gần nhất để cột cân đối, không bị chật
+      const sliced = occupancyRows.length > 14 ? occupancyRows.slice(-14) : occupancyRows;
+      if (sliced.length === 0) return [];
+
       return sliced.map(occ => {
         const d = new Date(occ.date);
+        const dayOfWeek = isNaN(d.getDay()) ? 0 : d.getDay();
         const dayLabel = `${d.getDate()}/${d.getMonth() + 1}`;
+        const fullDayLabel = `${dayNames[dayOfWeek]}, ${d.getDate()}/${d.getMonth() + 1}`;
+        const shortDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const isToday = occ.date === todayStr;
         const rev = revenueRows.find(r => r.date === occ.date || r.period === occ.date);
+
+        const occupiedRooms = occ.occupiedRooms ?? 0;
+        const availableRooms = occ.availableRooms ?? Math.max(0, totalRooms - occupiedRooms);
+        const occupancyRate = occ.occupancyRate ?? (totalRooms > 0 && occupiedRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
+        const newBookings = rev?.bookings ?? 0;
+        const revenue = rev?.revenue ?? 0;
+
         return {
           dateStr: occ.date,
           dayLabel,
-          occupiedRooms: occ.occupiedRooms ?? 0,
-          availableRooms: occ.availableRooms ?? Math.max(0, totalRooms - (occ.occupiedRooms ?? 0)),
-          occupancyRate: occ.occupancyRate ?? 0,
-          newBookings: rev?.bookings ?? 0,
-          revenue: rev?.revenue ?? 0
+          fullDayLabel,
+          shortDate,
+          isToday,
+          occupiedRooms,
+          availableRooms,
+          occupancyRate,
+          newBookings,
+          revenue
         };
       });
     }
   }, [occupancyRows, revenueRows, totalRooms, activeRange]);
 
-  // Tìm giá trị max thực tế để chuẩn hóa scale cột
-  const maxRooms = Math.max(totalRooms, ...chartItems.map(item => item.occupiedRooms), 1);
-  const maxBookings = Math.max(...chartItems.map(item => item.newBookings), 1);
+  // Thống kê nhanh tổng quan biểu đồ
+  const summary = React.useMemo(() => {
+    const totalNewBookings = chartItems.reduce((acc, it) => acc + it.newBookings, 0);
+    const avgOccupancyRate = chartItems.length > 0
+      ? Math.round(chartItems.reduce((acc, it) => acc + it.occupancyRate, 0) / chartItems.length)
+      : 0;
+
+    let peakDay = chartItems[0];
+    for (const it of chartItems) {
+      if (!peakDay || it.occupiedRooms > peakDay.occupiedRooms) {
+        peakDay = it;
+      }
+    }
+
+    const totalRevenue = chartItems.reduce((acc, it) => acc + it.revenue, 0);
+
+    return { totalNewBookings, avgOccupancyRate, peakDay, totalRevenue };
+  }, [chartItems]);
 
   return (
     <div className={`bg-white border border-border-grey rounded-2xl p-5 md:p-6 shadow-2xs flex flex-col justify-between h-full ${className}`}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-grey shrink-0">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-grey shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <IoBarChartOutline size={18} className="text-[#626F47]" />
-            <h3 className="font-bold text-base text-[#1A2411]">Công suất & Lượng khách</h3>
+            <div className="p-1.5 rounded-lg bg-[#EBF0E3] text-[#626F47]">
+              <IoBarChartOutline size={18} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-[#1A2411] leading-tight">Công suất & Lượng khách</h3>
+              <p className="text-xs text-[#606D56] mt-0.5">
+                Số phòng lưu trú thực tế & lượng đơn đặt phòng mới phát sinh
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-[#606D56] mt-0.5">
-            Dữ liệu thực tế: số phòng có khách và đơn đặt mới theo từng ngày
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -336,61 +394,217 @@ const WeeklyOccupancyChart: React.FC<{
         </div>
       </div>
 
-      {/* Dual Bar Chart Canvas */}
-      <div className="my-auto py-3 flex items-end justify-between gap-2 sm:gap-4 flex-1 min-h-[190px] px-2">
+      {/* Mini KPI Summary Strip */}
+      <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-[#F9FAF6] rounded-xl border border-[#E8EEE0] my-3 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#D4F63D] border border-[#B5D625] shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[11px] text-[#606D56] block truncate">Tổng đặt mới</span>
+            <span className="font-extrabold text-[#1A2411] text-xs sm:text-sm">
+              {summary.totalNewBookings} <span className="text-[11px] font-normal text-[#606D56]">đơn</span>
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 min-w-0 border-x border-[#E2E8D7] px-2 sm:px-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#626F47] shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[11px] text-[#606D56] block truncate">Công suất TB</span>
+            <span className="font-extrabold text-[#1A2411] text-xs sm:text-sm">
+              {summary.avgOccupancyRate}%
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 min-w-0 pl-1">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[11px] text-[#606D56] block truncate">Đông nhất</span>
+            <span className="font-extrabold text-[#1A2411] text-xs sm:text-sm truncate block" title={summary.peakDay && summary.peakDay.occupiedRooms > 0 ? `${summary.peakDay.dayLabel} (${summary.peakDay.occupiedRooms} phòng)` : 'Chưa có'}>
+              {summary.peakDay && summary.peakDay.occupiedRooms > 0
+                ? `${summary.peakDay.dayLabel} (${summary.peakDay.occupiedRooms} ph)`
+                : '0 phòng'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart Canvas with Y-Axis & Gridlines */}
+      <div className="flex-1 flex flex-col justify-between min-h-[230px] relative pt-2">
         {chartItems.length === 0 ? (
-          <div className="w-full h-full flex flex-col items-center justify-center text-xs text-[#606D56]">
+          <div className="w-full h-full flex flex-col items-center justify-center text-xs text-[#606D56] py-12">
             <IoBarChartOutline size={32} className="text-[#86967B]/40 mb-2" />
             <span>Chưa có dữ liệu công suất trong khoảng thời gian này</span>
           </div>
         ) : (
-          chartItems.map((item, idx) => {
-            // Tỷ lệ phần trăm cột: Cột 1 (Đặt mới), Cột 2 (Đang ở)
-            const hBookings = maxBookings > 0 ? Math.round((item.newBookings / maxBookings) * 100) : 0;
-            const hOccupied = maxRooms > 0 ? Math.round((item.occupiedRooms / maxRooms) * 100) : 0;
+          <div className="flex items-stretch flex-1 gap-1.5 sm:gap-2 relative">
+            {/* Trục Y mốc giá trị bên trái */}
+            <div className="w-9 sm:w-11 flex flex-col justify-between items-end pb-8 pr-1.5 text-[10px] font-mono text-[#86967B] shrink-0 select-none">
+              <span>100%</span>
+              <span>75%</span>
+              <span>50%</span>
+              <span>25%</span>
+              <span>0%</span>
+            </div>
 
-            return (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                <div className="w-full max-w-[42px] flex items-end justify-center gap-1 sm:gap-1.5 flex-1 min-h-0">
-                  {/* Bar 1: Lime Accent (Đặt mới) */}
-                  <div
-                    className="w-1/2 bg-[#D4F63D] hover:bg-[#C2E232] rounded-t-md transition-all duration-300 relative group/bar min-h-[4px]"
-                    style={{ height: `${Math.max(4, hBookings)}%` }}
-                  >
-                    <div className="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-[#1A2411] text-white text-[10px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-md">
-                      {item.newBookings} đơn mới
-                    </div>
-                  </div>
-
-                  {/* Bar 2: Deep Olive (Đang ở) */}
-                  <div
-                    className="w-1/2 bg-[#626F47] hover:bg-[#525E3B] rounded-t-md transition-all duration-300 relative group/bar min-h-[4px]"
-                    style={{ height: `${Math.max(4, hOccupied)}%` }}
-                  >
-                    <div className="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-[#1A2411] text-white text-[10px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-md">
-                      {item.occupiedRooms} phòng đang ở ({item.occupancyRate}%)
-                    </div>
-                  </div>
-                </div>
-
-                <span className="text-[11px] font-bold text-[#606D56] group-hover:text-[#1A2411] transition-colors shrink-0">
-                  {item.dayLabel}
-                </span>
+            {/* Vùng vẽ biểu đồ */}
+            <div className="flex-1 relative flex flex-col justify-between">
+              {/* Background Grid Lines aligned with the bars area */}
+              <div className="absolute inset-x-0 top-0 bottom-8 flex flex-col justify-between pointer-events-none">
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-dashed border-[#E2E8D5] w-full" />
+                <div className="border-b border-[#D8DFCE] w-full" />
               </div>
-            );
-          })
+
+              {/* Các cột dữ liệu theo ngày */}
+              <div className="relative z-10 flex items-stretch justify-between gap-1 sm:gap-2 flex-1">
+                {chartItems.map((item, idx) => {
+                  // Tỷ lệ % cho cột phòng có khách: chuẩn theo tỷ lệ công suất 0-100%
+                  const hOccupied = Math.min(100, Math.max(0, item.occupancyRate));
+
+                  // Tỷ lệ % cho cột đặt phòng mới: scale theo trần tối thiểu 5 để không bị vọt lố
+                  const maxBookingsCeil = Math.max(5, ...chartItems.map(i => i.newBookings));
+                  const hBookings = Math.min(100, Math.round((item.newBookings / maxBookingsCeil) * 100));
+
+                  const isHovered = hoveredIdx === idx;
+
+                  // Tooltip position alignment to avoid edge overflows
+                  const tooltipPosClass = idx === 0
+                    ? 'left-0'
+                    : idx === chartItems.length - 1
+                      ? 'right-0'
+                      : 'left-1/2 -translate-x-1/2';
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex-1 flex flex-col items-center justify-end rounded-xl p-1 transition-all relative ${
+                        isHovered ? 'bg-[#F2F6ED]/90 shadow-2xs' : 'hover:bg-[#F8FAF4]'
+                      }`}
+                      onMouseEnter={() => setHoveredIdx(idx)}
+                      onMouseLeave={() => setHoveredIdx(null)}
+                    >
+                      {/* Unified Hover Tooltip Card */}
+                      {isHovered && (
+                        <div
+                          className={`absolute bottom-full mb-3 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-150 ${tooltipPosClass}`}
+                        >
+                          <div className="bg-[#1A2411] text-white text-xs rounded-xl p-3 shadow-xl whitespace-nowrap border border-[#303D20] min-w-[190px]">
+                            <div className="flex items-center justify-between border-b border-[#303D20] pb-1.5 mb-2">
+                              <span className="font-bold text-[#E4F2CC] text-xs">
+                                {item.fullDayLabel}
+                              </span>
+                              {item.isToday && (
+                                <span className="text-[10px] bg-[#D4F63D] text-[#1A2411] px-1.5 py-0.2 rounded font-bold">
+                                  Hôm nay
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1.5 text-[11px]">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-[#A4B495] flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-[#626F47] shrink-0" />
+                                  Phòng có khách:
+                                </span>
+                                <span className="font-bold text-white">
+                                  {item.occupiedRooms} / {totalRooms} ({item.occupancyRate}%)
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-[#A4B495] flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-[#D4F63D] shrink-0" />
+                                  Đặt phòng mới:
+                                </span>
+                                <span className="font-bold text-[#D4F63D]">
+                                  {item.newBookings} đơn
+                                </span>
+                              </div>
+                              {item.revenue > 0 && (
+                                <div className="flex items-center justify-between gap-3 pt-1 border-t border-[#303D20]/60">
+                                  <span className="text-[#A4B495]">Doanh thu:</span>
+                                  <span className="font-bold text-[#F3FCE3]">
+                                    {fmtCurrency(item.revenue)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Tooltip arrow */}
+                          <div className="w-2.5 h-2.5 bg-[#1A2411] rotate-45 mx-auto -mt-1 border-r border-b border-[#303D20]" />
+                        </div>
+                      )}
+
+                      {/* Bars Pair Container */}
+                      <div className="w-full max-w-[44px] flex items-end justify-center gap-1 sm:gap-1.5 flex-1 min-h-0 pb-0.5">
+                        {/* Cột 1: Lime Accent (Lượt đặt mới) */}
+                        <div className="w-1/2 flex flex-col items-center justify-end h-full">
+                          {item.newBookings > 0 && (
+                            <span className="text-[9px] sm:text-[10px] font-extrabold text-[#5B6E14] mb-0.5 leading-none transition-transform">
+                              +{item.newBookings}
+                            </span>
+                          )}
+                          <div
+                            className="w-full bg-[#D4F63D] hover:bg-[#C2E232] rounded-t-md transition-all duration-300 relative min-h-[2px]"
+                            style={{
+                              height: item.newBookings > 0 ? `${Math.max(8, hBookings)}%` : '0%'
+                            }}
+                          />
+                        </div>
+
+                        {/* Cột 2: Deep Olive (Phòng đang có khách) */}
+                        <div className="w-1/2 flex flex-col items-center justify-end h-full">
+                          {item.occupiedRooms > 0 && (
+                            <span className="text-[9px] sm:text-[10px] font-extrabold text-[#38421F] mb-0.5 leading-none transition-transform">
+                              {item.occupiedRooms}
+                            </span>
+                          )}
+                          <div
+                            className="w-full bg-[#626F47] hover:bg-[#525E3B] rounded-t-md transition-all duration-300 relative min-h-[2px]"
+                            style={{
+                              height: item.occupiedRooms > 0 ? `${Math.max(8, hOccupied)}%` : '0%'
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Day & Date Labels */}
+                      <div className="h-8 flex flex-col items-center justify-center shrink-0 pt-1">
+                        <span className={`text-[11px] font-bold leading-tight ${
+                          item.isToday
+                            ? 'text-emerald-700 bg-emerald-100/70 px-1 rounded'
+                            : isHovered
+                              ? 'text-[#1A2411]'
+                              : 'text-[#606D56]'
+                        }`}>
+                          {item.dayLabel}
+                        </span>
+                        <span className="text-[9px] text-[#86967B] font-medium leading-none mt-0.5">
+                          {item.shortDate}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 pt-3 border-t border-border-grey flex items-center justify-center gap-6 text-xs text-[#606D56] font-medium shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-md bg-[#D4F63D]" />
-          <span>Lượt đặt phòng mới</span>
+      {/* Legend & Footnote */}
+      <div className="mt-4 pt-3 border-t border-border-grey flex flex-wrap items-center justify-between gap-3 text-xs text-[#606D56] font-medium shrink-0">
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-md bg-[#D4F63D] border border-[#BBDC28]" />
+            <span>Lượt đặt mới (Đơn)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-md bg-[#626F47]" />
+            <span>Phòng có khách (Công suất %)</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-md bg-[#626F47]" />
-          <span>Số phòng đang có khách</span>
+        <div className="text-[11px] text-[#86967B] hidden sm:block">
+          💡 Rê chuột vào ngày để xem chi tiết
         </div>
       </div>
     </div>
