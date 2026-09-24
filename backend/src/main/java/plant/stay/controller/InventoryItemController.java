@@ -92,10 +92,27 @@ public class InventoryItemController {
         return ResponseEntity.ok(new MessageResponse("Đã xóa mặt hàng"));
     }
 
+    @DeleteMapping("/bulk")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<MessageResponse> bulkDelete(@RequestBody List<Long> ids, HttpServletRequest request) {
+        checkOwner(request);
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Danh sách ID cần xóa rỗng"));
+        }
+        for (Long id : ids) {
+            try {
+                inventoryItemRepository.deleteById(id);
+            } catch (Exception ex) {
+                // Ignore individual deletion error if item in use
+            }
+        }
+        return ResponseEntity.ok(new MessageResponse("Đã xóa thành công các mặt hàng đã chọn"));
+    }
+
     private void checkOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || user.getRole() != Role.OWNER)
-            throw new UnauthorizedException("Chỉ OWNER mới có quyền thực hiện chức năng này");
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN))
+            throw new UnauthorizedException("Chỉ Quản trị viên hoặc Chủ cơ sở mới có quyền thực hiện chức năng này");
     }
 
     private void checkStaffOrOwner(HttpServletRequest request) {
