@@ -93,6 +93,13 @@ public class GlobalExceptionHandler {
                 .body(new MessageResponse("Kích thước tệp tải lên vượt quá giới hạn cho phép (tối đa 50MB)."));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<MessageResponse> handleDataIntegrityViolationException(org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Database constraint violation: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new MessageResponse("Không thể xóa dữ liệu này do đang được liên kết với các thông tin khác trong hệ thống (như đặt phòng hoặc hóa đơn)."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<MessageResponse> handleGlobalException(Exception ex) {
         log.error("Unhandled Exception: ", ex);
