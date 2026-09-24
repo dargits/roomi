@@ -74,7 +74,9 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<BookingResponse> getAll() {
-        return toResponseList(bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id")));
+        List<Booking> all = bookingRepository.findAll();
+        all.sort(this::compareBookingPriority);
+        return toResponseList(all);
     }
 
     @Override
@@ -97,7 +99,6 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public List<BookingResponse> search(String query, BookingStatus status, LocalDate fromDate, LocalDate toDate) {
         List<Booking> all = bookingRepository.findAll();
-        LocalDate today = LocalDate.now();
 
         List<Booking> filtered = all.stream()
                 .filter(b -> {
@@ -126,16 +127,72 @@ public class BookingServiceImpl implements BookingService {
                     }
                     return true;
                 })
-                .sorted((b1, b2) -> {
-                    long d1 = b1.getCheckInDate() != null ? Math.abs(ChronoUnit.DAYS.between(b1.getCheckInDate(), today)) : Long.MAX_VALUE;
-                    long d2 = b2.getCheckInDate() != null ? Math.abs(ChronoUnit.DAYS.between(b2.getCheckInDate(), today)) : Long.MAX_VALUE;
-                    int diff = Long.compare(d1, d2);
-                    if (diff != 0) return diff;
-                    return Long.compare(b2.getId() != null ? b2.getId() : 0L, b1.getId() != null ? b1.getId() : 0L);
-                })
+                .sorted(this::compareBookingPriority)
                 .collect(Collectors.toList());
 
         return toResponseList(filtered);
+    }
+
+    private int getBookingPriorityRank(Booking b, LocalDate today) {
+        if (b == null || b.getStatus() == null) return 9;
+        LocalDate cin = b.getCheckInDate();
+        LocalDate cout = b.getCheckOutDate();
+
+        // 1. Nhận phòng hôm nay hoặc quá hạn chưa nhận
+        if ((b.getStatus() == BookingStatus.CONFIRMED || b.getStatus() == BookingStatus.NEW) 
+                && cin != null && !cin.isAfter(today)) {
+            return 1;
+        }
+        // 2. Trả phòng hôm nay hoặc quá hạn (đang ở)
+        if (b.getStatus() == BookingStatus.CHECKED_IN && cout != null && !cout.isAfter(today)) {
+            return 2;
+        }
+        // 3. Đơn mới cần xử lý / xếp phòng
+        if (b.getStatus() == BookingStatus.NEW) {
+            return 3;
+        }
+        // 4. Khách đang ở các ngày tới
+        if (b.getStatus() == BookingStatus.CHECKED_IN) {
+            return 4;
+        }
+        // 5. Đơn đã xác nhận tương lai
+        if (b.getStatus() == BookingStatus.CONFIRMED) {
+            return 5;
+        }
+        // 6. Đã trả phòng hoàn tất
+        if (b.getStatus() == BookingStatus.CHECKED_OUT) {
+            return 6;
+        }
+        // 7. Khách không đến
+        if (b.getStatus() == BookingStatus.NO_SHOW) {
+            return 7;
+        }
+        // 8. Đã hủy
+        if (b.getStatus() == BookingStatus.CANCELLED) {
+            return 8;
+        }
+        return 9;
+    }
+
+    private int compareBookingPriority(Booking b1, Booking b2) {
+        LocalDate today = LocalDate.now();
+        int r1 = getBookingPriorityRank(b1, today);
+        int r2 = getBookingPriorityRank(b2, today);
+        if (r1 != r2) {
+            return Integer.compare(r1, r2);
+        }
+        if (r1 >= 6) {
+            LocalDate d1 = b1.getCheckOutDate() != null ? b1.getCheckOutDate() : b1.getCheckInDate();
+            LocalDate d2 = b2.getCheckOutDate() != null ? b2.getCheckOutDate() : b2.getCheckInDate();
+            if (d1 != null && d2 != null && !d1.equals(d2)) {
+                return d2.compareTo(d1);
+            }
+            return Long.compare(b2.getId() != null ? b2.getId() : 0L, b1.getId() != null ? b1.getId() : 0L);
+        }
+        if (b1.getCheckInDate() != null && b2.getCheckInDate() != null && !b1.getCheckInDate().equals(b2.getCheckInDate())) {
+            return b1.getCheckInDate().compareTo(b2.getCheckInDate());
+        }
+        return Long.compare(b2.getId() != null ? b2.getId() : 0L, b1.getId() != null ? b1.getId() : 0L);
     }
 
     @Override

@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface PublicGroupBookingRequestRepository extends JpaRepository<PublicGroupBookingRequest, Long> {
 	List<PublicGroupBookingRequest> findAllByOrderByCreatedAtDesc();
+	long countByStatus(plant.stay.model.PublicGroupBookingRequestStatus status);
 }

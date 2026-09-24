@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { negotiatedPriceApi, NegotiatedPriceAgreement, NegotiatedPriceAgreementRequest } from '../../services/negotiatedPriceApi';
 import { NegotiatedPriceModal } from './NegotiatedPriceModal';
 import { IoAddOutline, IoPricetagOutline, IoPencilOutline, IoTrashOutline, IoBusinessOutline, IoPeopleOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoCalendarOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
 import { useToast } from '../../context/ToastContext';
+
+const ITEMS_PER_PAGE = 10;
 
 export const NegotiatedPriceManagement: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -14,10 +17,29 @@ export const NegotiatedPriceManagement: React.FC = () => {
   const [agreements, setAgreements] = useState<NegotiatedPriceAgreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [targetFilter, setTargetFilter] = useState<'ALL' | 'CORPORATE' | 'GROUP'>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<NegotiatedPriceAgreement | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { success: toastSuccess, error: toastError } = useToast();
+
+  const filteredAgreements = useMemo(() => {
+    return agreements.filter(a => {
+      if (targetFilter === 'CORPORATE') return !!a.corporateClientId;
+      if (targetFilter === 'GROUP') return !!a.groupBookingId;
+      return true;
+    });
+  }, [agreements, targetFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAgreements.length / ITEMS_PER_PAGE));
+  const paginatedAgreements = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAgreements.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAgreements, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [targetFilter]);
 
   const fetchAgreements = async () => {
     setLoading(true);
@@ -74,11 +96,6 @@ export const NegotiatedPriceManagement: React.FC = () => {
     }
   };
 
-  const filteredAgreements = agreements.filter(a => {
-    if (targetFilter === 'CORPORATE') return !!a.corporateClientId;
-    if (targetFilter === 'GROUP') return !!a.groupBookingId;
-    return true;
-  });
 
   const formatVND = (num: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
@@ -162,7 +179,7 @@ export const NegotiatedPriceManagement: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredAgreements.map((a) => {
+                  paginatedAgreements.map((a) => {
                     const isCorporate = !!a.corporateClientId;
                     const isExpired = new Date(a.endDate) < new Date();
 
@@ -244,6 +261,17 @@ export const NegotiatedPriceManagement: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Phân trang */}
+          {filteredAgreements.length > ITEMS_PER_PAGE && (
+            <div className="p-3 border-t border-border-grey bg-surface-container-low/30">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </div>
       )}
 
