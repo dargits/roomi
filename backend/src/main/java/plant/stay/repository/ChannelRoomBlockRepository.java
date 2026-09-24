@@ -17,6 +17,12 @@ public interface ChannelRoomBlockRepository extends JpaRepository<ChannelRoomBlo
 
     List<ChannelRoomBlock> findByChannelIdAndStatus(Long channelId, String status);
 
+    List<ChannelRoomBlock> findByStatus(String status);
+
+    @Query("SELECT b FROM ChannelRoomBlock b WHERE b.status = 'BLOCKED' AND b.room IS NULL " +
+           "AND b.roomType.id = :roomTypeId AND b.warningMessage LIKE '%Trùng lịch%' ORDER BY b.id")
+    List<ChannelRoomBlock> findUnresolvedOverbookingBlocks(@Param("roomTypeId") Long roomTypeId);
+
     Optional<ChannelRoomBlock> findByChannelIdAndExternalUid(Long channelId, String externalUid);
 
     long countByChannelIdAndStatus(Long channelId, String status);

@@ -10,11 +10,13 @@ import {
   IoTimeOutline,
   IoCallOutline,
   IoSearchOutline,
-  IoChevronForwardOutline
+  IoChevronForwardOutline,
+  IoCalendarOutline
 } from 'react-icons/io5';
 import { useAppConfig } from '../../context/AppConfigContext';
 import roomTypeApi from '../../services/roomTypeApi';
 import extraServiceApi from '../../services/extraServiceApi';
+import aiApi from '../../services/aiApi';
 import { RoomTypeResponse, ExtraServiceResponse } from '../../types';
 
 export interface PublicChatbotProps {
@@ -57,6 +59,9 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomTypeResponse[]>([]);
   const [services, setServices] = useState<ExtraServiceResponse[]>([]);
+  const [chatCheckIn, setChatCheckIn] = useState<string>('');
+  const [chatCheckOut, setChatCheckOut] = useState<string>('');
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -95,7 +100,7 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
     return {
       id: 'welcome-msg',
       sender: 'bot',
-      text: `👋 **Xin chào Quý khách!** Em là **StayBot** - Trợ lý hỗ trợ đặt phòng trực tuyến của **${propName}**.\n\nEm có thể giúp Quý khách tìm phòng ưng ý, xem bảng giá ưu đãi, giải đáp quy định nhận/trả phòng hoặc tra cứu đặt phòng nhanh chóng. Quý khách cần hỗ trợ thông tin gì ạ?`,
+      text: `👋 **Xin chào Quý khách!** Em là **StayBot AI** - Trợ lý thông minh của **${propName}**, được tích hợp công nghệ Gemini AI và kết nối trực tiếp với dữ liệu khách sạn.\n\nEm có thể hỗ trợ tra cứu giá phòng, kiểm tra phòng trống thực tế theo ngày, và giải đáp các tiện ích hay chính sách. Quý khách cần hỗ trợ gì ạ? ✨`,
       timestamp: getNowTime(),
       quickReplies: DEFAULT_QUICK_REPLIES
     };
@@ -534,8 +539,8 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
     };
   };
 
-  // Handle user send message
-  const handleSendMessage = (textToSend?: string) => {
+  // Handle user send message with Gemini AI backend and graceful local fallback
+  const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
     if (!query || isTyping) return;
 
@@ -550,12 +555,35 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
     setInputText('');
     setIsTyping(true);
 
-    // Natural typing delay (450ms - 650ms)
-    setTimeout(() => {
+    try {
+      // Call backend AI Gemini endpoint with system context
+      const res = await aiApi.publicChat({
+        message: query,
+        checkIn: chatCheckIn || undefined,
+        checkOut: chatCheckOut || undefined
+      });
+
+      if (res && res.reply && !res.error) {
+        const botReply: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          sender: 'bot',
+          text: res.reply,
+          timestamp: getNowTime(),
+          quickReplies: DEFAULT_QUICK_REPLIES
+        };
+        setMessages((prev) => [...prev, botReply]);
+      } else {
+        // Fallback to local rule engine if AI returned error/blank
+        const botReply = generateBotReply(query);
+        setMessages((prev) => [...prev, botReply]);
+      }
+    } catch (err) {
+      console.warn('AI chat error, using local fallback:', err);
       const botReply = generateBotReply(query);
       setMessages((prev) => [...prev, botReply]);
+    } finally {
       setIsTyping(false);
-    }, 550);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -671,14 +699,14 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-bold text-sm tracking-wide text-white">
-                    StayBot Concierge
+                    StayBot AI
                   </h3>
-                  <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium">
-                    24/7
+                  <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+                    <IoSparkles size={10} className="text-lodgify-lime" /> Gemini AI
                   </span>
                 </div>
                 <p className="text-[11px] text-white/80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-lodgify-lime"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-lodgify-lime animate-pulse"></span>
                   Trực tuyến • {hotelSetting?.propertyName || 'Stay Away'}
                 </p>
               </div>
@@ -703,6 +731,57 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
               </button>
             </div>
           </div>
+
+          {/* Quick Date Selector Bar for real-time room vacancy check */}
+          <div className="bg-surface-container-low px-4 py-2 border-b border-border-grey flex items-center justify-between text-xs shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowDatePicker((v) => !v)}
+              className="flex items-center gap-1.5 text-on-surface-variant hover:text-primary font-medium transition-colors cursor-pointer"
+            >
+              <IoCalendarOutline size={14} className="text-primary" />
+              <span>
+                {chatCheckIn && chatCheckOut
+                  ? `${chatCheckIn} → ${chatCheckOut}`
+                  : 'Chọn ngày lưu trú để AI tra cứu phòng trống'}
+              </span>
+            </button>
+            {chatCheckIn && (
+              <button
+                type="button"
+                onClick={() => {
+                  setChatCheckIn('');
+                  setChatCheckOut('');
+                }}
+                className="text-[10px] text-error hover:underline cursor-pointer"
+              >
+                Xóa ngày
+              </button>
+            )}
+          </div>
+          {showDatePicker && (
+            <div className="bg-surface-container-lowest p-3 border-b border-border-grey grid grid-cols-2 gap-2 text-xs shrink-0 animate-page-enter">
+              <div>
+                <label className="block text-[10px] font-semibold text-on-surface-variant mb-1">Ngày nhận phòng</label>
+                <input
+                  type="date"
+                  value={chatCheckIn}
+                  onChange={(e) => setChatCheckIn(e.target.value)}
+                  className="w-full text-xs p-1.5 bg-surface-container-low border border-border-grey rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-on-surface-variant mb-1">Ngày trả phòng</label>
+                <input
+                  type="date"
+                  value={chatCheckOut}
+                  onChange={(e) => setChatCheckOut(e.target.value)}
+                  min={chatCheckIn || undefined}
+                  className="w-full text-xs p-1.5 bg-surface-container-low border border-border-grey rounded-md"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-surface/50">

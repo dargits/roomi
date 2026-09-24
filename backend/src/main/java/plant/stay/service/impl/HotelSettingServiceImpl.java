@@ -3,6 +3,7 @@ package plant.stay.service.impl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import plant.stay.dto.request.GoogleApiKeysRequest;
 import plant.stay.dto.request.HotelSettingRequest;
 import plant.stay.dto.response.HotelSettingResponse;
 import plant.stay.exception.ResourceNotFoundException;
@@ -91,6 +92,32 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         return mapToResponse(saved);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public String getGoogleApiKeys() {
+        HotelSetting setting = repository.findById(1L)
+                .orElseThrow(() -> new ResourceNotFoundException("Cấu hình cơ sở không tồn tại."));
+        return setting.getGoogleApiKeys() != null ? setting.getGoogleApiKeys() : "";
+    }
+
+    @Override
+    @Transactional
+    public void updateGoogleApiKeys(GoogleApiKeysRequest request) {
+        HotelSetting setting = repository.findById(1L)
+                .orElseThrow(() -> new ResourceNotFoundException("Cấu hình cơ sở không tồn tại."));
+        // Loại bỏ các dòng trắng và khoảng trắng thừa, giữ đúng 1 key mỗi dòng
+        String cleaned = null;
+        if (request.getGoogleApiKeys() != null) {
+            cleaned = request.getGoogleApiKeys().lines()
+                    .map(String::trim)
+                    .filter(line -> !line.isEmpty())
+                    .reduce("", (a, b) -> a.isEmpty() ? b : a + "\n" + b);
+            if (cleaned.isEmpty()) cleaned = null;
+        }
+        setting.setGoogleApiKeys(cleaned);
+        repository.save(setting);
+    }
+
     private HotelSettingResponse mapToResponse(HotelSetting setting) {
         return HotelSettingResponse.builder()
                 .id(setting.getId())
@@ -116,6 +143,7 @@ public class HotelSettingServiceImpl implements HotelSettingService {
                 .priceSuggestionLowThreshold(setting.getPriceSuggestionLowThreshold() != null ? setting.getPriceSuggestionLowThreshold() : 30.0)
                 .priceSuggestionImminentDays(setting.getPriceSuggestionImminentDays() != null ? setting.getPriceSuggestionImminentDays() : 7)
                 .priceSuggestionConfigured(setting.getPriceSuggestionConfigured() != null ? setting.getPriceSuggestionConfigured() : true)
+                .googleApiKeys(setting.getGoogleApiKeys())
                 .build();
     }
 }
