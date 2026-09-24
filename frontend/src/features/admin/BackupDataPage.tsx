@@ -612,7 +612,19 @@ const BackupDataPage: React.FC = () => {
     } catch (err: any) {
       clearTimeout(timer);
       setExportProgress(null);
-      toastError('Lỗi xuất dữ liệu: ' + (err.response?.data?.message || err.message));
+      let errMsg = err.message || 'Lỗi không xác định khi xuất dữ liệu';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          errMsg = json.message || text;
+        } catch {
+          // fallback giữ nguyên errMsg
+        }
+      } else if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      }
+      toastError('Lỗi xuất dữ liệu: ' + errMsg);
     } finally {
       setExportingType(null);
     }

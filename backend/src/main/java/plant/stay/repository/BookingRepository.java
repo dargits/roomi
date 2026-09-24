@@ -1,5 +1,7 @@
 package plant.stay.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,30 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByRoomId(Long roomId);
     List<Booking> findByGroupBookingId(Long groupBookingId);
     Booking findTopByRoomIdAndStatusOrderByCheckOutDateDesc(Long roomId, BookingStatus status);
+
+    @Query(value = "SELECT b FROM Booking b LEFT JOIN FETCH b.guest LEFT JOIN FETCH b.roomType LEFT JOIN FETCH b.room",
+           countQuery = "SELECT count(b) FROM Booking b")
+    Page<Booking> findAllWithDetails(Pageable pageable);
+
+    @Query(value = "SELECT b FROM Booking b LEFT JOIN FETCH b.guest g LEFT JOIN FETCH b.roomType LEFT JOIN FETCH b.room " +
+           "WHERE (:query IS NULL OR CAST(b.id AS string) LIKE CONCAT('%', :query, '%') " +
+           "       OR LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
+           "  AND (:status IS NULL OR b.status = :status) " +
+           "  AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
+           "  AND (:toDate IS NULL OR b.checkInDate <= :toDate)",
+           countQuery = "SELECT count(b) FROM Booking b LEFT JOIN b.guest g " +
+           "WHERE (:query IS NULL OR CAST(b.id AS string) LIKE CONCAT('%', :query, '%') " +
+           "       OR LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
+           "  AND (:status IS NULL OR b.status = :status) " +
+           "  AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
+           "  AND (:toDate IS NULL OR b.checkInDate <= :toDate)")
+    Page<Booking> searchPaged(@Param("query") String query,
+                              @Param("status") BookingStatus status,
+                              @Param("fromDate") LocalDate fromDate,
+                              @Param("toDate") LocalDate toDate,
+                              Pageable pageable);
 
     @Query("SELECT b FROM Booking b JOIN FETCH b.roomType WHERE b.groupBooking.id = :groupBookingId " +
            "AND b.room IS NULL AND b.status IN ('NEW', 'CONFIRMED') ORDER BY b.id")
