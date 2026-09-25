@@ -60,6 +60,15 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
+        boolean seedEnabled = false;
+        if (environment != null) {
+            seedEnabled = Boolean.parseBoolean(environment.getProperty("app.seed.enabled", "false"));
+        }
+        if (!seedEnabled) {
+            log.info("========== DATA SEEDER: Tự động khởi tạo dữ liệu mẫu đã bị VÔ HIỆU HÓA (app.seed.enabled=false). Bỏ qua quá trình thêm dữ liệu khi khởi động lại backend. ==========");
+            return;
+        }
+
         log.info("========== BẮT ĐẦU KIỂM TRA VÀ KHỞI TẠO DỮ LIỆU HỆ THỐNG STAY AWAY ==========");
 
         // 1. Seed Users
