@@ -43,7 +43,7 @@ const RoomStatusUpdate: React.FC = () => {
   const fetchRooms = async () => {
     setLoading(true);
     try {
-      const data = await roomApi.getAllRooms(filterStatus ? (filterStatus as RoomStatus) : undefined);
+      const data = await roomApi.getAllRooms();
       setRooms(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Fetch rooms error:', err);
@@ -55,9 +55,9 @@ const RoomStatusUpdate: React.FC = () => {
 
   useEffect(() => {
     fetchRooms();
-  }, [filterStatus]);
+  }, []);
 
-  // Tính stats
+  // Tính stats từ toàn bộ danh sách phòng
   const stats = useMemo(() => {
     return rooms.reduce<Record<string, number>>((acc, r) => {
       acc[r.status] = (acc[r.status] || 0) + 1;
@@ -71,9 +71,11 @@ const RoomStatusUpdate: React.FC = () => {
     return Array.from(floorSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [rooms]);
 
-  // Danh sách phòng sau khi áp dụng tìm kiếm & lọc tầng
+  // Danh sách phòng sau khi áp dụng tìm kiếm, lọc trạng thái & lọc tầng
   const displayedRooms = useMemo(() => {
     return rooms.filter(room => {
+      if (filterStatus && room.status !== filterStatus) return false;
+
       const matchSearch = !searchTerm ||
         room.roomNumber?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
         room.roomTypeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,12 +85,12 @@ const RoomStatusUpdate: React.FC = () => {
 
       return matchSearch && matchFloor;
     });
-  }, [rooms, searchTerm, selectedFloor]);
+  }, [rooms, filterStatus, searchTerm, selectedFloor]);
 
   return (
     <div className="space-y-5">
       {/* Stats summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {Object.entries(STATUS_CONFIG).map(([status, cfg]) => {
           const Icon = cfg.icon;
           const isActive = filterStatus === status;

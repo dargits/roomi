@@ -1261,9 +1261,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
         } else if (channelId != null) {
             blocks = channelRoomBlockRepository.findByChannelId(channelId);
         } else if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
-            blocks = channelRoomBlockRepository.findAll().stream()
-                    .filter(b -> status.trim().equalsIgnoreCase(b.getStatus()))
-                    .collect(Collectors.toList());
+            blocks = channelRoomBlockRepository.findByStatus(status.trim().toUpperCase());
         } else {
             blocks = channelRoomBlockRepository.findAll();
         }
@@ -1307,12 +1305,7 @@ public class ChannelCalendarSyncServiceImpl implements ChannelCalendarSyncServic
     @Transactional
     public void autoResolveOverbookingConflicts(Long roomTypeId) {
         if (roomTypeId == null) return;
-        List<ChannelRoomBlock> unresolvedBlocks = channelRoomBlockRepository.findAll().stream()
-                .filter(b -> "BLOCKED".equals(b.getStatus()) && b.getRoom() == null &&
-                        b.getRoomType() != null && roomTypeId.equals(b.getRoomType().getId()) &&
-                        b.getWarningMessage() != null && b.getWarningMessage().contains("Trùng lịch"))
-                .sorted(java.util.Comparator.comparing(ChannelRoomBlock::getId))
-                .toList();
+        List<ChannelRoomBlock> unresolvedBlocks = channelRoomBlockRepository.findUnresolvedOverbookingBlocks(roomTypeId);
 
         for (ChannelRoomBlock block : unresolvedBlocks) {
             Room room = findAvailableRoom(block.getRoomType().getId(), block.getStartDate(), block.getEndDate());

@@ -24,6 +24,9 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import Button from '../../components/ui/Button';
 import BookingDetailsModal from './BookingDetailsModal';
 import StayingGuestsModal from './StayingGuestsModal';
+import Pagination from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 10;
 
 const fmtCurrency = (amount?: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount || 0);
@@ -73,6 +76,10 @@ export const InHouseGuestList: React.FC = () => {
   const [stayingGuestsBooking, setStayingGuestsBooking] = useState<any>(null);
   const [isStayingGuestsOpen, setIsStayingGuestsOpen] = useState<boolean>(false);
 
+  // Phân trang
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   // 1. Tải Filter Options và KPI Summary từ API
   const loadSummaryAndOptions = async () => {
     try {
@@ -120,6 +127,7 @@ export const InHouseGuestList: React.FC = () => {
 
   // Lắng nghe thay đổi bộ lọc và gọi API (debounced 250ms cho ô tìm kiếm)
   useEffect(() => {
+    setCurrentPage(1);
     const timer = setTimeout(() => {
       fetchGuestsWithParams();
     }, 250);
@@ -156,7 +164,14 @@ export const InHouseGuestList: React.FC = () => {
     setSelectedRoomType('ALL');
     setCheckOutTodayOnly(false);
     setDebtFilter('ALL');
+    setCurrentPage(1);
   };
+
+  const totalPages = Math.max(1, Math.ceil(guests.length / pageSize));
+  const paginatedGuests = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return guests.slice(start, start + pageSize);
+  }, [guests, currentPage, pageSize]);
 
   const hasActiveFilters = searchTerm !== '' || selectedFloor !== 'ALL' || selectedRoomType !== 'ALL' || checkOutTodayOnly || debtFilter !== 'ALL';
 
@@ -380,7 +395,7 @@ export const InHouseGuestList: React.FC = () => {
             </span>
           )}
           <span className="shrink-0 font-semibold text-on-surface bg-white px-2.5 py-1 rounded border border-border-grey">
-            Hiển thị: <strong>{guests.length}</strong> / {summary.totalRooms} phòng
+            Hiển thị: <strong>{guests.length === 0 ? 0 : `${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, guests.length)}`}</strong> / {guests.length} kết quả ({summary.totalRooms} phòng)
           </span>
         </div>
       </div>
@@ -420,7 +435,7 @@ export const InHouseGuestList: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                guests.map((g) => {
+                paginatedGuests.map((g) => {
                   return (
                     <tr
                       key={g.bookingId}
@@ -615,6 +630,22 @@ export const InHouseGuestList: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {guests.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={guests.length}
+            itemsPerPage={pageSize}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            itemsPerPageOptions={[5, 10, 20, 50]}
+            itemLabel="phòng lưu trú"
+          />
+        )}
       </div>
 
       {/* 5. Modal Hồ Sơ Đặt Phòng - Mở trực tiếp theo tab yêu cầu */}

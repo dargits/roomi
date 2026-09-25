@@ -28,6 +28,15 @@ public class ExtraServiceTest {
     @Autowired
     private InventoryItemRepository inventoryItemRepository;
 
+    @Autowired
+    private plant.stay.repository.ExtraServiceRepository extraServiceRepository;
+
+    @Autowired
+    private plant.stay.repository.BookingServiceUsageRepository bookingServiceUsageRepository;
+
+    @Autowired
+    private plant.stay.repository.BookingRepository bookingRepository;
+
     @Test
     @DisplayName("Tạo dịch vụ phụ thu mới thành công")
     void testCreateExtraService() {
@@ -125,7 +134,7 @@ public class ExtraServiceTest {
     }
 
     @Test
-    @DisplayName("Xóa dịch vụ phụ thu thành công")
+    @DisplayName("Xóa dịch vụ phụ thu thành công khi chưa phát sinh giao dịch")
     void testDeleteExtraService() {
         ExtraServiceRequest createReq = new ExtraServiceRequest();
         createReq.setName("Dịch vụ tạm thời");
@@ -140,5 +149,37 @@ public class ExtraServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> {
             extraServiceService.getById(created.getId());
         });
+    }
+
+    @Test
+    @DisplayName("Xóa dịch vụ đã phát sinh giao dịch trong booking sẽ chuyển sang Ngừng hoạt động")
+    void testDeleteExtraService_WithBookingUsage_DeactivatesService() {
+        ExtraServiceRequest createReq = new ExtraServiceRequest();
+        createReq.setName("Dịch vụ có khách dùng");
+        createReq.setUnitPrice(new BigDecimal("60000"));
+        createReq.setUnit("Lần");
+        createReq.setActive(true);
+
+        ExtraServiceResponse created = extraServiceService.create(createReq);
+        plant.stay.model.ExtraService service = extraServiceRepository.findById(created.getId()).orElseThrow();
+
+        plant.stay.model.Booking booking = bookingRepository.findAll().stream().findFirst().orElse(null);
+        if (booking != null) {
+            bookingServiceUsageRepository.save(plant.stay.model.BookingServiceUsage.builder()
+                    .booking(booking)
+                    .extraService(service)
+                    .quantity(1)
+                    .unitPriceSnapshot(new BigDecimal("60000"))
+                    .build());
+
+            MessageResponse deleteRes = extraServiceService.delete(created.getId());
+            assertNotNull(deleteRes);
+            assertTrue(deleteRes.getMessage().contains("Ngừng hoạt động"));
+
+            ExtraServiceResponse updated = extraServiceService.getById(created.getId());
+            assertFalse(updated.isActive());
+            assertTrue(updated.isHasBookings());
+            assertEquals(1L, updated.getUsageCount());
+        }
     }
 }

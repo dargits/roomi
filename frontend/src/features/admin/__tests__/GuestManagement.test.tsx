@@ -13,6 +13,19 @@ vi.mock('../../../context/AuthContext', () => ({
 // Mock guestApi
 vi.mock('../../../services/guestApi', () => {
   const mockApi = {
+    getGuestsPaged: vi.fn().mockResolvedValue({
+      content: [
+        { id: 1, name: 'Nguyễn Văn A', phone: '0901234567', idNumber: '123456789012', email: 'a@example.com' },
+        { id: 2, name: 'Trần Thị B', phone: '0987654321', idNumber: '987654321098', email: 'b@example.com' },
+      ],
+      totalElements: 2,
+      totalPages: 1,
+      size: 15,
+      number: 0,
+      first: true,
+      last: true,
+      empty: false,
+    }),
     searchGuests: vi.fn().mockResolvedValue([
       { id: 1, name: 'Nguyễn Văn A', phone: '0901234567', idNumber: '123456789012', email: 'a@example.com' },
       { id: 2, name: 'Trần Thị B', phone: '0987654321', idNumber: '987654321098', email: 'b@example.com' },

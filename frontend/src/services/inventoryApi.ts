@@ -26,6 +26,11 @@ const inventoryApi = {
     const response = await api.delete<MessageResponse>(`/inventory-items/${id}`);
     return response.data;
   },
+
+  bulkDelete: async (ids: (number | string)[]): Promise<MessageResponse> => {
+    const response = await api.delete<MessageResponse>('/inventory-items/bulk', { data: ids });
+    return response.data;
+  },
 };
 
 export default inventoryApi;

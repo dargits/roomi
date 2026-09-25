@@ -13,6 +13,12 @@ public interface BookingServiceUsageRepository extends JpaRepository<BookingServ
     List<BookingServiceUsage> findByBookingId(Long bookingId);
     void deleteByBookingId(Long bookingId);
 
+    long countByExtraServiceId(Long extraServiceId);
+    boolean existsByExtraServiceId(Long extraServiceId);
+
+    @Query("SELECT u.extraService.id, COUNT(u.id) FROM BookingServiceUsage u WHERE u.extraService.id IN :serviceIds GROUP BY u.extraService.id")
+    List<Object[]> countUsagesByServiceIds(@Param("serviceIds") Collection<Long> serviceIds);
+
     @Query("SELECT u FROM BookingServiceUsage u " +
            "JOIN FETCH u.booking b " +
            "LEFT JOIN FETCH b.roomType rt " +

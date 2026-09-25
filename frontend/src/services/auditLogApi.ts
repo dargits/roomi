@@ -1,5 +1,5 @@
 import api from './api';
-import { AuditLog } from '../types';
+import { AuditLog, PageResponse } from '../types';
 
 const auditLogApi = {
   /**
@@ -7,8 +7,8 @@ const auditLogApi = {
    * GET /api/v1/audit-logs
    * Role: OWNER / ADMIN
    */
-  getLogs: async (params: any = {}): Promise<AuditLog[]> => {
-    const response = await api.get<AuditLog[]>('/audit-logs', { params });
+  getLogs: async (params: any = {}): Promise<PageResponse<AuditLog> | AuditLog[]> => {
+    const response = await api.get<PageResponse<AuditLog> | AuditLog[]>('/audit-logs', { params });
     return response.data;
   },
 
@@ -17,8 +17,8 @@ const auditLogApi = {
    * Lọc: EXPORT_STAY_DECLARATION, DELETE_PERSONAL_DATA, VIEW_GUEST_DETAIL.
    * Role: OWNER / ADMIN
    */
-  getPersonalDataLogs: async (params: any = {}): Promise<AuditLog[]> => {
-    const response = await api.get<AuditLog[]>('/audit-logs/personal-data', { params });
+  getPersonalDataLogs: async (params: any = {}): Promise<PageResponse<AuditLog> | AuditLog[]> => {
+    const response = await api.get<PageResponse<AuditLog> | AuditLog[]>('/audit-logs/personal-data', { params });
     return response.data;
   },
 };

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { IoCalendarOutline, IoPersonOutline, IoRefreshOutline, IoSearchOutline, IoServerOutline, IoShieldOutline } from 'react-icons/io5';
+import { 
+  IoCalendarOutline, IoPersonOutline, IoRefreshOutline, IoSearchOutline, 
+  IoServerOutline, IoShieldOutline, IoChevronBackOutline, IoChevronForwardOutline 
+} from 'react-icons/io5';
 import auditLogApi from '../../services/auditLogApi';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
@@ -58,6 +61,12 @@ const ActivityLog: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Pagination states
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+
   const hasAccess = ['OWNER', 'ADMIN'].includes(user?.role || '');
 
   if (!hasAccess) {
@@ -68,19 +77,29 @@ const ActivityLog: React.FC = () => {
     );
   }
 
-  const handleSearch = async () => {
+  const handleSearch = async (targetPage = 0, targetSize = size) => {
     setError(null);
     setLoading(true);
     setHasSearched(true);
+    setPage(targetPage);
     try {
-      const params: any = {};
+      const params: any = { page: targetPage, size: targetSize };
       if (filters.entity) params.entity = filters.entity;
       if (filters.actorId) params.actorId = filters.actorId;
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
 
       const data: any = await auditLogApi.getLogs(params);
-      setLogs(Array.isArray(data) ? data : data?.content || data?.data || []);
+      if (data && data.content) {
+        setLogs(data.content);
+        setTotalPages(data.totalPages || 0);
+        setTotalElements(data.totalElements || 0);
+      } else {
+        const arr = Array.isArray(data) ? data : data?.data || [];
+        setLogs(arr);
+        setTotalPages(Math.ceil(arr.length / targetSize) || 1);
+        setTotalElements(arr.length);
+      }
     } catch (err) {
       setError('Không thể tải lịch sử hoạt động.');
       console.error(err);
@@ -139,7 +158,7 @@ const ActivityLog: React.FC = () => {
           />
         </div>
         <div className="mt-4 flex gap-3">
-          <Button onClick={handleSearch} isLoading={loading} icon={IoSearchOutline}>
+          <Button onClick={() => handleSearch()} isLoading={loading} icon={IoSearchOutline}>
             Tìm kiếm
           </Button>
           <button
@@ -167,7 +186,7 @@ const ActivityLog: React.FC = () => {
             <div className="flex items-center gap-3">
               <span className="text-sm text-on-surface-variant">{logs.length} bản ghi</span>
               <button
-                onClick={handleSearch}
+                onClick={() => handleSearch()}
                 className="flex items-center gap-1 text-sm text-on-surface-variant hover:text-primary transition-colors"
               >
                 <IoRefreshOutline size={13} /> Làm mới
@@ -181,7 +200,8 @@ const ActivityLog: React.FC = () => {
               <p className="font-body-md text-on-surface-variant">Không tìm thấy bản ghi nào trong khoảng thời gian này.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-surface-container-low border-b border-border-grey">
@@ -233,6 +253,59 @@ const ActivityLog: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Phân trang */}
+            {!loading && totalElements > 0 && (
+              <div className="px-4 py-3 border-t border-border-grey bg-surface-container-lowest flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant">
+                <div>
+                  Hiển thị <strong>{page * size + 1}</strong> - <strong>{Math.min((page + 1) * size, totalElements)}</strong> trong tổng số <strong>{totalElements.toLocaleString()}</strong> hoạt động
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span>Hiển thị:</span>
+                    <select
+                      value={size}
+                      onChange={(e) => {
+                        const newSize = Number(e.target.value);
+                        setSize(newSize);
+                        handleSearch(0, newSize);
+                      }}
+                      className="px-2 py-1 border border-border-grey rounded-md bg-white text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+                    >
+                      <option value={10}>10 / trang</option>
+                      <option value={20}>20 / trang</option>
+                      <option value={50}>50 / trang</option>
+                      <option value={100}>100 / trang</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={page === 0}
+                      onClick={() => handleSearch(Math.max(0, page - 1), size)}
+                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+                      title="Trang trước"
+                    >
+                      <IoChevronBackOutline size={14} />
+                    </button>
+                    <span className="px-3 py-1 font-semibold text-on-surface">
+                      Trang {page + 1} / {totalPages || 1}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={page >= totalPages - 1}
+                      onClick={() => handleSearch(page + 1, size)}
+                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+                      title="Trang sau"
+                    >
+                      <IoChevronForwardOutline size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
       )}

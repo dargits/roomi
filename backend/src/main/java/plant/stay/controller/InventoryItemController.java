@@ -3,6 +3,9 @@ package plant.stay.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +33,19 @@ public class InventoryItemController {
     private final AuthUtil authUtil;
 
     @GetMapping
-    public ResponseEntity<List<InventoryItemResponse>> getAll(HttpServletRequest request) {
+    public ResponseEntity<?> getAll(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "id") String sortBy,
+            @RequestParam(required = false, defaultValue = "asc") String direction,
+            HttpServletRequest request) {
         checkStaffOrOwner(request);
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            Sort.Direction dir = "desc".equalsIgnoreCase(direction) ? Sort.Direction.DESC : Sort.Direction.ASC;
+            Pageable pageable = PageRequest.of(page, pageSize, Sort.by(dir, sortBy));
+            return ResponseEntity.ok(inventoryItemRepository.findAll(pageable).map(this::toResponse));
+        }
         return ResponseEntity.ok(inventoryItemRepository.findAll().stream()
                 .map(this::toResponse).collect(Collectors.toList()));
     }
@@ -78,10 +92,27 @@ public class InventoryItemController {
         return ResponseEntity.ok(new MessageResponse("Đã xóa mặt hàng"));
     }
 
+    @DeleteMapping("/bulk")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<MessageResponse> bulkDelete(@RequestBody List<Long> ids, HttpServletRequest request) {
+        checkOwner(request);
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Danh sách ID cần xóa rỗng"));
+        }
+        for (Long id : ids) {
+            try {
+                inventoryItemRepository.deleteById(id);
+            } catch (Exception ex) {
+                // Ignore individual deletion error if item in use
+            }
+        }
+        return ResponseEntity.ok(new MessageResponse("Đã xóa thành công các mặt hàng đã chọn"));
+    }
+
     private void checkOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || user.getRole() != Role.OWNER)
-            throw new UnauthorizedException("Chỉ OWNER mới có quyền thực hiện chức năng này");
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN))
+            throw new UnauthorizedException("Chỉ Quản trị viên hoặc Chủ cơ sở mới có quyền thực hiện chức năng này");
     }
 
     private void checkStaffOrOwner(HttpServletRequest request) {

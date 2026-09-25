@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { extraServiceApi } from '../../services/extraServiceApi';
 import inventoryApi from '../../services/inventoryApi';
 import { useAuth } from '../../context/AuthContext';
@@ -8,11 +8,16 @@ import {
   IoPencilOutline, 
   IoTrashOutline, 
   IoCubeOutline,
-  IoAlertCircleOutline 
+  IoAlertCircleOutline,
+  IoSearchOutline,
+  IoCloseOutline,
+  IoCheckmarkDoneOutline,
+  IoInformationCircleOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import Pagination from '../../components/ui/Pagination';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { ExtraServiceResponse, InventoryItemResponse, ExtraServiceInventoryItemDto } from '../../types';
@@ -49,6 +54,16 @@ const ExtraServiceManagement: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<ExtraServiceResponse | null>(null);
 
+  // Search & Pagination & Bulk Selection states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const { success: toastSuccess, error: toastError, confirm } = useToast();
+
   const fetchServicesAndInventory = async () => {
     setLoading(true);
     try {
@@ -58,6 +73,7 @@ const ExtraServiceManagement: React.FC = () => {
       ]);
       setServices(serviceData || []);
       setInventoryItemsList(invData || []);
+      setSelectedIds(new Set());
     } catch (error) {
       console.error("Failed to fetch data", error);
     } finally {
@@ -166,8 +182,6 @@ const ExtraServiceManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const { success: toastSuccess, error: toastError } = useToast();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -195,13 +209,14 @@ const ExtraServiceManagement: React.FC = () => {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      await extraServiceApi.deleteService(itemToDelete.id);
-      toastSuccess(`Đã xóa dịch vụ "${itemToDelete.name}" thành công!`);
+      const res = await extraServiceApi.deleteService(itemToDelete.id);
+      toastSuccess(res.message || `Đã cập nhật dịch vụ "${itemToDelete.name}" thành công!`);
       setIsDeleteModalOpen(false);
+      setItemToDelete(null);
       fetchServicesAndInventory();
     } catch (error: any) {
       console.error("Delete error", error);
-      toastError(error.response?.data?.message || "Lỗi khi xóa dịch vụ.");
+      toastError(error.response?.data?.message || "Lỗi khi xử lý dịch vụ.");
     }
   };
 
@@ -209,7 +224,90 @@ const ExtraServiceManagement: React.FC = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
   };
 
-  const isOwner = user?.role === 'OWNER';
+  const isOwner = user?.role === 'OWNER' || user?.role === 'ADMIN';
+
+  // Lọc tìm kiếm & trạng thái
+  const filteredServices = useMemo(() => {
+    return services.filter(s => {
+      const q = searchTerm.trim().toLowerCase();
+      const matchesSearch = !q ||
+        (s.name && s.name.toLowerCase().includes(q)) ||
+        (s.description && s.description.toLowerCase().includes(q)) ||
+        (s.unit && s.unit.toLowerCase().includes(q));
+      const matchesStatus = statusFilter === 'ALL' ||
+        (statusFilter === 'ACTIVE' && s.active) ||
+        (statusFilter === 'INACTIVE' && !s.active);
+      return matchesSearch && matchesStatus;
+    });
+  }, [services, searchTerm, statusFilter]);
+
+  // Phân trang
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / pageSize));
+  const paginatedServices = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredServices.slice(start, start + pageSize);
+  }, [filteredServices, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, pageSize]);
+
+  // Chọn & Xóa hàng loạt
+  const isAllPageSelected = paginatedServices.length > 0 && paginatedServices.every(s => selectedIds.has(s.id));
+
+  const toggleSelectPage = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (isAllPageSelected) {
+        paginatedServices.forEach(s => next.delete(s.id));
+      } else {
+        paginatedServices.forEach(s => next.add(s.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredServices.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredServices.map(s => s.id)));
+    }
+  };
+
+  const toggleSelectItem = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    const isConfirmed = await confirm({
+      title: `Xác nhận xóa / ngừng kinh doanh ${count} dịch vụ`,
+      message: `Bạn có chắc chắn muốn xử lý ${count} dịch vụ phụ thu đã chọn? Những dịch vụ chưa từng phát sinh giao dịch sẽ được xóa vĩnh viễn, những dịch vụ đã có khách sử dụng sẽ được tự động chuyển sang trạng thái "Ngừng hoạt động" để bảo toàn lịch sử hóa đơn.`,
+      confirmText: `Xác nhận (${count})`,
+      cancelText: 'Hủy',
+      type: 'warning'
+    });
+    if (!isConfirmed) return;
+
+    setBulkDeleting(true);
+    try {
+      const res = await extraServiceApi.bulkDelete(Array.from(selectedIds));
+      toastSuccess(res.message || `Đã xử lý thành công ${count} dịch vụ phụ thu!`);
+      setSelectedIds(new Set());
+      fetchServicesAndInventory();
+    } catch (err: any) {
+      toastError(err.response?.data?.message || 'Lỗi khi xóa hàng loạt dịch vụ.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   return (
     <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden">
@@ -225,10 +323,73 @@ const ExtraServiceManagement: React.FC = () => {
             </p>
           </div>
         </div>
-        {isOwner && (
-          <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
-            Thêm Dịch vụ
-          </Button>
+        <div className="flex items-center gap-2">
+          {isOwner && selectedIds.size > 0 && (
+            <Button
+              size="sm"
+              variant="danger"
+              icon={IoTrashOutline}
+              onClick={handleBulkDelete}
+              isLoading={bulkDeleting}
+            >
+              Xóa đã chọn ({selectedIds.size})
+            </Button>
+          )}
+          {isOwner && (
+            <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
+              Thêm Dịch vụ
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Thanh tìm kiếm & Lọc trạng thái */}
+      <div className="px-4 py-2.5 bg-surface-container-low border-b border-border-grey flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <IoSearchOutline className="absolute left-3 top-2.5 text-on-surface-variant/70" size={15} />
+            <input
+              type="text"
+              placeholder="Tìm theo tên dịch vụ, mô tả, đơn vị tính..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-1.5 border border-border-grey rounded-lg focus:outline-none focus:ring-1 focus:ring-primary text-xs bg-white text-on-surface"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-2 text-on-surface-variant hover:text-on-surface cursor-pointer"
+              >
+                <IoCloseOutline size={14} />
+              </button>
+            )}
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="px-2.5 py-1.5 border border-border-grey rounded-lg text-xs bg-white text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="INACTIVE">Tạm dừng</option>
+          </select>
+        </div>
+
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-semibold text-primary">
+              Đã chọn {selectedIds.size} / {filteredServices.length}
+            </span>
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="text-xs text-primary underline hover:text-primary-dark font-medium cursor-pointer"
+            >
+              {selectedIds.size === filteredServices.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả kết quả'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -236,6 +397,17 @@ const ExtraServiceManagement: React.FC = () => {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-surface-container-low border-b border-border-grey text-on-surface-variant font-label-md text-xs uppercase tracking-wider">
+              {isOwner && (
+                <th className="p-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={isAllPageSelected}
+                    onChange={toggleSelectPage}
+                    className="rounded border-border-grey text-primary focus:ring-primary cursor-pointer w-4 h-4"
+                    title={isAllPageSelected ? "Bỏ chọn trang này" : "Chọn toàn bộ trang này"}
+                  />
+                </th>
+              )}
               <th className="p-3">Tên Dịch vụ</th>
               <th className="p-3">Mô tả</th>
               <th className="p-3">Đơn giá</th>
@@ -248,21 +420,50 @@ const ExtraServiceManagement: React.FC = () => {
           <tbody className="divide-y divide-border-grey font-body-md text-sm text-on-surface">
             {loading ? (
               <tr>
-                <td colSpan={7} className="p-4 text-center">
+                <td colSpan={isOwner ? 8 : 7} className="p-8 text-center">
                   <LoadingScreen message="Đang tải danh sách dịch vụ..." />
                 </td>
               </tr>
-            ) : services.length === 0 ? (
+            ) : filteredServices.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-on-surface-variant">
-                  Chưa có dịch vụ phụ thu nào.
+                <td colSpan={isOwner ? 8 : 7} className="p-8 text-center text-on-surface-variant">
+                  {searchTerm || statusFilter !== 'ALL'
+                    ? "Không tìm thấy dịch vụ nào phù hợp với bộ lọc."
+                    : "Chưa có dịch vụ phụ thu nào."}
                 </td>
               </tr>
             ) : (
-              services.map((service) => (
-                <tr key={service.id} className="hover:bg-surface-container-low/50 transition-colors">
+              paginatedServices.map((service) => {
+                const isSelected = selectedIds.has(service.id);
+                return (
+                  <tr 
+                    key={service.id} 
+                    className={`border-b border-border-grey/70 transition-colors ${
+                      isSelected ? 'bg-primary/5' : 'hover:bg-surface-container-low/50'
+                    }`}
+                  >
+                    {isOwner && (
+                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectItem(service.id)}
+                          className="rounded border-border-grey text-primary focus:ring-primary cursor-pointer w-4 h-4"
+                        />
+                      </td>
+                    )}
                   <td className="p-3 font-semibold text-on-surface">
-                    {service.name}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>{service.name}</span>
+                      {((service.usageCount ?? 0) > 0 || service.hasBookings) && (
+                        <span
+                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                          title={`Dịch vụ đã phát sinh trong ${service.usageCount || 1} đơn đặt phòng`}
+                        >
+                          {service.usageCount || 1} booking
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3 text-on-surface-variant">{service.description || '—'}</td>
                   <td className="p-3 font-medium text-primary">{formatPrice(service.unitPrice ?? (service as any).price)}</td>
@@ -306,8 +507,16 @@ const ExtraServiceManagement: React.FC = () => {
                         </button>
                         <button
                           onClick={() => openDeleteModal(service)}
-                          className="p-1 rounded hover:bg-red-50 text-error transition-colors"
-                          title="Xóa"
+                          className={`p-1 rounded transition-colors ${
+                            (service.hasBookings || (service.usageCount ?? 0) > 0)
+                              ? (!service.active ? 'text-on-surface-variant hover:bg-surface-container' : 'text-amber-700 hover:bg-amber-50')
+                              : 'text-error hover:bg-red-50'
+                          }`}
+                          title={
+                            (service.hasBookings || (service.usageCount ?? 0) > 0)
+                              ? (!service.active ? 'Dịch vụ có lịch sử đặt phòng (được bảo lưu)' : 'Ngừng cung cấp (Đã có khách đặt)')
+                              : 'Xóa vĩnh viễn'
+                          }
                         >
                           <IoTrashOutline size={16} />
                         </button>
@@ -315,11 +524,29 @@ const ExtraServiceManagement: React.FC = () => {
                     </td>
                   )}
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Phân trang hoàn chỉnh */}
+      {!loading && filteredServices.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredServices.length}
+          itemsPerPage={pageSize}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemsPerPageOptions={[5, 10, 20, 50]}
+          itemLabel="dịch vụ"
+        />
+      )}
 
       {/* Modal Thêm / Sửa */}
       <Modal
@@ -485,25 +712,98 @@ const ExtraServiceManagement: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Modal xác nhận xóa */}
+      {/* Modal xác nhận xóa / ngừng hoạt động */}
       <Modal
         isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Xác nhận xóa dịch vụ"
-        maxWidth="max-w-sm"
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }}
+        title={
+          itemToDelete && (itemToDelete.hasBookings || (itemToDelete.usageCount ?? 0) > 0)
+            ? (itemToDelete.active ? "Xác nhận ngừng cung cấp dịch vụ" : "Dịch vụ đã được bảo lưu lịch sử")
+            : "Xác nhận xóa dịch vụ"
+        }
+        maxWidth="max-w-md"
       >
         <div className="space-y-4">
-          <p className="text-sm text-on-surface">
-            Bạn có chắc chắn muốn xóa dịch vụ <strong>{itemToDelete?.name}</strong>? Thao tác này không thể hoàn tác.
-          </p>
-          <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
-            <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="danger" onClick={confirmDelete}>
-              Xóa
-            </Button>
-          </div>
+          {itemToDelete && (itemToDelete.hasBookings || (itemToDelete.usageCount ?? 0) > 0) ? (
+            itemToDelete.active ? (
+              <div className="space-y-3 text-xs">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 leading-relaxed">
+                  <div className="flex items-center gap-1.5 font-bold mb-1 text-amber-800">
+                    <IoAlertCircleOutline size={18} />
+                    <span>Dịch vụ đã phát sinh giao dịch ({itemToDelete.usageCount || 1} đặt phòng)</span>
+                  </div>
+                  Dịch vụ <strong>{itemToDelete.name}</strong> đã được thêm vào đơn đặt phòng của khách. Để đảm bảo tính toàn vẹn của dữ liệu kế toán và hóa đơn, dịch vụ này <strong>không thể xóa vĩnh viễn</strong> khỏi cơ sở dữ liệu.
+                </div>
+
+                <div className="p-3 bg-surface-container-low rounded-xl border border-border-grey text-on-surface-variant leading-relaxed">
+                  Khi bạn bấm <strong>"Ngừng hoạt động"</strong>, hệ thống sẽ chuyển dịch vụ sang trạng thái <em>Tạm dừng</em>. Dịch vụ này sẽ không còn hiển thị khi khách đặt phòng hoặc lễ tân thêm mới dịch vụ, nhưng toàn bộ lịch sử hóa đơn trước đây vẫn được bảo lưu trọn vẹn.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setItemToDelete(null);
+                    }}
+                  >
+                    Hủy bỏ
+                  </Button>
+                  <Button
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                    onClick={confirmDelete}
+                  >
+                    Ngừng hoạt động (Tạm ẩn)
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 leading-relaxed">
+                  <div className="flex items-center gap-1.5 font-bold mb-1 text-blue-800">
+                    <IoInformationCircleOutline size={18} />
+                    <span>Dịch vụ đang ở trạng thái Ngừng hoạt động</span>
+                  </div>
+                  Dịch vụ <strong>{itemToDelete.name}</strong> đã có lịch sử giao dịch trong <strong>{itemToDelete.usageCount || 1} đặt phòng</strong> và hiện đang ở trạng thái ngừng cung cấp. Theo quy định kế toán, các bản ghi đã phát sinh doanh thu không được phép xóa khỏi cơ sở dữ liệu.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                  <Button 
+                    variant="primary" 
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setItemToDelete(null);
+                    }}
+                  >
+                    Đã hiểu
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="space-y-3 text-xs">
+              <p className="text-sm text-on-surface">
+                Bạn có chắc chắn muốn xóa dịch vụ <strong>{itemToDelete?.name}</strong>? Dịch vụ này chưa từng phát sinh giao dịch và sẽ bị xóa hoàn toàn khỏi hệ thống.
+              </p>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => {
+                    setIsDeleteModalOpen(false);
+                    setItemToDelete(null);
+                  }}
+                >
+                  Hủy
+                </Button>
+                <Button variant="danger" onClick={confirmDelete}>
+                  Xóa vĩnh viễn
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
