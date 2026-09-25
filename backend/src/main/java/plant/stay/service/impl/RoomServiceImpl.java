@@ -42,7 +42,7 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public List<RoomResponse> getAll() {
-        return roomRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return roomRepository.findAllWithRoomType().stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Override

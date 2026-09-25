@@ -39,4 +39,7 @@ public interface DepositRepository extends JpaRepository<Deposit, Long> {
     // Danh sách cọc chưa quyết toán (cho trang tổng hợp cọc)
     @Query("SELECT d FROM Deposit d WHERE d.status IN ('COLLECTED', 'SHORT_PAID') ORDER BY d.createdAt DESC")
     List<Deposit> findUnsettledDeposits();
+
+    List<Deposit> findByCollectedByIdAndCollectedAtBetween(Long collectorId, java.time.LocalDateTime start, java.time.LocalDateTime end);
+    List<Deposit> findByProcessedByIdAndProcessedAtBetween(Long processorId, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

@@ -1,16 +1,19 @@
 package plant.stay.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.ExtraServiceInventoryItemDto;
 import plant.stay.dto.request.ExtraServiceRequest;
 import plant.stay.dto.response.ExtraServiceResponse;
 import plant.stay.dto.response.MessageResponse;
+import plant.stay.exception.BusinessException;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.model.ExtraService;
 import plant.stay.model.ExtraServiceInventoryItem;
 import plant.stay.model.InventoryItem;
+import plant.stay.repository.BookingServiceUsageRepository;
 import plant.stay.repository.ExtraServiceInventoryItemRepository;
 import plant.stay.repository.ExtraServiceRepository;
 import plant.stay.repository.InventoryItemRepository;
@@ -26,6 +29,7 @@ public class ExtraServiceImpl implements ExtraServiceService {
     private final ExtraServiceRepository repository;
     private final ExtraServiceInventoryItemRepository extraServiceInventoryItemRepository;
     private final InventoryItemRepository inventoryItemRepository;
+    private final BookingServiceUsageRepository bookingServiceUsageRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -46,7 +50,8 @@ public class ExtraServiceImpl implements ExtraServiceService {
     public ExtraServiceResponse getById(Long id) {
         ExtraService service = getServiceById(id);
         List<ExtraServiceInventoryItem> items = extraServiceInventoryItemRepository.findByExtraServiceId(id);
-        return mapToResponse(service, items);
+        long usageCount = bookingServiceUsageRepository.countByExtraServiceId(id);
+        return mapToResponse(service, items, usageCount);
     }
 
     @Override
@@ -66,7 +71,7 @@ public class ExtraServiceImpl implements ExtraServiceService {
             savedItems = saveLinkedInventoryItems(service, request.getInventoryItems());
         }
 
-        return mapToResponse(service, savedItems);
+        return mapToResponse(service, savedItems, 0L);
     }
 
     @Override
@@ -90,16 +95,35 @@ public class ExtraServiceImpl implements ExtraServiceService {
             currentItems = extraServiceInventoryItemRepository.findByExtraServiceId(id);
         }
 
-        return mapToResponse(service, currentItems);
+        long usageCount = bookingServiceUsageRepository.countByExtraServiceId(id);
+        return mapToResponse(service, currentItems, usageCount);
     }
 
     @Override
     @Transactional
     public MessageResponse delete(Long id) {
         ExtraService service = getServiceById(id);
+        long usageCount = bookingServiceUsageRepository.countByExtraServiceId(id);
+
+        if (usageCount > 0) {
+            // Dịch vụ đã phát sinh giao dịch trong đặt phòng của khách: Không thể xóa cứng
+            if (service.isActive()) {
+                service.setActive(false);
+                repository.save(service);
+                return new MessageResponse(String.format(
+                        "Dịch vụ \"%s\" đã phát sinh giao dịch trong %d đặt phòng. Hệ thống đã tự động chuyển sang trạng thái \"Ngừng hoạt động\" để bảo toàn dữ liệu lịch sử hóa đơn.",
+                        service.getName(), usageCount));
+            } else {
+                throw new BusinessException(String.format(
+                        "Dịch vụ \"%s\" đã có lịch sử giao dịch trong %d đặt phòng của khách nên không thể xóa hoàn toàn khỏi cơ sở dữ liệu. Dịch vụ hiện đã ở trạng thái Ngừng hoạt động.",
+                        service.getName(), usageCount), HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        // Chưa từng phát sinh trong bất kỳ đặt phòng nào -> Cho phép xóa vĩnh viễn
         extraServiceInventoryItemRepository.deleteByExtraServiceId(id);
         repository.delete(service);
-        return new MessageResponse("Xóa dịch vụ phụ thu thành công");
+        return new MessageResponse(String.format("Đã xóa vĩnh viễn dịch vụ \"%s\" khỏi hệ thống.", service.getName()));
     }
 
     private ExtraService getServiceById(Long id) {
@@ -144,12 +168,19 @@ public class ExtraServiceImpl implements ExtraServiceService {
         Map<Long, List<ExtraServiceInventoryItem>> groupedItems = allLinkedItems.stream()
                 .collect(Collectors.groupingBy(item -> item.getExtraService().getId()));
 
+        List<Object[]> usageResults = bookingServiceUsageRepository.countUsagesByServiceIds(serviceIds);
+        Map<Long, Long> usageMap = usageResults.stream()
+                .collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+
         return services.stream()
-                .map(s -> mapToResponse(s, groupedItems.getOrDefault(s.getId(), Collections.emptyList())))
+                .map(s -> mapToResponse(
+                        s,
+                        groupedItems.getOrDefault(s.getId(), Collections.emptyList()),
+                        usageMap.getOrDefault(s.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
-    private ExtraServiceResponse mapToResponse(ExtraService service, List<ExtraServiceInventoryItem> linkedItems) {
+    private ExtraServiceResponse mapToResponse(ExtraService service, List<ExtraServiceInventoryItem> linkedItems, long usageCount) {
         List<ExtraServiceInventoryItemDto> itemDtos = linkedItems.stream()
                 .map(item -> ExtraServiceInventoryItemDto.builder()
                         .id(item.getId())
@@ -171,6 +202,8 @@ public class ExtraServiceImpl implements ExtraServiceService {
                 .createdAt(service.getCreatedAt())
                 .updatedAt(service.getUpdatedAt())
                 .inventoryItems(itemDtos)
+                .usageCount(usageCount)
+                .hasBookings(usageCount > 0)
                 .build();
     }
 }

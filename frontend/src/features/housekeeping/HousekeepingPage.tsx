@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { IoBrushOutline, IoListOutline, IoWarningOutline, IoCubeOutline, IoTimeOutline } from 'react-icons/io5';
+import { IoBrushOutline, IoListOutline, IoWarningOutline, IoCubeOutline } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
 import Tabs from '../../components/ui/Tabs/Tabs';
@@ -8,7 +8,6 @@ import CleaningTaskList from './CleaningTaskList';
 import RoomStatusUpdate from './RoomStatusUpdate';
 import RoomIncidentModal from './RoomIncidentModal';
 import LostAndFoundPage from './LostAndFoundPage';
-import HousekeepingProductivityReport from './HousekeepingProductivityReport';
 
 const HousekeepingPage: React.FC = () => {
   const { user } = useAuth();
@@ -25,14 +24,11 @@ const HousekeepingPage: React.FC = () => {
     );
   }
 
-  const canViewProductivity = ['OWNER', 'ADMIN', 'HOUSEKEEPER'].includes(user?.role || '');
-
   const availableTabs = [
     { id: 'tasks',          label: 'Phòng cần dọn',        icon: IoBrushOutline },
     { id: 'overview',       label: 'Tổng quan phòng',       icon: IoListOutline  },
     { id: 'lost-and-found', label: 'Đồ khách để quên',     icon: IoCubeOutline },
-    { id: 'incidents',      label: 'Sự cố phòng & Bảo trì', icon: IoWarningOutline },
-    ...(canViewProductivity ? [{ id: 'productivity', label: 'Năng suất & Định mức', icon: IoTimeOutline }] : [])
+    { id: 'incidents',      label: 'Sự cố phòng & Bảo trì', icon: IoWarningOutline }
   ];
 
   return (
@@ -40,7 +36,7 @@ const HousekeepingPage: React.FC = () => {
       <PageHeader
         icon={IoBrushOutline}
         title="Buồng phòng"
-        subtitle="Quản lý vệ sinh, trạng thái phòng, định mức thời gian và đồ khách để quên"
+        subtitle="Quản lý vệ sinh, trạng thái phòng và đồ khách để quên"
       />
 
       {/* Tabs */}
@@ -60,9 +56,6 @@ const HousekeepingPage: React.FC = () => {
           onClose={() => setSearchParams({ tab: 'tasks' })}
           onIncidentReported={() => setRefreshKey(k => k + 1)}
         />
-      )}
-      {tab === 'productivity' && canViewProductivity && (
-        <HousekeepingProductivityReport key={`productivity-${refreshKey}`} />
       )}
     </div>
   );

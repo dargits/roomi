@@ -22,7 +22,11 @@ import Pagination from '../../components/ui/Pagination';
 
 const ITEMS_PER_PAGE = 10;
 
-const BookingRequestList: React.FC = () => {
+interface BookingRequestListProps {
+  onRequestHandled?: () => void;
+}
+
+const BookingRequestList: React.FC<BookingRequestListProps> = ({ onRequestHandled }) => {
   const { success: toastSuccess } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('sub') || 'ROOM';
@@ -132,6 +136,7 @@ const BookingRequestList: React.FC = () => {
       }
       closeModal();
       await fetchRequests();
+      onRequestHandled?.();
     } catch (error) {
       console.error("Action error:", error);
       setErrorMsg(error.response?.data?.message || "Không thể thực hiện thao tác. Vui lòng thử lại.");
@@ -274,12 +279,15 @@ const BookingRequestList: React.FC = () => {
       </table>
     </div>
 
-    {requests.length > ITEMS_PER_PAGE && (
+    {requests.length > 0 && (
       <div className="mt-auto">
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
+          totalItems={requests.length}
+          itemsPerPage={ITEMS_PER_PAGE}
           onPageChange={setCurrentPage}
+          itemLabel="yêu cầu đặt phòng"
         />
       </div>
     )}

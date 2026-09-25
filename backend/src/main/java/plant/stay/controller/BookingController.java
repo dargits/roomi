@@ -3,6 +3,9 @@ package plant.stay.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,20 +35,46 @@ public class BookingController {
     private final AuthUtil authUtil;
 
     @GetMapping
-    public ResponseEntity<List<BookingResponse>> getAll(HttpServletRequest request) {
+    public ResponseEntity<?> getAll(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "id") String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String direction,
+            HttpServletRequest request) {
         checkReadBooking(request);
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            Sort.Direction dir = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
+            Pageable pageable = PageRequest.of(page, pageSize, Sort.by(dir, sortBy));
+            return ResponseEntity.ok(bookingService.getAllPaged(pageable));
+        }
         return ResponseEntity.ok(bookingService.getAll());
     }
 
     // NCL-03-CN-010: Tra cứu nhanh đặt phòng theo mã, tên khách hoặc SĐT
     @GetMapping("/search")
-    public ResponseEntity<List<BookingResponse>> search(
+    public ResponseEntity<?> search(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) plant.stay.model.BookingStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "id") String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String direction,
             HttpServletRequest request) {
         checkReadBooking(request);
+        if (page != null) {
+            int pageSize = (size != null && size > 0) ? size : 15;
+            Pageable pageable;
+            if (sortBy == null || "id".equalsIgnoreCase(sortBy) || "priority".equalsIgnoreCase(sortBy)) {
+                pageable = PageRequest.of(page, pageSize);
+            } else {
+                Sort.Direction dir = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
+                pageable = PageRequest.of(page, pageSize, Sort.by(dir, sortBy));
+            }
+            return ResponseEntity.ok(bookingService.searchPaged(q, status, from, to, pageable));
+        }
         return ResponseEntity.ok(bookingService.search(q, status, from, to));
     }
 
