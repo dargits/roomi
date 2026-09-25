@@ -1,6 +1,24 @@
 # ☕ StayAway PMS — Backend Service (Spring Boot 3)
 
-Phần mềm máy chủ (Backend) của hệ thống quản lý cơ sở lưu trú **StayAway**, được xây dựng trên nền tảng **Spring Boot 3**, **Java 17**, **Spring Data JPA**, **MySQL 8** và **Maven**.
+<p align="center">
+  <img src="https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white" />
+  <img src="https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" />
+  <img src="https://img.shields.io/badge/Spring_Data_JPA-Hibernate-59666C?style=for-the-badge&logo=hibernate&logoColor=white" />
+  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Testing-JUnit_5-25A162?style=for-the-badge&logo=junit5&logoColor=white" />
+</p>
+
+> **Backend Core** của StayAway PMS được xây dựng trên nền tảng **Spring Boot 3**, **Java 17**, áp dụng kiến trúc phân tầng chuẩn (**Layered Architecture**), phân tách rạch ròi giữa Controller, DTO, Service, Model và Repository, đảm bảo tính mở rộng cao và giao dịch an toàn.
+
+---
+
+## 📑 Mục Lục
+
+1. [🏗️ Cấu Trúc Thư Mục Backend](#️-cấu-trúc-thư-mục-backend)
+2. [🔄 Luồng Xử Lý Request Chuẩn Hóa (Backend Request Flow)](#-luồng-xử-lý-request-chuẩn-hóa-backend-request-flow)
+3. [⚙️ Yêu Cầu Môi Trường & Công Nghệ](#️-yêu-cầu-môi-trường--công-nghệ)
+4. [🚀 Hướng Dẫn Khởi Chạy Local](#-hướng-dẫn-khởi-chạy-local)
+5. [🧪 Kiểm Thử Tự Động (JUnit 5 + Mockito + H2)](#-kiểm-thử-tự-động-junit-5--mockito--h2)
 
 ---
 
@@ -31,6 +49,34 @@ backend/
 
 ---
 
+## 🔄 Luồng Xử Lý Request Chuẩn Hóa (Backend Request Flow)
+
+Mọi module trong hệ thống đều tuân thủ luồng 6 bước nghiêm ngặt:
+
+```
+[ Client Request ] 
+       │
+       ▼
+1. WebFilter & CORS ─────────► [WebCorsConfig / WebConfig] ──► Kiểm tra JWT (AuthUtil)
+       │
+       ▼
+2. Controller Layer ─────────► Bóc tách tham số, Validate DTO (@Valid, @NotNull)
+       │
+       ▼
+3. Service Layer ────────────► Kiểm tra Invariants, Logic tính giá, Quản lý @Transactional
+       │
+       ▼
+4. Repository Layer (JPA) ───► Truy vấn JPQL / Derived Queries, Hibernate Persistence
+       │
+       ▼
+5. Data Masking Advice ──────► Che mờ CCCD / SĐT nhạy cảm (PersonalDataMaskingResponseAdvice)
+       │
+       ▼
+6. Response / GlobalException ► Trả về ResponseEntity<DTO> hoặc bắt lỗi tập trung (@RestControllerAdvice)
+```
+
+---
+
 ## ⚙️ Yêu Cầu Môi Trường & Công Nghệ
 * **JDK:** Eclipse Temurin hoặc OpenJDK 17 trở lên
 * **Build Tool:** Apache Maven 3.9+ (hoặc sử dụng wrapper `./mvnw`)
@@ -47,7 +93,7 @@ Tạo cơ sở dữ liệu `stay`:
 CREATE DATABASE stay CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### 2. Cài đặt biến môi trường hoặc chỉnh sửa `application.properties`
+### 2. Cài đặt cấu hình kết nối trong `application.properties`
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/stay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
 spring.datasource.username=root
@@ -68,7 +114,7 @@ API sẽ khởi chạy tại: `http://localhost:8080/api/v1`
 
 ---
 
-## 🧪 Chạy Kiểm Thử (Unit & Integration Tests)
+## 🧪 Kiểm Thử Tự Động (JUnit 5 + Mockito + H2)
 ```bash
 ./mvnw test
 ```
