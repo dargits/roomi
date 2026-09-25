@@ -59,13 +59,13 @@ const QuickLoginDropdown: React.FC<QuickLoginDropdownProps> = ({ onSelectRole })
       <button 
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 bg-[#F4F6F0] hover:bg-[#EAEFE3] transition-colors border-b border-border-grey cursor-pointer"
+        className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-border-grey cursor-pointer"
       >
-        <div className="flex items-center gap-2 text-[#1A2411] text-xs font-semibold">
+        <div className="flex items-center gap-2 text-[#002146] text-xs font-semibold">
           <IoSettingsOutline className="text-primary" size={16} strokeWidth={1.5} />
           Tài khoản Demo (môi trường thử nghiệm)
         </div>
-        <IoChevronDownOutline className="text-[#606D56] transition-transform duration-200" size={16} strokeWidth={1.5} style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+        <IoChevronDownOutline className="text-slate-500 transition-transform duration-200" size={16} strokeWidth={1.5} style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
       </button>
 
       {isOpen && (
@@ -74,17 +74,17 @@ const QuickLoginDropdown: React.FC<QuickLoginDropdownProps> = ({ onSelectRole })
             <div 
               key={role.id}
               onClick={() => handleSelect(role.name)}
-              className="flex items-center gap-3 p-2.5 border border-border-grey rounded-xl cursor-pointer hover:border-primary/50 hover:bg-[#F4F6F0] transition-all group shadow-2xs hover:shadow-xs"
+              className="flex items-center gap-3 p-2.5 border border-border-grey rounded-xl cursor-pointer hover:border-primary/50 hover:bg-slate-50 transition-all group shadow-2xs hover:shadow-xs"
             >
               <div className={`px-2 py-0.5 rounded-full border font-bold text-[10px] ${role.tagColor}`}>
                 {role.id}
               </div>
               <div className="flex-1">
                 <div className="flex justify-between items-center">
-                  <h4 className="font-semibold text-xs text-[#1A2411] group-hover:text-primary transition-colors">{role.name}</h4>
-                  <span className="text-[10px] font-mono text-[#606D56] font-medium">{role.username}</span>
+                  <h4 className="font-semibold text-xs text-[#002146] group-hover:text-primary transition-colors">{role.name}</h4>
+                  <span className="text-[10px] font-mono text-slate-500 font-medium">{role.username}</span>
                 </div>
-                <p className="text-[11px] text-[#606D56] mt-0.5 leading-tight">{role.desc}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-tight">{role.desc}</p>
               </div>
             </div>
           ))}

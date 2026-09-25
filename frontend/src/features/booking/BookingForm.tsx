@@ -213,7 +213,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
                 setSearchGuestTerm(e.target.value);
                 if (!e.target.value) setFormData(prev => ({ ...prev, guestId: '' }));
               }}
-              className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] placeholder:text-[#8E9B86] transition-all"
+              className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] placeholder:text-slate-400 transition-all"
             />
           </div>
 
@@ -224,10 +224,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
                 <div 
                   key={guest.id} 
                   onClick={() => selectGuest(guest)}
-                  className="p-3 hover:bg-[#F2F6ED] cursor-pointer border-b border-border-grey last:border-0 transition-colors"
+                  className="p-3 hover:bg-slate-50 cursor-pointer border-b border-border-grey last:border-0 transition-colors"
                 >
-                  <div className="font-semibold text-sm text-[#1A2411]">{guest.name}</div>
-                  <div className="text-xs text-[#606D56] flex gap-3 mt-1">
+                  <div className="font-semibold text-sm text-[#002146]">{guest.name}</div>
+                  <div className="text-xs text-slate-500 flex gap-3 mt-1">
                     <span>SĐT: {guest.phone || '—'}</span>
                     <span>CCCD: {guest.idNumber || '—'}</span>
                   </div>
@@ -244,15 +244,15 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
         </div>
 
         {/* Corporate Client Selection (Negotiated Price) */}
-        <div className="bg-[#FBFDF9] p-4 rounded-xl border border-border-grey space-y-2">
-          <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider">
+        <div className="bg-[#F4F6F9] p-4 rounded-xl border border-border-grey space-y-2">
+          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
             Khách hàng công ty (nếu có thỏa thuận giá)
           </label>
           <select
             name="corporateClientId"
             value={formData.corporateClientId}
             onChange={handleInputChange}
-            className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] transition-all"
+            className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] transition-all"
           >
             <option value="">-- Không áp dụng (Khách lẻ thông thường) --</option>
             {corporateClients.map(c => (
