@@ -17,33 +17,43 @@ export const AppConfigProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchConfig = async () => {
       try {
         const data = await hotelSettingApi.getPublicSetting();
-        setHotelSetting({
-          ...data,
-          homeImage: data?.homeImage?.trim() ? data.homeImage : DEFAULT_HERO_IMAGE
-        });
+        if (isMounted) {
+          setHotelSetting({
+            ...data,
+            homeImage: data?.homeImage?.trim() ? data.homeImage : DEFAULT_HERO_IMAGE
+          });
+        }
       } catch (error) {
         console.error('Failed to fetch public hotel settings:', error);
         // Fallback default settings if backend is down
-        setHotelSetting({
-          propertyName: 'STAY AWAY',
-          address: 'Z115, Phan Đình Phùng, Tp. Thái Nguyên, Tỉnh Thái Nguyên',
-          phone: '0365224245',
-          email: 'lienhe@stayaway.vn',
-          defaultCheckinTime: '14:00',
-          defaultCheckoutTime: '12:00',
-          homeImage: DEFAULT_HERO_IMAGE
-        });
+        if (isMounted) {
+          setHotelSetting({
+            propertyName: 'STAY AWAY',
+            address: 'Z115, Phan Đình Phùng, Tp. Thái Nguyên, Tỉnh Thái Nguyên',
+            phone: '0365224245',
+            email: 'lienhe@stayaway.vn',
+            defaultCheckinTime: '14:00',
+            defaultCheckoutTime: '12:00',
+            homeImage: DEFAULT_HERO_IMAGE
+          });
+        }
       } finally {
-        setTimeout(() => {
+        if (isMounted) {
           setIsAppLoading(false);
-        }, 100);
+        }
       }
     };
 
     fetchConfig();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
