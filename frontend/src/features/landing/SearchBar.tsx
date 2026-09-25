@@ -133,7 +133,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
                   direction={isMobile ? 'vertical' : 'horizontal'}
                   locale={vi}
                   minDate={new Date()}
-                  rangeColors={['#5E7144']}
+                  rangeColors={['#0070F4']}
                 />
               </div>
 

@@ -116,7 +116,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       btn: 'bg-primary hover:bg-primary-hover text-white border-primary hover:border-primary-hover shadow-xs hover:shadow-sm'
     },
     success: {
-      bg: 'bg-[#EAF3DE] text-[#4A6326] border-[#CDE1AF]',
+      bg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       btn: 'bg-primary hover:bg-primary-hover text-white border-primary hover:border-primary-hover shadow-xs hover:shadow-sm'
     }
   };
@@ -125,7 +125,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   const content = (
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-[#1A2411]/50 backdrop-blur-xs animate-backdrop-in"
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-[#002146]/50 backdrop-blur-xs animate-backdrop-in"
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
@@ -138,7 +138,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="btn-override absolute top-4 right-4 w-9 h-9 rounded-xl flex items-center justify-center text-[#606D56] hover:text-[#1A2411] hover:bg-[#F2F6ED] transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
+          className="btn-override absolute top-4 right-4 w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-[#002146] hover:bg-slate-100 transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
           title="Đóng"
         >
           <IoCloseOutline className="w-5 h-5" strokeWidth={2} />
@@ -152,10 +152,10 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
           {/* Details */}
           <div className="flex-1 pt-0.5 pr-4">
-            <h3 className="text-lg font-bold text-[#1A2411] tracking-tight leading-6">
+            <h3 className="text-lg font-bold text-[#002146] tracking-tight leading-6">
               {title}
             </h3>
-            <p className="mt-2 text-sm text-[#586650] leading-relaxed font-normal normal-case">
+            <p className="mt-2 text-sm text-slate-600 leading-relaxed font-normal normal-case">
               {message}
             </p>
           </div>
@@ -166,7 +166,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="btn-override px-5 py-2.5 rounded-xl text-sm font-semibold text-[#1A2411] bg-white border border-border-grey shadow-2xs hover:bg-[#F2F6EC] hover:border-[#CCD8C2] active:bg-[#E8EFE0] transition-all cursor-pointer normal-case tracking-normal"
+            className="btn-override px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-white border border-border-grey shadow-2xs hover:bg-slate-100 hover:border-slate-300 active:bg-slate-200 transition-all cursor-pointer normal-case tracking-normal"
           >
             {cancelText}
           </button>
