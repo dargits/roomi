@@ -1,0 +1,472 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>Báo Cáo Tổng Hợp Kiến Trúc & Tính Năng Hệ Thống StayAway PMS</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #1e293b;
+    margin: 20mm 20mm 20mm 20mm;
+}
+h1 {
+    font-size: 20pt;
+    color: #1e3a8a;
+    border-bottom: 2pt solid #3b82f6;
+    padding-bottom: 6px;
+    margin-top: 22pt;
+    margin-bottom: 12pt;
+    page-break-before: always;
+}
+h1.title-main {
+    page-break-before: avoid;
+    text-align: center;
+    font-size: 26pt;
+    color: #1e3a8a;
+    border-bottom: none;
+    margin-top: 30pt;
+    margin-bottom: 10pt;
+}
+h2 {
+    font-size: 14pt;
+    color: #0f766e;
+    border-bottom: 1pt solid #cbd5e1;
+    padding-bottom: 4px;
+    margin-top: 16pt;
+    margin-bottom: 8pt;
+}
+h3 {
+    font-size: 12pt;
+    color: #334155;
+    margin-top: 12pt;
+    margin-bottom: 6pt;
+}
+p {
+    margin-bottom: 6pt;
+    text-align: justify;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 8pt;
+    margin-bottom: 14pt;
+    font-size: 10pt;
+}
+th, td {
+    border: 1px solid #94a3b8;
+    padding: 6pt 8pt;
+    text-align: left;
+    vertical-align: top;
+}
+th {
+    background-color: #f1f5f9;
+    color: #0f172a;
+    font-weight: bold;
+}
+tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 9pt;
+    font-weight: bold;
+    border-radius: 4px;
+    background-color: #e0e7ff;
+    color: #3730a3;
+}
+.callout {
+    background-color: #eff6ff;
+    border-left: 4pt solid #3b82f6;
+    padding: 10pt 12pt;
+    margin: 10pt 0;
+    border-radius: 0 6px 6px 0;
+}
+.callout-success {
+    background-color: #f0fdf4;
+    border-left: 4pt solid #22c55e;
+    padding: 10pt 12pt;
+    margin: 10pt 0;
+}
+.callout-warning {
+    background-color: #fffbeb;
+    border-left: 4pt solid #f59e0b;
+    padding: 10pt 12pt;
+    margin: 10pt 0;
+}
+.cover-box {
+    text-align: center;
+    padding: 25pt 20pt;
+    border: 2pt solid #cbd5e1;
+    border-radius: 12pt;
+    background: #f8fafc;
+    margin-bottom: 25pt;
+}
+.diagram-box {
+    background-color: #f8fafc;
+    border: 1.5pt solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10pt 14pt;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 9.5pt;
+    line-height: 1.4;
+    color: #0f172a;
+    margin: 10pt 0;
+    white-space: pre-wrap;
+}
+ul, ol {
+    margin-top: 4pt;
+    margin-bottom: 8pt;
+    padding-left: 20pt;
+}
+li {
+    margin-bottom: 3pt;
+}
+</style>
+</head>
+<body>
+
+<!-- BÌA TÀI LIỆU -->
+<div class="cover-box">
+    <p style="font-size: 13pt; color: #64748b; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">Tài Liệu Đặc Tả Kỹ Thuật & Nghiệp Vụ Toàn Diện</p>
+    <h1 class="title-main">HỆ THỐNG QUẢN LÝ CƠ SỞ LƯU TRÚ STAYAWAY PMS</h1>
+    <p style="font-size: 12pt; color: #475569; font-style: italic;">(StayGo Property Management System - Enterprise Edition)</p>
+    <hr style="border: 0; height: 1.5pt; background: #3b82f6; width: 60%; margin: 16pt auto;">
+    <p><strong>Phiên bản:</strong> 2.5.0 (Enterprise Production)</p>
+    <p><strong>Nền tảng công nghệ:</strong> Spring Boot 3 · Java 17 · React 18 · MySQL 8 · Docker · GitHub Actions CI/CD</p>
+    <p><strong>Tên miền vận hành chính thức:</strong> <a href="https://stayaway.io.vn" style="color: #2563eb; text-decoration: none;">https://stayaway.io.vn</a></p>
+    <p><strong>Ngày cập nhật:</strong> Tháng 09 / 2026</p>
+</div>
+
+<!-- PHẦN 1 -->
+<h1>1. TỔNG QUAN HỆ THỐNG & KIẾN TRÚC KỸ THUẬT</h1>
+
+<h2>1.1. Giới thiệu dự án</h2>
+<p><strong>StayAway (StayGo PMS)</strong> là giải pháp phần mềm quản lý khách sạn và homestay toàn diện, giải quyết trọn vẹn chuỗi giá trị vận hành của cơ sở lưu trú: từ tiếp nhận đặt phòng, phân công buồng phòng, quản lý kho vật tư, tự động hóa gửi email, đồng bộ lịch đa kênh OTA (Airbnb, Agoda, Booking.com), đến hạch toán hóa đơn chiết khấu, chốt sổ quỹ theo ngày và phân tích kinh doanh chuyên sâu (ADR, RevPAR, PoP, YoY).</p>
+
+<h2>1.2. Kiến trúc phân tầng hệ thống (System Architecture)</h2>
+<table>
+    <tr>
+        <th style="width: 25%;">Thành phần</th>
+        <th style="width: 35%;">Công nghệ sử dụng</th>
+        <th style="width: 40%;">Vai trò & Trách nhiệm</th>
+    </tr>
+    <tr>
+        <td><strong>Frontend Web App</strong></td>
+        <td>React 18, TypeScript, Vite 6, TailwindCSS, Vitest</td>
+        <td>Giao diện Single Page Application (SPA), Design System hiện đại, tích hợp Chatbot AI và bắt lỗi toàn cục.</td>
+    </tr>
+    <tr>
+        <td><strong>Backend API Core</strong></td>
+        <td>Spring Boot 3.x, Java 17, Spring Data JPA, Hibernate, Maven</td>
+        <td>27 REST Controllers, 39 JPA Entities, tầng Service quản lý Transaction toàn vẹn, 5 Background Schedulers tự động.</td>
+    </tr>
+    <tr>
+        <td><strong>Cơ sở dữ liệu</strong></td>
+        <td>MySQL 8.0 Engine (InnoDB)</td>
+        <td>Lưu trữ dữ liệu có cấu trúc, quan hệ bảng chặt chẽ, hỗ trợ UTF8MB4 lưu trữ tiếng Việt có dấu.</td>
+    </tr>
+    <tr>
+        <td><strong>Dịch vụ đám mây</strong></td>
+        <td>Cloudinary CDN, Gmail SMTP Server</td>
+        <td>Lưu trữ hình ảnh phòng/dịch vụ trên CDN; gửi email xác nhận đặt phòng và cấp lại mật khẩu tự động.</td>
+    </tr>
+    <tr>
+        <td><strong>DevOps & CI/CD</strong></td>
+        <td>GitHub Actions, GHCR.io, Docker Compose, AWS EC2</td>
+        <td>Pipeline kiểm thử tự động 43 Test Cases, đóng gói Multi-Stage Docker, deploy Zero-Downtime lên VPS trong &lt; 45s.</td>
+    </tr>
+</table>
+
+<!-- PHẦN 2 -->
+<h1>2. LUỒNG NGHIỆP VỤ & HOẠT ĐỘNG TOÀN HỆ THỐNG (END-TO-END WORKFLOW)</h1>
+
+<p>Sơ đồ dưới đây mô tả luồng vận hành xuyên suốt kết nối giữa Khách hàng, Lễ tân, Thu ngân, Buồng phòng và các tiến trình chạy ngầm:</p>
+
+<div class="diagram-box">
+[Khách hàng / Kênh OTA]
+          │
+          ├── (1) Đặt phòng qua Portal / Kênh OTA ──► [Kiểm tra phòng trống & Khóa lịch]
+          │                                                    │
+          ▼                                                    ▼
+[Lễ tân nhận đơn] ──────────────────────────────► [Thu tiền cọc (Deposit) -> Booking: CONFIRMED]
+          │                                                    │
+          ├── (2) Khách đến nhận phòng (Check-in)               │
+          │   • Quét mã QR thẻ CCCD gắn chip                   │
+          │   • Gán số phòng thực tế (Room: OCCUPIED)          │
+          │   • Tự động sinh Hóa đơn nháp (Invoice: DRAFT) ◄───┘
+          │
+          ├── (3) Quá trình lưu trú
+          │   • Khách gọi đồ ăn / giặt là / dịch vụ ──► [Cộng dồn vào Hóa đơn nháp]
+          │   • Đổi phòng / Gia hạn ngày ──────────────► [Tính chênh lệch tiền phòng]
+          │
+          ├── (4) Khách trả phòng (Check-out)
+          │   • Quyết toán tiền phòng + Dịch vụ - Tiền cọc - Giảm giá
+          │   • Khách thanh toán: Tiền mặt / Chuyển khoản / QR Code
+          │   • Hóa đơn chuyển trạng thái: PAID
+          │   • Trạng thái phòng chuyển sang: DIRTY (Cần dọn dẹp)
+          │                                    │
+          ▼                                    ▼
+[Bộ phận Buồng phòng] ◄────────────────────────┘
+          │
+          ├── Phân công dọn dẹp theo mức độ ưu tiên khách kế tiếp
+          ├── Nhân viên tiến hành dọn phòng (Room: IN_PROGRESS)
+          ├── Dọn xong bấm Gửi duyệt (Room: INSPECTING)
+          └── Quản lý nghiệm thu ĐẠT ──► [Room: CLEAN (Sẵn sàng bán phòng)]
+          │
+          ▼
+[Cuối ngày làm việc]
+          ├── Lễ tân / Thu ngân thực hiện "Chốt sổ quỹ ngày" (Daily Cash Ledger)
+          ├── Đối soát dòng tiền Tiền mặt / Ngân hàng / QR
+          └── Quản lý khóa sổ quỹ ──► [Dữ liệu tự động đẩy vào Báo cáo doanh thu & ADR/RevPAR]
+</div>
+
+<h2>2.1. Các tiến trình chạy ngầm tự động (Background Schedulers)</h2>
+<table>
+    <tr>
+        <th>Tên Scheduler</th>
+        <th>Tần suất kích hoạt</th>
+        <th>Chức năng tự động hóa</th>
+    </tr>
+    <tr>
+        <td><code>ChannelCalendarScheduler</code></td>
+        <td>Mỗi 30 - 60 phút</td>
+        <td>Đồng bộ lịch iCal từ Airbnb/Agoda, phát hiện xung đột và khóa phòng.</td>
+    </tr>
+    <tr>
+        <td><code>CheckInReminderScheduler</code></td>
+        <td>08:00 AM hàng ngày</td>
+        <td>Quét các đơn có ngày nhận phòng hôm nay để gửi email nhắc nhở cho khách.</td>
+    </tr>
+    <tr>
+        <td><code>PeriodicCleaningScheduler</code></td>
+        <td>06:00 AM hàng ngày</td>
+        <td>Quét các phòng trống quá N ngày để tạo công việc dọn dẹp định kỳ cho buồng phòng.</td>
+    </tr>
+    <tr>
+        <td><code>StayDeclarationScheduler</code></td>
+        <td>22:00 PM hàng ngày</td>
+        <td>Tổng hợp danh sách toàn bộ khách đang lưu trú trong ngày để khai báo tạm trú.</td>
+    </tr>
+    <tr>
+        <td><code>DebtReminderScheduler</code></td>
+        <td>Hàng tuần</td>
+        <td>Quét các đơn nợ quá hạn của khách hàng doanh nghiệp và gửi thông báo công nợ.</td>
+    </tr>
+</table>
+
+<!-- PHẦN 3 -->
+<h1>3. MẪU LUỒNG BACKEND DÙNG CHUNG CHO MỌI MODULE (GENERIC BACKEND TEMPLATE)</h1>
+
+<p>Toàn bộ 27 Controllers và các phân hệ trong Backend đều tuân theo một <strong>Mẫu kiến trúc chuẩn 6 bước</strong> thống nhất, đảm bảo tính nhất quán, bảo mật và không gây ảnh hưởng tới các tính năng có sẵn:</p>
+
+<div class="diagram-box">
+[ HTTP Request: GET / POST / PUT / DELETE ]
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 1: TẦNG FILTER & BẢO MẬT (Security & Filter Chain)                │
+│ • Kiểm tra CORS (WebCorsConfig)                                        │
+│ • Xác thực JWT Token & Lấy phiên người dùng hiện tại (AuthUtil)        │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 2: TẦNG CONTROLLER & VALIDATION (REST Controller)                 │
+│ • Bóc tách @PathVariable, @RequestParam, @RequestBody                  │
+│ • Thực thi Validation dữ liệu đầu vào (@Valid, @NotNull, @Pattern)     │
+│ • Điều hướng gọi Service tương ứng (Controller không chứa logic nặng)  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 3: TẦNG SERVICE & QUẢN LÝ GIAO DỊCH (@Transactional Service)       │
+│ • Kiểm tra điều kiện nghiệp vụ (Business Invariants & Permissions)     │
+│ • Kiểm tra xung đột & tính toán giá (Domain Calculations)              │
+│ • Ghi nhận Side Effects: AuditLogService, Notification, EmailService   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 4: TẦNG TRUY XUẤT CSDL (Spring Data JPA Repositories)             │
+│ • Thực thi Derived Queries hoặc JPQL Custom Queries tối ưu             │
+│ • Ánh xạ CSDL MySQL sang JPA Entities và chuyển đổi sang Response DTO  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 5: TẦNG BẢO VỆ DỮ LIỆU NHẠY CẢM (Data Masking Advice)             │
+│ • PersonalDataMaskingResponseAdvice tự động che mờ CCCD / SĐT          │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 6: XỬ LÝ LỖI TOÀN CỤC (GlobalExceptionHandler - @RestControllerAdvice)
+│ • Nếu có lỗi ở bất kỳ bước nào: Bắt ngoại lệ & trả về JSON chuẩn       │
+│   { "status": 400, "message": "Chi tiết lỗi", "timestamp": "..." }     │
+└────────────────────────────────────────────────────────────────────────┘
+</div>
+
+<h2>3.1. Bảng quy tắc thiết kế Backend bắt buộc</h2>
+<table>
+    <tr>
+        <th>Tầng kiến trúc</th>
+        <th>Trách nhiệm bắt buộc</th>
+        <th>Điều cấm kỵ (Tránh làm hỏng tính năng)</th>
+    </tr>
+    <tr>
+        <td><strong>Controller</strong></td>
+        <td>Nhận request, validate DTO, gọi service, trả <code>ResponseEntity&lt;DTO&gt;</code></td>
+        <td>❌ Không viết logic tính toán giá, không gọi trực tiếp Repository</td>
+    </tr>
+    <tr>
+        <td><strong>DTO</strong></td>
+        <td>Đóng gói dữ liệu đầu vào/ra, validation <code>@NotNull</code>, <code>@Min</code></td>
+        <td>❌ Không xóa hoặc đổi tên field cũ (bảo toàn tương thích ngược)</td>
+    </tr>
+    <tr>
+        <td><strong>Service</strong></td>
+        <td>Xử lý nghiệp vụ, tính toán, bọc <code>@Transactional</code>, ghi Audit Log</td>
+        <td>❌ Không bỏ qua kiểm tra quyền và điều kiện bất biến (Invariants)</td>
+    </tr>
+    <tr>
+        <td><strong>Repository</strong></td>
+        <td>Truy vấn CSDL, viết query JPQL tối ưu</td>
+        <td>❌ Không viết business logic trong câu lệnh truy vấn</td>
+    </tr>
+    <tr>
+        <td><strong>Model (Entity)</strong></td>
+        <td>Ánh xạ bảng CSDL, định nghĩa mối quan hệ <code>@OneToMany</code>, <code>@ManyToOne</code></td>
+        <td>❌ Không trả trực tiếp Entity ra ngoài API Controller</td>
+    </tr>
+    <tr>
+        <td><strong>Exception</strong></td>
+        <td>Bắt lỗi tập trung qua <code>@RestControllerAdvice</code></td>
+        <td>❌ Không nuốt lỗi (catch rỗng), không trả về mã 200 khi xảy ra lỗi</td>
+    </tr>
+</table>
+
+<!-- PHẦN 4 -->
+<h1>4. CHI TIẾT CÁC TÍNH NĂNG NGHIỆP VỤ ĐÃ TRIỂN KHAI</h1>
+
+<h2>4.1. Quản lý Đặt phòng & Khách lưu trú</h2>
+<ul>
+    <li><strong>Đặt phòng đơn & Đặt phòng đoàn (Group Booking):</strong> Tự động phát hiện xung đột lịch, không cho phép trùng phòng.</li>
+    <li><strong>Quét mã QR CCCD gắn chip & Khai báo tạm trú:</strong> Bóc tách thông tin cá nhân từ mã QR và tự động điền hồ sơ khách.</li>
+    <li><strong>Bảo vệ dữ liệu nhạy cảm (Data Masking):</strong> Che mờ số CCCD và Số điện thoại theo vai trò người dùng.</li>
+    <li><strong>Import danh sách đặt phòng lịch sử (Excel):</strong> Preview Validation kiểm tra trước dữ liệu và Atomic Transaction bảo toàn CSDL.</li>
+    <li><strong>Quản lý đồ thất lạc (Lost & Found):</strong> Tiếp nhận, lưu kho và bàn giao đồ khách để quên.</li>
+</ul>
+
+<h2>4.2. Cổng Khách Hàng Tự Phục Vụ (Public Portal)</h2>
+<ul>
+    <li><strong>Tra cứu & Tự hủy yêu cầu đặt phòng (CLTSN3-439):</strong> Khách tự tra cứu tiến độ và tự hủy đơn <code>PENDING</code> bằng Mã + SĐT.</li>
+    <li><strong>Tra cứu hóa đơn trực tuyến (NCL-09-CN-008):</strong> Cho phép khách xem chi tiết hóa đơn (bật/tắt theo cấu hình khách sạn, tự lọc bỏ DRAFT và CANCELLED).</li>
+</ul>
+
+<h2>4.3. Email Tự Động & Chống Spam</h2>
+<ul>
+    <li>Gửi Email xác nhận đặt phòng HTML kèm mã QR check-in.</li>
+    <li><strong>Chống spam:</strong> Cooldown 60 giây, Quota 5 lượt/ngày/booking, hiển thị thời gian gửi gần nhất.</li>
+    <li>Tự động nhắc nhận phòng, nhắc nợ và cấp lại mật khẩu qua Token một lần.</li>
+</ul>
+
+<h2>4.4. Kênh Đồng Bộ OTA & Cảnh Báo Trùng Phòng (Channel Manager)</h2>
+<ul>
+    <li>Đồng bộ 2 chiều qua iCal với Airbnb, Booking.com, Agoda.</li>
+    <li>Phát hiện và cảnh báo Overbooking (<code>CLTSN3-399</code>) cho Lễ tân.</li>
+    <li>Ghi nhật ký đồng bộ (<code>Sync Logs</code>) và cảnh báo mất kết nối.</li>
+</ul>
+
+<h2>4.5. Tài Chính, Hóa Đơn, Cọc & Sổ Quỹ Ngày</h2>
+<ul>
+    <li>Cọc linh hoạt (30%, theo hạng phòng, hoàn/phạt cọc).</li>
+    <li>Thỏa thuận giá riêng (<code>Price Deal</code>) cho khách đoàn.</li>
+    <li>Hủy hóa đơn nháp có lưu lý do và Audit Log.</li>
+    <li>Chốt sổ quỹ theo ngày (<code>Daily Cash Ledger</code>), phân tách Tiền mặt / Chuyển khoản / QR.</li>
+</ul>
+
+<h2>4.6. Buồng Phòng Thông Minh (Housekeeping)</h2>
+<ul>
+    <li>Sơ đồ ma trận phòng theo màu trạng thái (Sạch / Có khách / Cần dọn / Chờ duyệt / Bảo trì).</li>
+    <li>Phân công cân bằng tải theo độ ưu tiên khách kế tiếp.</li>
+    <li>Nghiệm thu phòng sạch 2 bước (Gửi duyệt &rarr; Nghiệm thu).</li>
+    <li>Lịch dọn định kỳ phòng trống dài ngày.</li>
+</ul>
+
+<h2>4.7. Báo Cáo & Phân Tích Chỉ Số Khách Sạn</h2>
+<ul>
+    <li>Chỉ số quốc tế: <strong>ADR</strong>, <strong>RevPAR</strong>, <strong>Occupancy Rate</strong>.</li>
+    <li>So sánh đa kỳ PoP & YoY (<code>CLTSN3-431</code>) kèm xuất CSV.</li>
+    <li>Trợ lý gợi ý giá phòng thông minh bằng AI.</li>
+</ul>
+
+<!-- PHẦN 5 -->
+<h1>5. QUY TRÌNH CI/CD & ZERO-DOWNTIME DEPLOYMENT</h1>
+
+<table>
+    <tr>
+        <th>Giai đoạn (Job)</th>
+        <th>Môi trường thực thi</th>
+        <th>Chi tiết nhiệm vụ & Cơ chế</th>
+    </tr>
+    <tr>
+        <td><strong>Job 1: Backend Tests</strong></td>
+        <td>Ubuntu / Temurin JDK 17</td>
+        <td>Chạy 29 bài kiểm thử JUnit 5 + Mockito + H2 In-Memory DB (<code>./mvnw test --batch-mode -q</code>).</td>
+    </tr>
+    <tr>
+        <td><strong>Job 2: Frontend Tests & Build</strong></td>
+        <td>Ubuntu / Node.js 20 LTS</td>
+        <td>Chạy 14 bài Vitest và kiểm tra tính toàn vẹn khi đóng gói bundle (<code>npm run build</code>).</td>
+    </tr>
+    <tr>
+        <td><strong>Job 3: Docker Build & Push</strong></td>
+        <td>Ubuntu / Docker Buildx</td>
+        <td>Biên dịch Multi-stage Dockerfile, áp dụng GitHub Actions Layer Cache, đẩy images lên GHCR (<code>ghcr.io</code>).</td>
+    </tr>
+    <tr>
+        <td><strong>Job 4: VPS Remote Deploy</strong></td>
+        <td>AWS EC2 Ubuntu Server</td>
+        <td>SSH vào máy chủ: Pull image &rarr; Recreate containers &rarr; Gắn kết mạng DB &rarr; Health Check liên tục 60s &rarr; Downtime &lt; 45s.</td>
+    </tr>
+</table>
+
+<!-- PHẦN 6 -->
+<h1>6. PHÂN QUYỀN VAI TRÒ NGƯỜI DÙNG (RBAC)</h1>
+
+<table>
+    <tr>
+        <th>Vai trò (Role)</th>
+        <th>Tài khoản mặc định</th>
+        <th>Phạm vi quyền hạn trong hệ thống</th>
+    </tr>
+    <tr>
+        <td><strong>Quản trị viên (ADMIN)</strong></td>
+        <td><code>admin</code> / <code>admin123</code></td>
+        <td>Toàn quyền hệ thống: Cấu hình giá phòng, nhân sự, xem báo cáo tài chính (ADR, RevPAR, Sổ quỹ), phê duyệt công nợ, quản lý kênh OTA.</td>
+    </tr>
+    <tr>
+        <td><strong>Lễ tân (RECEPTIONIST)</strong></td>
+        <td><code>receptionist</code> / <code>rec123</code></td>
+        <td>Đặt phòng, check-in, check-out, gán phòng, quét CCCD khai báo tạm trú, thu tiền cọc, phụ thu dịch vụ, lập hóa đơn, nhận cảnh báo OTA.</td>
+    </tr>
+    <tr>
+        <td><strong>Nhân viên Buồng phòng (HOUSEKEEPER)</strong></td>
+        <td><code>housekeeper</code> / <code>hk123</code></td>
+        <td>Xem danh sách phòng được phân công, cập nhật tiến độ dọn dẹp theo thời gian thực (Đang dọn &rarr; Gửi duyệt), tiếp nhận đồ thất lạc.</td>
+    </tr>
+</table>
+
+<hr style="border: 0; height: 1pt; background: #cbd5e1; margin: 30pt 0;">
+<p style="text-align: center; color: #64748b; font-size: 10pt;">
+    <strong>StayAway Property Management System</strong> &nbsp;·&nbsp; Enterprise DevOps Standards &nbsp;·&nbsp; 2026
+</p>
+
+</body>
+</html>
