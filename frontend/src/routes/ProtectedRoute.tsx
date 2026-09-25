@@ -59,17 +59,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
             <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200 shadow-xs">
               <IoShieldOutline size={32} />
             </div>
-            <h2 className="text-xl font-bold text-[#1A2411] mb-2 tracking-tight">
+            <h2 className="text-xl font-bold text-[#002146] mb-2 tracking-tight">
               Giới Hạn Quyền Truy Cập
             </h2>
-            <p className="text-sm text-[#606D56] leading-relaxed mb-6">
-              Tài khoản vai trò <strong className="text-[#1A2411] font-semibold">{roleName}</strong> chưa được phân quyền truy cập chức năng này.
+            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+              Tài khoản vai trò <strong className="text-[#002146] font-semibold">{roleName}</strong> chưa được phân quyền truy cập chức năng này.
             </p>
             <div className="flex justify-center">
               <button
                 type="button"
                 onClick={() => navigate(defaultRoute)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D4F63D] hover:bg-[#C2E232] text-xs font-bold text-[#1A2411] transition-all shadow-xs cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0070F4] hover:bg-[#0060DC] text-xs font-bold text-white transition-all shadow-xs cursor-pointer"
               >
                 <IoArrowBackOutline size={16} />
                 <span>Quay về trang chính của bạn</span>
