@@ -142,7 +142,7 @@ const GroupBookingForm: React.FC<GroupBookingFormProps> = ({ isOpen, onClose, on
               name="corporateClientId"
               value={formData.corporateClientId}
               onChange={(e) => setFormData(prev => ({ ...prev, corporateClientId: e.target.value }))}
-              className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] transition-all"
+              className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] transition-all"
             >
               <option value="">-- Khách lẻ / Không có thỏa thuận --</option>
               {corporateClients.map(c => (

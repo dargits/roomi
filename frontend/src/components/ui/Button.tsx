@@ -45,13 +45,13 @@ const Button: React.FC<ButtonProps> = ({
     primary:
       'bg-primary text-white border-primary shadow-xs hover:bg-primary-hover hover:border-primary-hover hover:shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed',
     lime:
-      'bg-[#D4F63D] text-[#1A2411] border-[#BEDF2E] shadow-xs hover:bg-[#C2E232] hover:border-[#BEDF2E] hover:shadow-sm active:scale-[0.98] font-bold disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-[#0070F4] text-white border-[#0065DC] shadow-xs hover:bg-[#0065DC] hover:border-[#0052CC] hover:shadow-sm active:scale-[0.98] font-bold disabled:opacity-60 disabled:cursor-not-allowed',
     secondary:
-      'bg-white text-[#1A2411] border-border-grey shadow-2xs hover:bg-[#F2F6EC] hover:border-[#CCD8C2] active:bg-[#E8EFE0] transition-all disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-white text-[#002146] border-border-grey shadow-2xs hover:bg-[#F4F6F9] hover:border-slate-300 active:bg-slate-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed',
     outline:
-      'bg-white text-primary border-border-grey shadow-2xs hover:bg-[#F2F6EC] hover:border-primary/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-white text-primary border-border-grey shadow-2xs hover:bg-blue-50/60 hover:border-primary/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed',
     ghost:
-      'bg-transparent text-[#586650] border-transparent hover:bg-[#F2F6EC] hover:text-[#1A2411] active:bg-[#E8EFE0] transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
+      'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-[#002146] active:bg-slate-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
     text:
       'bg-transparent text-on-surface-variant border-transparent hover:bg-surface-container-low hover:text-on-surface transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
     danger:
@@ -59,7 +59,7 @@ const Button: React.FC<ButtonProps> = ({
     dangerOutline:
       'bg-white text-error border-error/30 shadow-2xs hover:bg-red-50 hover:border-error transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
     success:
-      'bg-green-600 text-white border-green-600 shadow-xs hover:bg-green-700 hover:border-green-700 hover:shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed'
+      'bg-[#00B63E] text-white border-[#00B63E] shadow-xs hover:bg-[#009E35] hover:border-[#009E35] hover:shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed'
   };
 
   const selectedSize = sizeStyles[size] || sizeStyles.md;
