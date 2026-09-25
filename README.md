@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
 </p>
 
-> **StayAway** là phần mềm quản lý khách sạn và homestay (Property Management System - PMS) chuẩn doanh nghiệp. Hệ thống tối ưu hóa toàn bộ hoạt động vận hành: từ đặt phòng đơn/đoàn, check-in/out bằng mã CCCD, đặt cọc, tính giá mùa vụ linh hoạt, buồng phòng 2 bước, đồng bộ kênh OTA hai chiều (Airbnb, Agoda, Booking.com), đến quyết toán hóa đơn, chốt sổ quỹ ngày và phân tích tài chính chuyên sâu (ADR, RevPAR, PoP/YoY).
+> **StayAway** là phần mềm quản lý khách sạn và homestay (Property Management System - PMS) chuẩn doanh nghiệp. Hệ thống tối ưu hóa toàn bộ hoạt động vận hành: từ đặt phòng đơn/đoàn, check-in/out bằng mã CCCD, đặt cọc, tính giá mùa vụ linh hoạt, buồng phòng 2 bước, đồng bộ kênh OTA hai chiều (Airbnb, Agoda, Booking.com), đến quyết toán hóa đơn, chốt sổ quỹ ngày và phân tích tài chính chuyên sâu (ADR, RevPAR, PoP, YoY).
 
 ---
 
@@ -18,12 +18,14 @@
 
 1. [✨ Tính Năng Nổi Bật](#-tính-năng-nổi-bật)
 2. [🏗️ Kiến Trúc Hệ Thống & Công Nghệ](#️-kiến-trúc-hệ-thống--công-nghệ)
-3. [📁 Cấu Trúc Mã Nguồn](#-cấu-trúc-mã-nguồn)
-4. [🚀 Hướng Dẫn Cài Đặt & Chạy Cục Bộ (Local)](#-hướng-dẫn-cài-đặt--chạy-cục-bộ-local)
-5. [🐳 Hạ Tầng CI/CD & Triển Khai Zero-Downtime](#-hạ-tầng-cicd--triển-khai-zero-downtime)
-6. [🔑 Tài Khoản Mặc Định & Phân Quyền](#-tài-khoản-mặc-định--phân-quyền)
-7. [🧪 Kiểm Thử Tự Động (Testing)](#-kiểm-thử-tự-động-testing)
-8. [📚 Danh Mục Tài Liệu Chi Tiết](#-danh-mục-tài-liệu-chi-tiết)
+3. [🔄 Luồng Nghiệp Vụ & Hoạt Động Toàn Hệ Thống](#-luồng-nghiệp-vụ--hoạt-động-toàn-hệ-thống)
+4. [🏛️ Mẫu Luồng Backend Dùng Chung Cho Mọi Module](#️-mẫu-luồng-backend-dùng-chung-cho-mọi-module)
+5. [📁 Cấu Trúc Mã Nguồn](#-cấu-trúc-mã-nguồn)
+6. [🚀 Hướng Dẫn Cài Đặt & Chạy Cục Bộ (Local)](#-hướng-dẫn-cài-đặt--chạy-cục-bộ-local)
+7. [🐳 Hạ Tầng CI/CD & Triển Khai Zero-Downtime](#-hạ-tầng-cicd--triển-khai-zero-downtime)
+8. [🔑 Tài Khoản Mặc Định & Phân Quyền](#-tài-khoản-mặc-định--phân-quyền)
+9. [🧪 Kiểm Thử Tự Động (Testing)](#-kiểm-thử-tự-động-testing)
+10. [📚 Danh Mục Tài Liệu Chi Tiết](#-danh-mục-tài-liệu-chi-tiết)
 
 ---
 
@@ -96,6 +98,117 @@
                                                   │   • Container: roomi-db       │
                                                   └───────────────────────────────┘
 ```
+
+---
+
+## 🔄 Luồng Nghiệp Vụ & Hoạt Động Toàn Hệ Thống
+
+Dưới đây là sơ đồ luồng vận hành xuyên suốt kết nối giữa Khách hàng, Lễ tân, Thu ngân, Buồng phòng và các tiến trình chạy ngầm:
+
+```
+[Khách hàng / Kênh OTA]
+          │
+          ├── (1) Đặt phòng qua Portal / Kênh OTA ──► [Kiểm tra phòng trống & Khóa lịch]
+          │                                                    │
+          ▼                                                    ▼
+[Lễ tân nhận đơn] ──────────────────────────────► [Thu tiền cọc (Deposit) -> Booking: CONFIRMED]
+          │                                                    │
+          ├── (2) Khách đến nhận phòng (Check-in)               │
+          │   • Quét mã QR thẻ CCCD gắn chip                   │
+          │   • Gán số phòng thực tế (Room: OCCUPIED)          │
+          │   • Tự động sinh Hóa đơn nháp (Invoice: DRAFT) ◄───┘
+          │
+          ├── (3) Quá trình lưu trú
+          │   • Khách gọi đồ ăn / giặt là / dịch vụ ──► [Cộng dồn vào Hóa đơn nháp]
+          │   • Đổi phòng / Gia hạn ngày ──────────────► [Tính chênh lệch tiền phòng]
+          │
+          ├── (4) Khách trả phòng (Check-out)
+          │   • Quyết toán tiền phòng + Dịch vụ - Tiền cọc - Giảm giá
+          │   • Khách thanh toán: Tiền mặt / Chuyển khoản / QR Code
+          │   • Hóa đơn chuyển trạng thái: PAID
+          │   • Trạng thái phòng chuyển sang: DIRTY (Cần dọn dẹp)
+          │                                    │
+          ▼                                    ▼
+[Bộ phận Buồng phòng] ◄────────────────────────┘
+          │
+          ├── Phân công dọn dẹp theo mức độ ưu tiên khách kế tiếp
+          ├── Nhân viên tiến hành dọn phòng (Room: IN_PROGRESS)
+          ├── Dọn xong bấm Gửi duyệt (Room: INSPECTING)
+          └── Quản lý nghiệm thu ĐẠT ──► [Room: CLEAN (Sẵn sàng bán phòng)]
+          │
+          ▼
+[Cuối ngày làm việc]
+          ├── Lễ tân / Thu ngân thực hiện "Chốt sổ quỹ ngày" (Daily Cash Ledger)
+          ├── Đối soát dòng tiền Tiền mặt / Ngân hàng / QR
+          └── Quản lý khóa sổ quỹ ──► [Dữ liệu tự động đẩy vào Báo cáo doanh thu & ADR/RevPAR]
+```
+
+### Các Tiến Trình Nền Tự Động (Background Schedulers)
+Song song với luồng người dùng, 5 tác vụ chạy ngầm định kỳ hoạt động liên tục:
+1. **`ChannelCalendarScheduler` (Mỗi 30-60 phút):** Tải lịch iCal từ Airbnb/Agoda, phát hiện xung đột và khóa phòng.
+2. **`CheckInReminderScheduler` (08:00 AM hàng ngày):** Quét các đơn đến hạn nhận phòng hôm nay để gửi email nhắc nhở.
+3. **`PeriodicCleaningScheduler` (06:00 AM hàng ngày):** Quét các phòng trống quá N ngày để tạo lịch dọn dẹp buồng phòng.
+4. **`StayDeclarationScheduler` (22:00 PM hàng ngày):** Tự động kết xuất danh sách khách lưu trú để khai báo tạm trú.
+5. **`DebtReminderScheduler` (Hàng tuần):** Quét các khoản công nợ quá hạn và gửi thông báo nhắc nợ.
+
+---
+
+## 🏛️ Mẫu Luồng Backend Dùng Chung Cho Mọi Module
+
+Toàn bộ 27 Controllers và các phân hệ trong Backend đều tuân theo một **Mẫu kiến trúc chuẩn 6 bước (Standard Architecture Flow Template)** thống nhất:
+
+```
+[ HTTP Request: GET / POST / PUT / DELETE ]
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 1: TẦNG FILTER & BẢO MẬT (Security & Filter Chain)                │
+│ • Kiểm tra CORS (WebCorsConfig)                                        │
+│ • Xác thực JWT Token & Lấy phiên người dùng hiện tại (AuthUtil)        │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 2: TẦNG CONTROLLER & VALIDATION (REST Controller)                 │
+│ • Bóc tách @PathVariable, @RequestParam, @RequestBody                  │
+│ • Thực thi Validation dữ liệu đầu vào (@Valid, @NotNull, @Pattern)     │
+│ • Điều hướng gọi Service tương ứng (Controller không chứa logic nặng)  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 3: TẦNG SERVICE & QUẢN LÝ GIAO DỊCH (@Transactional Service)       │
+│ • Kiểm tra điều kiện nghiệp vụ (Business Invariants & Permissions)     │
+│ • Kiểm tra xung đột & tính toán giá (Domain Calculations)              │
+│ • Ghi nhận Side Effects: AuditLogService, Notification, EmailService   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 4: TẦNG TRUY XUẤT CSDL (Spring Data JPA Repositories)             │
+│ • Thực thi Derived Queries hoặc JPQL Custom Queries tối ưu             │
+│ • Ánh xạ CSDL MySQL sang JPA Entities và chuyển đổi sang Response DTO  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 5: TẦNG BẢO VỆ DỮ LIỆU NHẠY CẢM (Data Masking Advice)             │
+│ • PersonalDataMaskingResponseAdvice tự động che mờ CCCD / SĐT          │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 6: XỬ LÝ LỖI TOÀN CỤC (GlobalExceptionHandler - @RestControllerAdvice)
+│ • Nếu có lỗi ở bất kỳ bước nào: Bắt ngoại lệ & trả về JSON chuẩn       │
+│   { "status": 400, "message": "Chi tiết lỗi", "timestamp": "..." }     │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Bảng Quy Tắc Thiết Kế Backend Bắt Buộc:
+
+| Tầng kiến trúc | Trách nhiệm bắt buộc | Điều cấm kỵ (Tránh làm hỏng tính năng) |
+| :--- | :--- | :--- |
+| **Controller** | Nhận request, validate DTO, gọi service, trả `ResponseEntity<DTO>` | ❌ Không viết logic tính toán giá, không gọi trực tiếp Repository |
+| **DTO** | Đóng gói dữ liệu đầu vào/ra, validation `@NotNull`, `@Min` | ❌ Không xóa hoặc đổi tên field cũ (bảo toàn tương thích ngược) |
+| **Service** | Xử lý nghiệp vụ, tính toán, bọc `@Transactional`, ghi Audit Log | ❌ Không bỏ qua kiểm tra quyền và điều kiện bất biến (Invariants) |
+| **Repository** | Truy vấn CSDL, viết query JPQL tối ưu | ❌ Không viết business logic trong câu lệnh truy vấn |
+| **Model (Entity)** | Ánh xạ bảng CSDL, định nghĩa mối quan hệ `@OneToMany`, `@ManyToOne` | ❌ Không trả trực tiếp Entity ra ngoài API Controller |
+| **Exception** | Bắt lỗi tập trung qua `@RestControllerAdvice` | ❌ Không nuốt lỗi (catch rỗng), không trả về mã lỗi 200 khi xảy ra lỗi |
 
 ---
 
