@@ -216,28 +216,48 @@ jobs:
               docker-compose up -d --remove-orphans
             echo "[OK] Containers started"
 
-            # 6. Attach backend to database network
+            # 6. Attach backend & frontend to database network
             if [ -n "$DB_NET" ]; then
               docker network connect "$DB_NET" stayaway_backend 2>/dev/null || true
+              docker network connect "$DB_NET" stayaway_frontend 2>/dev/null || true
               docker restart stayaway_backend 2>/dev/null || true
-              echo "[OK] Backend connected to Database network: $DB_NET"
+              docker restart stayaway_frontend 2>/dev/null || true
+              echo "[OK] Backend & Frontend connected to Database network: $DB_NET"
+            else
+              docker restart stayaway_backend 2>/dev/null || true
+              docker restart stayaway_frontend 2>/dev/null || true
             fi
 
             # 7. Health check (up to 60 seconds)
-            echo "[INFO] Performing health check on backend service..."
+            echo "[INFO] Performing health check on backend & frontend services..."
             for i in $(seq 1 12); do
+              BE_OK=false
+              FE_OK=false
+
               if curl -sf http://localhost:8080/api/v1/hotel-setting/public > /dev/null 2>&1 || \
                  curl -sf http://localhost:8080/api/v1/room-types/public > /dev/null 2>&1; then
-                echo "[OK] Backend service is healthy"
+                BE_OK=true
+              fi
+
+              if curl -sf http://localhost:3000/api/v1/hotel-setting/public > /dev/null 2>&1 || \
+                 curl -sf http://localhost:3000/api/v1/room-types/public > /dev/null 2>&1; then
+                FE_OK=true
+              fi
+
+              if [ "$BE_OK" = true ] && [ "$FE_OK" = true ]; then
+                echo "[OK] Both Backend and Frontend services are healthy and communicating"
                 break
               fi
+
               if [ "$i" -eq 12 ]; then
-                echo "[ERROR] Health check reached timeout (Backend service failed to start or is unhealthy)!"
+                echo "[ERROR] Health check reached timeout (BE_OK=$BE_OK, FE_OK=$FE_OK)!"
                 echo "=== LATEST BACKEND LOGS ==="
                 docker logs stayaway_backend --tail=80 2>&1 || true
+                echo "=== LATEST FRONTEND LOGS ==="
+                docker logs stayaway_frontend --tail=80 2>&1 || true
                 exit 1
               else
-                echo "  - Attempt $i/12 — retrying in 5 seconds..."
+                echo "  - Attempt $i/12 (BE=$BE_OK, FE=$FE_OK) — retrying in 5 seconds..."
                 sleep 5
               fi
             done
