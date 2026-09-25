@@ -64,8 +64,12 @@ jobs:
       - name: Run Backend Tests
         working-directory: ./backend
         run: |
-          chmod +x mvnw
-          ./mvnw test --batch-mode -q
+          if command -v mvn >/dev/null 2>&1; then
+            mvn test --batch-mode -q
+          else
+            chmod +x mvnw
+            ./mvnw test --batch-mode -q
+          fi
 
   # ============================================================================
   # JOB 2: FRONTEND CONTINUOUS INTEGRATION (React 18 + Vitest + Vite)
