@@ -372,7 +372,7 @@ const RoomManagement: React.FC = () => {
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
           <button
             onClick={() => setIsBookingModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-[#D4F63D] hover:bg-[#C2E232] text-[#1A2411] font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-[#FF8800] hover:bg-[#E67A00] text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <IoAddOutline size={16} />
             <span>Tạo đặt phòng</span>
@@ -570,12 +570,12 @@ const RoomManagement: React.FC = () => {
 
                           {/* 2. AVAILABLE: Show price, ready indicator, and quick CTA */}
                           {room.status === 'AVAILABLE' && (
-                            <div className="bg-[#FBFDF9] border border-[#E4EAE0] rounded-xl p-2.5 space-y-2 mt-auto">
+                            <div className="bg-[#F8FAFC] border border-border-grey rounded-xl p-2.5 space-y-2 mt-auto">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs text-[#606D56]">Giá tiêu chuẩn</span>
-                                <span className="text-xs font-bold text-[#626F47]">
+                                <span className="text-xs text-slate-500">Giá tiêu chuẩn</span>
+                                <span className="text-xs font-bold text-primary">
                                   {new Intl.NumberFormat('vi-VN').format(roomType?.basePrice || 500000)} ₫
-                                  <span className="text-[10px] font-normal text-[#606D56]">/đêm</span>
+                                  <span className="text-[10px] font-normal text-slate-500">/đêm</span>
                                 </span>
                               </div>
                               <div className="flex items-center justify-between pt-1.5 border-t border-[#EAEFE5]">
@@ -753,8 +753,8 @@ const RoomManagement: React.FC = () => {
             <Select label="Trạng thái" name="status" value={formData.status} onChange={handleInputChange} options={statusOptions} required />
 
             <div>
-              <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider mb-1.5">Ghi chú</label>
-              <textarea name="notes" rows={3} value={formData.notes} onChange={handleInputChange} className="w-full px-3.5 py-2.5 border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] transition-all text-sm text-[#1A2411]" placeholder="Ghi chú về phòng..."></textarea>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Ghi chú</label>
+              <textarea name="notes" rows={3} value={formData.notes} onChange={handleInputChange} className="w-full px-3.5 py-2.5 border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-primary transition-all text-sm text-[#002146]" placeholder="Ghi chú về phòng..."></textarea>
             </div>
           </form>
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-grey mt-6">

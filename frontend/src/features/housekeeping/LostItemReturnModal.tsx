@@ -108,7 +108,7 @@ const LostItemReturnModal: React.FC<LostItemReturnModalProps> = ({
               placeholder="VD: Nguyễn Văn A (chủ phòng / người được ủy quyền)"
               value={receiverName}
               onChange={(e) => setReceiverName(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47]"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-primary"
             />
           </div>
         </div>
@@ -124,7 +124,7 @@ const LostItemReturnModal: React.FC<LostItemReturnModalProps> = ({
               placeholder="VD: 0912345678"
               value={receiverPhone}
               onChange={(e) => setReceiverPhone(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47]"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-primary"
             />
           </div>
         </div>
@@ -140,7 +140,7 @@ const LostItemReturnModal: React.FC<LostItemReturnModalProps> = ({
               placeholder="VD: Khách xuất trình CCCD nhận lại, hoặc bạn khách nhận thay..."
               value={receiverNote}
               onChange={(e) => setReceiverNote(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47]"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-primary"
             />
           </div>
         </div>

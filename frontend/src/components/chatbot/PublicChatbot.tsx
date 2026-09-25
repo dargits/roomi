@@ -671,7 +671,7 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
           }}
           className={`relative flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all duration-300 cursor-pointer ${
             isOpen
-              ? 'bg-lodgify-dark text-white hover:bg-black rotate-90 scale-95'
+              ? 'bg-[#002146] text-white hover:bg-black rotate-90 scale-95'
               : 'bg-primary text-white hover:bg-primary-hover hover:scale-108 active:scale-95 ring-4 ring-primary/20 shadow-primary/30'
           }`}
           title={isOpen ? 'Thu nhỏ hộp chat' : 'Mở trợ lý tư vấn trực tuyến'}
@@ -683,8 +683,8 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
               <IoChatbubbleEllipsesSharp size={28} className="drop-shadow-xs" />
               {/* Online Pulse Dot */}
               <span className="absolute top-0.5 right-0.5 flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lodgify-lime opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-lodgify-lime border-2 border-white"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00B63E] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#00B63E] border-2 border-white"></span>
               </span>
             </>
           )}
@@ -695,7 +695,7 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
       {isOpen && (
         <div
           className="fixed bottom-16 sm:bottom-24 left-3 right-3 sm:left-auto sm:right-6 z-50 w-auto sm:w-[410px] h-[calc(100dvh-80px)] sm:h-[580px] max-h-[620px] bg-surface-container-lowest rounded-3xl shadow-2xl border border-border-grey flex flex-col overflow-hidden animate-page-enter"
-          style={{ boxShadow: '0 20px 40px -15px rgba(26, 36, 17, 0.25)' }}
+          style={{ boxShadow: '0 20px 40px -15px rgba(0, 33, 70, 0.2)' }}
         >
           {/* Header */}
           <div className="bg-primary text-white px-4 py-3.5 flex items-center justify-between shadow-xs relative overflow-hidden shrink-0">
@@ -705,9 +705,9 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
             <div className="flex items-center gap-3 relative z-10">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-xs flex items-center justify-center text-white border border-white/20 shadow-xs">
-                  <IoSparkles size={20} className="text-lodgify-lime" />
+                  <IoSparkles size={20} className="text-amber-300" />
                 </div>
-                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-lodgify-lime border-2 border-primary"></span>
+                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#00B63E] border-2 border-primary"></span>
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
@@ -715,11 +715,11 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
                     StayBot Concierge
                   </h3>
                   <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
-                    <IoSparkles size={10} className="text-lodgify-lime" /> Gemini AI
+                    <IoSparkles size={10} className="text-amber-300" /> Gemini AI
                   </span>
                 </div>
                 <p className="text-[11px] text-white/80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-lodgify-lime animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00B63E] animate-pulse"></span>
                   Trực tuyến • {hotelSetting?.propertyName || 'Stay Away'}
                 </p>
               </div>
