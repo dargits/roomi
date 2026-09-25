@@ -99,7 +99,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
                 {room.availableRooms !== undefined ? `Còn ${room.availableRooms} phòng` : 'Còn phòng'}
               </span>
             )}
-            <span className="bg-[#F4F6F0] border border-border-grey text-[#1A2411] text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-medium">
+            <span className="bg-[#F4F6F9] border border-border-grey text-[#002146] text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-medium">
               <IoFlashOutline className="text-primary text-[14px]" size={14} strokeWidth={1.5} />
               Đặt nhanh chóng
             </span>
@@ -108,12 +108,12 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
 
         <div className="flex gap-2.5 mb-4 flex-col">
           <div className="flex gap-2">
-            <span className="inline-flex items-center gap-1.5 bg-[#F4F6F0] px-3 py-1 border border-border-grey rounded-full text-xs font-semibold text-[#1A2411] w-max">
+            <span className="inline-flex items-center gap-1.5 bg-[#F4F6F9] px-3 py-1 border border-border-grey rounded-full text-xs font-semibold text-[#002146] w-max">
               <IoPeopleOutline className="text-primary text-[15px]" size={15} strokeWidth={1.5} /> {room.maxCapacity} người
             </span>
           </div>
           {room.amenitiesDescription && (
-            <div className="flex items-start gap-2 bg-[#F4F6F0] p-3.5 border border-border-grey rounded-xl text-xs text-[#606D56] leading-relaxed">
+            <div className="flex items-start gap-2 bg-[#F4F6F9] p-3.5 border border-border-grey rounded-xl text-xs text-slate-500 leading-relaxed">
               <IoInformationCircleOutline className="mt-0.5 text-primary opacity-80 text-[18px] shrink-0" size={18} strokeWidth={1.5} />
               <p>{room.amenitiesDescription}</p>
             </div>
@@ -134,12 +134,12 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onBookNow, onGroupBook }) => 
             )}
           </div>
           <div className="text-left sm:text-right w-full sm:w-auto">
-            <div className="font-headline-md text-xl sm:text-2xl font-bold text-[#1A2411]">
-              {room.price} <span className="font-body-md text-xs sm:text-sm text-[#606D56] font-normal">{room.isAveragePrice ? '/đêm (TB)' : '/đêm'}</span>
+            <div className="font-headline-md text-xl sm:text-2xl font-bold text-[#002146]">
+              {room.price} <span className="font-body-md text-xs sm:text-sm text-slate-500 font-normal">{room.isAveragePrice ? '/đêm (TB)' : '/đêm'}</span>
             </div>
             {room.nights != null && room.nights > 1 && room.totalPrice != null ? (
-              <div className="text-xs text-[#606D56] mb-2.5">
-                Tổng {room.nights} đêm: <strong className="text-[#1A2411] font-bold">{new Intl.NumberFormat('vi-VN').format(room.totalPrice)} ₫</strong>
+              <div className="text-xs text-slate-500 mb-2.5">
+                Tổng {room.nights} đêm: <strong className="text-[#002146] font-bold">{new Intl.NumberFormat('vi-VN').format(room.totalPrice)} ₫</strong>
               </div>
             ) : (
               <div className="mb-2" />

@@ -137,7 +137,7 @@ const LostItemDisposeModal: React.FC<LostItemDisposeModalProps> = ({
               placeholder="VD: Quá 30 ngày không liên lạc được với khách, cơ sở thực hiện tiêu hủy theo quy chế..."
               value={disposalNote}
               onChange={(e) => setDisposalNote(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47]"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-primary"
             />
           </div>
         </div>

@@ -62,7 +62,7 @@ const Modal: React.FC<ModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#1A2411]/50 backdrop-blur-xs animate-backdrop-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#002146]/50 backdrop-blur-xs animate-backdrop-in"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
@@ -74,12 +74,12 @@ const Modal: React.FC<ModalProps> = ({
         {/* Header */}
         {title && (
           <div className="px-6 py-5 border-b border-border-grey flex justify-between items-center bg-white shrink-0">
-            <h2 className="text-lg font-bold text-[#1A2411] tracking-normal leading-normal">{title}</h2>
+            <h2 className="text-lg font-bold text-[#002146] tracking-normal leading-normal">{title}</h2>
             {showCloseButton && onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-[#606D56] hover:text-[#1A2411] hover:bg-[#F2F6ED] transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-[#002146] hover:bg-slate-100 transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
                 title="Đóng"
               >
                 <IoCloseOutline size={22} strokeWidth={2} />

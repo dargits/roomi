@@ -123,9 +123,9 @@ const RevenueVisualChart: React.FC<{
                   {/* Tooltip on Hover */}
                   {isHovered && (
                     <div className="absolute bottom-full mb-3 z-30 flex flex-col items-center pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-                      <div className="bg-[#1A2411] text-white text-xs rounded-xl py-2 px-3 shadow-xl whitespace-nowrap text-center border border-[#303D20]">
-                        <p className="font-semibold text-[#E4F2CC] border-b border-[#303D20] pb-1 mb-1">{dateLabel}</p>
-                        <p className="font-bold text-[#D4F63D] text-sm">{fmtCurrency(totalRowRev)}</p>
+                      <div className="bg-[#002146] text-white text-xs rounded-xl py-2 px-3 shadow-xl whitespace-nowrap text-center border border-blue-900">
+                        <p className="font-semibold text-blue-200 border-b border-blue-900 pb-1 mb-1">{dateLabel}</p>
+                        <p className="font-bold text-emerald-400 text-sm">{fmtCurrency(totalRowRev)}</p>
                         {rRev > 0 && (
                           <p className="text-[11px] text-[#E2E8F0] mt-0.5">• Tiền phòng: {fmtCurrency(rRev)}</p>
                         )}
@@ -135,9 +135,9 @@ const RevenueVisualChart: React.FC<{
                         {penalty > 0 && (
                           <p className="text-[11px] text-[#F97316] mt-0.5">• Phí phạt/hủy: {fmtCurrency(penalty)}</p>
                         )}
-                        <p className="text-[11px] text-[#9AA88E] mt-0.5">{row.bookings || 0} lượt đặt phòng</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{row.bookings || 0} lượt đặt phòng</p>
                       </div>
-                      <div className="w-2 h-2 bg-[#1A2411] rotate-45 -mt-1" />
+                      <div className="w-2 h-2 bg-[#002146] rotate-45 -mt-1" />
                     </div>
                   )}
 
