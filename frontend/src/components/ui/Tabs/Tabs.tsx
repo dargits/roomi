@@ -95,7 +95,7 @@ const Tabs: React.FC<TabsProps> = ({
     <div
       className={`relative flex items-center overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
         isPill
-          ? `p-1.5 bg-[#F4F6F0] rounded-2xl border border-border-grey w-fit shadow-2xs ${className}`
+          ? `p-1.5 bg-[#F4F6F9] rounded-2xl border border-border-grey w-fit shadow-2xs ${className}`
           : `border-b border-border-grey ${className}`
       }`}
     >
@@ -136,7 +136,7 @@ const Tabs: React.FC<TabsProps> = ({
               isPill
                 ? `px-4 py-2 rounded-xl text-xs font-semibold ${
                     isActive
-                      ? 'text-[#1A2411] font-bold'
+                      ? 'text-[#002146] font-bold'
                       : 'text-on-surface-variant hover:text-on-surface'
                   }`
                 : `py-3 px-5 font-semibold text-sm ${

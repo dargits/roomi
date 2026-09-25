@@ -548,7 +548,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
           <div className="bg-white rounded-2xl border border-border-grey p-4 shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
-                <IoPersonOutline className="text-[#626F47]" size={17} />
+                <IoPersonOutline className="text-primary" size={17} />
                 <h3 className="font-bold text-on-surface text-xs tracking-normal">
                   Khối lượng công việc nhân viên buồng phòng ({workloadStats.totalCount} phòng {activeSubTab === 'DIRTY' ? 'cần dọn' : 'chờ duyệt'})
                 </h3>
@@ -564,8 +564,8 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                 onClick={() => setSelectedStaffFilter('ALL')}
                 className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
                   selectedStaffFilter === 'ALL'
-                    ? 'bg-[#626F47] text-white border-[#626F47] shadow-xs'
-                    : 'bg-white border-border-grey text-on-surface hover:border-[#626F47]'
+                    ? 'bg-primary text-white border-primary shadow-xs'
+                    : 'bg-white border-border-grey text-on-surface hover:border-primary'
                 }`}
               >
                 Tất cả ({workloadStats.totalCount})
@@ -579,7 +579,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                     ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                     : workloadStats.unassignedCount > 0
                     ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-                    : 'bg-white border-border-grey text-on-surface-variant hover:border-[#626F47]'
+                    : 'bg-white border-border-grey text-on-surface-variant hover:border-primary'
                 }`}
               >
                 <IoAlertCircleOutline size={14} className={workloadStats.unassignedCount > 0 ? 'text-amber-600' : ''} />
@@ -595,10 +595,10 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                     onClick={() => setSelectedStaffFilter(prev => prev === String(st.id) ? 'ALL' : String(st.id))}
                     className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#1A2411] text-white border-[#1A2411] shadow-xs font-bold'
+                        ? 'bg-[#002146] text-white border-[#002146] shadow-xs font-bold'
                         : st.assignedCount > 0
                         ? 'bg-blue-50/70 text-blue-950 border-blue-200 hover:bg-blue-100 font-medium'
-                        : 'bg-white border-border-grey text-on-surface-variant hover:border-[#626F47]'
+                        : 'bg-white border-border-grey text-on-surface-variant hover:border-primary'
                     }`}
                     title={isSelected ? 'Bấm để hủy lọc' : `Lọc phòng của ${st.name}`}
                   >
@@ -818,8 +818,8 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
               onClick={() => setQuickFilter('ALL')}
               className={`px-3 py-1 rounded-full border transition-all cursor-pointer whitespace-nowrap text-xs font-semibold ${
                 quickFilter === 'ALL'
-                  ? 'bg-[#1A2411] text-white border-[#1A2411] shadow-xs'
-                  : 'bg-white border-border-grey text-on-surface hover:border-[#626F47]'
+                  ? 'bg-[#002146] text-white border-[#002146] shadow-xs'
+                  : 'bg-white border-border-grey text-on-surface hover:border-primary'
               }`}
             >
               Tất cả ({roleFilteredList.length})
@@ -1023,7 +1023,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                       <div className="pt-2 border-t border-border-grey/60 space-y-1.5">
                         <div className="flex items-center justify-between text-on-surface-variant">
                           <span className="flex items-center gap-1 font-semibold text-[11px]">
-                            <IoPersonOutline size={13} className="text-[#626F47]" /> Phụ trách:
+                            <IoPersonOutline size={13} className="text-primary" /> Phụ trách:
                           </span>
                           
                           {/* Nút gỡ phân công cho Supervisor */}
@@ -1047,7 +1047,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               value={room.assignedHousekeeperId || ''}
                               onChange={(e) => handleAssignCleaner(room, e.target.value)}
                               disabled={processingId === room.id}
-                              className={`w-full px-3 py-2 rounded-xl text-xs border font-medium focus:outline-none focus:border-[#626F47] transition-colors cursor-pointer ${
+                              className={`w-full px-3 py-2 rounded-xl text-xs border font-medium focus:outline-none focus:border-primary transition-colors cursor-pointer ${
                                 isAssigned 
                                   ? 'bg-blue-50/70 border-blue-300 text-blue-950 font-semibold' 
                                   : 'bg-amber-50/50 border-amber-300 text-amber-900'
@@ -1151,7 +1151,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               <button
                                 onClick={() => handleMarkClean(room)}
                                 disabled={processingId === room.id}
-                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#626F47] hover:bg-[#525E3B] active:bg-[#434E2E] disabled:bg-[#626F47]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#00B63E] hover:bg-[#009E35] active:bg-[#00872E] disabled:bg-[#00B63E]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                               >
                                 {processingId === room.id ? (
                                   <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
@@ -1171,7 +1171,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               <button
                                 onClick={() => handleApproveClean(room)}
                                 disabled={processingId === room.id}
-                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#626F47] hover:bg-[#525E3B] active:bg-[#434E2E] disabled:bg-[#626F47]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#00B63E] hover:bg-[#009E35] active:bg-[#00872E] disabled:bg-[#00B63E]/50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                               >
                                 {processingId === room.id ? (
                                   <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
@@ -1281,8 +1281,8 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                     key={reasonKey}
                     className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${
                       interruptionReason === reasonKey
-                        ? 'bg-[#1A2411]/5 border-[#626F47] text-on-surface font-semibold'
-                        : 'border-border-grey hover:bg-[#F4F6F0] text-on-surface-variant'
+                        ? 'bg-[#EBF3FF] border-primary text-on-surface font-semibold'
+                        : 'border-border-grey hover:bg-slate-50 text-on-surface-variant'
                     }`}
                   >
                     <input
@@ -1291,7 +1291,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                       value={reasonKey}
                       checked={interruptionReason === reasonKey}
                       onChange={(e) => setInterruptionReason(e.target.value)}
-                      className="accent-[#626F47]"
+                      className="accent-primary"
                     />
                     <span>{reasonKey === 'OTHER' ? 'Lý do khác...' : reasonKey}</span>
                   </label>
