@@ -226,13 +226,16 @@ jobs:
             # 7. Health check (up to 60 seconds)
             echo "[INFO] Performing health check on backend service..."
             for i in $(seq 1 12); do
-              if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1 || \
-                 curl -sf http://localhost:8080/api/v1/hotel-settings > /dev/null 2>&1; then
+              if curl -sf http://localhost:8080/api/v1/hotel-setting/public > /dev/null 2>&1 || \
+                 curl -sf http://localhost:8080/api/v1/room-types/public > /dev/null 2>&1; then
                 echo "[OK] Backend service is healthy"
                 break
               fi
               if [ "$i" -eq 12 ]; then
-                echo "[WARN] Health check reached timeout (service may still be initializing)"
+                echo "[ERROR] Health check reached timeout (Backend service failed to start or is unhealthy)!"
+                echo "=== LATEST BACKEND LOGS ==="
+                docker logs stayaway_backend --tail=80 2>&1 || true
+                exit 1
               else
                 echo "  - Attempt $i/12 — retrying in 5 seconds..."
                 sleep 5
