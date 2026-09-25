@@ -154,11 +154,15 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
 
   // Focus input when open
   useEffect(() => {
+    let timer: NodeJS.Timeout | undefined;
     if (isOpen) {
-      setTimeout(() => {
+      timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 150);
     }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [isOpen]);
 
   const handleDismissGreeting = (e: React.MouseEvent) => {
