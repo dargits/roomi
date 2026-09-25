@@ -23,67 +23,146 @@
 
 ---
 
-## 2. CHI TIẾT CÁC TÍNH NĂNG NGHIỆP VỤ ĐÃ TRIỂN KHAI
+## 2. LUỒNG NGHIỆP VỤ & HOẠT ĐỘNG TOÀN HỆ THỐNG (END-TO-END WORKFLOW)
 
-### 2.1. Quản lý Đặt phòng & Vòng đời Khách lưu trú
+```
+[Khách hàng / Kênh OTA]
+          │
+          ├── (1) Đặt phòng qua Portal / Kênh OTA ──► [Kiểm tra phòng trống & Khóa lịch]
+          │                                                    │
+          ▼                                                    ▼
+[Lễ tân nhận đơn] ──────────────────────────────► [Thu tiền cọc (Deposit) -> Booking: CONFIRMED]
+          │                                                    │
+          ├── (2) Khách đến nhận phòng (Check-in)               │
+          │   • Quét mã QR thẻ CCCD gắn chip                   │
+          │   • Gán số phòng thực tế (Room: OCCUPIED)          │
+          │   • Tự động sinh Hóa đơn nháp (Invoice: DRAFT) ◄───┘
+          │
+          ├── (3) Quá trình lưu trú
+          │   • Khách gọi đồ ăn / giặt là / dịch vụ ──► [Cộng dồn vào Hóa đơn nháp]
+          │   • Đổi phòng / Gia hạn ngày ──────────────► [Tính chênh lệch tiền phòng]
+          │
+          ├── (4) Khách trả phòng (Check-out)
+          │   • Quyết toán tiền phòng + Dịch vụ - Tiền cọc - Giảm giá
+          │   • Khách thanh toán: Tiền mặt / Chuyển khoản / QR Code
+          │   • Hóa đơn chuyển trạng thái: PAID
+          │   • Trạng thái phòng chuyển sang: DIRTY (Cần dọn dẹp)
+          │                                    │
+          ▼                                    ▼
+[Bộ phận Buồng phòng] ◄────────────────────────┘
+          │
+          ├── Phân công dọn dẹp theo mức độ ưu tiên khách kế tiếp
+          ├── Nhân viên tiến hành dọn phòng (Room: IN_PROGRESS)
+          ├── Dọn xong bấm Gửi duyệt (Room: INSPECTING)
+          └── Quản lý nghiệm thu ĐẠT ──► [Room: CLEAN (Sẵn sàng bán phòng)]
+          │
+          ▼
+[Cuối ngày làm việc]
+          ├── Lễ tân / Thu ngân thực hiện "Chốt sổ quỹ ngày" (Daily Cash Ledger)
+          ├── Đối soát dòng tiền Tiền mặt / Ngân hàng / QR
+          └── Quản lý khóa sổ quỹ ──► [Dữ liệu tự động đẩy vào Báo cáo doanh thu & ADR/RevPAR]
+```
+
+### Các Tiến Trình Nền Tự Động (Background Schedulers)
+1. **`ChannelCalendarScheduler` (Mỗi 30-60 phút):** Đồng bộ lịch iCal từ Airbnb/Agoda, phát hiện xung đột và khóa phòng.
+2. **`CheckInReminderScheduler` (08:00 AM hàng ngày):** Gửi email nhắc nhở nhận phòng cho khách.
+3. **`PeriodicCleaningScheduler` (06:00 AM hàng ngày):** Tự động lập lịch dọn dẹp cho phòng trống quá N ngày.
+4. **`StayDeclarationScheduler` (22:00 PM hàng ngày):** Kết xuất danh sách khách lưu trú để khai báo tạm trú.
+5. **`DebtReminderScheduler` (Hàng tuần):** Quét các khoản công nợ quá hạn và gửi thông báo nhắc nợ.
+
+---
+
+## 3. MẪU LUỒNG BACKEND DÙNG CHUNG CHO MỌI MODULE (GENERIC BACKEND TEMPLATE)
+
+Toàn bộ các module trong hệ thống (Booking, Invoice, Room, Channel, Guest, ExtraService, Auth...) đều áp dụng cấu trúc 6 bước chuẩn mực:
+
+```
+[ HTTP Request: GET / POST / PUT / DELETE ]
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 1: TẦNG FILTER & BẢO MẬT (Security & Filter Chain)                │
+│ • Kiểm tra CORS (WebCorsConfig)                                        │
+│ • Xác thực JWT Token & Lấy phiên người dùng hiện tại (AuthUtil)        │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 2: TẦNG CONTROLLER & VALIDATION (REST Controller)                 │
+│ • Bóc tách @PathVariable, @RequestParam, @RequestBody                  │
+│ • Thực thi Validation dữ liệu đầu vào (@Valid, @NotNull, @Pattern)     │
+│ • Điều hướng gọi Service tương ứng (Controller không chứa logic nặng)  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 3: TẦNG SERVICE & QUẢN LÝ GIAO DỊCH (@Transactional Service)       │
+│ • Kiểm tra điều kiện nghiệp vụ (Business Invariants & Permissions)     │
+│ • Kiểm tra xung đột & tính toán giá (Domain Calculations)              │
+│ • Ghi nhận Side Effects: AuditLogService, Notification, EmailService   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 4: TẦNG TRUY XUẤT CSDL (Spring Data JPA Repositories)             │
+│ • Thực thi Derived Queries hoặc JPQL Custom Queries tối ưu             │
+│ • Ánh xạ CSDL MySQL sang JPA Entities và chuyển đổi sang Response DTO  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 5: TẦNG BẢO VỆ DỮ LIỆU NHẠY CẢM (Data Masking Advice)             │
+│ • PersonalDataMaskingResponseAdvice tự động che mờ CCCD / SĐT          │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 6: XỬ LÝ LỖI TOÀN CỤC (GlobalExceptionHandler - @RestControllerAdvice)
+│ • Nếu có lỗi ở bất kỳ bước nào: Bắt ngoại lệ & trả về JSON chuẩn       │
+│   { "status": 400, "message": "Chi tiết lỗi", "timestamp": "..." }     │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. CHI TIẾT CÁC TÍNH NĂNG NGHIỆP VỤ ĐÃ TRIỂN KHAI
+
+### 4.1. Quản lý Đặt phòng & Vòng đời Khách lưu trú
 * **Đặt phòng đơn & Đặt phòng đoàn (Group Booking):** Kiểm tra xung đột lịch thời gian thực.
 * **Vòng đời:** `PENDING` $\rightarrow$ `CONFIRMED` $\rightarrow$ `CHECKED_IN` $\rightarrow$ `CHECKED_OUT` $\rightarrow$ `CANCELLED`.
 * **Quét CCCD gắn chip & Data Masking:** Bóc tách mã QR tự động và che mờ thông tin nhạy cảm.
 * **Import đặt phòng lịch sử (Excel/CSV):** Preview Validation và Atomic Transaction Commit.
 * **Đồ thất lạc (Lost & Found):** Tiếp nhận, lưu kho và bàn giao đồ khách để quên.
 
-### 2.2. Cổng Khách Hàng Tự Phục Vụ (Public Portal)
+### 4.2. Cổng Khách Hàng Tự Phục Vụ (Public Portal)
 * **Tra cứu & Tự hủy yêu cầu đặt phòng (CLTSN3-439):** Khách tự tra cứu và hủy đơn `PENDING` bằng Mã + SĐT.
 * **Tra cứu hóa đơn trực tuyến (NCL-09-CN-008):** Xem chi tiết tiền phòng và thanh toán (bật/tắt theo cài đặt).
 
-### 2.3. Email Tự Động & Chống Spam
+### 4.3. Email Tự Động & Chống Spam
 * Gửi Email HTML xác nhận đặt phòng kèm mã QR check-in.
 * **Chống spam:** Cooldown 60 giây, Quota 5 lượt/ngày/booking, hiển thị thời gian gửi gần nhất.
 * Tự động nhắc nhận phòng, nhắc nợ và cấp lại mật khẩu qua Token một lần.
 
-### 2.4. Kênh Đồng Bộ OTA & Cảnh Báo Trùng Phòng (Channel Manager)
+### 4.4. Kênh Đồng Bộ OTA & Cảnh Báo Trùng Phòng (Channel Manager)
 * Đồng bộ 2 chiều qua iCal với Airbnb, Booking.com, Agoda.
 * Phát hiện và cảnh báo Overbooking (`CLTSN3-399`) cho Lễ tân.
 * Ghi nhật ký đồng bộ (`Sync Logs`) và cảnh báo mất kết nối.
 
-### 2.5. Tài Chính, Hóa Đơn & Sổ Quỹ
+### 4.5. Tài Chính, Hóa Đơn & Sổ Quỹ
 * Cọc linh hoạt (30%, theo hạng phòng, hoàn/phạt cọc).
 * Thỏa thuận giá riêng (`Price Deal`) cho khách đoàn.
 * Hủy hóa đơn nháp có lưu lý do và Audit Log.
 * Chốt sổ quỹ theo ngày (`Daily Cash Ledger`), phân tách Tiền mặt / Chuyển khoản / QR.
 
-### 2.6. Buồng Phòng Thông Minh (Housekeeping)
+### 4.6. Buồng Phòng Thông Minh (Housekeeping)
 * Sơ đồ ma trận phòng theo màu trạng thái (Sạch / Có khách / Cần dọn / Chờ duyệt / Bảo trì).
 * Phân công cân bằng tải theo độ ưu tiên khách kế tiếp.
 * Nghiệm thu phòng sạch 2 bước (Gửi duyệt $\rightarrow$ Nghiệm thu).
 * Lịch dọn định kỳ phòng trống dài ngày.
 
-### 2.7. Báo Cáo & Phân Tích Chỉ Số Khách Sạn
+### 4.7. Báo Cáo & Phân Tích Chỉ Số Khách Sạn
 * Chỉ số quốc tế: **ADR**, **RevPAR**, **Occupancy Rate**.
 * So sánh đa kỳ PoP & YoY (`CLTSN3-431`) kèm xuất CSV.
 * Trợ lý gợi ý giá phòng thông minh bằng AI.
 
 ---
 
-## 3. QUY TRÌNH & LUỒNG HOẠT ĐỘNG BACKEND
-
-1. **Web Filter & CORS:** Xác thực nguồn gửi và kiểm tra JWT.
-2. **REST Controller:** Validate DTO qua Jakarta Validation (`@Valid`).
-3. **Service Layer:** Xử lý nghiệp vụ an toàn với `@Transactional`.
-4. **Data Access (JPA):** Truy vấn CSDL MySQL tối ưu và chuyển DTO.
-5. **Data Masking Advice:** Tự động che mờ CCCD / SĐT trước khi trả về.
-6. **Global Exception Handling:** Chuẩn hóa toàn bộ mã lỗi trả về cho Client.
-
-### Danh mục Background Schedulers:
-* `ChannelCalendarScheduler`: Đồng bộ lịch OTA định kỳ (30-60 phút).
-* `CheckInReminderScheduler`: Gửi email nhắc nhận phòng hàng ngày (08:00 AM).
-* `DebtReminderScheduler`: Cảnh báo công nợ định kỳ.
-* `PeriodicCleaningScheduler`: Lập lịch dọn phòng trống dài ngày (06:00 AM).
-* `StayDeclarationScheduler`: Tổng hợp danh sách khai báo tạm trú (22:00 PM).
-
----
-
-## 4. QUY TRÌNH CI/CD & ZERO-DOWNTIME DEPLOYMENT
+## 5. QUY TRÌNH CI/CD & ZERO-DOWNTIME DEPLOYMENT
 
 * **Job 1 (Backend CI):** 29 bài kiểm thử JUnit 5 + Mockito + H2 In-Memory DB.
 * **Job 2 (Frontend CI):** 14 bài Vitest + Kiểm tra build production bundle.
@@ -92,7 +171,7 @@
 
 ---
 
-## 5. PHÂN QUYỀN VAI TRÒ (RBAC)
+## 6. PHÂN QUYỀN VAI TRÒ (RBAC)
 
 | Vai trò | Tài khoản mặc định | Quyền hạn chính |
 | :--- | :--- | :--- |
