@@ -60,12 +60,24 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
+        boolean isTest = false;
+        if (environment != null) {
+            String appName = environment.getProperty("spring.application.name");
+            List<String> activeProfiles = Arrays.asList(environment.getActiveProfiles());
+            if ("stay-test".equalsIgnoreCase(appName) || activeProfiles.contains("test")) {
+                isTest = true;
+            }
+        }
+
         boolean seedEnabled = false;
         if (environment != null) {
             seedEnabled = Boolean.parseBoolean(environment.getProperty("app.seed.enabled", "false"));
         }
-        if (!seedEnabled) {
-            log.info("========== DATA SEEDER: Tự động khởi tạo dữ liệu mẫu đã bị VÔ HIỆU HÓA (app.seed.enabled=false). Bỏ qua quá trình thêm dữ liệu khi khởi động lại backend. ==========");
+
+        // Nếu không phải trong môi trường Test và tính năng seed đã tắt, đồng thời hệ thống đã có tài khoản:
+        // Bỏ qua toàn bộ quá trình nạp dữ liệu để giữ nguyên dữ liệu hiện tại khi khởi động lại backend.
+        if (!isTest && !seedEnabled && userRepository.count() > 0) {
+            log.info("========== DATA SEEDER: Tự động khởi tạo dữ liệu mẫu đã bị VÔ HIỆU HÓA (app.seed.enabled=false). Giữ nguyên toàn bộ dữ liệu CSDL hiện tại khi khởi động lại backend. ==========");
             return;
         }
 
@@ -110,17 +122,8 @@ public class DataSeeder implements CommandLineRunner {
         // 10. Seed Channels & ChannelRoomMappings
         seedChannelsAndMappings(roomTypeMap, ownerUser);
 
-        boolean isTest = false;
-        if (environment != null) {
-            String appName = environment.getProperty("spring.application.name");
-            List<String> activeProfiles = Arrays.asList(environment.getActiveProfiles());
-            if ("stay-test".equalsIgnoreCase(appName) || activeProfiles.contains("test")) {
-                isTest = true;
-            }
-        }
-
         // 11. Seed Full Operational Data (Bookings, Usages, Invoices, Payments, Shifts, Ledgers, Cleanings, etc.)
-        if (!isTest && bookingRepository.count() <= 3) {
+        if (!isTest && seedEnabled && bookingRepository.count() <= 3) {
             log.info("Phát hiện hệ thống chưa có dữ liệu vận hành đầy đủ. Bắt đầu khởi tạo dữ liệu hoạt động toàn diện (01/01/2026 - nay)...");
             
             // 11.1 Seed Guests
