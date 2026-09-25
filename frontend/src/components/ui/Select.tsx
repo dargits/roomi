@@ -58,7 +58,7 @@ const Select: React.FC<SelectProps> = ({
   return (
     <div className={containerClassName} ref={containerRef}>
       {label && (
-        <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider mb-1.5">
+        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
           {label} {required && <span className="text-error">*</span>}
         </label>
       )}
@@ -68,19 +68,19 @@ const Select: React.FC<SelectProps> = ({
           className={`w-full py-2.5 px-3.5 bg-white border rounded-xl cursor-pointer flex items-center justify-between transition-all select-none ${
             Icon ? 'pl-10 pr-10' : 'px-3.5 pr-10'
           } ${error ? 'border-error' : 'border-border-grey'} ${
-            isOpen ? 'ring-2 ring-[#D4F63D] border-[#626F47]' : 'hover:border-[#CCD8C2]'
+            isOpen ? 'ring-2 ring-blue-100 border-primary' : 'hover:border-slate-300'
           } ${className}`}
           onClick={() => setIsOpen(!isOpen)}
         >
           {Icon && (
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-              <Icon size={18} strokeWidth={1.5} className="text-[#606D56]" />
+              <Icon size={18} strokeWidth={1.5} className="text-slate-400" />
             </div>
           )}
 
           <span
             className={`block truncate text-sm ${
-              !selectedOption ? 'text-[#8E9B86]' : 'text-[#1A2411] font-medium'
+              !selectedOption ? 'text-slate-400' : 'text-[#002146] font-medium'
             }`}
           >
             {selectedOption ? selectedOption.label : placeholder}
@@ -90,7 +90,7 @@ const Select: React.FC<SelectProps> = ({
             <IoChevronDownOutline
               size={18}
               strokeWidth={1.5}
-              className={`text-[#606D56] transition-transform duration-200 ${
+              className={`text-slate-400 transition-transform duration-200 ${
                 isOpen ? 'rotate-180 text-primary' : ''
               }`}
             />
@@ -104,14 +104,14 @@ const Select: React.FC<SelectProps> = ({
                 <li
                   key={String(option.value)}
                   title={option.label}
-                  className={`px-3 py-2 rounded-lg cursor-pointer flex items-center justify-between hover:bg-[#F2F6EC] transition-colors text-xs ${
-                    option.value === value ? 'text-[#1A2411] font-bold bg-[#D4F63D]/35' : 'text-[#1A2411] font-medium'
+                  className={`px-3 py-2 rounded-lg cursor-pointer flex items-center justify-between hover:bg-slate-50 transition-colors text-xs ${
+                    option.value === value ? 'text-primary font-bold bg-[#EBF3FF]' : 'text-[#002146] font-medium'
                   }`}
                   onClick={() => handleSelect(option.value)}
                 >
                   <span className="truncate pr-2">{option.label}</span>
                   {option.value === value && (
-                    <IoCheckmarkOutline size={16} strokeWidth={2.5} className="shrink-0 text-[#1A2411]" />
+                    <IoCheckmarkOutline size={16} strokeWidth={2.5} className="shrink-0 text-primary" />
                   )}
                 </li>
               ))}

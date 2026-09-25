@@ -47,6 +47,27 @@ export interface ImportResult {
   details?: string[];
 }
 
+export interface DataTaskItem {
+  taskId: string;
+  taskType: 'IMPORT' | 'EXPORT' | string;
+  dataType: string;
+  status: 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | string;
+  progressPercent: number;
+  statusMessage: string;
+  subMessage?: string;
+  totalRows?: number;
+  processedRows?: number;
+  importedCount?: number;
+  skippedCount?: number;
+  errorCount?: number;
+  durationMs?: number;
+  downloadUrl?: string;
+  fileName?: string;
+  createdAt?: string;
+  completedAt?: string;
+  details?: string[];
+}
+
 const dataApi = {
   /**
    * Export dữ liệu theo bảng ra file CSV
@@ -86,6 +107,49 @@ const dataApi = {
           onUploadProgress(percent);
         }
       }
+    });
+    return response.data;
+  },
+
+  /**
+   * Đưa tác vụ Import tệp lớn vào hàng đợi xử lý ngầm (Queue)
+   */
+  importDataAsync: async (type: string, file: File): Promise<DataTaskItem> => {
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('file', file);
+    const response = await api.post('/data/import/async', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Đưa tác vụ Export bảng dữ liệu lớn vào hàng đợi xử lý ngầm (Queue)
+   */
+  exportDataAsync: async (type: string): Promise<DataTaskItem> => {
+    const response = await api.post('/data/export/async', null, {
+      params: { type }
+    });
+    return response.data;
+  },
+
+  /**
+   * Tra cứu trạng thái và tiến độ của tác vụ hàng đợi
+   */
+  getTaskStatus: async (taskId: string): Promise<DataTaskItem> => {
+    const response = await api.get(`/data/task/${taskId}`);
+    return response.data;
+  },
+
+  /**
+   * Tải về file CSV kết quả từ tác vụ Export hoàn tất
+   */
+  downloadTaskExport: async (taskId: string): Promise<Blob> => {
+    const response = await api.get(`/data/task/${taskId}/download`, {
+      responseType: 'blob'
     });
     return response.data;
   },

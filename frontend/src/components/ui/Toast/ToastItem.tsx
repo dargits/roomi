@@ -27,9 +27,9 @@ const TOAST_STYLES: Record<
   }
 > = {
   success: {
-    iconColor: 'text-[#4A6326]',
-    iconBg: 'bg-[#EAF3DE] border-[#CDE1AF]',
-    barColor: 'bg-[#5E7144]',
+    iconColor: 'text-[#00B63E]',
+    iconBg: 'bg-emerald-50 border-emerald-200',
+    barColor: 'bg-[#00B63E]',
     Icon: IoCheckmarkCircle
   },
   error: {
@@ -45,9 +45,9 @@ const TOAST_STYLES: Record<
     Icon: IoWarning
   },
   info: {
-    iconColor: 'text-primary',
-    iconBg: 'bg-[#E8EFE0] border-primary/20',
-    barColor: 'bg-primary',
+    iconColor: 'text-[#0070F4]',
+    iconBg: 'bg-blue-50 border-blue-200',
+    barColor: 'bg-[#0070F4]',
     Icon: IoInformationCircle
   }
 };
@@ -96,7 +96,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
   return (
     <div
       role="alert"
-      className={`relative overflow-hidden rounded-2xl bg-white/98 backdrop-blur-md border border-border-grey shadow-[0_12px_32px_-4px_rgba(26,36,17,0.12),0_4px_12px_-2px_rgba(26,36,17,0.06)] p-3.5 sm:p-4 transition-all pointer-events-auto transform ${
+      className={`relative overflow-hidden rounded-2xl bg-white/98 backdrop-blur-md border border-border-grey shadow-[0_12px_32px_-4px_rgba(0,33,70,0.12),0_4px_12px_-2px_rgba(0,33,70,0.06)] p-3.5 sm:p-4 transition-all pointer-events-auto transform ${
         isClosing 
           ? 'animate-toast-slide-out' 
           : 'animate-toast-slide-in'
@@ -113,12 +113,12 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
         {/* Message Content */}
         <div className="flex-1 pt-0.5 pr-2 min-w-0">
           {title && (
-            <h4 className="text-sm font-bold text-[#1A2411] tracking-tight leading-tight">
+            <h4 className="text-sm font-bold text-[#002146] tracking-tight leading-tight">
               {title}
             </h4>
           )}
           {message && (
-            <p className="text-xs text-[#586650] mt-1 leading-relaxed break-words font-medium normal-case">
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed break-words font-medium normal-case">
               {message}
             </p>
           )}
@@ -129,7 +129,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
           type="button"
           onClick={triggerClose}
           aria-label="Đóng thông báo"
-          className="btn-override w-7 h-7 rounded-lg flex items-center justify-center text-[#606D56] hover:text-[#1A2411] hover:bg-[#F2F6ED] transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
+          className="btn-override w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#002146] hover:bg-slate-100 transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
         >
           <IoClose className="w-4 h-4" />
         </button>
@@ -137,7 +137,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
 
       {/* Progress Bar */}
       {duration > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#F1F5EB] overflow-hidden">
+        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100 overflow-hidden">
           <div
             className={`h-full ${style.barColor} animate-toast-progress`}
             style={{

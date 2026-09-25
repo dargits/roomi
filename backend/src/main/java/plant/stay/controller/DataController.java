@@ -31,6 +31,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import plant.stay.dto.response.DataTaskDto;
+import plant.stay.service.DataQueueService;
+
 @RestController
 @RequestMapping("/api/v1/data")
 @CrossOrigin("*")
@@ -48,6 +51,84 @@ public class DataController {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final AuthUtil authUtil;
+    private final DataQueueService dataQueueService;
+
+    // ==========================================
+    // Import dữ liệu bất đồng bộ qua Hàng đợi (Queue-based Async Import)
+    // ==========================================
+    @PostMapping("/import/async")
+    public ResponseEntity<?> importDataAsync(@RequestParam(required = false) String type,
+                                             @RequestParam("file") MultipartFile file,
+                                             HttpServletRequest request) {
+        User actor = checkAdmin(request);
+        String targetType = (type != null && !type.trim().isEmpty()) ? type.trim() : request.getParameter("type");
+        if (targetType == null || targetType.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Thiếu thông tin loại dữ liệu (type) cần nhập"));
+        }
+        if (targetType.contains(",")) targetType = targetType.split(",")[0].trim();
+        targetType = targetType.trim().toLowerCase(Locale.ROOT);
+
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Tệp CSV tải lên không có dữ liệu"));
+        }
+
+        // Kiểm tra giới hạn dung lượng tối đa 10MB
+        if (file.getSize() > 10 * 1024 * 1024) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB). Vui lòng chia nhỏ tệp để tiếp tục."));
+        }
+
+        try {
+            byte[] fileBytes = file.getBytes();
+            DataTaskDto task = dataQueueService.submitImportTask(targetType, fileBytes, file.getOriginalFilename(), actor);
+            return ResponseEntity.accepted().body(task);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(new MessageResponse("Không thể tiếp nhận tệp vào hàng đợi: " + e.getMessage()));
+        }
+    }
+
+    // ==========================================
+    // Export dữ liệu bất đồng bộ qua Hàng đợi (Queue-based Async Export)
+    // ==========================================
+    @PostMapping("/export/async")
+    public ResponseEntity<?> exportDataAsync(@RequestParam(required = false) String type,
+                                             HttpServletRequest request) {
+        User actor = checkAdmin(request);
+        String targetType = (type != null && !type.trim().isEmpty()) ? type.trim() : request.getParameter("type");
+        if (targetType == null || targetType.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Thiếu thông tin loại dữ liệu (type) cần xuất"));
+        }
+        targetType = targetType.trim().toLowerCase(Locale.ROOT);
+
+        DataTaskDto task = dataQueueService.submitExportTask(targetType, actor);
+        return ResponseEntity.accepted().body(task);
+    }
+
+    // ==========================================
+    // Tra cứu tiến trình tác vụ theo TaskId
+    // ==========================================
+    @GetMapping("/task/{taskId}")
+    public ResponseEntity<DataTaskDto> getTaskStatus(@PathVariable String taskId, HttpServletRequest request) {
+        checkAdmin(request);
+        DataTaskDto task = dataQueueService.getTaskStatus(taskId);
+        return ResponseEntity.ok(task);
+    }
+
+    // ==========================================
+    // Tải xuống kết quả tệp Export từ Hàng đợi
+    // ==========================================
+    @GetMapping("/task/{taskId}/download")
+    public ResponseEntity<byte[]> downloadExportFile(@PathVariable String taskId, HttpServletRequest request) {
+        checkAdmin(request);
+        byte[] fileBytes = dataQueueService.getExportFile(taskId);
+        if (fileBytes == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String fileName = dataQueueService.getExportFileName(taskId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(fileBytes);
+    }
 
     // ==========================================
     // Import dữ liệu từ CSV (Chuẩn hóa RFC-4180 & Tương thích Excel)
@@ -76,6 +157,14 @@ public class DataController {
             return ResponseEntity.badRequest().body(ImportResultDto.builder()
                     .success(false)
                     .message("Tệp CSV tải lên không có dữ liệu")
+                    .build());
+        }
+
+        // Giới hạn dung lượng tối đa 10MB
+        if (file.getSize() > 10 * 1024 * 1024) {
+            return ResponseEntity.badRequest().body(ImportResultDto.builder()
+                    .success(false)
+                    .message("Dung lượng tệp vượt quá giới hạn tối đa 10MB. Vui lòng chia nhỏ tệp để tiếp tục.")
                     .build());
         }
 
