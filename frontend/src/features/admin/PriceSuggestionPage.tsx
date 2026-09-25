@@ -394,8 +394,8 @@ const PriceSuggestionPage: React.FC = () => {
       {/* Header trang */}
       <PageHeader
         icon={IoTrendingUpOutline}
-        title="Phân tích & Gợi ý điều chỉnh giá thông minh bằng AI"
-        subtitle="Mô hình AI Gemini nạp toàn bộ công suất 30 ngày, dữ liệu quá khứ và giá các loại phòng để đưa ra khuyến nghị chiến lược và tối ưu doanh thu"
+        title="Gợi ý điều chỉnh giá theo công suất dự báo"
+        subtitle="Phân tích chiến lược & Gợi ý điều chỉnh giá thông minh bằng AI Gemini Flash nạp toàn bộ công suất 30 ngày, dữ liệu quá khứ và giá các loại phòng"
         actions={
           <div className="flex items-center gap-2">
             <Button

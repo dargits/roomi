@@ -106,19 +106,19 @@ public class AiPriceAnalysisService {
         // Tính toán các chỉ số kinh doanh tổng hợp 30 ngày
         List<PriceSuggestionDto> suggestions = data.getSuggestions() != null ? data.getSuggestions() : List.of();
         int totalDays = suggestions.size();
-        int totalOccupiedNights = 0;
-        int totalAvailableNights = 0;
+        long totalOccupiedNights = 0;
+        long totalAvailableNights = 0;
         int weekendDaysCount = 0;
-        int weekendOccupiedNights = 0;
-        int weekendAvailableNights = 0;
+        long weekendOccupiedNights = 0;
+        long weekendAvailableNights = 0;
         int weekdayDaysCount = 0;
-        int weekdayOccupiedNights = 0;
-        int weekdayAvailableNights = 0;
+        long weekdayOccupiedNights = 0;
+        long weekdayAvailableNights = 0;
         BigDecimal estimatedRevenue = BigDecimal.ZERO;
 
         for (PriceSuggestionDto s : suggestions) {
-            int occ = s.getOccupiedRooms() != null ? s.getOccupiedRooms() : 0;
-            int tot = s.getTotalRooms() != null ? s.getTotalRooms() : 0;
+            long occ = s.getOccupiedRooms();
+            long tot = s.getTotalRooms();
             totalOccupiedNights += occ;
             totalAvailableNights += tot;
 
@@ -139,7 +139,7 @@ public class AiPriceAnalysisService {
             // Ước tính doanh thu từ breakdown nếu có
             if (s.getRoomTypeBreakdown() != null) {
                 for (PriceSuggestionDto.RoomTypeOccupancyDto rt : s.getRoomTypeBreakdown()) {
-                    if (rt.getOccupiedRooms() != null && rt.getBasePrice() != null) {
+                    if (rt.getBasePrice() != null) {
                         estimatedRevenue = estimatedRevenue.add(
                                 rt.getBasePrice().multiply(BigDecimal.valueOf(rt.getOccupiedRooms()))
                         );
