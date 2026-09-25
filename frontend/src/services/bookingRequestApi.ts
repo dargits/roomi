@@ -22,6 +22,12 @@ export const bookingRequestApi = {
     return response.data;
   },
 
+  // Admin: Đếm số lượng yêu cầu đang chờ duyệt
+  getPendingCount: async (): Promise<{ individualPending: number; groupPending: number; totalPending: number }> => {
+    const response = await api.get('/booking-requests/pending-count');
+    return response.data;
+  },
+
   // Admin: Lễ tân duyệt yêu cầu
   approveRequest: async (id: number | string): Promise<any> => {
     const response = await api.put(`/booking-requests/${id}/approve`);

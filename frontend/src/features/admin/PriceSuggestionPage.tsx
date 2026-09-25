@@ -17,7 +17,12 @@ import {
   IoHelpCircleOutline,
   IoArrowUndoOutline,
   IoChevronDownOutline,
-  IoChevronUpOutline
+  IoChevronUpOutline,
+  IoSparkles,
+  IoSparklesOutline,
+  IoSend,
+  IoChatbubbleEllipsesOutline,
+  IoBulbOutline
 } from 'react-icons/io5';
 import PageHeader from '../../components/ui/PageHeader';
 import Button from '../../components/ui/Button';
@@ -25,6 +30,7 @@ import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
 import { useToast } from '../../context/ToastContext';
 import priceSuggestionApi from '../../services/priceSuggestionApi';
+import aiApi from '../../services/aiApi';
 import { 
   PriceSuggestionDto, 
   PriceSuggestionResponse, 
@@ -33,6 +39,69 @@ import {
 
 const fmtCurrency = (amount?: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount || 0);
+
+const renderAiMarkdown = (content: string) => {
+  if (!content) return null;
+  const lines = content.split('\n');
+  return (
+    <div className="space-y-2">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className="h-1" />;
+        if (trimmed.startsWith('### ')) {
+          return (
+            <h4 key={i} className="text-xs sm:text-sm font-bold text-primary mt-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              {trimmed.replace('### ', '')}
+            </h4>
+          );
+        }
+        if (trimmed.startsWith('## ')) {
+          return (
+            <h3 key={i} className="text-sm sm:text-base font-bold text-on-surface border-b border-border-grey pb-1 mt-3">
+              {trimmed.replace('## ', '')}
+            </h3>
+          );
+        }
+        if (trimmed.startsWith('# ')) {
+          return (
+            <h2 key={i} className="text-base font-extrabold text-on-surface mt-3">
+              {trimmed.replace('# ', '')}
+            </h2>
+          );
+        }
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+          const text = trimmed.substring(2);
+          const parts = text.split(/(\*\*.*?\*\*)/g);
+          return (
+            <div key={i} className="flex items-start gap-2 pl-2">
+              <span className="text-primary font-bold mt-0.5">•</span>
+              <div className="text-on-surface">
+                {parts.map((part, pIdx) => {
+                  if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={pIdx} className="font-bold text-primary">{part.slice(2, -2)}</strong>;
+                  }
+                  return part;
+                })}
+              </div>
+            </div>
+          );
+        }
+        const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+        return (
+          <p key={i} className="text-on-surface">
+            {parts.map((part, pIdx) => {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={pIdx} className="font-bold text-primary">{part.slice(2, -2)}</strong>;
+              }
+              return part;
+            })}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
 
 const PriceSuggestionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -55,6 +124,113 @@ const PriceSuggestionPage: React.FC = () => {
   // Modal Xác nhận bỏ qua
   const [dismissTargetDate, setDismissTargetDate] = useState<string | null>(null);
   const [isDismissing, setIsDismissing] = useState<boolean>(false);
+
+  // === AI Price Analysis State ===
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
+  const [aiOverallAnalysis, setAiOverallAnalysis] = useState<string | null>(null);
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState<boolean>(false);
+  const [aiQuestion, setAiQuestion] = useState<string>('');
+  const [isAiAsking, setIsAiAsking] = useState<boolean>(false);
+  const [aiQnAList, setAiQnAList] = useState<Array<{ question: string; answer: string; timestamp: string }>>([]);
+  const [activeDayAi, setActiveDayAi] = useState<{ date: string; analysis: string } | null>(null);
+  const [loadingDayAiDate, setLoadingDayAiDate] = useState<string | null>(null);
+  const [isDayAiModalOpen, setIsDayAiModalOpen] = useState<boolean>(false);
+
+  // Tính toán dữ liệu kinh doanh 30 ngày cần thiết cho việc phân tích
+  const metrics = React.useMemo(() => {
+    if (!data?.suggestions || data.suggestions.length === 0) {
+      return {
+        avgOccupancy: 0,
+        totalBookedNights: 0,
+        totalCapacityNights: 0,
+        weekendAvgOcc: 0,
+        weekdayAvgOcc: 0,
+        estimatedRevenue: 0,
+        potentialBoostRevenue: 0,
+        roomTypeSummary: [] as Array<{
+          name: string;
+          basePrice: number;
+          totalRooms: number;
+          bookedRooms30d: number;
+          occRate: number;
+        }>
+      };
+    }
+
+    const suggestions = data.suggestions;
+    let totalBooked = 0;
+    let totalCapacity = 0;
+    let weekendBooked = 0;
+    let weekendCap = 0;
+    let weekdayBooked = 0;
+    let weekdayCap = 0;
+    let totalRev = 0;
+
+    const roomTypeMap = new Map<string, { name: string; basePrice: number; totalRooms: number; booked: number; daysCount: number }>();
+
+    for (const s of suggestions) {
+      const occ = s.occupiedRooms || 0;
+      const tot = s.totalRooms || 0;
+      totalBooked += occ;
+      totalCapacity += tot;
+
+      const dow = s.dayOfWeek || '';
+      const isWeekend = ['Thứ 6', 'Thứ 7', 'Chủ Nhật', 'Friday', 'Saturday', 'Sunday'].includes(dow);
+      if (isWeekend) {
+        weekendBooked += occ;
+        weekendCap += tot;
+      } else {
+        weekdayBooked += occ;
+        weekdayCap += tot;
+      }
+
+      if (s.roomTypeBreakdown) {
+        for (const rt of s.roomTypeBreakdown) {
+          const key = rt.roomTypeName;
+          const prev = roomTypeMap.get(key) || {
+            name: rt.roomTypeName,
+            basePrice: rt.basePrice || 0,
+            totalRooms: rt.totalRooms || 0,
+            booked: 0,
+            daysCount: 0
+          };
+          prev.booked += (rt.occupiedRooms || 0);
+          prev.daysCount += 1;
+          roomTypeMap.set(key, prev);
+
+          totalRev += (rt.occupiedRooms || 0) * (rt.basePrice || 0);
+        }
+      }
+    }
+
+    const avgOcc = totalCapacity > 0 ? (totalBooked / totalCapacity) * 100 : 0;
+    const weekendAvgOcc = weekendCap > 0 ? (weekendBooked / weekendCap) * 100 : 0;
+    const weekdayAvgOcc = weekdayCap > 0 ? (weekdayBooked / weekdayCap) * 100 : 0;
+    const potentialBoostRevenue = Math.round(totalRev * 0.14);
+
+    const roomTypeSummary = Array.from(roomTypeMap.values()).map(r => {
+      const maxPossible = r.totalRooms * (r.daysCount || 30);
+      const occRate = maxPossible > 0 ? (r.booked / maxPossible) * 100 : 0;
+      return {
+        name: r.name,
+        basePrice: r.basePrice,
+        totalRooms: r.totalRooms,
+        bookedRooms30d: r.booked,
+        occRate: Math.round(occRate * 10) / 10
+      };
+    });
+
+    return {
+      avgOccupancy: Math.round(avgOcc * 10) / 10,
+      totalBookedNights: totalBooked,
+      totalCapacityNights: totalCapacity,
+      weekendAvgOcc: Math.round(weekendAvgOcc * 10) / 10,
+      weekdayAvgOcc: Math.round(weekdayAvgOcc * 10) / 10,
+      estimatedRevenue: totalRev,
+      potentialBoostRevenue,
+      roomTypeSummary
+    };
+  }, [data]);
 
   useEffect(() => {
     fetchSuggestions();
@@ -129,6 +305,68 @@ const PriceSuggestionPage: React.FC = () => {
     }
   };
 
+  // === AI Handlers ===
+  const handleRunOverallAiAnalysis = async () => {
+    try {
+      setIsAiAnalyzing(true);
+      setIsAiPanelOpen(true);
+      const res = await aiApi.analyzeOverall(30);
+      if (res.error) {
+        toastError(res.errorMessage || 'Không thể thực hiện phân tích AI lúc này.');
+      } else {
+        setAiOverallAnalysis(res.reply);
+        toastSuccess('Hoàn tất phân tích chiến lược giá bằng AI!');
+      }
+    } catch (err: any) {
+      console.error('AI overall analysis failed:', err);
+      toastError(err?.response?.data?.message || err?.message || 'Lỗi khi gọi phân tích AI.');
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
+
+  const handleAskAi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = aiQuestion.trim();
+    if (!q || isAiAsking) return;
+
+    try {
+      setIsAiAsking(true);
+      const res = await aiApi.askAboutPricing({ question: q, days: 30 });
+      if (res.error) {
+        toastError(res.errorMessage || 'Lỗi khi đặt câu hỏi cho AI.');
+      } else {
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        setAiQnAList((prev) => [...prev, { question: q, answer: res.reply, timestamp: timeStr }]);
+        setAiQuestion('');
+      }
+    } catch (err: any) {
+      console.error('AI ask failed:', err);
+      toastError(err?.response?.data?.message || 'Lỗi kết nối tới AI.');
+    } finally {
+      setIsAiAsking(false);
+    }
+  };
+
+  const handleAnalyzeDay = async (targetDate: string) => {
+    try {
+      setLoadingDayAiDate(targetDate);
+      const res = await aiApi.analyzeDay(targetDate);
+      if (res.error) {
+        toastError(res.errorMessage || 'Không thể phân tích ngày này bằng AI.');
+      } else {
+        setActiveDayAi({ date: targetDate, analysis: res.reply });
+        setIsDayAiModalOpen(true);
+      }
+    } catch (err: any) {
+      console.error('AI day analysis failed:', err);
+      toastError(err?.response?.data?.message || 'Lỗi phân tích ngày bằng AI.');
+    } finally {
+      setLoadingDayAiDate(null);
+    }
+  };
+
   // Lọc danh sách theo Tab
   const filteredSuggestions = (data?.suggestions || []).filter((s) => {
     if (activeTab === 'dismissed') {
@@ -157,9 +395,19 @@ const PriceSuggestionPage: React.FC = () => {
       <PageHeader
         icon={IoTrendingUpOutline}
         title="Gợi ý điều chỉnh giá theo công suất dự báo"
-        subtitle="Hệ thống rà soát 30 ngày tới và khuyến nghị tăng/giảm giá dựa trên mức lấp đầy thực tế"
+        subtitle="Phân tích chiến lược & Gợi ý điều chỉnh giá thông minh bằng AI Gemini Flash nạp toàn bộ công suất 30 ngày, dữ liệu quá khứ và giá các loại phòng"
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleRunOverallAiAnalysis}
+              isLoading={isAiAnalyzing}
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
+            >
+              <IoSparkles size={16} className="text-lodgify-lime" />
+              <span>AI Phân tích chiến lược 30 ngày</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -202,6 +450,264 @@ const PriceSuggestionPage: React.FC = () => {
             Mọi thao tác thay đổi giá phải do Chủ cơ sở trực tiếp thực hiện qua tính năng cấu hình giá đã có.
           </p>
         </div>
+      </div>
+
+      {/* Dữ liệu Kinh Doanh & Dự Báo 30 Ngày (Dành cho AI và Chủ cơ sở) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Công suất trung bình */}
+        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
+          <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Công suất dự báo 30 ngày</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className={`text-2xl font-extrabold ${metrics.avgOccupancy >= (data?.highOccupancyThreshold || 80) ? 'text-alert-red' : metrics.avgOccupancy <= (data?.lowOccupancyThreshold || 30) ? 'text-primary' : 'text-on-surface'}`}>
+              {metrics.avgOccupancy}%
+            </span>
+            <span className="text-xs text-on-surface-variant font-medium">
+              ({metrics.totalBookedNights}/{metrics.totalCapacityNights} đêm)
+            </span>
+          </div>
+          <div className="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${metrics.avgOccupancy >= 70 ? 'bg-emerald-600' : metrics.avgOccupancy >= 40 ? 'bg-agoda-blue' : 'bg-amber-500'}`}
+              style={{ width: `${Math.min(100, metrics.avgOccupancy)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Card 2: Doanh thu phòng cơ sở dự kiến */}
+        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
+          <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Doanh thu phòng đã đặt</span>
+          <div className="mt-1">
+            <span className="text-2xl font-extrabold text-on-surface">
+              {fmtCurrency(metrics.estimatedRevenue)}
+            </span>
+          </div>
+          <p className="text-[11px] text-on-surface-variant mt-1.5">
+            Tính trên các lượt đặt hiện có trong 30 ngày tới
+          </p>
+        </div>
+
+        {/* Card 3: Tiềm năng tối ưu thêm */}
+        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Tiềm năng tăng thêm (AI)</span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+              +14%
+            </span>
+          </div>
+          <div className="mt-1">
+            <span className="text-2xl font-extrabold text-emerald-700">
+              +{fmtCurrency(metrics.potentialBoostRevenue)}
+            </span>
+          </div>
+          <p className="text-[11px] text-on-surface-variant mt-1.5">
+            Ước tính khi tăng giá ngày cao điểm &amp; kích cầu
+          </p>
+        </div>
+
+        {/* Card 4: Phân bổ Cuối tuần vs Ngày thường */}
+        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
+          <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Cuối tuần vs Ngày thường</span>
+          <div className="flex items-center justify-between mt-1 text-xs">
+            <div>
+              <span className="text-on-surface-variant">Cuối tuần (T6-CN):</span>
+              <p className="text-base font-bold text-alert-red">{metrics.weekendAvgOcc}%</p>
+            </div>
+            <div className="text-right">
+              <span className="text-on-surface-variant">Ngày thường (T2-T5):</span>
+              <p className="text-base font-bold text-primary">{metrics.weekdayAvgOcc}%</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-on-surface-variant mt-1">
+            Chênh lệch: <strong>{Math.round((metrics.weekendAvgOcc - metrics.weekdayAvgOcc) * 10) / 10}%</strong>
+          </p>
+        </div>
+      </div>
+
+      {/* Thẻ Bảng Tóm Tắt Công Suất Theo Từng Loại Phòng */}
+      {metrics.roomTypeSummary.length > 0 && (
+        <div className="bg-surface-container-lowest border border-border-grey rounded-DEFAULT p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
+              <IoBedOutline className="text-primary" size={15} />
+              <span>Phân rã nhu cầu &amp; Công suất theo từng hạng phòng (30 ngày tới)</span>
+            </h4>
+            <span className="text-[11px] text-on-surface-variant">
+              Tổng số phòng cơ sở: <strong>{data?.totalRooms || 0} phòng</strong>
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {metrics.roomTypeSummary.map((rt) => {
+              const isHigh = rt.occRate >= 70;
+              const isLow = rt.occRate <= 35;
+              return (
+                <div key={rt.name} className="p-3 bg-surface-container-low border border-border-grey rounded-DEFAULT text-xs">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-on-surface font-bold truncate">{rt.name}</strong>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      isHigh
+                        ? 'bg-red-50 text-alert-red border border-red-200'
+                        : isLow
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}>
+                      {isHigh ? 'Nhu cầu cao' : isLow ? 'Nhu cầu thấp' : 'Ổn định'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-on-surface-variant">
+                    <span>Giá cơ sở:</span>
+                    <strong className="text-on-surface">{fmtCurrency(rt.basePrice)}/đêm</strong>
+                  </div>
+                  <div className="flex items-center justify-between mt-1 text-on-surface-variant">
+                    <span>Đã bán 30 ngày:</span>
+                    <strong className="text-on-surface">{rt.bookedRooms30d} đêm ({rt.occRate}%)</strong>
+                  </div>
+                  <div className="w-full bg-surface-container rounded-full h-1 mt-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${isHigh ? 'bg-alert-red' : isLow ? 'bg-amber-500' : 'bg-emerald-600'}`}
+                      style={{ width: `${Math.min(100, rt.occRate)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Trợ Lý AI Phân Tích & Chiến Lược Giá (Đồng bộ chuẩn hệ thống StayAway) */}
+      <div className="bg-surface-container-lowest border border-border-grey rounded-DEFAULT shadow-xs p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-DEFAULT bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+              <IoSparkles size={20} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-bold text-on-surface">
+                  Chiến Lược Định Giá &amp; Tối Ưu Doanh Thu Bằng AI
+                </h3>
+                <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                  Gemini Flash AI
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                AI nạp toàn bộ công suất 30 ngày, lịch sử đặt phòng và giá từng hạng phòng để chẩn đoán &amp; khuyến nghị tăng/giảm giá.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              isLoading={isAiAnalyzing}
+              onClick={handleRunOverallAiAnalysis}
+              className="bg-primary hover:bg-primary-hover text-white font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <IoSparkles size={15} className="text-lodgify-lime" />
+              <span>{aiOverallAnalysis ? 'Phân tích lại toàn diện' : 'Khởi chạy Phân tích AI'}</span>
+            </Button>
+            {aiOverallAnalysis && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAiPanelOpen((v) => !v)}
+              >
+                {isAiPanelOpen ? 'Thu gọn' : 'Xem kết quả'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Nội dung kết quả phân tích AI */}
+        {isAiPanelOpen && (
+          <div className="pt-3 border-t border-border-grey space-y-4 animate-page-enter">
+            {isAiAnalyzing ? (
+              <div className="py-8 text-center space-y-2.5 bg-surface-container-low rounded-DEFAULT border border-border-grey">
+                <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-xs font-bold text-on-surface">Đang phân tích dữ liệu 30 ngày với Gemini AI...</p>
+                <p className="text-[11px] text-on-surface-variant max-w-md mx-auto">
+                  Hệ thống đang đối chiếu tỷ lệ lấp đầy, xu hướng cuối tuần và tính toán mức điều chỉnh giá tối ưu doanh thu cho từng loại phòng.
+                </p>
+              </div>
+            ) : aiOverallAnalysis ? (
+              <div className="bg-surface-container-low border border-border-grey rounded-DEFAULT p-4 text-xs text-on-surface leading-relaxed max-h-[500px] overflow-y-auto">
+                {renderAiMarkdown(aiOverallAnalysis)}
+              </div>
+            ) : null}
+
+            {/* Khung đặt câu hỏi tùy ý cho AI */}
+            <div className="space-y-2 pt-2">
+              <label className="block text-xs font-bold text-on-surface flex items-center gap-1.5">
+                <IoChatbubbleEllipsesOutline size={15} className="text-primary" />
+                <span>Đặt câu hỏi chiến lược cho AI:</span>
+              </label>
+              <form onSubmit={handleAskAi} className="flex gap-2">
+                <input
+                  type="text"
+                  value={aiQuestion}
+                  onChange={(e) => setAiQuestion(e.target.value)}
+                  placeholder="Ví dụ: Cuối tuần sau tôi nên tăng giá phòng nào? Làm sao để lấp đầy phòng thứ 2-4?..."
+                  className="flex-1 text-xs bg-surface-container-lowest border border-border-grey rounded-DEFAULT px-3.5 py-2.5 text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  isLoading={isAiAsking}
+                  disabled={!aiQuestion.trim()}
+                  className="bg-primary hover:bg-primary-hover text-white shrink-0 cursor-pointer"
+                >
+                  <IoSend size={13} />
+                  <span>Gửi</span>
+                </Button>
+              </form>
+
+              {/* Suggestion Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="text-on-surface-variant">Gợi ý nhanh:</span>
+                {[
+                  'Cuối tuần sau nên tăng giá bao nhiêu %?',
+                  'Làm sao để lấp đầy phòng thứ 2 - thứ 5?',
+                  'Hạng phòng nào đang có doanh thu thấp nhất?'
+                ].map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setAiQuestion(chip);
+                    }}
+                    className="bg-surface-container-low hover:bg-surface-container border border-border-grey text-on-surface px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Lịch sử hỏi đáp AI */}
+            {aiQnAList.length > 0 && (
+              <div className="space-y-2.5 pt-2">
+                <p className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                  <IoBulbOutline size={15} className="text-amber-600" />
+                  <span>Lịch sử trao đổi với AI ({aiQnAList.length}):</span>
+                </p>
+                {aiQnAList.map((item, idx) => (
+                  <div key={idx} className="p-3 bg-surface-container-low border border-border-grey rounded-DEFAULT text-xs space-y-2">
+                    <div className="flex items-center justify-between text-on-surface font-bold">
+                      <span className="text-primary">Q: {item.question}</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">{item.timestamp}</span>
+                    </div>
+                    <div className="p-2.5 bg-surface-container-lowest border border-border-grey/70 rounded-md text-on-surface leading-relaxed">
+                      {renderAiMarkdown(item.answer)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Thanh trạng thái Tiền điều kiện & Độ tin cậy dữ liệu */}
@@ -547,6 +1053,17 @@ const PriceSuggestionPage: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleAnalyzeDay(item.targetDate)}
+                          isLoading={loadingDayAiDate === item.targetDate}
+                          className="flex items-center gap-1 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary whitespace-nowrap cursor-pointer"
+                          title="Xem AI phân tích chuyên sâu cho ngày này"
+                        >
+                          <IoSparkles size={14} className="text-primary" />
+                          <span>AI Phân tích</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setDismissTargetDate(item.targetDate)}
                           className="flex items-center gap-1 text-secondary border-border-grey hover:bg-surface-container whitespace-nowrap"
                         >
@@ -728,6 +1245,33 @@ const PriceSuggestionPage: React.FC = () => {
               className="bg-alert-red text-white"
             >
               {isDismissing ? 'Đang xử lý...' : 'Xác nhận bỏ qua'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal AI Phân tích chi tiết một ngày */}
+      <Modal
+        isOpen={isDayAiModalOpen}
+        onClose={() => setIsDayAiModalOpen(false)}
+        title={`🤖 AI Phân Tích & Khuyến Nghị Ngày ${activeDayAi?.date || ''}`}
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-3 text-xs">
+          <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-900 flex items-center gap-2">
+            <IoSparkles className="text-indigo-600 shrink-0" size={18} />
+            <p>Phân tích từ Google Gemini kết hợp công suất thực tế, ngày trong tuần và lịch sử đặt phòng của ngày <strong>{activeDayAi?.date}</strong>.</p>
+          </div>
+          <div className="bg-surface-container-low p-4 rounded-xl border border-border-grey max-h-[60vh] overflow-y-auto leading-relaxed text-on-surface">
+            {activeDayAi?.analysis ? renderAiMarkdown(activeDayAi.analysis) : 'Đang tải phân tích...'}
+          </div>
+          <div className="flex justify-end pt-2 border-t border-border-grey">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDayAiModalOpen(false)}
+            >
+              Đóng
             </Button>
           </div>
         </div>

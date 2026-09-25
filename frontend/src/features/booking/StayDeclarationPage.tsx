@@ -29,6 +29,9 @@ import Tabs from '../../components/ui/Tabs/Tabs';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import Pagination from '../../components/ui/Pagination';
+
+const HISTORY_PAGE_SIZE = 15;
 
 // ─── Hằng số ──────────────────────────────────────────────────────────────────
 
@@ -109,9 +112,18 @@ const StayDeclarationPage: React.FC = () => {
   const [historyKeyword, setHistoryKeyword] = useState('');
   const [historyDeclStatus, setHistoryDeclStatus] = useState('ALL');
   const [historyDocStatus, setHistoryDocStatus] = useState('ALL');
-  const [historyData, setHistoryData] = useState(null);
+  const [historyData, setHistoryData] = useState<any>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyExporting, setHistoryExporting] = useState(false);
+  const [historyPage, setHistoryPage] = useState<number>(1);
+  const [historyPageSize, setHistoryPageSize] = useState<number>(15);
+
+  const totalHistoryPages = Math.max(1, Math.ceil((historyData?.guests?.length || 0) / historyPageSize));
+  const paginatedHistoryGuests = React.useMemo(() => {
+    if (!historyData?.guests) return [];
+    const start = (historyPage - 1) * historyPageSize;
+    return historyData.guests.slice(start, start + historyPageSize);
+  }, [historyData?.guests, historyPage, historyPageSize]);
 
   // Modal xác nhận hoàn tất khai báo
   const [confirmModal, setConfirmModal] = useState({ open: false, guest: null });
@@ -152,6 +164,7 @@ const StayDeclarationPage: React.FC = () => {
   const fetchHistory = useCallback(async () => {
     if (!hasAccess) return;
     setHistoryLoading(true);
+    setHistoryPage(1);
     try {
       const result = await stayDeclarationApi.getHistory({
         fromDate: historyFromDate,
@@ -771,7 +784,8 @@ const StayDeclarationPage: React.FC = () => {
                 <p className="text-sm mt-1">Hãy thử mở rộng khoảng thời gian hoặc thay đổi từ khóa tìm kiếm</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-border-grey bg-surface-container-low text-xs font-semibold uppercase text-on-surface-variant">
@@ -786,9 +800,10 @@ const StayDeclarationPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyData.guests.map((guest, index) => {
-                      const docCfg = DOC_STATUS_CONFIG[guest.documentStatus] || DOC_STATUS_CONFIG.MISSING;
-                      const declCfg = DECL_STATUS_CONFIG[guest.declarationStatus] || DECL_STATUS_CONFIG.PENDING;
+                    {paginatedHistoryGuests.map((guest: any, index: number) => {
+                      const rowIdx = (historyPage - 1) * HISTORY_PAGE_SIZE + index + 1;
+                      const docCfg = DOC_STATUS_CONFIG[guest.documentStatus as keyof typeof DOC_STATUS_CONFIG] || DOC_STATUS_CONFIG.MISSING;
+                      const declCfg = DECL_STATUS_CONFIG[guest.declarationStatus as keyof typeof DECL_STATUS_CONFIG] || DECL_STATUS_CONFIG.PENDING;
                       const DeclIcon = declCfg.icon;
                       const isCompleted = guest.declarationStatus === 'COMPLETED';
 
@@ -798,7 +813,7 @@ const StayDeclarationPage: React.FC = () => {
                           className={`border-b border-border-grey transition-colors hover:bg-surface-container-low/50
                             ${guest.documentStatus === 'MISSING' ? 'bg-amber-50/30' : ''}`}
                         >
-                          <td className="p-4 text-sm text-on-surface-variant">{index + 1}</td>
+                          <td className="p-4 text-sm text-on-surface-variant">{rowIdx}</td>
 
                           <td className="p-4">
                             <span className="font-semibold text-on-surface">{guest.guestName || '—'}</span>
@@ -913,6 +928,22 @@ const StayDeclarationPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              {(historyData?.guests?.length || 0) > 0 && (
+                <Pagination
+                  currentPage={historyPage}
+                  totalPages={totalHistoryPages}
+                  totalItems={historyData?.guests?.length || 0}
+                  itemsPerPage={historyPageSize}
+                  onPageChange={setHistoryPage}
+                  onItemsPerPageChange={(newSize) => {
+                    setHistoryPageSize(newSize);
+                    setHistoryPage(1);
+                  }}
+                  itemsPerPageOptions={[10, 15, 25, 50]}
+                  itemLabel="lượt lưu trú"
+                />
+              )}
+            </>
             )}
           </div>
         </div>

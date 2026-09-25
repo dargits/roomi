@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByInvoiceId(Long invoiceId);
+    List<Payment> findByInvoiceIdIn(java.util.Collection<Long> invoiceIds);
+    List<Payment> findByCollectedByIdAndPaidAtBetween(Long collectedById, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

@@ -84,4 +84,35 @@ public class ExtraServiceController {
         checkOwnerAuth(request);
         return ResponseEntity.ok(extraServiceService.delete(id));
     }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<MessageResponse> bulkDelete(
+            @RequestBody List<Long> ids,
+            HttpServletRequest request) {
+        checkOwnerAuth(request);
+        int deletedCount = 0;
+        int deactivatedCount = 0;
+        if (ids != null && !ids.isEmpty()) {
+            for (Long id : ids) {
+                try {
+                    MessageResponse res = extraServiceService.delete(id);
+                    if (res != null && res.getMessage() != null && res.getMessage().contains("Ngừng hoạt động")) {
+                        deactivatedCount++;
+                    } else {
+                        deletedCount++;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        String msg;
+        if (deactivatedCount > 0 && deletedCount > 0) {
+            msg = String.format("Đã xóa vĩnh viễn %d dịch vụ và chuyển %d dịch vụ sang Ngừng hoạt động (do đã phát sinh giao dịch).", deletedCount, deactivatedCount);
+        } else if (deactivatedCount > 0) {
+            msg = String.format("Đã chuyển %d dịch vụ sang Ngừng hoạt động để bảo toàn lịch sử hóa đơn.", deactivatedCount);
+        } else {
+            msg = String.format("Đã xóa thành công %d dịch vụ.", deletedCount);
+        }
+        return ResponseEntity.ok(new MessageResponse(msg));
+    }
 }

@@ -162,30 +162,26 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     private Totals calculateTotals(CashierShift shift) {
         Totals totals = new Totals();
         LocalDateTime end = LocalDateTime.now();
-        paymentRepository.findAll().stream()
-                .filter(payment -> sameUser(payment.getCollectedBy(), shift.getOpenedBy()))
-                .filter(payment -> inRange(payment.getPaidAt(), shift.getOpenedAt(), end))
-                .filter(payment -> !isDepositSettlement(payment))
-                .forEach(payment -> totals.addInvoice(payment.getMethod(), payment.getAmount()));
-        depositRepository.findAll().stream()
-                .filter(deposit -> sameUser(deposit.getCollectedBy(), shift.getOpenedBy()))
-                .filter(deposit -> inRange(deposit.getCollectedAt(), shift.getOpenedAt(), end))
-                .forEach(deposit -> totals.addDeposit(deposit.getPaymentMethod(), deposit.getCollectedAmount()));
-        depositRepository.findAll().stream()
-                .filter(deposit -> sameUser(deposit.getProcessedBy(), shift.getOpenedBy()))
-                .filter(deposit -> inRange(deposit.getProcessedAt(), shift.getOpenedAt(), end))
-                .forEach(deposit -> totals.addRefund(deposit.getPaymentMethod(), deposit.getRefundedAmount()));
+        Long openerId = shift.getOpenedBy() != null ? shift.getOpenedBy().getId() : null;
+        if (openerId != null) {
+            paymentRepository.findByCollectedByIdAndPaidAtBetween(openerId, shift.getOpenedAt(), end).stream()
+                    .filter(payment -> !isDepositSettlement(payment))
+                    .forEach(payment -> totals.addInvoice(payment.getMethod(), payment.getAmount()));
+            depositRepository.findByCollectedByIdAndCollectedAtBetween(openerId, shift.getOpenedAt(), end)
+                    .forEach(deposit -> totals.addDeposit(deposit.getPaymentMethod(), deposit.getCollectedAmount()));
+            depositRepository.findByProcessedByIdAndProcessedAtBetween(openerId, shift.getOpenedAt(), end)
+                    .forEach(deposit -> totals.addRefund(deposit.getPaymentMethod(), deposit.getRefundedAmount()));
+        }
         return totals;
     }
 
     private void assertNoPendingCheckoutInvoices(CashierShift shift) {
-        List<Long> pending = invoiceRepository.findAll().stream()
-                .filter(invoice -> invoice.getBooking() != null && invoice.getBooking().getStatus() == BookingStatus.CHECKED_OUT)
-                .filter(invoice -> inRange(invoice.getBooking().getCheckedOutAt(), shift.getOpenedAt(), LocalDateTime.now()))
+        List<Invoice> candidateInvoices = invoiceRepository.findPendingCheckoutInvoicesBetween(shift.getOpenedAt(), LocalDateTime.now());
+        List<Long> pending = candidateInvoices.stream()
                 .filter(invoice -> {
                     if (invoice.getStatus() == InvoiceStatus.PENDING_DISCOUNT_APPROVAL) return true;
                     if (invoice.getStatus() == InvoiceStatus.PENDING || invoice.getStatus() == InvoiceStatus.PENDING_PAYMENT) {
-                        return !debtApprovalRepository.existsActiveApprovedDebtByBookingId(invoice.getBooking().getId());
+                        return invoice.getBooking() != null && !debtApprovalRepository.existsActiveApprovedDebtByBookingId(invoice.getBooking().getId());
                     }
                     return false;
                 })
