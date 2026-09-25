@@ -458,8 +458,8 @@ const HotelSettings: React.FC = () => {
                       max={90}
                       value={settings.periodicCleaningDays !== undefined ? String(settings.periodicCleaningDays) : '5'}
                       onChange={handleChange}
-                      className={`w-full h-[42px] py-2.5 pl-10 pr-4 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-[#D4F63D] focus:border-[#626F47] outline-none text-sm text-[#1A2411] placeholder:text-[#8E9B86] transition-all ${
-                        errors.periodicCleaningDays ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-[#CCD8C2]'
+                      className={`w-full h-[42px] py-2.5 pl-10 pr-4 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] placeholder:text-slate-400 transition-all ${
+                        errors.periodicCleaningDays ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-primary'
                       }`}
                       required
                     />
@@ -471,7 +471,7 @@ const HotelSettings: React.FC = () => {
                     icon={IoRefreshOutline}
                     onClick={handleScanPeriodicCleaning}
                     isLoading={isScanning}
-                    className="h-[42px] px-4 text-xs font-bold rounded-xl shrink-0 inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-2xs hover:bg-[#F2F6EC]"
+                    className="h-[42px] px-4 text-xs font-bold rounded-xl shrink-0 inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-2xs hover:bg-slate-50"
                   >
                     Quét phòng trống ngay
                   </Button>

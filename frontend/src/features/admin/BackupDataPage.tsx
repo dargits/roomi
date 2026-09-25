@@ -549,7 +549,7 @@ const BackupDataPage: React.FC = () => {
   };
 
   // ==========================================
-  // XỬ LÝ XUẤT CSV
+  // XỬ LÝ XUẤT CSV (HÀNG ĐỢI ASYNC QUEUE + FALLBACK)
   // ==========================================
   const handleExportCsv = async (type: string, name?: string) => {
     setExportingType(type);
@@ -559,38 +559,76 @@ const BackupDataPage: React.FC = () => {
       targetName: targetLabel,
       targetType: type,
       stage: 'query',
-      percent: 20,
-      statusMessage: `Đang kết nối CSDL và trích xuất dữ liệu bảng ${targetLabel}...`
+      percent: 15,
+      statusMessage: `Yêu cầu xuất dữ liệu bảng ${targetLabel} đã được đưa vào hàng đợi xử lý ngầm...`
     });
 
-    const timer = setTimeout(() => {
-      setExportProgress((prev) =>
-        prev && prev.targetType === type
-          ? {
-              ...prev,
-              stage: 'format',
-              percent: 60,
-              statusMessage: 'Đang chuyển đổi bản ghi sang định dạng CSV (chuẩn UTF-8 BOM)...'
-            }
-          : prev
-      );
-    }, 200);
-
     try {
+      // 1. Gửi yêu cầu vào Hàng đợi xử lý ngầm (Queue)
+      let task = await dataApi.exportDataAsync(type).catch(() => null);
+
+      if (task && task.taskId) {
+        // Polling trạng thái hàng đợi
+        let attempts = 0;
+        const maxAttempts = 60; // tối đa 60 giây
+        while (attempts < maxAttempts && task && task.status !== 'COMPLETED' && task.status !== 'FAILED') {
+          await new Promise((r) => setTimeout(r, 1000));
+          attempts++;
+          task = await dataApi.getTaskStatus(task.taskId);
+          setExportProgress({
+            active: true,
+            targetName: targetLabel,
+            targetType: type,
+            stage: task.status === 'PROCESSING' ? 'format' : 'query',
+            percent: Math.max(20, Math.min(95, task.progressPercent || 20)),
+            statusMessage: task.statusMessage || `Đang trích xuất dữ liệu bảng ${targetLabel} trong hàng đợi...`
+          });
+        }
+
+        if (task && task.status === 'COMPLETED') {
+          const blob = await dataApi.downloadTaskExport(task.taskId);
+          const fileName = task.fileName || `stayaway_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+          const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv;charset=utf-8;' }));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', fileName);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+
+          setExportProgress({
+            active: true,
+            targetName: targetLabel,
+            targetType: type,
+            stage: 'done',
+            percent: 100,
+            statusMessage: `Đã hoàn tất trích xuất và tải xuống tệp ${fileName}`,
+            fileName
+          });
+          toastSuccess(`Xuất dữ liệu bảng ${targetLabel} thành công!`);
+
+          setTimeout(() => {
+            setExportProgress((prev) => (prev && prev.targetType === type && prev.stage === 'done' ? null : prev));
+          }, 3000);
+          return;
+        }
+      }
+
+      // 2. Fallback sang export trực tiếp nếu queue không phản hồi
       const blob = await dataApi.exportData(type, (percent) => {
         setExportProgress((prev) =>
           prev && prev.targetType === type
             ? {
                 ...prev,
                 stage: 'download',
-                percent: Math.max(65, Math.min(95, percent)),
+                percent: Math.max(40, Math.min(95, percent)),
                 statusMessage: `Đang truyền tải tệp (${percent}%)...`
               }
             : prev
         );
       });
 
-      clearTimeout(timer);
       const fileName = `stayaway_${type}_${new Date().toISOString().split('T')[0]}.csv`;
       const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv;charset=utf-8;' }));
       const link = document.createElement('a');
@@ -616,7 +654,6 @@ const BackupDataPage: React.FC = () => {
         setExportProgress((prev) => (prev && prev.targetType === type && prev.stage === 'done' ? null : prev));
       }, 3000);
     } catch (err: any) {
-      clearTimeout(timer);
       setExportProgress(null);
       let errMsg = err.message || 'Lỗi không xác định khi xuất dữ liệu';
       if (err.response?.data instanceof Blob) {
@@ -643,13 +680,40 @@ const BackupDataPage: React.FC = () => {
   );
 
   // ==========================================
-  // XỬ LÝ NHẬP CSV (PREVIEW & SUBMIT)
+  // XỬ LÝ NHẬP CSV (KIỂM SOÁT ĐẦU VÀO & HÀNG ĐỢI ASYNC)
   // ==========================================
+  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+  const MAX_RECOMMENDED_ROWS = 10000; // 10.000 dòng
+
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
     setImportResult(null);
     setImportProgress(null);
     if (!file) {
+      setFilePreview(null);
+      return;
+    }
+
+    // 1. Kiểm tra định dạng tệp .csv
+    if (!file.name.toLowerCase().endsWith('.csv') && !file.type.includes('csv')) {
+      toastError('Định dạng tệp không hợp lệ. Hệ thống hiện chỉ hỗ trợ tệp định dạng .CSV (chuẩn UTF-8 RFC-4180).');
+      setSelectedFile(null);
+      setFilePreview(null);
+      return;
+    }
+
+    // 2. Kiểm tra kích thước tệp rỗng
+    if (file.size === 0) {
+      toastError('Tệp tải lên rỗng (0 bytes). Vui lòng chọn tệp có nội dung dữ liệu.');
+      setSelectedFile(null);
+      setFilePreview(null);
+      return;
+    }
+
+    // 3. Kiểm tra giới hạn dung lượng tối đa 10MB
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toastError(`Dung lượng tệp vượt quá giới hạn tối đa 10MB (Kích thước hiện tại: ${(file.size / (1024 * 1024)).toFixed(1)} MB). Vui lòng chia nhỏ tệp để hệ thống xử lý ổn định.`);
+      setSelectedFile(null);
       setFilePreview(null);
       return;
     }
@@ -660,12 +724,16 @@ const BackupDataPage: React.FC = () => {
       if (!text) return;
       const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
       if (lines.length > 0) {
+        const totalRows = Math.max(0, lines.length - 1);
+        if (totalRows > MAX_RECOMMENDED_ROWS) {
+          toastWarning(`Tệp chứa ${totalRows.toLocaleString()} dòng dữ liệu (vượt quá khuyến nghị 10.000 dòng). Hệ thống sẽ tự động đưa vào Hàng Đợi Xử Lý Ngầm để đảm bảo tính toàn vẹn CSDL.`);
+        }
         const headers = parseClientCsvLine(lines[0]);
         const previewRows = lines.slice(1, 5).map((l) => parseClientCsvLine(l));
         setFilePreview({
           headers,
           rows: previewRows,
-          totalRows: Math.max(0, lines.length - 1)
+          totalRows
         });
       }
     };
@@ -692,73 +760,93 @@ const BackupDataPage: React.FC = () => {
       toastWarning('Vui lòng chọn hoặc kéo thả file CSV để nhập dữ liệu.', 'Chưa chọn file');
       return;
     }
+
+    if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+      toastError('Tệp vượt quá giới hạn tối đa 10MB. Vui lòng chia nhỏ tệp trước khi tải lên.');
+      return;
+    }
+
     setImporting(true);
     setImportResult(null);
     setShowDetails(false);
 
     const typeLabel = IMPORT_TYPES.find((t) => t.value === importType)?.label.split('(')[0].trim() || importType;
 
-    // Giai đoạn 1: Đọc & Phân tích cú pháp tệp CSV
+    // Giai đoạn 1: Tiếp nhận và đưa vào hàng đợi
     setImportProgress({
       active: true,
       stageIndex: 1,
-      stageName: 'Đọc & Kiểm tra cú pháp CSV',
-      percent: 20,
-      statusMessage: 'Đang kiểm tra mã hóa UTF-8 và phân tích cú pháp RFC-4180...',
-      subMessage: `Tệp: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`
+      stageName: 'Đưa vào Hàng đợi & Kiểm tra cú pháp CSV',
+      percent: 15,
+      statusMessage: 'Yêu cầu xử lý tệp dữ liệu đã được tiếp nhận và xếp vào hàng đợi xử lý ngầm. Quá trình có thể tốn một vài phút tùy theo dung lượng tệp, tiến trình sẽ tự động hoàn tất trong giây lát...',
+      subMessage: `Tệp: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB) • Danh mục: ${typeLabel}`
     });
-
-    await new Promise((r) => setTimeout(r, 150));
-
-    // Giai đoạn 2: Tải lên máy chủ an toàn
-    setImportProgress({
-      active: true,
-      stageIndex: 2,
-      stageName: 'Tải lên máy chủ an toàn',
-      percent: 45,
-      statusMessage: 'Đang truyền dữ liệu an toàn tới máy chủ PMS...',
-      subMessage: `Danh mục: ${typeLabel}`
-    });
-
-    // Ticker giả lập mượt mà cho Giai đoạn 3 (Xử lý & Ghi CSDL)
-    let currentPct = 50;
-    const ticker = setInterval(() => {
-      if (currentPct < 90) {
-        currentPct += Math.floor(Math.random() * 4) + 2;
-        if (currentPct > 90) currentPct = 90;
-        setImportProgress((prev) =>
-          prev
-            ? {
-                ...prev,
-                stageIndex: 3,
-                stageName: 'Xử lý bản ghi & Ghi CSDL',
-                percent: currentPct,
-                statusMessage: 'Đang kiểm tra trùng lặp bản ghi và lưu trữ vào CSDL...'
-              }
-            : null
-        );
-      }
-    }, 120);
 
     try {
-      const res = await dataApi.importData(importType, selectedFile, (uploadPct) => {
-        if (uploadPct < 100) {
-          const mapped = Math.round(25 + uploadPct * 0.25);
-          setImportProgress((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  percent: mapped,
-                  statusMessage: `Đang tải tệp lên máy chủ (${uploadPct}%)...`
-                }
-              : null
-          );
+      // 1. Thử gửi vào Hàng đợi xử lý ngầm (Asynchronous Queue Worker)
+      let task = await dataApi.importDataAsync(importType, selectedFile).catch(() => null);
+
+      if (task && task.taskId) {
+        let attempts = 0;
+        const maxAttempts = 120; // tối đa 2 phút
+
+        while (attempts < maxAttempts && task && task.status !== 'COMPLETED' && task.status !== 'FAILED') {
+          await new Promise((r) => setTimeout(r, 1000));
+          attempts++;
+          task = await dataApi.getTaskStatus(task.taskId);
+
+          const stageIndex = task.status === 'PROCESSING' ? 3 : 2;
+          const stageName = task.status === 'PROCESSING' ? 'Xử lý bản ghi & Ghi CSDL' : 'Đang xử lý trong hàng đợi';
+
+          setImportProgress({
+            active: true,
+            stageIndex,
+            stageName,
+            percent: Math.max(25, Math.min(95, task.progressPercent || 25)),
+            statusMessage: task.statusMessage || 'Hệ thống đang tiến hành xử lý ngầm trong hàng đợi. Tiến trình sẽ hoàn thành sau lát nữa...',
+            subMessage: task.subMessage || 'Tác vụ có thể mất một vài phút tùy dung lượng tệp. Bạn có thể tiếp tục thao tác khác trong thời gian chờ.'
+          });
         }
-      });
 
-      clearInterval(ticker);
+        if (task && task.status === 'COMPLETED') {
+          setImportProgress({
+            active: true,
+            stageIndex: 4,
+            stageName: 'Đối soát & Hoàn tất kết quả',
+            percent: 100,
+            statusMessage: task.statusMessage || 'Đã hoàn tất quá trình nạp dữ liệu!',
+            subMessage: `Xử lý thành công trong ${task.durationMs || 0} ms`
+          });
 
-      // Giai đoạn 4: Hoàn tất & đối soát kết quả
+          await new Promise((r) => setTimeout(r, 400));
+
+          const res: ImportResult = {
+            success: (task.importedCount || 0) > 0 || (task.totalRows || 0) > 0,
+            message: task.statusMessage || 'Nhập dữ liệu thành công',
+            totalRows: task.totalRows || 0,
+            importedCount: task.importedCount || 0,
+            skippedCount: task.skippedCount || 0,
+            errorCount: task.errorCount || 0,
+            durationMs: task.durationMs || 0,
+            details: task.details || []
+          };
+          setImportResult(res);
+
+          if (res.importedCount > 0) {
+            toastSuccess(res.message);
+          } else if (res.skippedCount > 0) {
+            toastWarning(res.message, 'Dữ liệu trùng lặp');
+          } else {
+            toastError(res.message || 'Không có bản ghi nào được nhập');
+          }
+          return;
+        } else if (task && task.status === 'FAILED') {
+          throw new Error(task.statusMessage || 'Xử lý tệp trong hàng đợi thất bại');
+        }
+      }
+
+      // 2. Fallback sang import trực tiếp nếu queue không khả dụng
+      const res = await dataApi.importData(importType, selectedFile);
       setImportProgress({
         active: true,
         stageIndex: 4,
@@ -767,12 +855,8 @@ const BackupDataPage: React.FC = () => {
         statusMessage: 'Đã hoàn tất quá trình nạp dữ liệu!',
         subMessage: `Xử lý thành công trong ${res.durationMs || 0} ms`
       });
-
-      // Dừng ngắn để người dùng cảm nhận trạng thái hoàn tất 100%
       await new Promise((r) => setTimeout(r, 400));
-
       setImportResult(res);
-
       if (res.importedCount > 0) {
         toastSuccess(res.message);
       } else if (res.skippedCount > 0) {
@@ -780,10 +864,10 @@ const BackupDataPage: React.FC = () => {
       } else {
         toastError(res.message || 'Không có bản ghi nào được nhập');
       }
+
     } catch (err: any) {
-      clearInterval(ticker);
       setImportProgress(null);
-      const errMsg = err.response?.data?.message || 'Có lỗi xảy ra khi xử lý file CSV.';
+      const errMsg = err.response?.data?.message || err.message || 'Có lỗi xảy ra khi xử lý file CSV.';
       setImportResult({
         success: false,
         message: errMsg,
@@ -1217,40 +1301,50 @@ const BackupDataPage: React.FC = () => {
       {activeTab === 'export' && (
         <div className="space-y-5">
           {/* Top Export Banner & Search */}
-          <div className="bg-surface-container-lowest border border-border-grey rounded-2xl p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-                <IoDownloadOutline size={22} />
+          <div className="bg-surface-container-lowest border border-border-grey rounded-2xl p-4 shadow-2xs space-y-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                  <IoDownloadOutline size={22} />
+                </div>
+                <div>
+                  <h4 className="font-title-md font-bold text-on-surface">Xuất Dữ Liệu Từng Bảng Sang Tệp CSV</h4>
+                  <p className="text-xs text-on-surface-variant">Tất cả tệp CSV đều được tạo với chuẩn mã hóa <strong>UTF-8 BOM</strong>, tự động mở đúng tiếng Việt trên Excel.</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-title-md font-bold text-on-surface">Xuất Dữ Liệu Từng Bảng Sang Tệp CSV</h4>
-                <p className="text-xs text-on-surface-variant">Tất cả tệp CSV đều được tạo với chuẩn mã hóa <strong>UTF-8 BOM</strong>, tự động mở đúng tiếng Việt trên Excel.</p>
+
+              <div className="flex items-center gap-3">
+                {/* Ô tìm kiếm bảng */}
+                <div className="relative flex-1 md:w-64">
+                  <IoSearchOutline size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={exportSearch}
+                    onChange={(e) => setExportSearch(e.target.value)}
+                    placeholder="Tìm bảng dữ liệu..."
+                    className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-border-grey bg-white text-on-surface focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Xuất trọn gói ZIP */}
+                <button
+                  type="button"
+                  onClick={handleInstantDownload}
+                  disabled={instantDownloading}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white font-semibold text-xs hover:bg-primary-hover transition-colors shadow-xs cursor-pointer flex-shrink-0"
+                >
+                  <IoCloudDownloadOutline size={16} className={instantDownloading ? 'animate-bounce' : ''} />
+                  <span>{instantDownloading ? 'Đang tải...' : 'Tải Trọn Gói (.ZIP)'}</span>
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Ô tìm kiếm bảng */}
-              <div className="relative flex-1 md:w-64">
-                <IoSearchOutline size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input
-                  type="text"
-                  value={exportSearch}
-                  onChange={(e) => setExportSearch(e.target.value)}
-                  placeholder="Tìm bảng dữ liệu..."
-                  className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-border-grey bg-white text-on-surface focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              {/* Xuất trọn gói ZIP */}
-              <button
-                type="button"
-                onClick={handleInstantDownload}
-                disabled={instantDownloading}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white font-semibold text-xs hover:bg-primary-hover transition-colors shadow-xs cursor-pointer flex-shrink-0"
-              >
-                <IoCloudDownloadOutline size={16} className={instantDownloading ? 'animate-bounce' : ''} />
-                <span>{instantDownloading ? 'Đang tải...' : 'Tải Trọn Gói (.ZIP)'}</span>
-              </button>
+            {/* Banner giới thiệu cơ chế hàng đợi Export */}
+            <div className="p-3 rounded-xl bg-surface-container-low border border-border-grey text-[11px] text-on-surface-variant flex items-center gap-2">
+              <IoTimerOutline size={16} className="text-primary flex-shrink-0" />
+              <span>
+                <strong>Hàng đợi xuất dữ liệu bất đồng bộ:</strong> Đối với các bảng có khối lượng bản ghi lớn, hệ thống sẽ tự động xếp vào hàng đợi xử lý ngầm và gửi thông báo khi tệp đã sẵn sàng tải xuống. Quá trình có thể tốn một khoảng thời gian ngắn, bạn có thể yên tâm tiếp tục công việc của mình.
+              </span>
             </div>
           </div>
 
@@ -1309,6 +1403,30 @@ const BackupDataPage: React.FC = () => {
               <p className="text-xs text-on-surface-variant mt-1">
                 Tự động nhận diện dữ liệu chuẩn RFC-4180. Hỗ trợ nhập theo Tên hoặc ID loại phòng, tự động bỏ qua bản ghi trùng lặp an toàn.
               </p>
+
+              {/* Giới hạn đầu vào & Hàng đợi ngầm */}
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low border border-border-grey text-on-surface">
+                  📄 Định dạng: <strong className="text-primary">.CSV (UTF-8)</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low border border-border-grey text-on-surface">
+                  ⚖️ Dung lượng tối đa: <strong className="text-primary">10 MB</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low border border-border-grey text-on-surface">
+                  📊 Khuyến nghị: <strong className="text-primary">≤ 10.000 dòng</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  ⚡ Cơ chế: <strong>Hàng đợi ngầm (Queue)</strong>
+                </span>
+              </div>
+
+              {/* Banner giải thích tác vụ lâu */}
+              <div className="mt-3 p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 text-blue-900 text-xs flex items-start gap-2.5">
+                <IoInformationCircleOutline size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="leading-relaxed text-[11px]">
+                  <strong>Lưu ý tiến trình:</strong> Với các tệp có dung lượng hoặc số lượng dòng lớn, hệ thống sẽ tự động xếp vào hàng đợi xử lý ngầm trên máy chủ để đảm bảo an toàn cơ sở dữ liệu. Quá trình xử lý có thể mất một vài phút tùy theo số lượng bản ghi, tiến trình sẽ tự động hoàn tất trong giây lát mà không làm gián đoạn các thao tác khác của bạn.
+                </div>
+              </div>
             </div>
 
             <form onSubmit={handleImportSubmit} className="space-y-4">
@@ -1423,13 +1541,13 @@ const BackupDataPage: React.FC = () => {
               {importProgress && importProgress.active && (
                 <div className="p-4 rounded-xl bg-surface-container-low border border-border-grey space-y-2.5 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <IoSyncOutline size={16} className={`text-primary ${importProgress.percent === 100 ? '' : 'animate-spin'}`} />
-                      <span className="text-xs font-semibold text-on-surface">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <IoSyncOutline size={16} className={`text-primary flex-shrink-0 ${importProgress.percent === 100 ? '' : 'animate-spin'}`} />
+                      <span className="text-xs font-semibold text-on-surface truncate">
                         {importProgress.statusMessage}
                       </span>
                     </div>
-                    <span className="font-mono text-xs font-bold text-primary">
+                    <span className="font-mono text-xs font-bold text-primary flex-shrink-0 ml-2">
                       {importProgress.percent}%
                     </span>
                   </div>
@@ -1442,11 +1560,19 @@ const BackupDataPage: React.FC = () => {
                     />
                   </div>
 
+                  {/* Thông báo tiến trình ngầm cho tác vụ lâu */}
+                  {importProgress.percent < 100 && (
+                    <div className="text-[11px] text-on-surface-variant bg-white/70 p-2.5 rounded-lg border border-border-grey/60 flex items-start gap-1.5">
+                      <IoInformationCircleOutline size={14} className="text-primary flex-shrink-0 mt-0.5" />
+                      <span>{importProgress.subMessage || 'Hệ thống đang tiến hành xử lý ngầm trong hàng đợi. Quá trình có thể tốn một vài phút tùy dung lượng tệp, tiến trình sẽ hoàn tất sau lát nữa. Bạn có thể tiếp tục thao tác các tính năng khác trong thời gian chờ.'}</span>
+                    </div>
+                  )}
+
                   {/* Dòng trạng thái các bước tinh gọn */}
                   <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-0.5">
                     {[
                       { idx: 1, label: 'Đọc tệp' },
-                      { idx: 2, label: 'Tải lên' },
+                      { idx: 2, label: 'Hàng đợi' },
                       { idx: 3, label: 'Ghi CSDL' },
                       { idx: 4, label: 'Hoàn tất' }
                     ].map((step, sIdx, arr) => {
@@ -1618,9 +1744,18 @@ const BackupDataPage: React.FC = () => {
                     <h4 className="font-title-sm font-bold text-on-surface">Xem Trước Dữ Liệu Tệp</h4>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary-50 text-primary border border-primary/20">
-                    {filePreview.totalRows} dòng dữ liệu
+                    {filePreview.totalRows.toLocaleString()} dòng dữ liệu
                   </span>
                 </div>
+
+                {filePreview.totalRows > 500 && (
+                  <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-[11px] flex items-center gap-2">
+                    <IoTimerOutline size={15} className="text-amber-700 flex-shrink-0" />
+                    <span>
+                      Tệp dữ liệu lớn ({filePreview.totalRows.toLocaleString()} dòng): Hệ thống sẽ tự động đưa vào <strong>Hàng đợi xử lý ngầm</strong> trên máy chủ. Quá trình có thể tốn một vài phút và sẽ hoàn tất sau lát nữa.
+                    </span>
+                  </div>
+                )}
 
                 <div className="overflow-x-auto border border-border-grey rounded-xl">
                   <table className="w-full text-left text-[11px]">
