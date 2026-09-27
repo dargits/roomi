@@ -728,7 +728,7 @@ const ChannelCalendarPage: React.FC = () => {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Quản Lý Kênh Phân Phối & Nhật Ký Đồng Bộ Lịch (OTA Calendar)"
-        subtitle="Theo dõi tình trạng kết nối, cảnh báo mất kết nối tránh trùng phòng và kiểm tra lịch sử đồng bộ đa kênh RFC 5545"
+        subtitle="Theo dõi tình trạng kết nối, cảnh báo mất kết nối tránh trùng phòng và kiểm tra lịch sử đồng bộ đa kênh OTA"
         actions={
           <div className="flex items-center gap-3">
             <Button
