@@ -149,8 +149,8 @@ const RequestDebtCheckoutModal: React.FC<RequestDebtCheckoutModalProps> = ({ isO
             label="Số tiền còn nợ (VNĐ)"
             type="number"
             required
-            min="1000"
-            step="1000"
+            min="0.01"
+            step="any"
             value={String(debtAmount)}
             readOnly
             disabled={isWalkInNoProfile || loading || loadingBalance}

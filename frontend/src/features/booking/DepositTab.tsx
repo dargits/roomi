@@ -476,8 +476,8 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
             <Input
               label="Số tiền cọc thực thu (VNĐ)"
               type="number"
-              min="1000"
-              step="1000"
+              min="0.01"
+              step="any"
               value={recordForm.amount}
               onChange={e => handleAmountChange(e.target.value)}
               placeholder="VD: 500000"

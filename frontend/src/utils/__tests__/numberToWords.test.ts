@@ -33,4 +33,12 @@ describe('numberToWords utility', () => {
     expect(numberToWords(1200000)).toBe('Một triệu hai trăm nghìn đồng');
     expect(numberToWords(1500000000)).toBe('Một tỷ năm trăm triệu đồng');
   });
+
+  it('should format odd amounts and decimal amounts correctly', () => {
+    expect(numberToWords(500)).toBe('Năm trăm đồng');
+    expect(numberToWords(1234)).toBe('Một nghìn hai trăm ba mươi bốn đồng');
+    expect(numberToWords(523450)).toBe('Năm trăm hai mươi ba nghìn bốn trăm năm mươi đồng');
+    expect(numberToWords('1500.5')).toBe('Một nghìn năm trăm phẩy năm đồng');
+    expect(numberToWords('0.5')).toBe('Không phẩy năm đồng');
+  });
 });
