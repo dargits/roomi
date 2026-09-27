@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /rooms
+Allow: /amenities
+Allow: /promotions
+Allow: /about
+Allow: /contact
+Allow: /booking-detail/
+Disallow: /manage/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://stayaway.io.vn/sitemap.xml
