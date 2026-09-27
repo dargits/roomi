@@ -11,6 +11,7 @@ import {
   IoChevronUpOutline,
   IoCloseCircleOutline,
   IoCloseOutline,
+  IoCloudDoneOutline,
   IoCloudDownloadOutline,
   IoCloudUploadOutline,
   IoConstructOutline,
@@ -19,6 +20,7 @@ import {
   IoDocumentTextOutline,
   IoDownloadOutline,
   IoEyeOutline,
+  IoOpenOutline,
   IoFileTrayFullOutline,
   IoInformationCircleOutline,
   IoLayersOutline,
@@ -1306,6 +1308,7 @@ const BackupDataPage: React.FC = () => {
                       <th className="py-3 px-4">Thời Gian Tạo</th>
                       <th className="py-3 px-4">Người Thực Hiện</th>
                       <th className="py-3 px-4 text-center">Toàn Vẹn (SHA-256)</th>
+                      <th className="py-3 px-4 text-center">Lưu Trữ Đám Mây</th>
                       <th className="py-3 px-4 text-center">Trạng Thái</th>
                       <th className="py-3 px-4 text-right">Thao Tác</th>
                     </tr>
@@ -1351,6 +1354,36 @@ const BackupDataPage: React.FC = () => {
                             </button>
                           ) : (
                             <span className="text-zinc-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {item.cloudUrl ? (
+                            <div className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                              <IoCloudDoneOutline size={13} className="text-indigo-600" />
+                              <a
+                                href={item.cloudUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:underline flex items-center gap-1"
+                                title="Mở liên kết tệp sao lưu trên Catbox.moe"
+                              >
+                                <span>Catbox.moe</span>
+                                <IoOpenOutline size={10} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.cloudUrl!);
+                                  toastSuccess('Đã sao chép liên kết Catbox vào clipboard');
+                                }}
+                                className="text-indigo-500 hover:text-indigo-800 cursor-pointer ml-0.5"
+                                title="Sao chép link tải"
+                              >
+                                <IoCopyOutline size={11} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-zinc-400 text-[11px] italic">Cục bộ</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-center">
@@ -2045,9 +2078,29 @@ const BackupDataPage: React.FC = () => {
                   onChange={(e) => setSelectedBackupId(Number(e.target.value))}
                   options={backups.map((b) => ({
                     value: String(b.id),
-                    label: `${b.fileName} (${b.formattedSize} - ${new Date(b.createdAt).toLocaleDateString('vi-VN')})`
+                    label: `${b.fileName} (${b.formattedSize}${b.cloudUrl ? ' • Catbox Cloud' : ''} - ${new Date(b.createdAt).toLocaleDateString('vi-VN')})`
                   }))}
                 />
+                {selectedBackupId && (() => {
+                  const b = backups.find(x => x.id === selectedBackupId);
+                  if (b?.cloudUrl) {
+                    return (
+                      <div className="mt-2.5 p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-start gap-2.5">
+                        <IoCloudDoneOutline className="text-indigo-600 shrink-0 mt-0.5" size={18} />
+                        <div className="space-y-0.5">
+                          <p className="font-bold flex items-center gap-1.5">
+                            <span>Lưu trữ trên Catbox.moe Cloud</span>
+                            <span className="text-[10px] font-normal text-indigo-700 bg-white px-1.5 py-0.2 rounded border border-indigo-200">Đám mây vĩnh viễn</span>
+                          </p>
+                          <p className="text-[11px] text-indigo-800">
+                            Khi xác nhận khôi phục, máy chủ sẽ tự động tải file từ đám mây Catbox, giải nén và nạp toàn bộ cấu trúc &amp; dữ liệu CSDL.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             ) : (
               <div>

@@ -47,6 +47,7 @@ public class BackupServiceImpl implements BackupService {
     private final SystemBackupRepository systemBackupRepository;
     private final HotelSettingRepository hotelSettingRepository;
     private final AuditLogService auditLogService;
+    private final plant.stay.service.CatboxService catboxService;
 
     private static final Path BACKUP_STORAGE_DIR = Paths.get("backups");
     private static final DateTimeFormatter FILE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss");
@@ -97,9 +98,31 @@ public class BackupServiceImpl implements BackupService {
             long fileSize = Files.size(targetFile);
             checksum = calculateSha256(targetFile);
 
+            // Tự động đẩy tệp sao lưu lên Catbox.moe Cloud Storage
+            String cloudUrl = null;
+            try {
+                log.info("Đang tự động tải tệp sao lưu [{}] ({} bytes) lên Catbox.moe Cloud Storage...", fileName, fileSize);
+                cloudUrl = catboxService.uploadFile(targetFile, fileName);
+                log.info("Đẩy tệp sao lưu lên Catbox.moe thành công: {}", cloudUrl);
+            } catch (Exception uploadEx) {
+                log.error("Cảnh báo: Không thể tải tệp lên Catbox.moe ({}), giữ lại bản sao lưu cục bộ", uploadEx.getMessage());
+            }
+
+            // Nếu upload lên Catbox thành công, giải phóng file cục bộ để tiết kiệm bộ nhớ máy chủ (chỉ lưu URL)
+            String effectiveFilePath = targetFile.toAbsolutePath().toString();
+            if (cloudUrl != null && !cloudUrl.isBlank()) {
+                effectiveFilePath = cloudUrl;
+                try {
+                    Files.deleteIfExists(targetFile);
+                    log.info("Đã giải phóng tệp tin cục bộ sau khi lưu trữ thành công trên Catbox Cloud: {}", cloudUrl);
+                } catch (Exception ex) {
+                    log.warn("Không thể xóa tệp tin cục bộ sau khi upload: {}", ex.getMessage());
+                }
+            }
+
             SystemBackup backup = SystemBackup.builder()
                     .fileName(fileName)
-                    .filePath(targetFile.toAbsolutePath().toString())
+                    .filePath(effectiveFilePath)
                     .fileSizeBytes(fileSize)
                     .backupType(type)
                     .status("SUCCESS")
@@ -107,6 +130,7 @@ public class BackupServiceImpl implements BackupService {
                     .recordCount(recordCount)
                     .checksum(checksum)
                     .createdBy(actor)
+                    .cloudUrl(cloudUrl)
                     .note(actor != null ? "Sao lưu thủ công bởi " + actor.getName() : "Sao lưu định kỳ tự động hệ thống")
                     .build();
 
@@ -116,11 +140,13 @@ public class BackupServiceImpl implements BackupService {
             updateHotelSettingLastBackup("SUCCESS");
 
             // Ghi nhận AuditLog
-            auditLogService.log("SystemBackup", backup.getId(), "CREATE_BACKUP", actor,
-                    String.format("Tạo thành công bản sao lưu %s (%d bảng, %d bản ghi, dung lượng: %s)",
-                            fileName, tableCount, recordCount, formatBytes(fileSize)));
+            String auditMsg = String.format("Tạo thành công bản sao lưu %s (%d bảng, %d bản ghi, dung lượng: %s)%s",
+                    fileName, tableCount, recordCount, formatBytes(fileSize),
+                    cloudUrl != null ? " [Lưu trữ đám mây Catbox: " + cloudUrl + "]" : "");
+            auditLogService.log("SystemBackup", backup.getId(), "CREATE_BACKUP", actor, auditMsg);
 
-            log.info("Sao lưu hệ thống thành công: {} [{} bảng, {} bản ghi, {}]", fileName, tableCount, recordCount, formatBytes(fileSize));
+            log.info("Sao lưu hệ thống thành công: {} [{} bảng, {} bản ghi, {}, Cloud: {}]",
+                    fileName, tableCount, recordCount, formatBytes(fileSize), cloudUrl != null ? cloudUrl : "N/A");
             return mapToDto(backup);
 
         } catch (Exception e) {
@@ -178,11 +204,23 @@ public class BackupServiceImpl implements BackupService {
             path = getStorageDirectory().resolve(backup.getFileName());
         }
 
-        if (!Files.exists(path)) {
-            throw new ResourceNotFoundException("Tệp tin sao lưu không còn tồn tại trên máy chủ: " + backup.getFileName());
+        if (Files.exists(path)) {
+            return new FileSystemResource(path);
         }
 
-        return new FileSystemResource(path);
+        // Nếu file cục bộ đã giải phóng nhưng có URL Catbox.moe Cloud, tải trực tiếp dữ liệu từ Catbox
+        if (backup.getCloudUrl() != null && !backup.getCloudUrl().isBlank()) {
+            log.info("Đang tải tệp sao lưu từ Catbox Cloud [{}] để cung cấp cho người dùng...", backup.getCloudUrl());
+            byte[] fileBytes = catboxService.downloadFileBytes(backup.getCloudUrl());
+            return new org.springframework.core.io.ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return backup.getFileName();
+                }
+            };
+        }
+
+        throw new ResourceNotFoundException("Tệp tin sao lưu không còn tồn tại trên máy chủ và không có URL đám mây: " + backup.getFileName());
     }
 
     @Override
@@ -216,12 +254,35 @@ public class BackupServiceImpl implements BackupService {
         SystemBackup backup = systemBackupRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản sao lưu với mã ID: " + id));
 
+        // Trường hợp 1: Có URL lưu trữ trên Catbox.moe Cloud
+        if (backup.getCloudUrl() != null && !backup.getCloudUrl().isBlank()) {
+            log.info("Bắt đầu tải bản sao lưu từ Catbox Cloud [{}] về máy chủ để khôi phục...", backup.getCloudUrl());
+            Path tempDownload = null;
+            try {
+                String suffix = backup.getFileName().toLowerCase().endsWith(".zip") ? ".zip" : ".sql";
+                tempDownload = Files.createTempFile("catbox_restore_", suffix);
+                catboxService.downloadFile(backup.getCloudUrl(), tempDownload);
+                log.info("Tải tệp từ Catbox thành công ({} bytes). Tiến hành giải nén & khôi phục CSDL...", Files.size(tempDownload));
+                return executeRestoreFromPath(tempDownload, backup.getFileName(), actor);
+            } catch (IOException e) {
+                throw new RuntimeException("Lỗi xử lý tệp tạm khi tải từ Catbox: " + e.getMessage(), e);
+            } finally {
+                if (tempDownload != null) {
+                    try {
+                        Files.deleteIfExists(tempDownload);
+                        log.info("Đã dọn dẹp tệp tải về tạm sau khi khôi phục thành công.");
+                    } catch (IOException ignored) {}
+                }
+            }
+        }
+
+        // Trường hợp 2: Tệp tin lưu cục bộ
         Path path = Paths.get(backup.getFilePath());
         if (!Files.exists(path)) {
             path = getStorageDirectory().resolve(backup.getFileName());
         }
         if (!Files.exists(path)) {
-            throw new ResourceNotFoundException("Tệp sao lưu không tồn tại trên máy chủ: " + backup.getFileName());
+            throw new ResourceNotFoundException("Tệp sao lưu không tồn tại trên máy chủ hoặc liên kết đám mây: " + backup.getFileName());
         }
 
         return executeRestoreFromPath(path, backup.getFileName(), actor);
@@ -879,6 +940,7 @@ public class BackupServiceImpl implements BackupService {
                 .createdAt(b.getCreatedAt())
                 .createdByName(b.getCreatedBy() != null ? b.getCreatedBy().getName() : "Hệ thống tự động")
                 .note(b.getNote())
+                .cloudUrl(b.getCloudUrl())
                 .build();
     }
 
