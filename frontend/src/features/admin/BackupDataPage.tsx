@@ -220,6 +220,34 @@ const BackupDataPage: React.FC = () => {
     statusMessage: string;
     subMessage: string;
   } | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+
+  // Bộ đếm thời gian thực thi tác vụ nhập dữ liệu
+  useEffect(() => {
+    let timer: any = null;
+    if (importing) {
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [importing]);
+
+  // Ngăn chặn tắt tab hoặc làm mới trang trình duyệt khi đang nhập dữ liệu
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (importing) {
+        e.preventDefault();
+        e.returnValue = 'Hệ thống đang nhập dữ liệu CSV. Vui lòng không rời khỏi trang để tránh gián đoạn tiến trình!';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [importing]);
 
   // Load Initial Full Backup Data
   useEffect(() => {
@@ -766,6 +794,8 @@ const BackupDataPage: React.FC = () => {
       return;
     }
 
+    setElapsedSeconds(0);
+    setIsImportModalOpen(true);
     setImporting(true);
     setImportResult(null);
     setShowDetails(false);
@@ -1961,6 +1991,298 @@ const BackupDataPage: React.FC = () => {
             >
               Xác Nhận Khôi Phục Hệ Thống
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ══════════════════════════════════════════════ */}
+      {/* MODAL TIẾN TRÌNH NHẬP CSV (KHÓA ĐÓNG KHI ĐANG XỬ LÝ) */}
+      {/* ══════════════════════════════════════════════ */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          if (!importing) {
+            setIsImportModalOpen(false);
+          }
+        }}
+        showCloseButton={!importing}
+        closeOnBackdrop={!importing}
+        maxWidth="max-w-2xl"
+        title={
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                importing
+                  ? 'bg-primary-50 text-primary border border-primary/20'
+                  : importResult && (importResult.importedCount > 0 || importResult.success)
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
+              {importing ? (
+                <IoSyncOutline className="animate-spin" size={20} />
+              ) : importResult && (importResult.importedCount > 0 || importResult.success) ? (
+                <IoCheckmarkCircleOutline size={22} />
+              ) : (
+                <IoAlertCircleOutline size={22} />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-[#002146] leading-tight">
+                  {importing ? 'Tiến Trình Nhập Dữ Liệu CSV' : 'Kết Quả Xử Lý Tệp CSV'}
+                </h3>
+                {importing ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                    ⚡ Đang xử lý
+                  </span>
+                ) : importResult && (importResult.importedCount > 0 || importResult.success) ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    ✓ Hoàn tất
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-300">
+                    ✕ Có lỗi xảy ra
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-on-surface-variant font-normal mt-0.5">
+                Danh mục: <strong className="text-[#002146]">{IMPORT_TYPES.find((t) => t.value === importType)?.label.split('(')[0].trim() || importType}</strong>
+              </p>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {/* CẢNH BÁO QUAN TRỌNG: TÁC VỤ MẤT THỜI GIAN & KHÔNG ĐÓNG MODAL */}
+          {importing && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-950 flex items-start gap-3.5 shadow-xs">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                <IoWarningOutline size={22} className="animate-bounce" />
+              </div>
+              <div className="space-y-1.5 text-xs leading-relaxed">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-amber-900 text-sm">
+                    Vui lòng giữ nguyên màn hình và KHÔNG TẮT MODAL này!
+                  </span>
+                </div>
+                <p className="text-amber-900 font-medium">
+                  Tính năng này cần phải xử lý trong một khoảng thời gian (khoảng <strong>1 đến 2 phút</strong> tùy theo khối lượng bản ghi) để hệ thống đọc tệp, phân tích đối soát, loại bỏ trùng lặp và ghi nhận an toàn vào cơ sở dữ liệu.
+                </p>
+                <div className="pt-1 flex items-center gap-1.5 text-[11px] text-amber-800 font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                  <span>Nút đóng và thao tác thoát tạm thời bị vô hiệu hóa để bảo đảm tiến trình tiếp tục không bị gián đoạn.</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* THÔNG TIN TỆP & ĐỒNG HỒ ĐẾM THỜI GIAN THỰC THI */}
+          <div className="p-3.5 rounded-xl bg-surface-container-low border border-border-grey flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary flex items-center justify-center shrink-0">
+                <IoDocumentTextOutline size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-on-surface truncate max-w-xs">{selectedFile?.name || 'Tệp CSV'}</p>
+                <p className="text-[11px] text-on-surface-variant">
+                  Dung lượng: <strong>{selectedFile ? (selectedFile.size / 1024).toFixed(1) : 0} KB</strong>
+                  {filePreview?.totalRows ? ` • Tổng dữ liệu: ${filePreview.totalRows.toLocaleString()} dòng` : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-border-grey shadow-2xs">
+              <IoTimerOutline size={16} className={importing ? 'text-primary animate-spin' : 'text-zinc-500'} />
+              <span className="text-[11px] text-on-surface-variant font-medium">Thời gian chạy:</span>
+              <span className="font-mono font-bold text-xs text-primary">
+                {Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
+              </span>
+            </div>
+          </div>
+
+          {/* SƠ ĐỒ 4 GIAI ĐOẠN TIẾN TRÌNH */}
+          <div className="p-3.5 rounded-xl bg-white border border-border-grey space-y-2">
+            <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+              Các giai đoạn tiến trình
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              {[
+                { idx: 1, label: 'Đọc tệp & Cú pháp' },
+                { idx: 2, label: 'Hàng đợi ngầm' },
+                { idx: 3, label: 'Ghi CSDL & Đối soát' },
+                { idx: 4, label: 'Hoàn tất' }
+              ].map((step) => {
+                const isDone = (importProgress?.stageIndex || 1) > step.idx || (importProgress?.percent === 100);
+                const isCurrent = (importProgress?.stageIndex || 1) === step.idx && (importProgress?.percent || 0) < 100;
+                return (
+                  <div
+                    key={step.idx}
+                    className={`p-2 rounded-xl border transition-all ${
+                      isDone
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : isCurrent
+                        ? 'bg-primary-50 border-primary/40 text-primary font-bold shadow-2xs'
+                        : 'bg-surface-container-low border-border-grey/50 text-zinc-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center mb-1">
+                      {isDone ? (
+                        <IoCheckmarkCircleOutline size={16} className="text-emerald-600" />
+                      ) : isCurrent ? (
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block animate-ping" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-zinc-300 inline-block" />
+                      )}
+                    </div>
+                    <span className="text-[11px] block leading-tight">{step.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* THANH TIẾN ĐỘ & TRẠNG THÁI HIỆN TẠI */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <IoSyncOutline size={16} className={`text-primary shrink-0 ${importing ? 'animate-spin' : ''}`} />
+                <span className="font-semibold text-on-surface truncate">
+                  {importProgress?.statusMessage || (importing ? 'Hệ thống đang xử lý...' : 'Đã hoàn tất')}
+                </span>
+              </div>
+              <span className="font-mono font-bold text-sm text-primary shrink-0 ml-2">
+                {importProgress?.percent || (importing ? 15 : 100)}%
+              </span>
+            </div>
+
+            <div className="w-full h-3 bg-zinc-100 rounded-full overflow-hidden border border-border-grey/60 p-0.5">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ease-out ${
+                  importProgress?.percent === 100 ? 'bg-emerald-600' : 'bg-primary'
+                }`}
+                style={{ width: `${importProgress?.percent || (importing ? 15 : 100)}%` }}
+              />
+            </div>
+
+            {importProgress?.subMessage && (
+              <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5 pt-0.5">
+                <IoInformationCircleOutline size={14} className="text-primary shrink-0" />
+                <span>{importProgress.subMessage}</span>
+              </p>
+            )}
+          </div>
+
+          {/* KẾT QUẢ XỬ LÝ (KHI HOÀN TẤT) */}
+          {importResult && (
+            <div className="space-y-3 pt-3 border-t border-border-grey animate-in fade-in duration-200">
+              <div
+                className={`p-4 rounded-xl border flex items-start gap-3 ${
+                  importResult.importedCount > 0 || importResult.success
+                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                    : 'bg-red-50/70 border-red-200 text-red-900'
+                }`}
+              >
+                {importResult.importedCount > 0 || importResult.success ? (
+                  <IoCheckmarkCircleOutline size={24} className="text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <IoAlertCircleOutline size={24} className="text-red-600 shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-sm">
+                    {importResult.importedCount > 0 || importResult.success
+                      ? 'Nhập dữ liệu hoàn tất!'
+                      : 'Nhập dữ liệu không thành công'}
+                  </h4>
+                  <p className="text-xs mt-0.5 leading-relaxed">{importResult.message}</p>
+                </div>
+              </div>
+
+              {/* Thống kê 4 ô KPI */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-xl bg-surface-container-low border border-border-grey text-center">
+                  <span className="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Tổng số dòng</span>
+                  <span className="text-base font-extrabold text-on-surface font-mono">{importResult.totalRows.toLocaleString()}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 block mb-0.5">Ghi vào CSDL</span>
+                  <span className="text-base font-extrabold text-emerald-700 font-mono">+{importResult.importedCount.toLocaleString()}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-amber-700 block mb-0.5">Bỏ qua / Trùng</span>
+                  <span className="text-base font-extrabold text-amber-700 font-mono">{importResult.skippedCount.toLocaleString()}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-red-700 block mb-0.5">Dòng lỗi</span>
+                  <span className="text-base font-extrabold text-red-700 font-mono">{importResult.errorCount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Chi tiết lỗi nếu có */}
+              {importResult.details && importResult.details.length > 0 && (
+                <div className="p-3 rounded-xl bg-white border border-border-grey space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-on-surface">Chi tiết bản ghi ({importResult.details.length})</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(importResult.details?.join('\n') || '');
+                        toastSuccess('Đã sao chép danh sách chi tiết lỗi vào clipboard');
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+                    >
+                      <IoCopyOutline size={12} />
+                      <span>Sao chép chi tiết</span>
+                    </button>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto space-y-1 text-[11px] font-mono border border-zinc-200 rounded-lg p-2.5 bg-zinc-50">
+                    {importResult.details.map((detail, idx) => (
+                      <div key={idx} className={detail.includes('Lỗi') ? 'text-red-700 font-semibold' : 'text-amber-800'}>
+                        {detail}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CHÂN MODAL / HÀNH ĐỘNG */}
+          <div className="pt-4 border-t border-border-grey flex flex-wrap justify-between items-center gap-3">
+            <div className="text-[11px]">
+              {importing ? (
+                <span className="inline-flex items-center gap-1.5 text-amber-800 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+                  Đang xử lý dữ liệu... Vui lòng không đóng cửa sổ để tiến trình tiếp tục
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                  <IoCheckmarkCircleOutline size={14} />
+                  Tiến trình đã hoàn thành, bạn có thể an toàn đóng cửa sổ này
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              {importing ? (
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-200 text-zinc-500 cursor-not-allowed flex items-center gap-2 border border-zinc-300"
+                >
+                  <IoSyncOutline className="animate-spin" size={14} />
+                  <span>Đang Nhập Dữ Liệu...</span>
+                </button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="text-xs font-bold px-5"
+                >
+                  Hoàn Tất & Đóng
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </Modal>
