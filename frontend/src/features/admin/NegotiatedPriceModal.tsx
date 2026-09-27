@@ -249,8 +249,8 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
             value={formData.pricePerNight || ''}
             onChange={handleChange}
             placeholder="Ví dụ: 850000"
-            min="1000"
-            step="1000"
+            min="0"
+            step="any"
             required
           />
           <p className="text-xs text-gray-400 mt-1">

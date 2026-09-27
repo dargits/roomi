@@ -173,7 +173,7 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
               type="number"
               min="0"
               max={form.discountType === 'PERCENTAGE' ? 100 : undefined}
-              step={form.discountType === 'PERCENTAGE' ? '0.01' : '1000'}
+              step={form.discountType === 'PERCENTAGE' ? '0.01' : 'any'}
               value={form.discountValue}
               onChange={(e) => { setForm(f => ({ ...f, discountValue: e.target.value })); setErrors(v => ({ ...v, discountValue: '' })); }}
               placeholder={form.discountType === 'PERCENTAGE' ? 'Ví dụ: 10' : 'Ví dụ: 50000'}
