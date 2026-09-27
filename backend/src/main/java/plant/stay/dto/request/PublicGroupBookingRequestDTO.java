@@ -40,4 +40,9 @@ public class PublicGroupBookingRequestDTO {
     @Valid
     @NotEmpty(message = "Cần chọn ít nhất một loại phòng")
     private List<GroupBookingRoomRequest> rooms;
+
+    // Anti-spam fields
+    private String websiteTrap; // Honeypot field (phải rỗng)
+    private Long submissionElapsedMs; // Thời gian thao tác của client (ms)
+    private String botVerificationToken; // Mã xác thực chống bot
 }

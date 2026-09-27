@@ -12,10 +12,12 @@ import {
   IoShieldCheckmarkOutline,
   IoSparklesOutline,
   IoTimeOutline,
+  IoAlertCircleOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import AntiSpamSlider from '../../components/common/AntiSpamSlider';
 import publicGroupBookingRequestApi from '../../services/publicGroupBookingRequestApi';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { toLocalDateString } from '../../utils/formatDate';
@@ -59,6 +61,12 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Anti-spam states
+  const [isVerified, setIsVerified] = useState(false);
+  const [websiteTrap, setWebsiteTrap] = useState('');
+  const [formMountedAt, setFormMountedAt] = useState<number>(Date.now());
+  const [rateLimitError, setRateLimitError] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
     setFormData({
@@ -71,11 +79,18 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
       rooms: [initialRoom ? { roomTypeId: String(initialRoom.id), quantity: 1 } : emptyRoomLine()],
     });
     setError('');
+    setRateLimitError(false);
+    setIsVerified(false);
+    setWebsiteTrap('');
+    setFormMountedAt(Date.now());
     setSuccess(false);
   }, [isOpen, initialRoom, checkInDate, checkOutDate]);
 
   const handleClose = () => {
     if (loading) return;
+    setIsVerified(false);
+    setWebsiteTrap('');
+    setRateLimitError(false);
     onClose();
   };
 
@@ -94,6 +109,7 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
+    setRateLimitError(false);
 
     if (!formData.representativeName.trim()) {
       setError('Vui lòng nhập họ và tên người đại diện đoàn.');
@@ -122,15 +138,29 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
       setError('Vui lòng chọn loại phòng và số lượng hợp lệ.');
       return;
     }
+
+    if (!isVerified) {
+      setError('Vui lòng trượt thanh xác nhận bên dưới để hoàn tất gửi yêu cầu đặt đoàn.');
+      return;
+    }
+
     setLoading(true);
     try {
       await publicGroupBookingRequestApi.create({
         ...formData,
         rooms: formData.rooms.map((room) => ({ roomTypeId: Number(room.roomTypeId), quantity: Number(room.quantity) })),
+        websiteTrap: websiteTrap.trim(),
+        submissionElapsedMs: Math.max(0, Date.now() - formMountedAt),
+        botVerificationToken: isVerified ? 'VERIFIED_HUMAN' : undefined
       });
       setSuccess(true);
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'Không thể gửi yêu cầu đặt phòng đoàn.');
+      const status = requestError.response?.status;
+      const errMsg = requestError.response?.data?.message || 'Không thể gửi yêu cầu đặt phòng đoàn.';
+      setError(errMsg);
+      if (status === 429) {
+        setRateLimitError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -256,7 +286,28 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Yêu Cầu Đặt Phòng Theo Đoàn" maxWidth="max-w-2xl">
-      {error && <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-error rounded-xl text-xs font-medium flex items-center gap-2 animate-shake">{error}</div>}
+      {error && (
+        <div className={`mb-4 p-3.5 border rounded-xl text-xs font-medium space-y-2 animate-shake ${
+          rateLimitError ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-red-50 border-red-200 text-error'
+        }`}>
+          <div className="flex items-start gap-2">
+            <IoAlertCircleOutline size={18} className="shrink-0 mt-0.5 text-amber-700" />
+            <div className="leading-relaxed flex-1">{error}</div>
+          </div>
+          {hotelSetting?.phone && (
+            <div className="pt-2 border-t border-amber-200/80 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] text-amber-800 font-semibold">Cần đặt phòng đoàn gấp?</span>
+              <a
+                href={`tel:${hotelSetting.phone}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                <IoCallOutline size={14} />
+                Gọi hotline: {hotelSetting.phone}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
       <form id="publicGroupBookingForm" onSubmit={submit} className="space-y-4">
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -381,6 +432,34 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
           </div>
         </div>
 
+        {/* Bẫy Honeypot ẩn */}
+        <div className="sr-only opacity-0 absolute -left-[9999px] h-0 w-0 pointer-events-none" aria-hidden="true">
+          <label htmlFor="group_website_trap_field">Website</label>
+          <input
+            type="text"
+            id="group_website_trap_field"
+            name="websiteTrap"
+            tabIndex={-1}
+            autoComplete="off"
+            value={websiteTrap}
+            onChange={(e) => setWebsiteTrap(e.target.value)}
+          />
+        </div>
+
+        {/* Thanh trượt xác thực chống bot & spam */}
+        <div className="pt-1">
+          <AntiSpamSlider
+            isVerified={isVerified}
+            onVerify={(verified) => {
+              setIsVerified(verified);
+              if (verified && error.includes('trượt')) {
+                setError('');
+              }
+            }}
+            disabled={loading}
+          />
+        </div>
+
         <div className="p-3 bg-surface-container-low rounded-xl border border-border-grey/70 flex items-center gap-2 text-xs text-on-surface-variant">
           <IoShieldCheckmarkOutline size={16} className="text-green-600 flex-shrink-0" />
           <span>Không cần thanh toán trước. Lễ tân sẽ gọi điện xác nhận và hỗ trợ sắp xếp phòng cho đoàn.</span>
@@ -388,7 +467,17 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
       </form>
       <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-border-grey pt-5">
         <Button variant="ghost" onClick={handleClose} disabled={loading} className="w-full sm:w-auto justify-center">Hủy bỏ</Button>
-        <Button type="submit" form="publicGroupBookingForm" isLoading={loading} className="w-full sm:w-auto px-6 py-2.5 font-bold shadow-md justify-center">GỬI YÊU CẦU ĐẶT ĐOÀN</Button>
+        <Button 
+          type="submit" 
+          form="publicGroupBookingForm" 
+          isLoading={loading} 
+          disabled={!isVerified || loading}
+          className={`w-full sm:w-auto px-6 py-2.5 font-bold shadow-md justify-center transition-all ${
+            !isVerified ? 'opacity-60 cursor-not-allowed' : ''
+          }`}
+        >
+          GỬI YÊU CẦU ĐẶT ĐOÀN
+        </Button>
       </div>
     </Modal>
   );
