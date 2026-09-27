@@ -10,4 +10,6 @@ public interface BookingRequestRepository extends JpaRepository<BookingRequest, 
     List<BookingRequest> findByStatusOrderByCreatedAtDesc(BookingRequestStatus status);
     List<BookingRequest> findAllByOrderByCreatedAtDesc();
     long countByStatus(BookingRequestStatus status);
+    long countByPhoneAndStatus(String phone, BookingRequestStatus status);
+    boolean existsByPhoneAndRoomTypeIdAndCheckInDateAndCreatedAtAfter(String phone, Long roomTypeId, java.time.LocalDate checkInDate, java.time.LocalDateTime since);
 }

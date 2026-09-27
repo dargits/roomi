@@ -63,12 +63,14 @@ public class PublicInvoiceLookupTest {
         invoiceRepository = Mockito.mock(InvoiceRepository.class);
         hotelSettingRepository = Mockito.mock(HotelSettingRepository.class);
         publicGroupBookingRequestRepository = Mockito.mock(PublicGroupBookingRequestRepository.class);
+        plant.stay.service.PublicBookingAntiSpamService antiSpamService = Mockito.mock(plant.stay.service.PublicBookingAntiSpamService.class);
 
         controller = new BookingPortalController(
                 bookingRequestRepository, roomTypeRepository, roomRepository, bookingRepository,
                 guestRepository, auditLogService, authUtil, guestService, bookingService,
                 usageService, invoiceService, depositRepository, pricingService,
-                invoiceRepository, hotelSettingRepository, publicGroupBookingRequestRepository
+                invoiceRepository, hotelSettingRepository, publicGroupBookingRequestRepository,
+                antiSpamService
         );
 
         // Mặc định cho phép tra cứu công khai

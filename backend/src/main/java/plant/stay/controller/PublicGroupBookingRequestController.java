@@ -37,9 +37,16 @@ public class PublicGroupBookingRequestController {
     private final RoomTypeRepository roomTypeRepository;
     private final GroupBookingService groupBookingService;
     private final AuthUtil authUtil;
+    private final plant.stay.service.PublicBookingAntiSpamService publicBookingAntiSpamService;
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody PublicGroupBookingRequestDTO dto) {
+    public ResponseEntity<Map<String, Object>> create(
+            @Valid @RequestBody PublicGroupBookingRequestDTO dto,
+            HttpServletRequest httpServletRequest) {
+        
+        // 0. Xác thực phòng chống spam & bot
+        publicBookingAntiSpamService.validateGroupBooking(dto, httpServletRequest);
+
         if (!dto.getCheckOutDate().isAfter(dto.getCheckInDate())) {
             throw new IllegalArgumentException("Ngày trả phòng phải sau ngày nhận phòng");
         }
