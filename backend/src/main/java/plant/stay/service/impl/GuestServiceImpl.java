@@ -130,13 +130,23 @@ public class GuestServiceImpl implements GuestService {
         findById(guestId);
         // Trả về danh sách booking của khách (lịch sử lưu trú)
         return bookingRepository.findByGuestId(guestId).stream()
-                .map(b -> java.util.Map.of(
-                        "bookingId", b.getId(),
-                        "checkInDate", b.getCheckInDate(),
-                        "checkOutDate", b.getCheckOutDate(),
-                        "roomNumber", b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán",
-                        "status", b.getStatus().name()
-                ))
+                .map(b -> {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("id", b.getId());
+                    map.put("bookingId", b.getId());
+                    map.put("checkInDate", b.getCheckInDate());
+                    map.put("checkOutDate", b.getCheckOutDate());
+                    map.put("roomNumber", b.getRoom() != null ? b.getRoom().getRoomNumber() : "Chưa gán");
+                    String typeName = "";
+                    if (b.getRoom() != null && b.getRoom().getRoomType() != null) {
+                        typeName = b.getRoom().getRoomType().getName();
+                    } else if (b.getRoomType() != null) {
+                        typeName = b.getRoomType().getName();
+                    }
+                    map.put("roomTypeName", typeName);
+                    map.put("status", b.getStatus() != null ? b.getStatus().name() : "");
+                    return map;
+                })
                 .collect(Collectors.toList());
     }
 

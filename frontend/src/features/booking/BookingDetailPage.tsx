@@ -47,18 +47,19 @@ import { formatName, formatPhone, formatEmail, formatCCCD } from '../../utils/pe
 const VALID_TABS = ['info', 'services', 'invoice', 'deposit'];
 
 const BookingDetailPage: React.FC = () => {
-  const { bookingId } = useParams<{ bookingId: string }>();
+  const { bookingId, tab: pathTab } = useParams<{ bookingId: string; tab?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { success: toastSuccess, error: toastError } = useToast();
   const { user } = useAuth();
   
-  const tab = searchParams.get('tab') || 'info';
+  const tab = searchParams.get('tab') || pathTab || 'info';
 
   const fromUrl = location.state?.from || '/manage/bookings/list';
   const backLabel = fromUrl.includes('calendar') ? 'Lịch phòng' :
-                    fromUrl.includes('requests') ? 'Yêu cầu từ Web' : 'Danh sách đặt phòng';
+                    fromUrl.includes('requests') ? 'Yêu cầu từ Web' :
+                    fromUrl.includes('guests') ? 'Quản lý khách hàng' : 'Danh sách đặt phòng';
 
   const handleBack = () => {
     navigate(fromUrl);
