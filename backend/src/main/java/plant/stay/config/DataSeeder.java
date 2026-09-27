@@ -55,6 +55,7 @@ public class DataSeeder implements CommandLineRunner {
     private final NotificationRepository notificationRepository;
     private final SystemBackupRepository systemBackupRepository;
     private final BackupService backupService;
+    private final plant.stay.service.OperationalDataSeederService operationalDataSeederService;
     private final Environment environment;
 
     @Override
@@ -110,43 +111,19 @@ public class DataSeeder implements CommandLineRunner {
         // 10. Seed Channels & ChannelRoomMappings (Kênh OTA)
         seedChannelsAndMappings(roomTypeMap, ownerUser);
 
-        // 11. Seed Full Operational Data NẶNG (Bookings, Usages, Invoices, Payments, Shifts, Ledgers, Cleanings, etc.)
-        // Chỉ chạy khi được bật tường minh bằng cấu hình app.seed.operational-data.enabled=true
+        // 11. Seed Guests nếu chưa có
+        List<Guest> seededGuests = seedGuests(tierMap);
+
+        // 12. Seed Full Operational Data (Bookings, Usages, Invoices, Payments, Shifts, Ledgers, Cleanings, Backup)
+        // Kích hoạt khi app.seed.operational-data.enabled=true
         boolean seedOperationalDataEnabled = false;
         if (environment != null) {
             seedOperationalDataEnabled = Boolean.parseBoolean(environment.getProperty("app.seed.operational-data.enabled", "false"));
         }
 
-        if (!isTest && seedOperationalDataEnabled && bookingRepository.count() <= 3) {
-            log.info("Bật nạp dữ liệu vận hành giả lập (app.seed.operational-data.enabled=true). Bắt đầu khởi tạo dữ liệu hoạt động...");
-            
-            // 11.1 Seed Guests
-            List<Guest> seededGuests = seedGuests(tierMap);
-
-            // 11.2 Seed Bookings, Invoices, Payments, Usages, Shifts, Cleanings, Incidents, Ledgers
-            seedOperationalData(
-                    seededUsers,
-                    allRooms,
-                    extraServices,
-                    seededGuests,
-                    agreements,
-                    adminUser,
-                    ownerUser,
-                    receptionistUser,
-                    receptionistUser2,
-                    housekeeperUser,
-                    housekeeperUser2
-            );
-
-            // 11.3 Tự động kích hoạt sao lưu ban đầu nếu chưa có bản backup nào
-            try {
-                if (systemBackupRepository.count() == 0 && adminUser != null) {
-                    backupService.createBackup(adminUser, "DATABASE_SQL");
-                    log.info("Đã tự động khởi tạo bản sao lưu hệ thống toàn diện ban đầu (.SQL).");
-                }
-            } catch (Exception e) {
-                log.warn("Bỏ qua tự động tạo bản backup khởi đầu: {}", e.getMessage());
-            }
+        if (!isTest && seedOperationalDataEnabled) {
+            log.info("Bật nạp dữ liệu vận hành giả lập (app.seed.operational-data.enabled=true). Bắt đầu tái tạo dữ liệu hoạt động liền mạch & tạo backup...");
+            operationalDataSeederService.reseedOperationalData(adminUser);
         } else {
             log.info("Đã bỏ qua phần nạp dữ liệu vận hành nặng (Bookings, Invoices, Shifts, Ledgers). Các dữ liệu cần thiết (Tài khoản, Phòng, Dịch vụ, Cấu hình) đã được bảo toàn.");
         }
