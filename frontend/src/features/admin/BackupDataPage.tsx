@@ -3,6 +3,8 @@ import {
   IoAlertCircleOutline,
   IoArchiveOutline,
   IoBedOutline,
+  IoBusinessOutline,
+  IoCashOutline,
   IoCheckmarkCircleOutline,
   IoCheckmarkDoneOutline,
   IoChevronDownOutline,
@@ -11,11 +13,13 @@ import {
   IoCloseOutline,
   IoCloudDownloadOutline,
   IoCloudUploadOutline,
+  IoConstructOutline,
   IoCopyOutline,
   IoDocumentOutline,
   IoDocumentTextOutline,
   IoDownloadOutline,
   IoEyeOutline,
+  IoFileTrayFullOutline,
   IoInformationCircleOutline,
   IoLayersOutline,
   IoListOutline,
@@ -43,7 +47,7 @@ import dataApi, { BackupConfig, BackupHistoryItem, ImportResult, RestoreSummary 
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
-// Danh sách các bảng hỗ trợ xuất dữ liệu
+// Danh sách tất cả 12 bảng hỗ trợ xuất dữ liệu (Đảm bảo 100% đối xứng nhập - xuất)
 const EXPORT_ITEMS = [
   {
     type: 'bookings',
@@ -100,27 +104,67 @@ const EXPORT_ITEMS = [
     desc: 'Bao gồm họ tên nhân viên, tài khoản đăng nhập, số điện thoại, email và phân quyền',
     icon: IoPeopleOutline,
     color: 'bg-sky-600'
+  },
+  {
+    type: 'corporate-clients',
+    name: 'Khách Hàng Doanh Nghiệp',
+    desc: 'Bao gồm tên công ty, mã số thuế, người đại diện, số điện thoại, email và địa chỉ',
+    icon: IoBusinessOutline,
+    color: 'bg-cyan-600'
+  },
+  {
+    type: 'lost-items',
+    name: 'Quản Lý Đồ Thất Lạc',
+    desc: 'Bao gồm số phòng, tên đồ vật thất lạc, vị trí nhặt được, ngày tìm thấy và nơi cất giữ',
+    icon: IoFileTrayFullOutline,
+    color: 'bg-orange-600'
+  },
+  {
+    type: 'room-incidents',
+    name: 'Sự Cố & Báo Hỏng Phòng',
+    desc: 'Bao gồm số phòng, mức độ sự cố (nhẹ/nặng/khóa phòng), mô tả hư hỏng và trạng thái',
+    icon: IoConstructOutline,
+    color: 'bg-red-600'
+  },
+  {
+    type: 'deposit-policies',
+    name: 'Chính Sách Đặt Cọc',
+    desc: 'Bao gồm loại phòng áp dụng, tỷ lệ đặt cọc (%) theo đêm và trạng thái kích hoạt',
+    icon: IoCashOutline,
+    color: 'bg-violet-600'
   }
 ];
 
-// Danh sách các loại dữ liệu hỗ trợ nhập nhanh
+// Danh sách các loại dữ liệu hỗ trợ nhập nhanh (Đồng bộ 1-1 với danh sách xuất)
 const IMPORT_TYPES = [
-  { value: 'rooms', label: 'Danh sách Phòng (Số phòng, Tên/Mã loại phòng, Tầng)' },
+  { value: 'rooms', label: 'Danh sách Phòng (Số phòng, Loại phòng, Tầng)' },
   { value: 'guests', label: 'Khách hàng (Tên, SĐT, CCCD/CMND, Email)' },
   { value: 'room-types', label: 'Loại phòng (Tên, Giá cơ bản, Sức chứa, Tiện nghi)' },
   { value: 'extra-services', label: 'Dịch vụ phụ thu (Tên dịch vụ, Đơn giá, Đơn vị tính)' },
   { value: 'inventory', label: 'Kho đồ dùng (Tên đồ dùng, Đơn vị tính, Số lượng tồn, Ngưỡng cảnh báo)' },
-  { value: 'staff', label: 'Danh sách Nhân sự (Họ tên, Tài khoản, SĐT, Email, Vai trò)' }
+  { value: 'staff', label: 'Danh sách Nhân sự (Họ tên, Tài khoản, SĐT, Email, Vai trò)' },
+  { value: 'bookings', label: 'Dữ liệu Đặt phòng (Tên khách, SĐT, Số phòng, Ngày nhận/trả, Giá, Trạng thái)' },
+  { value: 'invoices', label: 'Hóa đơn & Doanh thu (Mã Booking, Tiền phòng, Tiền dịch vụ, Giảm giá, Tổng tiền)' },
+  { value: 'corporate-clients', label: 'Khách hàng Doanh nghiệp (Tên công ty, MST, Người liên hệ, SĐT, Email)' },
+  { value: 'lost-items', label: 'Đồ thất lạc (Số phòng, Tên tài sản, Vị trí tìm thấy, Ngày, Nơi cất giữ)' },
+  { value: 'room-incidents', label: 'Sự cố & Báo hỏng phòng (Số phòng, Mức độ sự cố, Mô tả sự cố, Trạng thái)' },
+  { value: 'deposit-policies', label: 'Chính sách đặt cọc (Loại phòng áp dụng, Tỷ lệ cọc %, Trạng thái)' }
 ];
 
-// File CSV mẫu chuẩn hóa thực tế
+// File CSV mẫu chuẩn hóa thực tế cho tất cả 12 bảng
 const SAMPLE_CSV: Record<string, string> = {
   rooms: "Số phòng,Loại phòng hoặc Mã loại phòng,Tầng\n101,Phòng Tiêu Chuẩn,1\n102,Phòng Tiêu Chuẩn,1\n201,Phòng Cao Cấp VIP,2\n202,Phòng Cao Cấp VIP,2\n301,Phòng Gia Đình,3",
   guests: "Tên khách hàng,Số điện thoại,CCCD,Email\nNguyễn Văn An,0912345678,001234567890,an.nguyen@gmail.com\nTrần Thị Bích,0987654321,001987654321,bich.tran@gmail.com\nLê Hoàng Nam,0901234567,001198765432,nam.le@gmail.com",
   'room-types': "Tên loại phòng,Giá cơ bản,Sức chứa,Mô tả tiện nghi\nPhòng Tiêu Chuẩn,500000,2,\"Giường đôi, TV, Điều hòa, Minibar\"\nPhòng Cao Cấp VIP,1200000,4,\"View biển, Ban công, Bồn tắm massage, TV 65 inch\"\nPhòng Gia Đình,950000,4,\"2 giường lớn, Bếp mini, Bàn làm việc\"",
   'extra-services': "Tên dịch vụ,Đơn giá,Đơn vị tính\nNước ngọt lon,15000,Lon\nBia lon Heineken,25000,Lon\nGiặt là lấy ngay,50000,Kg\nThuê xe máy tay ga,150000,Ngày\nĂn sáng buffet phụ thu,80000,Người",
   inventory: "Tên đồ dùng,Đơn vị tính,Số lượng tồn,Ngưỡng cảnh báo\nKhăn tắm lớn trắng,Cái,60,15\nKhăn mặt,Cái,100,20\nBàn chải & Kem đánh răng,Bộ,150,30\nDầu gội sữa tắm mini,Chai,200,40\nNước khoáng đóng chai 500ml,Chai,120,24",
-  staff: "Họ và tên,Tài khoản,Số điện thoại,Email,Vai trò\nTrần Văn Hoàng,staff_hoang,0912888999,hoang.tran@stayaway.vn,RECEPTIONIST\nLê Thị Mai,staff_mai,0987111222,mai.le@stayaway.vn,HOUSEKEEPING\nPhạm Quốc Cường,staff_cuong,0903444555,cuong.pham@stayaway.vn,ACCOUNTANT"
+  staff: "Họ và tên,Tài khoản,Số điện thoại,Email,Vai trò\nTrần Văn Hoàng,staff_hoang,0912888999,hoang.tran@stayaway.vn,RECEPTIONIST\nLê Thị Mai,staff_mai,0987111222,mai.le@stayaway.vn,HOUSEKEEPING\nPhạm Quốc Cường,staff_cuong,0903444555,cuong.pham@stayaway.vn,ACCOUNTANT",
+  bookings: "Khách hàng,Số điện thoại,Phòng,Loại phòng,Ngày nhận,Ngày trả,Giá dự kiến,Giá thực tế,Trạng thái,Nguồn,Ghi chú\nNguyễn Văn An,0912345678,101,Phòng Tiêu Chuẩn,2026-10-01,2026-10-03,1000000,1000000,CONFIRMED,DIRECT,Khách yêu cầu phòng yên tĩnh tầng cao\nTrần Thị Bích,0987654321,201,Phòng Cao Cấp VIP,2026-10-05,2026-10-08,3600000,3600000,CHECKED_IN,BOOKING_COM,Khách VIP quen thuộc",
+  invoices: "Mã Booking,Tiền phòng,Tiền dịch vụ,Giảm giá,Tổng tiền,Trạng thái,Ghi chú\n1,1000000,150000,50000,1100000,PAID,Đã thanh toán chuyển khoản quét mã VietQR\n2,3600000,0,0,3600000,PENDING_PAYMENT,Chờ thanh toán khi trả phòng",
+  'corporate-clients': "Tên doanh nghiệp / Công ty,Mã số thuế,Người liên hệ,Số điện thoại,Email,Địa chỉ,Ghi chú\nCông ty TNHH Giải Pháp Công Nghệ Số,0109988776,Nguyễn Minh Khang,0909123456,contact@digitaltech.vn,Số 12 Duy Tân, Cầu Giấy, Hà Nội,Hợp đồng đặt phòng định kỳ năm\nTổng Công Ty Du Lịch Miền Trung,0401122334,Phan Thanh Vân,0918776655,van.phan@mientrungtour.vn,78 Bạch Đằng, Hải Châu, Đà Nẵng,Đối tác lữ hành chiến lược",
+  'lost-items': "Số phòng,Tên tài sản / Đồ vật,Vị trí tìm thấy,Ngày tìm thấy,Nơi cất giữ,Trạng thái,Người nhận\n101,Đồng hồ thông minh Apple Watch,Dưới gối phòng ngủ,2026-09-25,Kho két sắt lễ tân,HOLDING,\n201,Tai nghe Bluetooth AirPods Pro,Bàn trang điểm,2026-09-20,Kho két sắt lễ tân,RETURNED,Trần Thị Bích",
+  'room-incidents': "Số phòng,Mức độ sự cố,Mô tả sự cố,Trạng thái\n102,LIGHT,Điều hòa chảy nước nhẹ cần vệ sinh lưới lọc,OPEN\n202,HEAVY,Vòi hoa sen nhà tắm bị rò rỉ nước áp lực yếu,OPEN\n301,LIGHT,Đèn bàn làm việc chập chờn,RESOLVED",
+  'deposit-policies': "Loại phòng áp dụng,Tỷ lệ cọc (%),Trạng thái\nPhòng Tiêu Chuẩn,30,Hoạt động\nPhòng Cao Cấp VIP,50,Hoạt động\nTất cả loại phòng (Mặc định),30,Hoạt động"
 };
 
 export const getImportTypeLabel = (val: string): string => {
@@ -1413,14 +1457,28 @@ const BackupDataPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <Button
-                    onClick={() => handleExportCsv(item.type, item.name)}
-                    isLoading={isDownloading}
-                    icon={IoDownloadOutline}
-                    className="w-full justify-center text-xs py-2"
-                  >
-                    Xuất CSV
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => handleExportCsv(item.type, item.name)}
+                      isLoading={isDownloading}
+                      icon={IoDownloadOutline}
+                      className="flex-1 justify-center text-xs py-2"
+                    >
+                      Xuất CSV
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportType(item.type);
+                        setActiveTab('import');
+                      }}
+                      className="px-3 py-2 rounded-xl border border-border-grey text-on-surface hover:bg-primary-50 hover:text-primary hover:border-primary/40 text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                      title={`Chuyển sang nhập dữ liệu cho ${item.name}`}
+                    >
+                      <IoCloudUploadOutline size={15} className="text-primary" />
+                      <span>Nhập</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1487,19 +1545,31 @@ const BackupDataPage: React.FC = () => {
                 />
               </div>
 
-              {/* Tải file mẫu */}
-              <div className="flex justify-between items-center p-3 bg-surface-container-low rounded-xl border border-border-grey">
+              {/* Tải file mẫu & Xuất dữ liệu hiện có */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-3 bg-surface-container-low rounded-xl border border-border-grey">
                 <div className="text-xs text-on-surface-variant">
-                  <span>Chưa có mẫu cấu trúc chuẩn? Tải file mẫu cấu trúc sẵn:</span>
+                  <span>Mẫu cấu trúc chuẩn & Trích xuất xem trước:</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDownloadSample}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
-                >
-                  <IoDownloadOutline size={14} />
-                  Tải file mẫu ({getImportTypeLabel(importType)})
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDownloadSample}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+                  >
+                    <IoDownloadOutline size={14} />
+                    Tải file mẫu ({getImportTypeLabel(importType)})
+                  </button>
+                  <span className="text-zinc-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => handleExportCsv(importType, getImportTypeLabel(importType))}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+                    title="Xuất bảng này ra CSV để đối chiếu dữ liệu"
+                  >
+                    <IoDocumentTextOutline size={14} />
+                    Xuất CSV hiện có
+                  </button>
+                </div>
               </div>
 
               {/* Bước 2: Kéo thả file CSV */}
