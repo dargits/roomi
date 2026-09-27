@@ -208,8 +208,8 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
             </label>
             <Input
               type="number"
-              min="1000"
-              step="1000"
+              min="0.01"
+              step="any"
               required
               value={amount}
               onChange={(e) => setAmount(e.target.value)}

@@ -586,7 +586,7 @@ const ExtraServiceManagement: React.FC = () => {
               type="number"
               name="unitPrice"
               min="0"
-              step="1000"
+              step="any"
               value={formData.unitPrice}
               onChange={handleInputChange}
               required

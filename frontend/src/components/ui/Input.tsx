@@ -26,6 +26,8 @@ const Input: React.FC<InputProps> = ({
   containerClassName = '',
   sanitize = false,
   onChange,
+  type,
+  step,
   ...props
 }) => {
   const [securityWarning, setSecurityWarning] = React.useState('');
@@ -46,6 +48,7 @@ const Input: React.FC<InputProps> = ({
   };
 
   const displayedError = error || securityWarning;
+  const effectiveStep = type === 'number' && step === undefined ? 'any' : step;
 
   return (
     <div className={containerClassName}>
@@ -63,6 +66,8 @@ const Input: React.FC<InputProps> = ({
         )}
 
         <input
+          type={type}
+          step={effectiveStep}
           className={`w-full h-[42px] py-2.5 px-3.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] placeholder:text-slate-400 transition-all ${
             Icon ? 'pl-10 pr-4' : 'px-3.5'
           } ${displayedError ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-slate-300'} ${className}`}
