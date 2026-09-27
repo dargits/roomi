@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { IoBarChartOutline, IoDownloadOutline, IoGridOutline, IoPricetagOutline, IoSearchOutline } from 'react-icons/io5';
 import reportApi from '../../services/reportApi';
 import { useAuth } from '../../context/AuthContext';
@@ -187,14 +187,39 @@ const OccupancyReport: React.FC = () => {
     );
   }
 
-  const handleSearch = async () => {
-    if (!from || !to)  { setError('Vui lòng chọn đủ khoảng thời gian.'); return; }
-    if (from > to)     { setError('Ngày bắt đầu phải trước ngày kết thúc.'); return; }
+  const applyPreset = (preset: 'today' | 'last7' | 'thisMonth' | 'lastMonth') => {
+    const now = new Date();
+    let f = '';
+    let t = now.toISOString().split('T')[0];
+
+    if (preset === 'today') {
+      f = t;
+    } else if (preset === 'last7') {
+      const d = new Date();
+      d.setDate(d.getDate() - 6);
+      f = d.toISOString().split('T')[0];
+    } else if (preset === 'thisMonth') {
+      f = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    } else if (preset === 'lastMonth') {
+      f = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+      t = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    }
+
+    setFrom(f);
+    setTo(t);
+    handleSearch(f, t);
+  };
+
+  const handleSearch = async (overrideFrom?: string, overrideTo?: string) => {
+    const qFrom = overrideFrom ?? from;
+    const qTo = overrideTo ?? to;
+    if (!qFrom || !qTo)  { setError('Vui lòng chọn đủ khoảng thời gian.'); return; }
+    if (qFrom > qTo)     { setError('Ngày bắt đầu phải trước ngày kết thúc.'); return; }
     setError(null);
     setLoading(true);
     setSearched(true);
     try {
-      const result = await reportApi.getOccupancyReport(from, to);
+      const result = await reportApi.getOccupancyReport(qFrom, qTo);
       setData(result);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Không thể tải báo cáo. Vui lòng kiểm tra kết nối.');
@@ -203,6 +228,13 @@ const OccupancyReport: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (hasAccess) {
+      handleSearch(firstDay, lastDay);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAccess]);
 
   const overallRate  = parseRate(data?.occupancyRate);
   const totalRooms   = data?.totalRooms   ?? null;
@@ -229,16 +261,51 @@ const OccupancyReport: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* ── Filter ── */}
-      <div className="bg-surface-container-lowest border border-border-grey rounded-2xl p-5 shadow-xs">
-        <h3 className="font-title-lg text-on-surface mb-4 flex items-center gap-2">
-          <IoBarChartOutline size={20} className="text-primary" />
-          Bộ lọc báo cáo công suất phòng
-        </h3>
+      <div className="bg-surface-container-lowest border border-border-grey rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-grey pb-3">
+          <h3 className="font-title-lg text-on-surface flex items-center gap-2">
+            <IoBarChartOutline size={20} className="text-primary" />
+            Bộ lọc báo cáo công suất phòng
+          </h3>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-on-surface-variant mr-1 font-medium">Chọn nhanh:</span>
+            <button
+              type="button"
+              onClick={() => applyPreset('today')}
+              className="px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-medium transition-colors"
+            >
+              Hôm nay
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('last7')}
+              className="px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-medium transition-colors"
+            >
+              7 ngày qua
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('thisMonth')}
+              className="px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-medium transition-colors"
+            >
+              Tháng này
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('lastMonth')}
+              className="px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-medium transition-colors"
+            >
+              Tháng trước
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
           <Input label="Từ ngày" type="date" value={from} onChange={e => setFrom(e.target.value)} />
           <Input label="Đến ngày" type="date" value={to} onChange={e => setTo(e.target.value)} />
           <div className="flex flex-col gap-2">
-            <Button onClick={handleSearch} isLoading={loading} icon={IoSearchOutline}>
+            <Button onClick={() => handleSearch()} isLoading={loading} icon={IoSearchOutline}>
               Xem báo cáo
             </Button>
             {rows.length > 0 && (

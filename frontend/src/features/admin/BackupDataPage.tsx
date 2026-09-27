@@ -328,11 +328,11 @@ const BackupDataPage: React.FC = () => {
       setExportProgress((prev) =>
         prev && prev.targetType === 'full_zip'
           ? {
-              ...prev,
-              stage: 'format',
-              percent: 50,
-              statusMessage: 'Đang tạo database_dump.sql và đóng gói 15 tệp CSV...'
-            }
+            ...prev,
+            stage: 'format',
+            percent: 50,
+            statusMessage: 'Đang tạo database_dump.sql và đóng gói 15 tệp CSV...'
+          }
           : prev
       );
     }, 400);
@@ -341,11 +341,11 @@ const BackupDataPage: React.FC = () => {
       setExportProgress((prev) =>
         prev && prev.targetType === 'full_zip'
           ? {
-              ...prev,
-              stage: 'format',
-              percent: 75,
-              statusMessage: 'Đang nén luồng ZIP và tạo chữ ký xác thực SHA-256...'
-            }
+            ...prev,
+            stage: 'format',
+            percent: 75,
+            statusMessage: 'Đang nén luồng ZIP và tạo chữ ký xác thực SHA-256...'
+          }
           : prev
       );
     }, 900);
@@ -355,11 +355,11 @@ const BackupDataPage: React.FC = () => {
         setExportProgress((prev) =>
           prev && prev.targetType === 'full_zip'
             ? {
-                ...prev,
-                stage: 'download',
-                percent: Math.max(80, Math.min(98, percent)),
-                statusMessage: `Đang tải gói ZIP về máy khách (${percent}%)...`
-              }
+              ...prev,
+              stage: 'download',
+              percent: Math.max(80, Math.min(98, percent)),
+              statusMessage: `Đang tải gói ZIP về máy khách (${percent}%)...`
+            }
             : prev
         );
       });
@@ -416,10 +416,10 @@ const BackupDataPage: React.FC = () => {
         setExportProgress((prev) =>
           prev && prev.targetType === `backup_${item.id}`
             ? {
-                ...prev,
-                percent: Math.max(25, percent),
-                statusMessage: `Đang tải xuống (${percent}%)...`
-              }
+              ...prev,
+              percent: Math.max(25, percent),
+              statusMessage: `Đang tải xuống (${percent}%)...`
+            }
             : prev
         );
       });
@@ -659,11 +659,11 @@ const BackupDataPage: React.FC = () => {
         setExportProgress((prev) =>
           prev && prev.targetType === type
             ? {
-                ...prev,
-                stage: 'download',
-                percent: Math.max(40, Math.min(95, percent)),
-                statusMessage: `Đang truyền tải tệp (${percent}%)...`
-              }
+              ...prev,
+              stage: 'download',
+              percent: Math.max(40, Math.min(95, percent)),
+              statusMessage: `Đang truyền tải tệp (${percent}%)...`
+            }
             : prev
         );
       });
@@ -1282,11 +1282,10 @@ const BackupDataPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              item.status === 'SUCCESS'
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'SUCCESS'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : 'bg-red-50 text-red-700 border border-red-200'
-                            }`}
+                              }`}
                           >
                             {item.status === 'SUCCESS' ? 'Thành công' : 'Thất bại'}
                           </span>
@@ -1524,13 +1523,12 @@ const BackupDataPage: React.FC = () => {
                       toastWarning('Vui lòng chỉ tải lên tệp định dạng .csv');
                     }
                   }}
-                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
-                    isDragging
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${isDragging
                       ? 'border-primary bg-primary-50/40'
                       : selectedFile
-                      ? 'border-emerald-400 bg-emerald-50/20'
-                      : 'border-border-grey bg-surface-container-low/50 hover:bg-surface-container-low'
-                  }`}
+                        ? 'border-emerald-400 bg-emerald-50/20'
+                        : 'border-border-grey bg-surface-container-low/50 hover:bg-surface-container-low'
+                    }`}
                   onClick={() => document.getElementById('csv-file-input')?.click()}
                 >
                   <input
@@ -1622,13 +1620,12 @@ const BackupDataPage: React.FC = () => {
                       return (
                         <React.Fragment key={step.idx}>
                           <span
-                            className={`flex items-center gap-1 ${
-                              isDone
+                            className={`flex items-center gap-1 ${isDone
                                 ? 'text-emerald-700 font-semibold'
                                 : isCurrent
-                                ? 'text-primary font-bold'
-                                : 'text-zinc-400'
-                            }`}
+                                  ? 'text-primary font-bold'
+                                  : 'text-zinc-400'
+                              }`}
                           >
                             {isDone ? (
                               <IoCheckmarkCircleOutline size={13} className="text-emerald-600" />
@@ -1665,11 +1662,10 @@ const BackupDataPage: React.FC = () => {
             {/* Kết Quả Nhập (Nếu có) */}
             {importResult && (
               <div
-                className={`p-5 rounded-2xl border shadow-xs space-y-4 animate-in fade-in duration-200 ${
-                  importResult.success || (importResult.importedCount > 0)
+                className={`p-5 rounded-2xl border shadow-xs space-y-4 animate-in fade-in duration-200 ${importResult.success || (importResult.importedCount > 0)
                     ? 'bg-emerald-50/50 border-emerald-200'
                     : 'bg-red-50/50 border-red-200'
-                }`}
+                  }`}
               >
                 <div className="flex items-start gap-3">
                   {importResult.importedCount > 0 ? (
@@ -1760,11 +1756,10 @@ const BackupDataPage: React.FC = () => {
                         {importResult.details.map((detail, idx) => (
                           <div
                             key={idx}
-                            className={`p-1.5 rounded ${
-                              detail.includes('Lỗi')
+                            className={`p-1.5 rounded ${detail.includes('Lỗi')
                                 ? 'bg-red-50 text-red-800'
                                 : 'bg-amber-50 text-amber-800'
-                            }`}
+                              }`}
                           >
                             {detail}
                           </div>
@@ -1922,11 +1917,10 @@ const BackupDataPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRestoreSource('server')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                  restoreSource === 'server'
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${restoreSource === 'server'
                     ? 'border-primary bg-primary-50/50 text-primary'
                     : 'border-border-grey bg-white text-on-surface-variant hover:bg-zinc-50'
-                }`}
+                  }`}
               >
                 <IoServerOutline size={16} />
                 <span>Bản sao lưu trên Server</span>
@@ -1935,11 +1929,10 @@ const BackupDataPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRestoreSource('upload')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                  restoreSource === 'upload'
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${restoreSource === 'upload'
                     ? 'border-primary bg-primary-50/50 text-primary'
                     : 'border-border-grey bg-white text-on-surface-variant hover:bg-zinc-50'
-                }`}
+                  }`}
               >
                 <IoCloudUploadOutline size={16} />
                 <span>Tải file từ máy tính</span>
@@ -2022,13 +2015,12 @@ const BackupDataPage: React.FC = () => {
         title={
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                importing
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${importing
                   ? 'bg-primary-50 text-primary border border-primary/20'
                   : importResult && (importResult.importedCount > 0 || importResult.success)
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-red-50 text-red-700 border border-red-200'
-              }`}
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}
             >
               {importing ? (
                 <IoSyncOutline className="animate-spin" size={20} />
@@ -2129,13 +2121,12 @@ const BackupDataPage: React.FC = () => {
                 return (
                   <div
                     key={step.idx}
-                    className={`p-2 rounded-xl border transition-all ${
-                      isDone
+                    className={`p-2 rounded-xl border transition-all ${isDone
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                         : isCurrent
-                        ? 'bg-primary-50 border-primary/40 text-primary font-bold shadow-2xs'
-                        : 'bg-surface-container-low border-border-grey/50 text-zinc-400'
-                    }`}
+                          ? 'bg-primary-50 border-primary/40 text-primary font-bold shadow-2xs'
+                          : 'bg-surface-container-low border-border-grey/50 text-zinc-400'
+                      }`}
                   >
                     <div className="flex items-center justify-center mb-1">
                       {isDone ? (
@@ -2169,9 +2160,8 @@ const BackupDataPage: React.FC = () => {
 
             <div className="w-full h-3 bg-zinc-100 rounded-full overflow-hidden border border-border-grey/60 p-0.5">
               <div
-                className={`h-full rounded-full transition-all duration-300 ease-out ${
-                  importProgress?.percent === 100 ? 'bg-emerald-600' : 'bg-primary'
-                }`}
+                className={`h-full rounded-full transition-all duration-300 ease-out ${importProgress?.percent === 100 ? 'bg-emerald-600' : 'bg-primary'
+                  }`}
                 style={{ width: `${importProgress?.percent || (importing ? 15 : 100)}%` }}
               />
             </div>
@@ -2188,11 +2178,10 @@ const BackupDataPage: React.FC = () => {
           {importResult && (
             <div className="space-y-3 pt-3 border-t border-border-grey animate-in fade-in duration-200">
               <div
-                className={`p-4 rounded-xl border flex items-start gap-3 ${
-                  importResult.importedCount > 0 || importResult.success
+                className={`p-4 rounded-xl border flex items-start gap-3 ${importResult.importedCount > 0 || importResult.success
                     ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
                     : 'bg-red-50/70 border-red-200 text-red-900'
-                }`}
+                  }`}
               >
                 {importResult.importedCount > 0 || importResult.success ? (
                   <IoCheckmarkCircleOutline size={24} className="text-emerald-600 shrink-0 mt-0.5" />
@@ -2332,9 +2321,8 @@ const BackupDataPage: React.FC = () => {
           {/* Thanh tiến độ mảnh & thanh thoát */}
           <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-300 ease-out ${
-                exportProgress.stage === 'done' ? 'bg-emerald-600' : 'bg-primary'
-              }`}
+              className={`h-full rounded-full transition-all duration-300 ease-out ${exportProgress.stage === 'done' ? 'bg-emerald-600' : 'bg-primary'
+                }`}
               style={{ width: `${exportProgress.percent}%` }}
             />
           </div>
