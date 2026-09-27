@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   IoCalendarOutline, IoPersonOutline, IoRefreshOutline, IoSearchOutline, 
   IoServerOutline, IoShieldOutline, IoChevronBackOutline, IoChevronForwardOutline 
@@ -107,6 +107,13 @@ const ActivityLog: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (hasAccess) {
+      handleSearch(0, size);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAccess]);
 
   const handleFilterChange = (field: string, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
