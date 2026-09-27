@@ -21,6 +21,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -89,6 +90,20 @@ public class DepositController {
             booking.getStatus() == BookingStatus.CANCELLED ||
             booking.getStatus() == BookingStatus.NO_SHOW) {
             throw new IllegalArgumentException("Không thể thu cọc cho đặt phòng ở trạng thái " + booking.getStatus());
+        }
+
+        // Không cho phép thu cọc nếu hóa đơn đã được thanh toán hoàn tất (PAID)
+        Optional<Invoice> existingInvoice = invoiceRepo.findByBookingId(bookingId);
+        if (existingInvoice.isPresent() && existingInvoice.get().getStatus() == InvoiceStatus.PAID) {
+            throw new IllegalArgumentException("Hóa đơn của đặt phòng này đã được thanh toán hoàn tất (PAID). Không thể thu thêm tiền đặt cọc.");
+        }
+
+        if (booking.getGroupBooking() != null) {
+            List<Invoice> groupInvoices = invoiceRepo.findByGroupBookingIdOrderByIdAsc(booking.getGroupBooking().getId());
+            boolean allGroupPaid = !groupInvoices.isEmpty() && groupInvoices.stream().allMatch(inv -> inv.getStatus() == InvoiceStatus.PAID);
+            if (allGroupPaid) {
+                throw new IllegalArgumentException("Hóa đơn của đoàn này đã được thanh toán hoàn tất (PAID). Không thể thu thêm tiền đặt cọc.");
+            }
         }
 
         // Kiểm tra xem đặt phòng này đã được thu cọc trước đó chưa
@@ -167,6 +182,11 @@ public class DepositController {
         User actor = checkReceptionistOrOwner(request);
         Deposit deposit = findDeposit(bookingId);
 
+        Optional<Invoice> existingInvoice = invoiceRepo.findByBookingId(bookingId);
+        if (existingInvoice.isPresent() && existingInvoice.get().getStatus() == InvoiceStatus.PAID) {
+            throw new IllegalArgumentException("Hóa đơn đã được thanh toán hoàn tất (PAID). Không thể hoàn cọc qua luồng hủy phòng.");
+        }
+
         BigDecimal fee = calculateCancellationFee(deposit.getBooking());
         BigDecimal collected = deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
         BigDecimal refund = collected.subtract(fee).max(BigDecimal.ZERO);
@@ -194,6 +214,11 @@ public class DepositController {
                                                           HttpServletRequest request) {
         User actor = checkReceptionistOrOwner(request);
         Deposit deposit = findDeposit(bookingId);
+
+        Optional<Invoice> existingInvoice = invoiceRepo.findByBookingId(bookingId);
+        if (existingInvoice.isPresent() && existingInvoice.get().getStatus() == InvoiceStatus.PAID) {
+            throw new IllegalArgumentException("Hóa đơn đã được thanh toán hoàn tất (PAID). Không thể xử lý no-show.");
+        }
         BigDecimal collected = deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
 
         // QTN-20: Mặc định toàn bộ cọc thành phí phạt; OWNER có thể override

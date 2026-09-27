@@ -5,12 +5,13 @@ import {
   IoReceiptOutline, IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline
 } from 'react-icons/io5';
 import { depositApi } from '../../services/depositApi';
+import { invoiceApi } from '../../services/invoiceApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
 import { useToast } from '../../context/ToastContext';
-import { DepositResponse, DepositPolicyResponse, BookingResponse } from '../../types';
+import { DepositResponse, DepositPolicyResponse, BookingResponse, InvoiceResponse } from '../../types';
 
 interface DepositTabProps {
   bookingId: number;
@@ -66,6 +67,17 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
 
   const [actionMsg, setActionMsg] = useState({ type: '', text: '' });
 
+  const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
+
+  const fetchInvoice = async () => {
+    try {
+      const data = await invoiceApi.getInvoiceByBooking(bookingId);
+      setInvoice(data || null);
+    } catch {
+      setInvoice(null);
+    }
+  };
+
   const fetchPolicies = async () => {
     setPolicyLoading(true);
     try {
@@ -95,6 +107,7 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
     if (bookingId) {
       fetchDeposits();
       fetchPolicies();
+      fetchInvoice();
     }
   }, [bookingId]);
 
@@ -132,7 +145,13 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
   const transferCode = `COC-${String(bookingId || '').padStart(5, '0')}`;
   const qrImageUrl = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=BAN%20HUU%20SU`;
 
+  const isInvoicePaid = invoice?.status === 'PAID' || booking?.paymentStatus === 'PAID';
+
   const openRecordModal = () => {
+    if (isInvoicePaid) {
+      setActionMsg({ type: 'error', text: 'Hóa đơn đã được thanh toán hoàn tất. Không thể thu thêm tiền đặt cọc.' });
+      return;
+    }
     const suggested = calculateSuggestedDeposit();
     const initAmount = suggested != null ? String(suggested) : '';
     setRecordForm({
@@ -242,11 +261,12 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
   );
   const canRecord_deposit = canRecord &&
     !['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(booking?.status) &&
-    !hasCollectedDeposit;
-  const canRefund = canRecord && latestDeposit &&
+    !hasCollectedDeposit &&
+    !isInvoicePaid;
+  const canRefund = !isInvoicePaid && canRecord && latestDeposit &&
     ['COLLECTED', 'SHORT_PAID'].includes(latestDeposit.status) &&
     ['CANCELLED', 'NO_SHOW'].includes(booking?.status) === false;
-  const canNoShow = canRecord && latestDeposit &&
+  const canNoShow = !isInvoicePaid && canRecord && latestDeposit &&
     ['COLLECTED', 'SHORT_PAID'].includes(latestDeposit.status) &&
     booking?.status === 'NO_SHOW';
 
@@ -270,7 +290,12 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
             <IoCashOutline size={18} className="text-primary" /> Thông tin đặt cọc
           </h4>
           <div className="flex items-center gap-2">
-            {hasCollectedDeposit && latestDeposit?.status === 'COLLECTED' && (
+            {isInvoicePaid && (
+              <span className="px-2.5 py-1 bg-blue-100 text-blue-900 rounded-md font-semibold text-xs flex items-center gap-1">
+                <IoCheckmarkCircleOutline size={14} className="text-blue-700" /> Hóa đơn đã thanh toán
+              </span>
+            )}
+            {hasCollectedDeposit && latestDeposit?.status === 'COLLECTED' && !isInvoicePaid && (
               <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-md font-semibold text-xs flex items-center gap-1">
                 <IoCheckmarkCircleOutline size={14} className="text-green-700" /> Đã thu đủ tiền cọc
               </span>
@@ -309,13 +334,31 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
           </div>
         </div>
 
+        {isInvoicePaid && (
+          <div className="mb-4 p-3.5 bg-blue-50/90 border border-blue-200 rounded-xl flex items-start gap-2.5 text-blue-900 text-xs">
+            <IoCheckmarkCircleOutline size={20} className="text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm text-blue-950">
+                Hóa đơn đã được thanh toán hoàn tất ({invoice?.totalAmount ? fmt(invoice.totalAmount) : 'ĐÃ THANH TOÁN'})
+              </p>
+              <p className="text-blue-800 mt-0.5">
+                Đặt phòng này đã hoàn tất thanh toán toàn bộ chi phí lưu trú trước khi trả phòng. Hệ thống khóa chức năng thu tiền cọc để tránh phát sinh thu thừa tiền của khách hàng.
+              </p>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-8 text-on-surface-variant text-sm">Đang tải...</div>
         ) : deposits.length === 0 ? (
           <div className="text-center py-8 text-on-surface-variant">
             <IoCashOutline size={36} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">Chưa có khoản đặt cọc nào cho đặt phòng này.</p>
-            {canRecord_deposit && (
+            {isInvoicePaid ? (
+              <p className="text-xs text-green-700 font-medium mt-1">
+                ✓ Khách đã thanh toán đủ toàn bộ hóa đơn. Không cần thu tiền đặt cọc.
+              </p>
+            ) : canRecord_deposit ? (
               <div className="mt-2 space-y-1">
                 {applicablePolicy && (
                   <p className="text-xs text-primary font-medium">
@@ -327,7 +370,7 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
                   Nhấn <strong>Thu tiền cọc</strong> để tự động tính và ghi nhận.
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="space-y-3">
@@ -435,8 +478,8 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
             <Input
               label="Số tiền cọc thực thu (VNĐ)"
               type="number"
-              min="1000"
-              step="1000"
+              min="1"
+              step="any"
               value={recordForm.amount}
               onChange={e => handleAmountChange(e.target.value)}
               placeholder="VD: 500000"

@@ -515,8 +515,8 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex flex-wrap justify-center gap-2">
-                      {/* Nút Thu cọc: Chỉ hiện khi CHƯA thu đủ cọc */}
-                      {!group.depositPaid && group.status !== 'CANCELLED' && group.status !== 'COMPLETED' && (
+                      {/* Nút Thu cọc: Chỉ hiện khi CHƯA thu đủ cọc và chưa thanh toán hóa đơn */}
+                      {!group.depositPaid && group.status !== 'CANCELLED' && group.status !== 'COMPLETED' && group.invoiceStatus !== 'PAID' && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -922,7 +922,7 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                             <label className="block text-xs font-semibold text-on-surface-variant mb-1">
                               Số tiền thanh toán (VNĐ) <span className="text-red-500">*</span>
                             </label>
-                            <Input type="number" min="1000" step="1000" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+                            <Input type="number" min="1" step="any" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-on-surface-variant mb-1">Phương thức</label>

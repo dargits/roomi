@@ -35,9 +35,10 @@ interface BookingInvoiceTabProps {
   status?: string;
   booking?: any;
   onPrintInvoice?: (invoice: any) => void;
+  onRefresh?: () => void;
 }
 
-const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status, booking, onPrintInvoice }) => {
+const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status, booking, onPrintInvoice, onRefresh }) => {
   const { user } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
   const [invoice, setInvoice] = useState<any>(null);
@@ -119,6 +120,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
       await invoiceApi.createInvoice(bookingId);
       toastSuccess("Tạo hóa đơn thành công!");
       fetchInvoiceData();
+      onRefresh?.();
     } catch (error) {
       toastError(error.response?.data?.message || error.message || "Lỗi lập hóa đơn");
     } finally {
@@ -143,6 +145,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
       }
       setShowProvisionalDiscountModal(false);
       fetchInvoiceData();
+      onRefresh?.();
       return { success: true };
     } catch (error) {
       toastError(error.response?.data?.message || error.message || "Lỗi lập hóa đơn");
@@ -221,13 +224,16 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     const enteredAmount = parseFloat(newPayment.amount);
-    const receivedAmount = parseFloat(receivedCash);
-    const paymentAmount = newPayment.paymentMethod === 'CASH'
-      ? Math.min(receivedAmount, remainingAmount)
-      : Math.min(enteredAmount, remainingAmount);
+    const receivedAmount = parseFloat(receivedCash) || enteredAmount;
+    const paymentAmount = Math.min(enteredAmount, remainingAmount);
 
     if (!paymentAmount || paymentAmount <= 0) {
-      toastError('Vui lòng nhập số tiền khách đã thanh toán.');
+      toastError('Vui lòng nhập số tiền thanh toán hợp lệ.');
+      return;
+    }
+
+    if (newPayment.paymentMethod === 'CASH' && receivedAmount < paymentAmount) {
+      toastError('Số tiền khách đưa chưa đủ để thanh toán.');
       return;
     }
 
@@ -245,6 +251,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
       setShowPaymentForm(false);
       setNewPayment({ amount: '', paymentMethod: 'CASH', note: '' });
       await fetchInvoiceData();
+      onRefresh?.();
       if (isShortPayment) setShowDebtCheckoutModal(true);
     } catch (error) {
       toastError(error.response?.data?.message || error.message || "Lỗi ghi nhận thanh toán");
@@ -830,9 +837,9 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
                       </div>
                       <Input
                         type="number"
-                        min="1000"
+                        min="1"
                         max={remainingAmount}
-                        step="1000"
+                        step="any"
                         value={newPayment.amount}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -875,7 +882,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
                                   onClick={() => handleSetAmount(val50, remainingAmount)}
                                   className={getChipClass(is50Active)}
                                 >
-                                  50% ({Math.round(val50 / 1000).toLocaleString()}k)
+                                  50% ({val50 % 1000 === 0 ? `${(val50 / 1000).toLocaleString('vi-VN')}k` : `${val50.toLocaleString('vi-VN')} đ`})
                                 </button>
                               )}
                               {remainingAmount >= 500000 && (
@@ -925,7 +932,8 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
 
                         <Input
                           type="number"
-                          step="1000"
+                          min="0"
+                          step="any"
                           value={receivedCash}
                           onChange={(e) => setReceivedCash(e.target.value)}
                           placeholder="Nhập số tiền khách đưa..."
@@ -940,7 +948,11 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
                               onClick={() => setReceivedCash(String(preset))}
                               className={`px-2 py-0.5 rounded text-xs border transition-colors cursor-pointer ${currentReceivedCash === preset ? 'bg-primary text-white border-primary font-bold' : 'bg-surface-container-low text-on-surface border-border-grey hover:bg-surface-container'}`}
                             >
-                              {preset === currentPayAmount ? `Đủ tiền (${(preset / 1000).toLocaleString()}k)` : `${(preset / 1000).toLocaleString()}k`}
+                              {preset === currentPayAmount
+                                ? `Đủ tiền (${preset.toLocaleString('vi-VN')} đ)`
+                                : preset % 1000 === 0
+                                ? `${(preset / 1000).toLocaleString('vi-VN')}k`
+                                : `${preset.toLocaleString('vi-VN')} đ`}
                             </button>
                           ))}
                         </div>
@@ -1076,9 +1088,9 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
           <Input
             label="Số tiền giảm trừ / điều chỉnh (VNĐ)"
             type="number"
-            min="1000"
+            min="1"
             max={invoice.totalAmount}
-            step="1000"
+            step="any"
             value={adjustData.discountAmount}
             onChange={(e) => setAdjustData({ ...adjustData, discountAmount: e.target.value })}
             placeholder="Ví dụ: 100000"

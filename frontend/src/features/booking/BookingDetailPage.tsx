@@ -488,6 +488,7 @@ const BookingDetailPage: React.FC = () => {
               status={booking.status} 
               booking={booking}
               onPrintInvoice={(inv) => setPrintingInvoice(inv)}
+              onRefresh={fetchBookingDetails}
             />
           )}
 

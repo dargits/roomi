@@ -343,6 +343,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                 status={booking.status} 
                 booking={booking}
                 onPrintInvoice={(inv) => setPrintingInvoice(inv)}
+                onRefresh={fetchBookingDetails}
               />
             )}
 
