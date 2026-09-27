@@ -221,6 +221,7 @@ const BackupDataPage: React.FC = () => {
   const [config, setConfig] = useState<BackupConfig | null>(null);
   const [loadingBackups, setLoadingBackups] = useState<boolean>(false);
   const [creatingBackup, setCreatingBackup] = useState<boolean>(false);
+  const [reseedingData, setReseedingData] = useState<boolean>(false);
   const [instantDownloading, setInstantDownloading] = useState<boolean>(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -354,6 +355,22 @@ const BackupDataPage: React.FC = () => {
       toastError('Lỗi tạo sao lưu: ' + (err.response?.data?.message || err.message));
     } finally {
       setCreatingBackup(false);
+    }
+  };
+
+  const handleReseedSampleData = async () => {
+    if (!window.confirm('Hành động này sẽ làm sạch các dữ liệu vận hành cũ và tái tạo lại toàn bộ dữ liệu mẫu chuẩn chỉ từ tháng 01/2026 đến nay (bao gồm Bookings, Hóa đơn, Thanh toán, Ca trực, Sổ cái, Dọn phòng, Sự cố, Đồ thất lạc) và tự động tạo bản sao lưu .ZIP mới. Bạn có chắc chắn muốn thực hiện?')) {
+      return;
+    }
+    setReseedingData(true);
+    try {
+      const res = await dataApi.reseedSampleData();
+      toastSuccess(`Tái tạo thành công: ${res.bookingsCount} lượt đặt phòng, ${res.invoicesCount} hóa đơn, ${res.cashierShiftsCount} ca trực, ${res.cleaningsCount} nhật ký dọn phòng. Đã tự động tạo bản backup: ${res.backupFile}`);
+      fetchBackupsAndConfig();
+    } catch (err: any) {
+      toastError('Lỗi tái tạo dữ liệu mẫu: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setReseedingData(false);
     }
   };
 
@@ -1102,6 +1119,18 @@ const BackupDataPage: React.FC = () => {
                 >
                   <IoSaveOutline size={16} className={creatingBackup ? 'animate-spin' : ''} />
                   <span>{creatingBackup ? 'Đang tạo...' : 'Tạo Bản Sao Lưu Server'}</span>
+                </button>
+
+                {/* Nút: Tái tạo dữ liệu mẫu chuẩn (từ 01/2026 đến nay) */}
+                <button
+                  type="button"
+                  onClick={handleReseedSampleData}
+                  disabled={reseedingData}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white font-semibold text-xs border border-purple-400/40 backdrop-blur-sm transition-all cursor-pointer shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                  title="Tái tạo lại bộ dữ liệu vận hành chuẩn chỉ từ 01/2026 đến nay và tự động tạo bản sao lưu .ZIP mới"
+                >
+                  <IoSparklesOutline size={16} className={reseedingData ? 'animate-spin' : ''} />
+                  <span>{reseedingData ? 'Đang tái tạo...' : 'Tái Tạo Dữ Liệu Mẫu'}</span>
                 </button>
 
                 {/* Nút 3: Khôi phục */}
