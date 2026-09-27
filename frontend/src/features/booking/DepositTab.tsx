@@ -5,6 +5,7 @@ import {
   IoReceiptOutline, IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline
 } from 'react-icons/io5';
 import { depositApi } from '../../services/depositApi';
+import { invoiceApi } from '../../services/invoiceApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -36,6 +37,7 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
   const canRecord = ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
 
   const [deposits, setDeposits] = useState<DepositResponse[]>([]);
+  const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [, setCancellationFee] = useState<any>(null);
   const [, setFeeLoading] = useState<boolean>(false);
@@ -91,10 +93,20 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
     }
   };
 
+  const fetchInvoice = async () => {
+    try {
+      const data = await invoiceApi.getInvoiceByBooking(bookingId);
+      setInvoice(data);
+    } catch {
+      setInvoice(null);
+    }
+  };
+
   useEffect(() => {
     if (bookingId) {
       fetchDeposits();
       fetchPolicies();
+      fetchInvoice();
     }
   }, [bookingId]);
 
@@ -132,7 +144,16 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
   const transferCode = `COC-${String(bookingId || '').padStart(5, '0')}`;
   const qrImageUrl = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=BAN%20HUU%20SU`;
 
+  const isInvoicePaid = invoice?.status === 'PAID' || booking?.invoiceStatus === 'PAID';
+
   const openRecordModal = () => {
+    if (isInvoicePaid) {
+      setActionMsg({
+        type: 'error',
+        text: 'Hóa đơn đặt phòng này đã được thanh toán hoàn tất (PAID). Không thể thu thêm tiền cọc.'
+      });
+      return;
+    }
     const suggested = calculateSuggestedDeposit();
     const initAmount = suggested != null ? String(suggested) : '';
     setRecordForm({
@@ -201,6 +222,10 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
   };
 
   const handleRefund = async () => {
+    if (isInvoicePaid) {
+      setRefundError('Hóa đơn đặt phòng này đã được thanh toán hoàn tất (PAID). Không thể hoàn tiền cọc sau khi đã quyết toán.');
+      return;
+    }
     setRefundLoading(true); setRefundError('');
     try {
       await depositApi.refundDeposit(bookingId, { reason: refundReason });
@@ -242,13 +267,16 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
   );
   const canRecord_deposit = canRecord &&
     !['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(booking?.status) &&
-    !hasCollectedDeposit;
+    !hasCollectedDeposit &&
+    !isInvoicePaid;
   const canRefund = canRecord && latestDeposit &&
     ['COLLECTED', 'SHORT_PAID'].includes(latestDeposit.status) &&
-    ['CANCELLED', 'NO_SHOW'].includes(booking?.status) === false;
+    ['CANCELLED', 'NO_SHOW'].includes(booking?.status) === false &&
+    !isInvoicePaid;
   const canNoShow = canRecord && latestDeposit &&
     ['COLLECTED', 'SHORT_PAID'].includes(latestDeposit.status) &&
-    booking?.status === 'NO_SHOW';
+    booking?.status === 'NO_SHOW' &&
+    !isInvoicePaid;
 
   return (
     <div className="space-y-5">
@@ -263,6 +291,14 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
           </button>
         </div>
       )}
+      {isInvoicePaid && (
+        <div className="p-3.5 bg-emerald-50/80 border border-emerald-300 text-emerald-900 rounded-xl text-xs flex items-center gap-2.5">
+          <IoReceiptOutline size={20} className="text-emerald-700 shrink-0" />
+          <div className="leading-relaxed">
+            <strong>Hóa đơn đã quyết toán hoàn tất:</strong> Toàn bộ chi phí của đặt phòng đã được thanh toán xong (PAID). Tính năng thu thêm tiền cọc và hoàn cọc tự động khóa để bảo đảm tính chuẩn xác của chứng từ kế toán.
+          </div>
+        </div>
+      )}
 
       <div className="bg-surface-container-lowest rounded border border-border-grey p-5">
         <div className="flex items-center justify-between mb-4 border-b border-border-grey pb-3">
@@ -270,7 +306,12 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
             <IoCashOutline size={18} className="text-primary" /> Thông tin đặt cọc
           </h4>
           <div className="flex items-center gap-2">
-            {hasCollectedDeposit && latestDeposit?.status === 'COLLECTED' && (
+            {isInvoicePaid && (
+              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-md font-semibold text-xs flex items-center gap-1.5 shadow-2xs">
+                <IoReceiptOutline size={14} className="text-emerald-700" /> Hóa đơn đã thanh toán (Đã khóa thu/hoàn cọc)
+              </span>
+            )}
+            {hasCollectedDeposit && latestDeposit?.status === 'COLLECTED' && !isInvoicePaid && (
               <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-md font-semibold text-xs flex items-center gap-1">
                 <IoCheckmarkCircleOutline size={14} className="text-green-700" /> Đã thu đủ tiền cọc
               </span>

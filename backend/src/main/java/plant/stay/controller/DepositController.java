@@ -91,6 +91,13 @@ public class DepositController {
             throw new IllegalArgumentException("Không thể thu cọc cho đặt phòng ở trạng thái " + booking.getStatus());
         }
 
+        // Chặn thu cọc khi hóa đơn đặt phòng đã thanh toán hoàn tất (PAID)
+        List<Invoice> coveringInvoices = invoiceRepo.findInvoicesCoveringBooking(bookingId);
+        boolean isInvoicePaid = coveringInvoices.stream().anyMatch(inv -> inv.getStatus() == InvoiceStatus.PAID);
+        if (isInvoicePaid) {
+            throw new IllegalArgumentException("Hóa đơn của đặt phòng này đã được thanh toán hoàn tất (PAID). Không thể thu thêm tiền cọc.");
+        }
+
         // Kiểm tra xem đặt phòng này đã được thu cọc trước đó chưa
         List<Deposit> existingDeposits = depositRepo.findByBookingIdOrderByCreatedAtDesc(bookingId);
         boolean alreadyCollected = existingDeposits.stream().anyMatch(d ->
@@ -167,6 +174,13 @@ public class DepositController {
         User actor = checkReceptionistOrOwner(request);
         Deposit deposit = findDeposit(bookingId);
 
+        // Chặn hoàn cọc khi hóa đơn đặt phòng đã thanh toán hoàn tất (PAID)
+        List<Invoice> refundInvoices = invoiceRepo.findInvoicesCoveringBooking(bookingId);
+        boolean isInvoicePaid = refundInvoices.stream().anyMatch(inv -> inv.getStatus() == InvoiceStatus.PAID);
+        if (isInvoicePaid) {
+            throw new IllegalArgumentException("Hóa đơn của đặt phòng này đã được thanh toán hoàn tất (PAID). Không thể hoàn tiền cọc sau khi đã quyết toán hóa đơn.");
+        }
+
         BigDecimal fee = calculateCancellationFee(deposit.getBooking());
         BigDecimal collected = deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
         BigDecimal refund = collected.subtract(fee).max(BigDecimal.ZERO);
@@ -194,6 +208,14 @@ public class DepositController {
                                                           HttpServletRequest request) {
         User actor = checkReceptionistOrOwner(request);
         Deposit deposit = findDeposit(bookingId);
+
+        // Chặn xử lý cọc no-show khi hóa đơn đặt phòng đã thanh toán hoàn tất (PAID)
+        List<Invoice> noShowInvoices = invoiceRepo.findInvoicesCoveringBooking(bookingId);
+        boolean isInvoicePaid = noShowInvoices.stream().anyMatch(inv -> inv.getStatus() == InvoiceStatus.PAID);
+        if (isInvoicePaid) {
+            throw new IllegalArgumentException("Hóa đơn của đặt phòng này đã được thanh toán hoàn tất (PAID). Không thể xử lý cọc sau khi đã quyết toán hóa đơn.");
+        }
+
         BigDecimal collected = deposit.getCollectedAmount() != null ? deposit.getCollectedAmount() : BigDecimal.ZERO;
 
         // QTN-20: Mặc định toàn bộ cọc thành phí phạt; OWNER có thể override

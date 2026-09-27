@@ -6,7 +6,8 @@ import {
   IoWalletOutline,
   IoQrCodeOutline,
   IoCopyOutline,
-  IoCheckmarkOutline
+  IoCheckmarkOutline,
+  IoAlertCircleOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -75,8 +76,14 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
   const transferCode = `ĐOÀN-${String(group?.id || '').padStart(5, '0')}`;
   const qrImageUrl = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=BAN%20HUU%20SU`;
 
+  const isInvoicePaid = group?.invoiceStatus === 'PAID';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isInvoicePaid) {
+      setErrorMsg('Hóa đơn gộp của đoàn này đã được thanh toán hoàn tất (PAID). Không thể thu thêm tiền cọc.');
+      return;
+    }
     const numAmount = Number(amount);
     if (!numAmount || numAmount <= 0) {
       setErrorMsg('Vui lòng nhập số tiền cọc hợp lệ lớn hơn 0.');
@@ -112,6 +119,13 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
       maxWidth="max-w-2xl"
     >
       <div className="space-y-5">
+        {isInvoicePaid && (
+          <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs flex items-center gap-2">
+            <IoAlertCircleOutline size={18} className="text-emerald-700 shrink-0" />
+            <span>Hóa đơn gộp của đoàn này đã được thanh toán hoàn tất (PAID). Tính năng thu thêm tiền cọc đã bị khóa.</span>
+          </div>
+        )}
+
         {errorMsg && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
             {errorMsg}
@@ -357,6 +371,7 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
               variant="primary"
               icon={IoCheckmarkCircleOutline}
               isLoading={submitting}
+              disabled={submitting || isInvoicePaid}
             >
               Xác nhận Thu cọc
             </Button>
