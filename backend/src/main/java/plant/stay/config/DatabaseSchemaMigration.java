@@ -557,5 +557,13 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("Schema Migration Notice: revenue data normalization: {}", e.getMessage(), e);
         }
+
+        // Đảm bảo cột cloud_url trong system_backups sẵn sàng cho Catbox.moe Cloud Backup
+        try {
+            jdbcTemplate.execute("ALTER TABLE system_backups ADD COLUMN IF NOT EXISTS cloud_url VARCHAR(500)");
+            log.info("Schema Migration: Successfully ensured 'system_backups.cloud_url' column exists.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add 'cloud_url' to system_backups: {}", e.getMessage());
+        }
     }
 }

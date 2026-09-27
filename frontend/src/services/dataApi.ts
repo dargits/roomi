@@ -13,6 +13,7 @@ export interface BackupHistoryItem {
   createdAt: string;
   createdByName: string;
   note?: string;
+  cloudUrl?: string;
 }
 
 export interface BackupConfig {
