@@ -174,11 +174,14 @@ public class GeminiService {
         return (String) parts.get(0).get("text");
     }
 
+    @org.springframework.beans.factory.annotation.Value("${gemini.api-key:}")
+    private String envApiKey;
+
     /**
-     * Đọc danh sách API key từ HotelSetting (mỗi key 1 dòng).
+     * Đọc danh sách API key từ HotelSetting (mỗi key 1 dòng), fallback sang biến môi trường nếu có.
      */
     private List<String> getApiKeys() {
-        return hotelSettingRepository.findById(1L)
+        List<String> dbKeys = hotelSettingRepository.findById(1L)
                 .map(s -> {
                     String raw = s.getGoogleApiKeys();
                     if (raw == null || raw.isBlank()) return List.<String>of();
@@ -188,5 +191,24 @@ public class GeminiService {
                             .toList();
                 })
                 .orElse(List.of());
+
+        if (!dbKeys.isEmpty()) {
+            return dbKeys;
+        }
+
+        if (envApiKey != null && !envApiKey.isBlank()) {
+            return List.of(envApiKey.trim());
+        }
+
+        String env1 = System.getenv("GEMINI_API_KEY");
+        if (env1 != null && !env1.isBlank()) {
+            return List.of(env1.trim());
+        }
+        String env2 = System.getenv("GOOGLE_API_KEY");
+        if (env2 != null && !env2.isBlank()) {
+            return List.of(env2.trim());
+        }
+
+        return List.of();
     }
 }
