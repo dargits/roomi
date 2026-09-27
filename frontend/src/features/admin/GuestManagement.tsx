@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { guestApi } from '../../services/guestApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -6,7 +7,7 @@ import {
   IoAddOutline, IoCallOutline, IoDocumentOutline, IoMailOutline, 
   IoPencilOutline, IoPeopleOutline, IoPersonOutline, IoSearchOutline, 
   IoStarOutline, IoTimeOutline, IoTrashOutline, IoWarningOutline,
-  IoChevronBackOutline, IoChevronForwardOutline
+  IoChevronBackOutline, IoChevronForwardOutline, IoReceiptOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
@@ -29,6 +30,7 @@ const getBookingStatusBadge = (status?: string) => {
 };
 
 const GuestManagement: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { success: toastSuccess } = useToast();
   const isAdmin = user?.role === 'ADMIN';
@@ -424,19 +426,54 @@ const GuestManagement: React.FC = () => {
           <div className="p-8 text-center text-on-surface-variant">Khách hàng chưa có lịch sử đặt phòng nào.</div>
         ) : (
           <div className="space-y-3">
-            {selectedGuestHistory.map((booking, idx) => (
-              <div key={idx} className="p-4 border border-border-grey rounded-lg bg-surface-container-lowest flex justify-between items-center">
-                <div>
-                  <div className="font-title-sm text-on-surface">Phòng {booking.roomNumber || 'Chưa xếp'} - {booking.roomTypeName}</div>
-                  <div className="text-sm text-on-surface-variant mt-1">
-                    {formatStayDateTime(booking.checkInDate, 'checkin')} → {formatStayDateTime(booking.checkOutDate, 'checkout')} ({calculateNights(booking.checkInDate, booking.checkOutDate)} đêm)
+            <p className="text-xs text-on-surface-variant mb-2">
+              Nhấp vào một đơn đặt phòng bên dưới để chuyển đến chi tiết hóa đơn & thanh toán tương ứng:
+            </p>
+            {selectedGuestHistory.map((booking, idx) => {
+              const bookingId = booking.bookingId || booking.id;
+              return (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    if (bookingId) {
+                      setIsHistoryModalOpen(false);
+                      navigate(`/manage/bookings/${bookingId}?tab=invoice`, {
+                        state: { from: '/manage/guests' }
+                      });
+                    }
+                  }}
+                  className="p-4 border border-border-grey rounded-xl bg-surface-container-lowest hover:border-primary hover:bg-primary-50/25 hover:shadow-xs transition-all cursor-pointer flex justify-between items-center group"
+                  title="Nhấp để xem chi tiết hóa đơn & thanh toán"
+                >
+                  <div className="min-w-0 pr-3">
+                    <div className="font-title-sm text-on-surface group-hover:text-primary transition-colors flex items-center gap-2">
+                      <span className="font-bold">Phòng {booking.roomNumber || 'Chưa xếp'}</span>
+                      {booking.roomTypeName && (
+                        <span className="text-xs text-on-surface-variant font-normal">
+                          - {booking.roomTypeName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-on-surface-variant mt-1.5 flex items-center gap-1.5">
+                      <IoTimeOutline size={14} className="text-zinc-400 shrink-0" />
+                      <span>
+                        {formatStayDateTime(booking.checkInDate, 'checkin')} → {formatStayDateTime(booking.checkOutDate, 'checkout')} ({calculateNights(booking.checkInDate, booking.checkOutDate)} đêm)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      {getBookingStatusBadge(booking.status)}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform bg-primary-50 px-2.5 py-1.5 rounded-lg border border-primary/20">
+                      <IoReceiptOutline size={15} />
+                      <span className="hidden sm:inline">Xem Hóa đơn</span>
+                      <IoChevronForwardOutline size={12} />
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  {getBookingStatusBadge(booking.status)}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         <div className="flex justify-end pt-4 mt-4 border-t border-border-grey">
