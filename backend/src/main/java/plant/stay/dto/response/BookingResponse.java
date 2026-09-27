@@ -49,4 +49,7 @@ public class BookingResponse {
     private String appliedAgreementName;
     private Long corporateClientId;
     private String corporateClientName;
+    private Long loyaltyTierId;
+    private String loyaltyTierName;
+    private Double loyaltyDiscountPercent;
 }

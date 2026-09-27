@@ -178,7 +178,7 @@ const OccupancyReport: React.FC = () => {
   const [error,    setError]    = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
 
-  const hasAccess = ['OWNER', 'ADMIN'].includes(user?.role || '');
+  const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role || '');
   if (!hasAccess) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 text-error rounded-xl text-sm">

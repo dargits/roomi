@@ -19,6 +19,7 @@ import Button from '../../components/ui/Button';
 import publicGroupBookingRequestApi from '../../services/publicGroupBookingRequestApi';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { toLocalDateString } from '../../utils/formatDate';
+import { validatePhone, validateEmail } from '../../utils/securitySanitizer';
 
 interface RoomLine {
   roomTypeId: string;
@@ -93,6 +94,26 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
+
+    if (!formData.representativeName.trim()) {
+      setError('Vui lòng nhập họ và tên người đại diện đoàn.');
+      return;
+    }
+
+    const phoneCheck = validatePhone(formData.phone, true);
+    if (!phoneCheck.valid) {
+      setError(phoneCheck.message || 'Số điện thoại không hợp lệ.');
+      return;
+    }
+
+    if (formData.email && formData.email.trim()) {
+      const emailCheck = validateEmail(formData.email, false);
+      if (!emailCheck.valid) {
+        setError(emailCheck.message || 'Địa chỉ email không đúng định dạng.');
+        return;
+      }
+    }
+
     if (formData.checkInDate >= formData.checkOutDate) {
       setError('Ngày trả phòng phải sau ngày nhận phòng.');
       return;

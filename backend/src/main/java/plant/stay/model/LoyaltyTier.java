@@ -18,6 +18,10 @@ public class LoyaltyTier {
     @Column(nullable = false)
     private Integer minPoints; // Điểm tối thiểu để đạt hạng
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Double discountPercent = 0.0; // % Giảm giá cấu hình cho hạng này (VD: 5.0, 10.0, 15.0)
+
     @Column(columnDefinition = "TEXT")
     private String benefitDescription; // Mô tả quyền lợi
 }

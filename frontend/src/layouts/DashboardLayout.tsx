@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { Role } from '../types';
+import { getDefaultRouteForRole } from '../routes/ProtectedRoute';
 import { 
   IoCalendarOutline, 
   IoChevronDownOutline, 
@@ -78,7 +79,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Phòng',
     icon: IoBedOutline,
     items: [
-      { path: '/manage/rooms',              label: 'Sơ đồ phòng',           icon: IoLayersOutline,       allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
+      { path: '/manage/rooms',              label: 'Sơ đồ phòng',           icon: IoLayersOutline,       allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
       { path: '/manage/room-types',         label: 'Loại phòng',            icon: IoBedOutline,          allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/price-suggestions',  label: 'Gợi ý điều chỉnh giá',  icon: IoTrendingUpOutline,   allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/housekeeping',       label: 'Buồng phòng',          icon: IoSparklesOutline,     allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
@@ -90,11 +91,11 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Khách & Dịch vụ',
     icon: IoPeopleOutline,
     items: [
-      { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
-      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST'] },
-      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER'] },
-      { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER'] }
+      { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
+      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] },
+      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] },
+      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER', 'ADMIN'] }
     ]
   },
   {
@@ -102,8 +103,8 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Tài chính',
     icon: IoStatsChartOutline,
     items: [
-      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'] },
-      { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'RECEPTIONIST'] },
+      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
+      { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'] },
       { path: '/manage/daily-ledger', label: 'Sổ quỹ ngày', icon: IoBookOutline, allowedRoles: ['OWNER', 'ACCOUNTANT'] }
     ]
   },
@@ -113,8 +114,8 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: IoSettingsOutline,
     items: [
       { path: '/manage/staff',               label: 'Nhân sự',                    icon: IoPersonOutline,           allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER'] },
-      { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER'] },
+      { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER', 'ADMIN', 'HOUSEKEEPER'] },
       { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        icon: IoLockClosedOutline,       allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         icon: IoTimeOutline,             allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   icon: IoShieldCheckmarkOutline,  allowedRoles: ['OWNER', 'ADMIN'] },
@@ -452,7 +453,7 @@ const DashboardLayout: React.FC = () => {
           {/* Sidebar Header: Brand & Logo */}
           <div className="h-16 px-3 border-b border-border-grey flex items-center justify-between shrink-0 bg-white">
             <Link
-              to="/"
+              to={getDefaultRouteForRole(user?.role)}
               className={`flex items-center group transition-all duration-200 ${
                 isCollapsed
                   ? 'justify-center w-full'
@@ -713,6 +714,27 @@ const DashboardLayout: React.FC = () => {
                   className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-[#0070F4] bg-white hover:bg-[#0070F4] hover:text-white px-2.5 py-1 rounded-lg border border-[#BFDBFE] transition-colors shadow-2xs"
                 >
                   <span>Xem lịch phòng</span>
+                  <span>&rarr;</span>
+                </Link>
+              </div>
+            )}
+
+            {!isCollapsed && user?.role === 'HOUSEKEEPER' && (
+              <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border border-emerald-200 shadow-2xs">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] shadow-2xs">
+                    ✓
+                  </div>
+                  <span className="text-xs font-bold text-emerald-900 tracking-tight">Nhiệm Vụ Dọn Phòng</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  Cập nhật trạng thái vệ sinh phòng và kiểm kê đồ thất lạc.
+                </p>
+                <Link
+                  to="/manage/housekeeping"
+                  className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-white hover:bg-emerald-600 hover:text-white px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors shadow-2xs"
+                >
+                  <span>Mở danh sách phòng</span>
                   <span>&rarr;</span>
                 </Link>
               </div>

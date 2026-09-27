@@ -1,5 +1,11 @@
 import api from './api';
 
+export interface NegotiatedPriceItem {
+  roomTypeId: number;
+  roomTypeName?: string;
+  pricePerNight: number;
+}
+
 export interface NegotiatedPriceAgreement {
   id: number;
   name: string;
@@ -7,7 +13,8 @@ export interface NegotiatedPriceAgreement {
   corporateClientName?: string;
   groupBookingId?: number;
   groupBookingRepName?: string;
-  pricePerNight: number;
+  pricePerNight?: number;
+  items?: NegotiatedPriceItem[];
   startDate: string;
   endDate: string;
   active: boolean;
@@ -22,7 +29,8 @@ export interface NegotiatedPriceAgreementRequest {
   name: string;
   corporateClientId?: number | null;
   groupBookingId?: number | null;
-  pricePerNight: number;
+  pricePerNight?: number;
+  items?: NegotiatedPriceItem[];
   startDate: string;
   endDate: string;
   active?: boolean;

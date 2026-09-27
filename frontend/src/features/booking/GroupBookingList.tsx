@@ -14,14 +14,12 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import BulkCheckInModal from './BulkCheckInModal';
 import BulkCheckOutModal from './BulkCheckOutModal';
-import InvoicePrintTemplate from './InvoicePrintTemplate';
 import GroupRoomAssignmentGrid from './GroupRoomAssignmentGrid';
 import GroupDepositModal from './GroupDepositModal';
+import GroupInvoicePanel from './GroupInvoicePanel';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDate } from '../../utils/formatDate';
-import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
-import DiscountFormModal from '../invoice/DiscountFormModal';
 import LoadingScreen, { SquareSpinner } from '../../components/common/LoadingScreen';
 import Pagination from '../../components/ui/Pagination';
 
@@ -66,29 +64,6 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
   const [assignmentError, setAssignmentError] = useState('');
-  const [invoiceState, setInvoiceState] = useState({ group: null, data: null, mode: 'COMBINED' });
-  const [invoiceLoading, setInvoiceLoading] = useState(false);
-  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
-  const [invoiceError, setInvoiceError] = useState('');
-  const [printInvoice, setPrintInvoice] = useState(null);
-  const [invoiceTab, setInvoiceTab] = useState('combined'); // 'combined' | 'details'
-  const [showGroupDiscountModal, setShowGroupDiscountModal] = useState(false);
-
-  // Payment state for combined invoice
-  const [payAmount, setPayAmount] = useState('');
-  const [payMethod, setPayMethod] = useState('TRANSFER');
-  const [payNote, setPayNote] = useState('');
-  const [paySubmitting, setPaySubmitting] = useState(false);
-  const [payError, setPayError] = useState('');
-  const [copiedField, setCopiedField] = useState(null);
-
-  const copyToClipboard = (text, field) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
-
   // NCL-13-CN-004: State cho modal hủy một phần
   const [cancelPartialState, setCancelPartialState] = useState<{ group: any; selectedIds: Set<number> }>({
     group: null,
@@ -226,129 +201,10 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
     }
   };
 
-  const openInvoices = async (group) => {
-    setInvoiceState({ group, data: null, mode: 'COMBINED' });
-    setInvoiceError('');
-    setInvoiceLoading(true);
-    setPayError('');
-    try {
-      const data = await groupBookingApi.getInvoices(group.id);
-      setInvoiceState((previous) => ({ ...previous, data }));
-      const outstanding = Number(data?.outstandingAmount || 0);
-      if (outstanding > 0) {
-        setPayAmount(String(outstanding));
-      }
-    } catch (error) {
-      setInvoiceError(error.response?.data?.message || 'Không thể tải trạng thái hóa đơn đoàn.');
-    } finally {
-      setInvoiceLoading(false);
-    }
-  };
+  const [invoicePanelGroup, setInvoicePanelGroup] = useState<any>(null);
 
-  const closeInvoices = () => {
-    if (invoiceSubmitting || paySubmitting) return;
-    setInvoiceState({ group: null, data: null, mode: 'COMBINED' });
-    setInvoiceError('');
-    setPayError('');
-    setPayAmount('');
-  };
-
-  const createInvoices = async () => {
-    const { group, mode } = invoiceState;
-    if (!group) return;
-    setInvoiceSubmitting(true);
-    setInvoiceError('');
-    try {
-      const data = await groupBookingApi.createInvoices(group.id, { mode: 'COMBINED' });
-      setInvoiceState((previous) => ({ ...previous, data }));
-      const outstanding = Number(data?.outstandingAmount || 0);
-      if (outstanding > 0) {
-        setPayAmount(String(outstanding));
-      }
-      toastSuccess('Đã lập hóa đơn gộp đoàn và tự động cấn trừ tiền cọc!');
-      await loadGroups();
-    } catch (error) {
-      setInvoiceError(error.response?.data?.message || 'Không thể lập hóa đơn đoàn.');
-    } finally {
-      setInvoiceSubmitting(false);
-    }
-  };
-
-  const handleCreateGroupInvoicesWithDiscount = async (discountPayload) => {
-    const { group } = invoiceState;
-    if (!group) return { success: false };
-    setInvoiceSubmitting(true);
-    setInvoiceError('');
-    try {
-      const data = await groupBookingApi.createInvoices(group.id, { mode: 'COMBINED' });
-      toastSuccess('Đã lập hóa đơn gộp đoàn!');
-
-      const combinedInvId = data?.invoices?.[0]?.id;
-      if (combinedInvId && discountPayload && discountPayload.discountValue > 0 && discountPayload.reason) {
-        try {
-          const discRes = await invoiceApi.applyDiscount(combinedInvId, discountPayload);
-          toastSuccess(discRes.statusMessage || 'Đã áp dụng giảm giá cho hóa đơn đoàn!');
-        } catch (discErr) {
-          toastError(discErr.response?.data?.message || 'Lỗi áp dụng giảm giá cho hóa đơn đoàn');
-        }
-      }
-
-      setShowGroupDiscountModal(false);
-      const refreshedData = await groupBookingApi.getInvoices(group.id);
-      setInvoiceState((prev) => ({ ...prev, data: refreshedData }));
-      const outstanding = Number(refreshedData?.outstandingAmount || 0);
-      if (outstanding > 0) {
-        setPayAmount(String(outstanding));
-      }
-      await loadGroups();
-      return { success: true };
-    } catch (error) {
-      setInvoiceError(error.response?.data?.message || 'Không thể lập hóa đơn đoàn.');
-      return { success: false };
-    } finally {
-      setInvoiceSubmitting(false);
-    }
-  };
-
-  const handleGroupDiscountChange = async () => {
-    const { group } = invoiceState;
-    if (!group) return;
-    try {
-      const refreshedData = await groupBookingApi.getInvoices(group.id);
-      setInvoiceState((prev) => ({ ...prev, data: refreshedData }));
-      const outstanding = Number(refreshedData?.outstandingAmount || 0);
-      setPayAmount(outstanding > 0 ? String(outstanding) : '');
-      await loadGroups();
-    } catch (err) {
-      console.error('Lỗi khi tải lại hóa đơn đoàn', err);
-    }
-  };
-
-  const handlePayInvoice = async (invoiceId) => {
-    const numAmount = Number(payAmount);
-    if (!numAmount || numAmount <= 0) {
-      setPayError('Vui lòng nhập số tiền thanh toán hợp lệ lớn hơn 0.');
-      return;
-    }
-    setPaySubmitting(true);
-    setPayError('');
-    try {
-      await invoiceApi.recordPayment(invoiceId, {
-        amount: numAmount,
-        method: payMethod,
-        note: payNote.trim() || `Thanh toán hóa đơn đoàn #${invoiceState.group?.id}`,
-      });
-      toastSuccess(`Đã thanh toán thành công ${numAmount.toLocaleString('vi-VN')} đ!`);
-      const refreshedData = await groupBookingApi.getInvoices(invoiceState.group.id);
-      setInvoiceState((prev) => ({ ...prev, data: refreshedData }));
-      setPayAmount(String(Number(refreshedData?.outstandingAmount || 0)));
-      setPayNote('');
-      await loadGroups();
-    } catch (err) {
-      setPayError(err.response?.data?.message || 'Không thể thực hiện thanh toán. Vui lòng thử lại.');
-    } finally {
-      setPaySubmitting(false);
-    }
+  const openInvoices = (group: any) => {
+    setInvoicePanelGroup(group);
   };
 
   const handleBulkCheckOut = async () => {
@@ -558,7 +414,7 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                             icon={IoCheckmarkCircleOutline}
                             className="border-emerald-400 text-emerald-800 bg-emerald-100 hover:bg-emerald-200 font-bold shadow-2xs"
                             onClick={() => {
-                              setInvoiceTab('combined');
+                              
                               openInvoices(group);
                             }}
                             title="Đoàn đã thanh toán đủ hóa đơn. Bấm để xem hoặc in hóa đơn."
@@ -572,7 +428,7 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                             icon={IoCashOutline}
                             className="border-amber-400 text-amber-900 bg-amber-50 hover:bg-amber-100 font-semibold"
                             onClick={() => {
-                              setInvoiceTab('combined');
+                              
                               openInvoices(group);
                             }}
                             title={`Đoàn còn nợ ${Number(group.invoiceOutstandingAmount || 0).toLocaleString('vi-VN')} đ. Bấm để thu tiếp.`}
@@ -586,7 +442,7 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                             icon={IoReceiptOutline}
                             className="border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100 font-semibold"
                             onClick={() => {
-                              setInvoiceTab('combined');
+                              
                               openInvoices(group);
                             }}
                             title="Đã lập hóa đơn đoàn nhưng chưa thanh toán. Bấm để thanh toán."
@@ -600,12 +456,11 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                             icon={IoDocumentOutline}
                             className="border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-semibold"
                             onClick={() => {
-                              setInvoiceTab('combined');
                               openInvoices(group);
                             }}
-                            title="Lập hóa đơn gộp toàn bộ đoàn"
+                            title="Quản lý và lập hóa đơn gộp hoặc tách theo từng phòng cho đoàn"
                           >
-                            Gộp hóa đơn
+                            Hóa đơn đoàn
                           </Button>
                         )
                       )}
@@ -796,378 +651,13 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
         )}
       </Modal>
 
-      {/* === MODAL 2: HÓA ĐƠN GỘP & THANH TOÁN ĐOÀN === */}
-      <Modal
-        isOpen={Boolean(invoiceState.group)}
-        onClose={closeInvoices}
-        title={invoiceState.group ? `Hóa đơn & Thanh toán — ĐOÀN-${String(invoiceState.group.id).padStart(5, '0')} (${invoiceState.group.representativeName})` : ''}
-        maxWidth="max-w-3xl"
-      >
-        {invoiceLoading ? (
-          <div className="py-12 text-center text-on-surface-variant flex flex-col items-center justify-center">
-            <SquareSpinner size="lg" className="mb-3" />
-            <p className="text-xs uppercase font-bold tracking-wider text-on-surface">Đang tải hóa đơn đoàn...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {invoiceError && (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{invoiceError}</div>
-            )}
-
-            {invoiceState.data?.invoices?.length ? (
-              <>
-                {/* Tab Switcher bên trong Modal */}
-                <div className="flex border-b border-border-grey">
-                  <button
-                    type="button"
-                    onClick={() => setInvoiceTab('combined')}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
-                      invoiceTab === 'combined'
-                        ? 'border-primary text-primary bg-primary/5'
-                        : 'border-transparent text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    <IoDocumentOutline size={16} /> Gộp hóa đơn & Thanh toán
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInvoiceTab('details')}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
-                      invoiceTab === 'details'
-                        ? 'border-primary text-primary bg-primary/5'
-                        : 'border-transparent text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    <IoListOutline size={16} /> Chi tiết phí từng phòng ({invoiceState.group?.bookings?.length || 0})
-                  </button>
-                </div>
-
-                {invoiceTab === 'combined' ? (
-                  <>
-                    {/* Thẻ tổng hợp hóa đơn gộp */}
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-900 space-y-3">
-                      <div className="flex justify-between items-center border-b border-emerald-200 pb-2">
-                        <span className="font-bold text-base flex items-center gap-2">
-                          <IoDocumentOutline className="text-primary" size={20} />
-                          Hóa đơn gộp toàn bộ đoàn
-                        </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${Number(invoiceState.data.outstandingAmount || 0) === 0 ? 'bg-green-200 text-green-900' : 'bg-amber-200 text-amber-900'
-                          }`}>
-                          {Number(invoiceState.data.outstandingAmount || 0) === 0 ? '✓ ĐÃ THANH TOÁN ĐỦ' : 'CHỜ THANH TOÁN'}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                        <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
-                          <span className="text-on-surface-variant block mb-0.5">Tiền phòng & Dịch vụ:</span>
-                          <strong className="text-on-surface font-bold text-sm">
-                            {(Number(invoiceState.data.roomAmount || 0) + Number(invoiceState.data.serviceAmount || 0)).toLocaleString('vi-VN')} đ
-                          </strong>
-                        </div>
-                        {Number(invoiceState.data.discountAmount || 0) > 0 ? (
-                          <div className="bg-surface p-2.5 rounded-lg border border-green-200 text-green-700">
-                            <span className="block mb-0.5 font-medium">Giảm giá hóa đơn:</span>
-                            <strong className="font-bold text-sm">
-                              -{Number(invoiceState.data.discountAmount).toLocaleString('vi-VN')} đ
-                            </strong>
-                          </div>
-                        ) : (
-                          <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
-                            <span className="text-on-surface-variant block mb-0.5">Tổng hóa đơn:</span>
-                            <strong className="text-on-surface font-bold text-sm">{Number(invoiceState.data.totalAmount || 0).toLocaleString('vi-VN')} đ</strong>
-                          </div>
-                        )}
-                        <div className="bg-surface p-2.5 rounded-lg border border-emerald-200">
-                          <span className="text-green-700 block mb-0.5">Tiền cọc & Đã thanh toán:</span>
-                          <strong className="text-green-800 font-bold text-sm">{Number(invoiceState.data.paidAmount || 0).toLocaleString('vi-VN')} đ</strong>
-                        </div>
-                        <div className={`p-2.5 rounded-lg border col-span-2 sm:col-span-1 ${Number(invoiceState.data.outstandingAmount || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-green-100 border-green-300'}`}>
-                          <span className={`block mb-0.5 ${Number(invoiceState.data.outstandingAmount || 0) > 0 ? 'text-red-700 font-semibold' : 'text-green-800 font-semibold'}`}>
-                            Còn lại phải thu:
-                          </span>
-                          <strong className={`font-bold text-sm ${Number(invoiceState.data.outstandingAmount || 0) > 0 ? 'text-red-700' : 'text-green-800'}`}>
-                            {Number(invoiceState.data.outstandingAmount || 0).toLocaleString('vi-VN')} đ
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Khu vực Giảm giá hóa đơn gộp đoàn */}
-                    {invoiceState.data?.invoices?.[0] && (
-                      <div className="bg-surface p-4 rounded-xl border border-border-grey shadow-2xs">
-                        <InvoiceDiscountSection
-                          invoice={invoiceState.data.invoices[0]}
-                          userRole={user?.role}
-                          onInvoiceChange={handleGroupDiscountChange}
-                          remainingAmount={Number(invoiceState.data.outstandingAmount || 0)}
-                        />
-                      </div>
-                    )}
-
-                    {invoiceState.data?.invoices?.[0]?.status === 'PENDING_DISCOUNT_APPROVAL' && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg text-center font-medium">
-                        ⚠️ Tạm khóa thanh toán: Khoản giảm giá hóa đơn đoàn đang chờ Chủ cơ sở phê duyệt.
-                      </div>
-                    )}
-
-                    {/* Form thanh toán trực tiếp khi còn nợ */}
-                    {Number(invoiceState.data.outstandingAmount || 0) > 0 && invoiceState.data?.invoices?.[0]?.status !== 'PENDING_DISCOUNT_APPROVAL' && (
-                      <div className="p-4 bg-surface-container-low rounded-xl border border-primary/30 space-y-3">
-                        <div className="font-semibold text-sm text-primary flex items-center gap-1.5">
-                          <IoCashOutline size={18} /> Thu tiền thanh toán hóa đơn đoàn
-                        </div>
-                        {payError && <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">{payError}</div>}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                              Số tiền thanh toán (VNĐ) <span className="text-red-500">*</span>
-                            </label>
-                            <Input type="number" min="1000" step="1000" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-on-surface-variant mb-1">Phương thức</label>
-                            <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full py-2.5 px-3 bg-surface border border-border-grey rounded-lg text-sm outline-none focus:border-primary">
-                              <option value="TRANSFER">Chuyển khoản (VietQR)</option>
-                              <option value="CASH">Tiền mặt</option>
-                            </select>
-                          </div>
-                          {payMethod === 'TRANSFER' && parseFloat(payAmount) > 0 && (() => {
-                            const currentPayAmountGroup = parseFloat(payAmount) || 0;
-                            const invCodeGroup = invoiceState.data?.invoices?.[0]?.id ? `INV${String(invoiceState.data.invoices[0].id).padStart(6, '0')}` : '';
-                            const qrImageUrlGroup = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmountGroup}&addInfo=${invCodeGroup}&accountName=BAN%20HUU%20SU`;
-
-                            return (
-                              <div className="sm:col-span-2 bg-white p-3.5 rounded-lg border border-blue-200 bg-blue-50/30 space-y-3 mt-1">
-                                <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                                  <IoQrCodeOutline size={16} className="text-blue-600" /> Quét mã VietQR chuyển khoản nhanh
-                                </div>
-
-                                <div className="flex flex-col sm:flex-row items-center gap-3">
-                                  <img
-                                    src={qrImageUrlGroup}
-                                    alt="VietQR Payment"
-                                    className="w-36 h-36 object-contain rounded-lg border border-border-grey bg-white p-1 shadow-xs shrink-0"
-                                    loading="lazy"
-                                  />
-                                  <div className="space-y-1.5 text-xs text-on-surface flex-1 w-full">
-                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
-                                      <span className="text-on-surface-variant">Ngân hàng:</span>
-                                      <strong className="font-semibold">MBBank</strong>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
-                                      <span className="text-on-surface-variant">Chủ tài khoản:</span>
-                                      <strong className="font-semibold uppercase text-primary">BAN HUU SU</strong>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
-                                      <span className="text-on-surface-variant">Số TK:</span>
-                                      <div className="flex items-center gap-1">
-                                        <strong className="font-mono font-bold text-primary">0365221338</strong>
-                                        <button
-                                          type="button"
-                                          onClick={() => copyToClipboard('0365221338', 'acc')}
-                                          className="text-on-surface-variant hover:text-primary p-0.5 cursor-pointer"
-                                          title="Sao chép số TK"
-                                        >
-                                          {copiedField === 'acc' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
-                                      <span className="text-on-surface-variant">Số tiền:</span>
-                                      <strong className="text-green-600 font-bold">{currentPayAmountGroup.toLocaleString('vi-VN')} đ</strong>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-white p-1.5 rounded border border-border-grey">
-                                      <span className="text-on-surface-variant">Nội dung:</span>
-                                      <div className="flex items-center gap-1">
-                                        <strong className="font-mono font-bold text-primary">{invCodeGroup}</strong>
-                                        <button
-                                          type="button"
-                                          onClick={() => copyToClipboard(invCodeGroup, 'memo')}
-                                          className="text-on-surface-variant hover:text-primary p-0.5"
-                                          title="Sao chép nội dung"
-                                        >
-                                          {copiedField === 'memo' ? <IoCheckmarkOutline className="text-green-600" size={14}/> : <IoCopyOutline size={13}/>}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                          <div className="sm:col-span-2">
-                            <label className="block text-xs font-semibold text-on-surface-variant mb-1">Ghi chú</label>
-                            <Input value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="VD: Thu nốt tiền khi đoàn trả phòng..." />
-                          </div>
-                        </div>
-                        <div className="flex justify-end pt-1">
-                          <Button size="sm" variant="primary" icon={IoCheckmarkCircleOutline} isLoading={paySubmitting}
-                            onClick={() => {
-                              const id = invoiceState.data.invoices[0]?.id;
-                              if (id) handlePayInvoice(id);
-                            }}
-                          >
-                            Xác nhận thanh toán ({Number(payAmount || 0).toLocaleString('vi-VN')} đ)
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Danh sách hóa đơn và nút In */}
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant flex justify-between items-center">
-                        <span>Chi tiết hóa đơn ({invoiceState.data.invoices.length})</span>
-                        {invoiceState.data.invoices.length > 1 && (
-                          <span className="text-[11px] font-normal text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                            Đoàn đang có {invoiceState.data.invoices.length} hóa đơn tách theo phòng
-                          </span>
-                        )}
-                      </div>
-                      {invoiceState.data.invoices.map((invoice, idx) => (
-                        <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-border-grey bg-surface p-3 text-sm gap-2">
-                          <div>
-                            <div className="font-semibold text-on-surface flex items-center gap-2">
-                              <span>
-                                Hóa đơn #{invoice.id} {invoiceState.data.invoices.length === 1 ? '(Gộp cả đoàn)' : `(Phòng #${invoice.bookingId || idx + 1})`}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${invoice.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                                {invoice.status === 'PAID' ? '✓ Đã thanh toán đủ' : invoice.status === 'PENDING_DISCOUNT_APPROVAL' ? 'Chờ duyệt giảm giá' : 'Chờ thanh toán'}
-                              </span>
-                            </div>
-                            <div className="text-xs text-on-surface-variant mt-1 flex flex-wrap gap-x-2">
-                              <span>Tiền phòng: {Number(invoice.roomAmount || 0).toLocaleString('vi-VN')} đ</span>
-                              {Number(invoice.serviceAmount || 0) > 0 && <span>• Dịch vụ: {Number(invoice.serviceAmount || 0).toLocaleString('vi-VN')} đ</span>}
-                              {Number(invoice.discountAmount || 0) > 0 && <span className="text-green-700 font-medium">• Giảm giá: -{Number(invoice.discountAmount).toLocaleString('vi-VN')} đ</span>}
-                              {Number(invoice.paidAmount || 0) > 0 && <span className="text-green-700">• Đã trừ cọc / thanh toán: {Number(invoice.paidAmount || 0).toLocaleString('vi-VN')} đ</span>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 self-end sm:self-auto">
-                            <div className="text-right">
-                              <div className="font-bold text-on-surface text-sm">{Number(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ</div>
-                            </div>
-                            <Button size="sm" variant="outline" icon={IoPrintOutline} onClick={() => setPrintInvoice(invoice)}>In hóa đơn</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  /* Tab Chi tiết từng phòng & dịch vụ */
-                  <div className="space-y-3">
-                    <div className="rounded-xl border border-border-grey bg-surface p-3 text-xs overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-surface-container-low border-b border-border-grey font-semibold text-on-surface-variant">
-                            <th className="p-2">Mã phòng</th>
-                            <th className="p-2">Khách ở</th>
-                            <th className="p-2">Hạng phòng</th>
-                            <th className="p-2 text-right">Tiền phòng</th>
-                            <th className="p-2 text-center">Trạng thái</th>
-                            <th className="p-2 text-center">Hóa đơn lẻ</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {invoiceState.group?.bookings?.map((b) => (
-                            <tr key={b.id} className="border-b border-border-grey/50 hover:bg-slate-50">
-                              <td className="p-2 font-bold text-primary">
-                                {b.roomNumber ? `P.${b.roomNumber}` : `#${b.id}`}
-                              </td>
-                              <td className="p-2 text-on-surface font-medium">
-                                {b.guestName || invoiceState.group.representativeName}
-                              </td>
-                              <td className="p-2 text-on-surface-variant">{b.roomTypeName}</td>
-                              <td className="p-2 text-right font-semibold text-on-surface">
-                                {Number(b.expectedPrice || 0).toLocaleString('vi-VN')} đ
-                              </td>
-                              <td className="p-2 text-center">
-                                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                  b.status === 'CHECKED_IN' ? 'bg-green-100 text-green-800' :
-                                  b.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                                  b.status === 'CHECKED_OUT' ? 'bg-gray-100 text-gray-800' :
-                                  b.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                                  'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {b.status === 'NEW' ? 'Chưa xếp' :
-                                   b.status === 'CONFIRMED' ? 'Đã gán' :
-                                   b.status === 'CHECKED_IN' ? 'Đang ở' :
-                                   b.status === 'CHECKED_OUT' ? 'Đã trả phòng' :
-                                   b.status === 'CANCELLED' ? 'Đã hủy' : b.status}
-                                </span>
-                              </td>
-                              <td className="p-2 text-center">
-                                <Link
-                                  to={`/manage/bookings/${b.id}?tab=invoice`}
-                                  state={{ from: '/manage/bookings/groups' }}
-                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
-                                >
-                                  <IoReceiptOutline size={12} /> Chi tiết
-                                </Link>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-end border-t border-border-grey pt-3">
-                  <Button variant="secondary" onClick={closeInvoices}>Đóng</Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rounded-lg border border-border-grey bg-surface-container-low p-4 text-xs text-on-surface-variant leading-relaxed space-y-2">
-                  <div className="font-semibold text-on-surface text-sm">Lập hóa đơn gộp cho toàn bộ đoàn:</div>
-                  <div>• Hệ thống sẽ tự động gộp tiền phòng của tất cả các booking trong đoàn và các dịch vụ đã sử dụng.</div>
-                  <div>• Toàn bộ số tiền cọc đoàn đã thu ({Number(invoiceState.group?.depositAmount || 0).toLocaleString('vi-VN')} đ) sẽ <strong>tự động cấn trừ trực tiếp</strong> vào hóa đơn.</div>
-                  <div>• Lễ tân có thể thu nốt phần chênh lệch còn lại ngay sau khi tạo hóa đơn.</div>
-                </div>
-
-                <div className="flex flex-wrap justify-end gap-3 border-t border-border-grey pt-4">
-                  <Button variant="ghost" onClick={closeInvoices} disabled={invoiceSubmitting}>Hủy</Button>
-                  <Button
-                    variant="outline"
-                    icon={IoTicketOutline}
-                    onClick={() => setShowGroupDiscountModal(true)}
-                    isLoading={invoiceSubmitting}
-                    className="text-primary border-primary hover:bg-primary/5"
-                  >
-                    Tạo hóa đơn gộp kèm giảm giá
-                  </Button>
-                  <Button variant="primary" icon={IoDocumentOutline} onClick={createInvoices} isLoading={invoiceSubmitting}>
-                    Tạo hóa đơn gộp đoàn
-                  </Button>
-                </div>
-
-                {/* Modal nhập giảm giá trực tiếp trong quá trình lập hóa đơn gộp đoàn */}
-                {(() => {
-                  const groupRoomTotal = invoiceState.group?.totalRoomCharge
-                    || invoiceState.group?.bookings?.reduce((sum, b) => sum + (Number(b.expectedPrice) || 0), 0)
-                    || 0;
-                  const groupDeposit = Number(invoiceState.group?.depositAmount || 0);
-                  const groupRemaining = Math.max(0, groupRoomTotal - groupDeposit);
-                  return (
-                    <DiscountFormModal
-                      isOpen={showGroupDiscountModal}
-                      onClose={() => setShowGroupDiscountModal(false)}
-                      onSubmit={handleCreateGroupInvoicesWithDiscount}
-                      isLoading={invoiceSubmitting}
-                      invoice={{
-                        roomAmount: groupRoomTotal,
-                        serviceAmount: 0,
-                        totalAmount: groupRoomTotal,
-                        remainingAmount: groupRemaining
-                      }}
-                      remainingAmount={groupRemaining}
-                    />
-                  );
-                })()}
-              </>
-            )}
-          </div>
-        )}
-      </Modal>
+      {/* === MODAL 2: QUẢN LÝ HÓA ĐƠN ĐOÀN (GỘP / TÁCH PHÒNG - P1-04) === */}
+      <GroupInvoicePanel
+        group={invoicePanelGroup}
+        isOpen={Boolean(invoicePanelGroup)}
+        onClose={() => setInvoicePanelGroup(null)}
+        onSuccess={loadGroups}
+      />
 
       {/* Modal Hủy một phần số phòng trong đoàn (NCL-13-CN-004) */}
       <Modal
@@ -1277,15 +767,7 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
         }}
       />
 
-      {/* Modal In Hóa đơn */}
-      {printInvoice && (
-        <InvoicePrintTemplate
-          invoice={printInvoice}
-          group={invoiceState.group}
-          booking={invoiceState.group?.bookings?.find(b => b.id === printInvoice.bookingId)}
-          onClose={() => setPrintInvoice(null)}
-        />
-      )}
+
 
       {/* === MODAL 4: TRẢ PHÒNG HÀNG LOẠT VÀ CHỐT HÓA ĐƠN ĐOÀN (NCL-13-CN-006) === */}
       <BulkCheckOutModal

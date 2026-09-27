@@ -18,9 +18,10 @@ public class NegotiatedPriceAgreementRequest {
 
     private Long groupBookingId;
 
-    @NotNull(message = "Mức giá thỏa thuận không được để trống")
     @DecimalMin(value = "0", inclusive = false, message = "Mức giá phải lớn hơn 0")
     private BigDecimal pricePerNight;
+
+    private java.util.List<NegotiatedPriceItemRequest> items;
 
     @NotNull(message = "Ngày bắt đầu không được để trống")
     private LocalDate startDate;

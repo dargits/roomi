@@ -17,7 +17,7 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   PENDING: 'Chờ thanh toán'
 };
 
-export type InvoiceMode = 'INDIVIDUAL' | 'GROUP';
+export type InvoiceMode = 'INDIVIDUAL' | 'GROUP' | 'SINGLE' | 'COMBINED' | 'SEPARATE';
 
 export type PaymentMethod =
   | 'CASH'
@@ -49,6 +49,9 @@ export interface InvoiceResponse {
   serviceAmount: number;
   discountAmount: number;
   totalAmount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  outstandingAmount?: number;
   status: InvoiceStatus;
   adjustmentOfId?: number;
   note?: string;
