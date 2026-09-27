@@ -427,21 +427,25 @@ public class DataSeeder implements CommandLineRunner {
                     LoyaltyTier.builder()
                             .name("Thành viên Đồng")
                             .minPoints(0)
+                            .discountPercent(0.0)
                             .benefitDescription("Tích lũy điểm thưởng theo mỗi đêm nghỉ, nhận bản tin ưu đãi sớm.")
                             .build(),
                     LoyaltyTier.builder()
                             .name("Hội viên Bạc")
                             .minPoints(500)
+                            .discountPercent(5.0)
                             .benefitDescription("Giảm 5% trên giá phòng tiêu chuẩn, ưu tiên hỗ trợ nhận phòng sớm nếu có sẵn phòng.")
                             .build(),
                     LoyaltyTier.builder()
                             .name("Hội viên Vàng")
                             .minPoints(1500)
+                            .discountPercent(10.0)
                             .benefitDescription("Giảm 10% giá phòng, miễn phí 1 dịch vụ giặt là hoặc 1 lượt ăn sáng buffet cho mỗi lần lưu trú.")
                             .build(),
                     LoyaltyTier.builder()
                             .name("Hội viên Kim Cương")
                             .minPoints(3500)
+                            .discountPercent(15.0)
                             .benefitDescription("Giảm 15% giá phòng, miễn phí nâng hạng phòng (khi có phòng trống), nhận phòng sớm từ 10:00 & trả phòng trễ đến 14:00.")
                             .build()
             );
@@ -450,6 +454,13 @@ public class DataSeeder implements CommandLineRunner {
         }
         Map<String, LoyaltyTier> tierMap = new HashMap<>();
         for (LoyaltyTier lt : loyaltyTierRepository.findAll()) {
+            if (lt.getDiscountPercent() == null || lt.getDiscountPercent() == 0.0) {
+                if (lt.getName().contains("Bạc")) lt.setDiscountPercent(5.0);
+                else if (lt.getName().contains("Vàng")) lt.setDiscountPercent(10.0);
+                else if (lt.getName().contains("Kim Cương")) lt.setDiscountPercent(15.0);
+                else lt.setDiscountPercent(0.0);
+                loyaltyTierRepository.save(lt);
+            }
             tierMap.put(lt.getName(), lt);
         }
         return tierMap;

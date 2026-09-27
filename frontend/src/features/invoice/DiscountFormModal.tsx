@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   IoTicketOutline,
   IoInformationCircleOutline,
+  IoRibbonOutline,
+  IoSparklesOutline,
+  IoCheckmarkCircleOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
-import { InvoiceDiscountApplyRequest, InvoiceResponse } from '../../types';
+import { InvoiceDiscountApplyRequest, InvoiceResponse, LoyaltyTierResponse } from '../../types';
+import loyaltyApi from '../../services/loyaltyApi';
 
 interface DiscountFormModalProps {
   isOpen: boolean;
@@ -14,6 +18,7 @@ interface DiscountFormModalProps {
   isLoading: boolean;
   invoice?: Partial<InvoiceResponse> & { roomAmount?: number; serviceAmount?: number; remainingAmount?: number; outstandingAmount?: number };
   remainingAmount?: number;
+  booking?: any;
 }
 
 const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
@@ -22,7 +27,8 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
   onSubmit,
   isLoading,
   invoice,
-  remainingAmount
+  remainingAmount,
+  booking
 }) => {
   const [form, setForm] = useState<{
     discountType: 'PERCENTAGE' | 'FIXED_AMOUNT';
@@ -34,6 +40,16 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
     reason: '',
   });
   const [errors, setErrors] = useState<{ discountValue?: string; reason?: string }>({});
+  const [loyaltyTiers, setLoyaltyTiers] = useState<LoyaltyTierResponse[]>([]);
+  const [selectedTierId, setSelectedTierId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      loyaltyApi.getTiers()
+        .then((data) => setLoyaltyTiers(data || []))
+        .catch(() => setLoyaltyTiers([]));
+    }
+  }, [isOpen]);
 
   const grossTotal = (Number(invoice?.roomAmount) || 0) + (Number(invoice?.serviceAmount) || 0);
   const remVal = invoice?.remainingAmount != null
@@ -49,6 +65,23 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
 
   const formatVND = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+
+  // Tìm hạng thành viên của khách trong booking nếu có
+  const guestTier = loyaltyTiers.find(
+    (t) => (booking?.loyaltyTierId && t.id === booking.loyaltyTierId) ||
+           (booking?.loyaltyTierName && t.name.toLowerCase() === booking.loyaltyTierName.toLowerCase())
+  );
+
+  const applyTierDiscount = (tier: LoyaltyTierResponse) => {
+    const percent = tier.discountPercent != null ? tier.discountPercent : 0;
+    setSelectedTierId(tier.id);
+    setForm({
+      discountType: 'PERCENTAGE',
+      discountValue: String(percent),
+      reason: `Giảm giá theo hạng thành viên ${tier.name} (${percent}%)`,
+    });
+    setErrors({});
+  };
 
   /** Tính preview số tiền giảm */
   const calcPreview = (): number | null => {
@@ -104,13 +137,14 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
 
   const handleClose = () => {
     setForm({ discountType: 'PERCENTAGE', discountValue: '', reason: '' });
+    setSelectedTierId(null);
     setErrors({});
     onClose();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Áp dụng giảm giá" maxWidth="max-w-lg">
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Tổng tiền cơ sở */}
         <div className="flex items-center gap-3 rounded-xl bg-primary/5 border border-primary/20 p-3.5">
           <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
@@ -130,6 +164,88 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
             )}
           </div>
         </div>
+
+        {/* Tùy chọn giảm giá theo Hạng thành viên (Cấu hình bởi Chủ cơ sở) */}
+        {loyaltyTiers.length > 0 && (
+          <div className="rounded-xl border border-border-grey bg-surface-container-low/40 p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface flex items-center gap-1.5 text-primary">
+                <IoSparklesOutline className="text-amber-500" size={14} /> Giảm giá theo Hạng thành viên
+              </span>
+              <span className="text-[10px] text-on-surface-variant/80 font-medium bg-surface-container px-2 py-0.5 rounded">
+                Chủ cơ sở cấu hình
+              </span>
+            </div>
+
+            {/* Thẻ ưu đãi nổi bật nếu khách hàng có hạng */}
+            {guestTier && (
+              <div className="flex items-center justify-between p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg text-xs shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                    👑
+                  </div>
+                  <div>
+                    <p className="font-bold text-amber-950">
+                      Khách hàng: {booking?.guestName || 'Khách'} — <span className="text-amber-800">{guestTier.name}</span>
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      Ưu đãi cấu hình: <strong className="text-amber-950 font-bold">Giảm {guestTier.discountPercent || 0}%</strong> hóa đơn
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => applyTierDiscount(guestTier)}
+                  className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all cursor-pointer shadow-2xs shrink-0 flex items-center gap-1"
+                >
+                  <IoCheckmarkCircleOutline size={14} /> Áp dụng ({guestTier.discountPercent || 0}%)
+                </button>
+              </div>
+            )}
+
+            {/* Danh sách các Hạng thành viên có thể chọn nhanh */}
+            <div>
+              <p className="text-[11px] text-on-surface-variant mb-1.5 font-medium">
+                Chọn hạng thành viên để tự động điền mức giảm:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {loyaltyTiers.map((tier) => {
+                  const isSelected = selectedTierId === tier.id ||
+                    (form.discountType === 'PERCENTAGE' && form.discountValue === String(tier.discountPercent || 0) && form.reason.includes(tier.name));
+                  const isClientTier = guestTier?.id === tier.id;
+
+                  return (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => applyTierDiscount(tier)}
+                      className={`p-2 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary shadow-2xs'
+                          : 'border-border-grey bg-surface-container-lowest hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={`text-xs font-bold truncate ${isSelected ? 'text-primary' : 'text-on-surface'}`} title={tier.name}>
+                          {tier.name}
+                        </span>
+                        {isClientTier && <span className="text-[10px]" title="Hạng của khách">👑</span>}
+                      </div>
+                      <div className="flex items-center justify-between mt-1 text-[11px]">
+                        <span className={`font-extrabold ${isSelected ? 'text-primary' : 'text-emerald-700'}`}>
+                          {(tier.discountPercent || 0) > 0 ? `Giảm ${tier.discountPercent}%` : '0%'}
+                        </span>
+                        <span className="text-[10px] text-on-surface-variant font-mono">
+                          {tier.minPoints}đ
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Loại giảm giá */}
         <div>

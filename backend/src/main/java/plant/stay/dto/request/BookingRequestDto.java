@@ -1,7 +1,9 @@
 package plant.stay.dto.request;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -12,8 +14,16 @@ public class BookingRequestDto {
     private String guestName;
 
     @NotBlank(message = "Số điện thoại không được để trống")
+    @Pattern(
+        regexp = "^(0|\\+84)(3|5|7|8|9)[0-9]{8}$|^02[0-9]{9}$", 
+        message = "Số điện thoại không đúng định dạng (10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09)"
+    )
     private String phone;
 
+    @Pattern(
+        regexp = "^$|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", 
+        message = "Email không đúng định dạng"
+    )
     private String email;
 
     @NotNull(message = "Loại phòng không được để trống")

@@ -75,6 +75,12 @@ public class Booking {
     @Column(name = "cancellation_fee", precision = 12, scale = 2)
     private BigDecimal cancellationFee; // Phí hủy theo chính sách
 
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
+    @Column(name = "cancellation_reason")
+    private String cancellationReason;
+
     @Column(columnDefinition = "TEXT")
     private String note;
 

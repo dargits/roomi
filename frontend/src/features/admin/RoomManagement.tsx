@@ -315,7 +315,12 @@ const RoomManagement: React.FC = () => {
   };
 
   const isOwner = user?.role === 'OWNER';
-  const canMarkClean = user?.role === 'OWNER' || user?.role === 'HOUSEKEEPER';
+  const isAdmin = user?.role === 'ADMIN';
+  const canManageRooms = isOwner || isAdmin;
+  const canBook = isOwner || isAdmin || user?.role === 'RECEPTIONIST';
+  const canMarkClean = isOwner || isAdmin || user?.role === 'HOUSEKEEPER';
+  const canApproveClean = isOwner || isAdmin || user?.role === 'RECEPTIONIST';
+  const canAssignCleaner = isOwner || isAdmin || user?.role === 'RECEPTIONIST';
 
   const roomTypeOptions = roomTypes.map(rt => ({ value: rt.id, label: rt.name }));
   const statusOptions = [
@@ -370,14 +375,16 @@ const RoomManagement: React.FC = () => {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          <button
-            onClick={() => setIsBookingModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-[#FF8800] hover:bg-[#E67A00] text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <IoAddOutline size={16} />
-            <span>Tạo đặt phòng</span>
-          </button>
-          {isOwner && (
+          {canBook && (
+            <button
+              onClick={() => setIsBookingModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-[#FF8800] hover:bg-[#E67A00] text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <IoAddOutline size={16} />
+              <span>Tạo đặt phòng</span>
+            </button>
+          )}
+          {canManageRooms && (
             <Button variant="primary" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
               Thêm Phòng
             </Button>
@@ -582,13 +589,15 @@ const RoomManagement: React.FC = () => {
                                 <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sẵn sàng nhận khách
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setIsBookingModalOpen(true)}
-                                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 cursor-pointer transition-colors shadow-2xs"
-                                >
-                                  + Đặt ngay
-                                </button>
+                                {canBook && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsBookingModalOpen(true)}
+                                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 cursor-pointer transition-colors shadow-2xs"
+                                  >
+                                    + Đặt ngay
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -622,16 +631,18 @@ const RoomManagement: React.FC = () => {
                                     {room.assignedHousekeeperName ? `Dọn: ${room.assignedHousekeeperName}` : 'Chưa phân công'}
                                   </span>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openAssignModal(room);
-                                  }}
-                                  className="text-[11px] font-bold text-primary hover:underline ml-1 cursor-pointer shrink-0"
-                                >
-                                  {room.assignedHousekeeperName ? 'Đổi' : 'Gán'}
-                                </button>
+                                {canAssignCleaner && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openAssignModal(room);
+                                    }}
+                                    className="text-[11px] font-bold text-primary hover:underline ml-1 cursor-pointer shrink-0"
+                                  >
+                                    {room.assignedHousekeeperName ? 'Đổi' : 'Gán'}
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -670,7 +681,7 @@ const RoomManagement: React.FC = () => {
                                 <span>Đã dọn</span>
                               </button>
                             )}
-                            {room.status === 'INSPECTING' && (
+                            {room.status === 'INSPECTING' && canApproveClean && (
                               <button
                                 onClick={() => handleApproveClean(room.id)}
                                 className="px-2.5 py-1 bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-300 rounded-lg transition-colors text-xs font-bold flex items-center gap-1 cursor-pointer"
@@ -680,7 +691,7 @@ const RoomManagement: React.FC = () => {
                                 <span>Duyệt sạch</span>
                               </button>
                             )}
-                            {room.status !== 'MAINTENANCE' && room.status !== 'OCCUPIED' && isOwner && (
+                            {room.status !== 'MAINTENANCE' && room.status !== 'OCCUPIED' && canManageRooms && (
                               <button
                                 onClick={() => handleMarkMaintenance(room.id)}
                                 className="px-2 py-1 bg-white hover:bg-gray-100 text-[#606D56] transition-colors border border-border-grey rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
@@ -693,7 +704,7 @@ const RoomManagement: React.FC = () => {
                           </div>
 
                           <div className="flex items-center gap-1 ml-auto">
-                            {isOwner && (
+                            {canManageRooms && (
                               <>
                                 <button
                                   onClick={() => openEditModal(room)}

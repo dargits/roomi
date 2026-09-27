@@ -19,6 +19,7 @@ import { roomApi } from '../../services/roomApi';
 import { useToast } from '../../context/ToastContext';
 import { RoomResponse } from '../../types';
 import { formatDate, calculateNights } from '../../utils/formatDate';
+import { validatePhone, validateEmail, validateCCCD } from '../../utils/securitySanitizer';
 
 interface ConvertBlockModalProps {
   isOpen: boolean;
@@ -152,6 +153,30 @@ const ConvertBlockModal: React.FC<ConvertBlockModalProps> = ({
     if (!guestName.trim()) {
       toastError('Vui lòng nhập họ và tên khách hàng');
       return;
+    }
+
+    if (guestPhone.trim()) {
+      const phoneCheck = validatePhone(guestPhone.trim(), false);
+      if (!phoneCheck.valid) {
+        toastError(phoneCheck.message || 'Số điện thoại không hợp lệ');
+        return;
+      }
+    }
+
+    if (guestEmail.trim()) {
+      const emailCheck = validateEmail(guestEmail.trim(), false);
+      if (!emailCheck.valid) {
+        toastError(emailCheck.message || 'Email không hợp lệ');
+        return;
+      }
+    }
+
+    if (guestIdNumber.trim()) {
+      const cccdCheck = validateCCCD(guestIdNumber.trim(), false);
+      if (!cccdCheck.valid) {
+        toastError(cccdCheck.message || 'Số CCCD/CMND không hợp lệ');
+        return;
+      }
     }
 
     setSubmitting(true);
