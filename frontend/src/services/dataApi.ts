@@ -270,6 +270,31 @@ const dataApi = {
   updateBackupConfig: async (config: Partial<BackupConfig>): Promise<BackupConfig> => {
     const response = await api.put('/backup/config', config);
     return response.data;
+  },
+
+  /**
+   * Tái tạo toàn bộ bộ dữ liệu mẫu vận hành chuẩn chỉnh từ tháng 1 đến nay (kèm tạo bản sao lưu .ZIP)
+   */
+  reseedSampleData: async (): Promise<{
+    status: string;
+    message: string;
+    bookingsCount: number;
+    invoicesCount: number;
+    paymentsCount: number;
+    depositsCount: number;
+    declarationsCount: number;
+    cleaningsCount: number;
+    cashierShiftsCount: number;
+    dailyLedgersCount: number;
+    incidentsCount: number;
+    lostItemsCount: number;
+    backupFile: string;
+    backupSize: string;
+  }> => {
+    const response = await api.post('/backup/reseed-sample-data', null, {
+      timeout: 300000
+    });
+    return response.data;
   }
 };
 
