@@ -37,14 +37,22 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
     private final BookingRepository bookingRepository;
     private final BookingServiceUsageRepository bookingServiceUsageRepository;
     private final InvoiceRepository invoiceRepository;
+    private final InvoiceDiscountRepository invoiceDiscountRepository;
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
     private final DailyLedgerRepository dailyLedgerRepository;
     private final CashierShiftRepository cashierShiftRepository;
+    private final CashierShiftClosingRepository cashierShiftClosingRepository;
     private final RoomCleaningRecordRepository roomCleaningRecordRepository;
     private final RoomIncidentRepository roomIncidentRepository;
     private final LostItemRepository lostItemRepository;
+    private final LostItemLogRepository lostItemLogRepository;
     private final StayDeclarationRepository stayDeclarationRepository;
+    private final RoomStayGuestRepository roomStayGuestRepository;
+    private final BookingConfirmationLogRepository bookingConfirmationLogRepository;
+    private final DebtApprovalRepository debtApprovalRepository;
+    private final DebtCollectionLogRepository debtCollectionLogRepository;
+    private final AuditLogRepository auditLogRepository;
     private final NotificationRepository notificationRepository;
     private final BackupService backupService;
 
@@ -74,7 +82,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 "stay_declarations", "lost_item_logs", "lost_items", "room_incidents",
                 "booking_staying_guests", "room_stay_guests", "booking_confirmation_logs",
                 "channel_room_blocks", "bookings", "cashier_shift_closings", "cashier_shifts",
-                "daily_ledgers", "notifications", "identity_documents"
+                "daily_ledgers", "notifications", "identity_documents", "audit_logs"
         };
         for (String table : tablesToTruncate) {
             try {
@@ -117,8 +125,11 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         LocalDate startDate = LocalDate.of(2026, 1, 2);
 
         List<Booking> bookingsToSave = new ArrayList<>();
+        List<RoomStayGuest> roomStayGuestsToSave = new ArrayList<>();
+        List<BookingConfirmationLog> confirmationLogsToSave = new ArrayList<>();
         List<BookingServiceUsage> usagesToSave = new ArrayList<>();
         List<Invoice> invoicesToSave = new ArrayList<>();
+        List<InvoiceDiscount> invoiceDiscountsToSave = new ArrayList<>();
         List<Payment> paymentsToSave = new ArrayList<>();
         List<Deposit> depositsToSave = new ArrayList<>();
         List<StayDeclaration> declarationsToSave = new ArrayList<>();
@@ -156,6 +167,10 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 Guest guest = guests.get(guestIndex % guests.size());
                 guestIndex++;
 
+                // Khách ở cùng phòng nếu phòng đôi/suite
+                Guest coGuest = (roomType.getStandardCapacity() != null && roomType.getStandardCapacity() > 1 && guests.size() > 1)
+                        ? guests.get((guestIndex + 5) % guests.size()) : null;
+
                 String source = sources[(rIdx + currDate.getMonthValue()) % sources.length];
                 boolean isCorporate = (guestIndex % 7 == 0) && !agreements.isEmpty();
                 NegotiatedPriceAgreement agreement = isCorporate ? agreements.get(agreementIndex++ % agreements.size()) : null;
@@ -175,10 +190,17 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 // Tỷ lệ hủy hợp lý ~3% (phát sinh phí hủy 30%)
                 boolean isCancelled = (rIdx % 5 == 0 && currDate.getDayOfMonth() == 13);
 
+                List<Guest> stayingGuestList = new ArrayList<>();
+                stayingGuestList.add(guest);
+                if (coGuest != null) {
+                    stayingGuestList.add(coGuest);
+                }
+
                 Booking booking = Booking.builder()
                         .guest(guest)
                         .room(room)
                         .roomType(roomType)
+                        .stayingGuests(stayingGuestList)
                         .checkInDate(checkIn)
                         .checkOutDate(checkOut)
                         .checkedInAt(isCancelled ? null : checkedInAt)
@@ -197,6 +219,46 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .build();
 
                 bookingsToSave.add(booking);
+
+                // Bản ghi khách ở thực tế trong phòng (RoomStayGuest)
+                if (!isCancelled) {
+                    roomStayGuestsToSave.add(RoomStayGuest.builder()
+                            .booking(booking)
+                            .fullName(guest.getName())
+                            .birthYear(1985 + (rIdx % 15))
+                            .documentType("CCCD")
+                            .documentNumber(guest.getIdNumber())
+                            .isChild(false)
+                            .isPrimaryGuest(true)
+                            .checkInAt(checkedInAt)
+                            .isExported(true)
+                            .build());
+
+                    if (coGuest != null) {
+                        roomStayGuestsToSave.add(RoomStayGuest.builder()
+                                .booking(booking)
+                                .fullName(coGuest.getName())
+                                .birthYear(1989 + (rIdx % 12))
+                                .documentType("CCCD")
+                                .documentNumber(coGuest.getIdNumber())
+                                .isChild(false)
+                                .isPrimaryGuest(false)
+                                .checkInAt(checkedInAt)
+                                .isExported(true)
+                                .build());
+                    }
+                }
+
+                // Nhật ký gửi xác nhận đặt phòng
+                confirmationLogsToSave.add(BookingConfirmationLog.builder()
+                        .booking(booking)
+                        .channel(ConfirmationChannel.EMAIL)
+                        .recipient(guest.getEmail() != null ? guest.getEmail() : "khachhang@example.com")
+                        .sentBy(letan1)
+                        .status("SUCCESS")
+                        .sentAt(checkIn.minusDays(1).atTime(14, 30))
+                        .note("Gửi phiếu xác nhận đặt phòng tự động qua email thành công")
+                        .build());
 
                 if (!isCancelled) {
                     lastCheckoutBookingByRoom.put(rNum, booking);
@@ -248,6 +310,22 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                             .build();
                     invoicesToSave.add(invoice);
 
+                    // Bản ghi chiết khấu InvoiceDiscount nếu có giảm giá
+                    if (discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+                        invoiceDiscountsToSave.add(InvoiceDiscount.builder()
+                                .invoice(invoice)
+                                .discountType(DiscountType.PERCENTAGE)
+                                .discountValue(new BigDecimal("5.00"))
+                                .calculatedAmount(discountAmount)
+                                .reason("Ưu đãi giảm giá 5% cho khách hàng đối tác doanh nghiệp")
+                                .status(DiscountStatus.APPLIED)
+                                .createdBy(letan1)
+                                .createdAt(checkedOutAt.minusMinutes(15))
+                                .reviewedBy(adminUser)
+                                .reviewedAt(checkedOutAt.minusMinutes(5))
+                                .build());
+                    }
+
                     // Phân bổ phương thức thanh toán: 35% Tiền mặt, 55% Chuyển khoản, 10% Thẻ
                     PaymentMethod payMethod = PaymentMethod.TRANSFER;
                     int pMod = (guestIndex + currDate.getDayOfMonth()) % 10;
@@ -280,13 +358,15 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                                 .build());
                     }
 
-                    // Khai báo tạm trú
-                    declarationsToSave.add(StayDeclaration.builder()
+                    // Khai báo tạm trú liên kết chặt chẽ
+                    StayDeclaration declaration = StayDeclaration.builder()
                             .booking(booking)
                             .status(StayDeclarationStatus.COMPLETED)
                             .completedBy(letan1)
                             .completedAt(checkedInAt.plusHours(1))
-                            .build());
+                            .build();
+                    booking.setStayDeclaration(declaration);
+                    declarationsToSave.add(declaration);
 
                     // Nhật ký dọn buồng phòng sau khi trả phòng
                     LocalDateTime cleanStart = checkedOutAt.plusMinutes(10);
@@ -316,19 +396,30 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
 
             // 6. Xử lý các phòng ĐANG Ở HÔM NAY (101, 102, 201, 203, 301)
             if (inHouseRoomNumbers.contains(rNum)) {
-                LocalDate checkIn = today.minusDays(1 + (rIdx % 2));
-                LocalDate checkOut = today.plusDays(1 + (rIdx % 2));
+                // Đảm bảo có phòng check-in hôm nay để kiểm tra ngay trên tab Khai Báo Lưu Trú
+                LocalDate checkIn = today;
+                LocalDate checkOut = today.plusDays(2);
                 Guest guest = guests.get(guestIndex % guests.size());
                 guestIndex++;
 
+                Guest coGuest = (roomType.getStandardCapacity() != null && roomType.getStandardCapacity() > 1 && guests.size() > 1)
+                        ? guests.get((guestIndex + 5) % guests.size()) : null;
+
                 long stayDays = ChronoUnit.DAYS.between(checkIn, checkOut);
                 BigDecimal roomAmount = roomType.getBasePrice().multiply(BigDecimal.valueOf(stayDays));
-                LocalDateTime checkedInAt = checkIn.atTime(14, 15);
+                LocalDateTime checkedInAt = today.atTime(13, 0).plusMinutes((rIdx * 17) % 90);
+
+                List<Guest> inHouseGuests = new ArrayList<>();
+                inHouseGuests.add(guest);
+                if (coGuest != null) {
+                    inHouseGuests.add(coGuest);
+                }
 
                 Booking inHouseBooking = Booking.builder()
                         .guest(guest)
                         .room(room)
                         .roomType(roomType)
+                        .stayingGuests(inHouseGuests)
                         .checkInDate(checkIn)
                         .checkOutDate(checkOut)
                         .checkedInAt(checkedInAt)
@@ -340,6 +431,33 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .note("Khách đang lưu trú tại phòng, hỗ trợ chu đáo")
                         .build();
                 bookingsToSave.add(inHouseBooking);
+
+                // RoomStayGuest cho khách đang ở
+                roomStayGuestsToSave.add(RoomStayGuest.builder()
+                        .booking(inHouseBooking)
+                        .fullName(guest.getName())
+                        .birthYear(1987 + (rIdx % 10))
+                        .documentType("CCCD")
+                        .documentNumber(guest.getIdNumber())
+                        .isChild(false)
+                        .isPrimaryGuest(true)
+                        .checkInAt(checkedInAt)
+                        .isExported("301".equals(rNum) ? false : true)
+                        .build());
+
+                if (coGuest != null) {
+                    roomStayGuestsToSave.add(RoomStayGuest.builder()
+                            .booking(inHouseBooking)
+                            .fullName(coGuest.getName())
+                            .birthYear(1991 + (rIdx % 8))
+                            .documentType("CCCD")
+                            .documentNumber(coGuest.getIdNumber())
+                            .isChild(false)
+                            .isPrimaryGuest(false)
+                            .checkInAt(checkedInAt)
+                            .isExported("301".equals(rNum) ? false : true)
+                            .build());
+                }
 
                 // Dịch vụ minibar đã tiêu thụ trong phòng
                 if (!extraServices.isEmpty()) {
@@ -366,18 +484,20 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .status(DepositStatus.COLLECTED)
                         .paymentMethod(PaymentMethod.CASH)
                         .collectedBy(letan1)
-                        .collectedAt(checkIn.atTime(14, 20))
+                        .collectedAt(checkedInAt.plusMinutes(5))
                         .note("Thu tiền cọc khi làm thủ tục check-in")
                         .build());
 
-                // Khai báo tạm trú: riêng phòng 301 để PENDING cho lễ tân thao tác trải nghiệm
+                // Khai báo tạm trú: riêng phòng 301 để PENDING để lễ tân trải nghiệm thao tác trên giao diện
                 StayDeclarationStatus declStatus = "301".equals(rNum) ? StayDeclarationStatus.PENDING : StayDeclarationStatus.COMPLETED;
-                declarationsToSave.add(StayDeclaration.builder()
+                StayDeclaration declaration = StayDeclaration.builder()
                         .booking(inHouseBooking)
                         .status(declStatus)
                         .completedBy(declStatus == StayDeclarationStatus.COMPLETED ? letan1 : null)
                         .completedAt(declStatus == StayDeclarationStatus.COMPLETED ? checkedInAt.plusHours(1) : null)
-                        .build());
+                        .build();
+                inHouseBooking.setStayDeclaration(declaration);
+                declarationsToSave.add(declaration);
             }
 
             // 7. Xử lý các phòng SẮP NHẬN PHÒNG (104, 204, 302, 401)
@@ -393,6 +513,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .guest(guest)
                         .room(room)
                         .roomType(roomType)
+                        .stayingGuests(List.of(guest))
                         .checkInDate(checkIn)
                         .checkOutDate(checkOut)
                         .status(BookingStatus.CONFIRMED)
@@ -419,15 +540,19 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             }
         }
 
-        // Lưu toàn bộ Bookings, Usages, Invoices, Payments, Deposits, Declarations
+        // Lưu toàn bộ Bookings, StayingGuests, Usages, Invoices, Discounts, Payments, Deposits, Declarations
         bookingRepository.saveAll(bookingsToSave);
+        roomStayGuestRepository.saveAll(roomStayGuestsToSave);
+        bookingConfirmationLogRepository.saveAll(confirmationLogsToSave);
         bookingServiceUsageRepository.saveAll(usagesToSave);
         invoiceRepository.saveAll(invoicesToSave);
+        invoiceDiscountRepository.saveAll(invoiceDiscountsToSave);
         paymentRepository.saveAll(paymentsToSave);
         depositRepository.saveAll(depositsToSave);
         stayDeclarationRepository.saveAll(declarationsToSave);
-        log.info("Đã lưu {} lượt đặt phòng, {} dịch vụ, {} hóa đơn, {} giao dịch thanh toán, {} tiền cọc.",
-                bookingsToSave.size(), usagesToSave.size(), invoicesToSave.size(), paymentsToSave.size(), depositsToSave.size());
+        log.info("Đã lưu {} đặt phòng, {} khách lưu trú, {} dịch vụ, {} hóa đơn, {} chiết khấu, {} thanh toán, {} tiền cọc.",
+                bookingsToSave.size(), roomStayGuestsToSave.size(), usagesToSave.size(),
+                invoicesToSave.size(), invoiceDiscountsToSave.size(), paymentsToSave.size(), depositsToSave.size());
 
         // Dọn dẹp phòng 103 (DIRTY) vừa trả phòng hôm nay
         Room room103 = allRooms.stream().filter(r -> "103".equals(r.getRoomNumber())).findFirst().orElse(null);
@@ -452,7 +577,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         // 8. Đồng bộ trạng thái thực tế phòng
         updateRealtimeRoomStatuses(allRooms, inHouseRoomNumbers, buongphong1);
 
-        // 9. Sinh Ca làm việc thu ngân (CashierShift) khớp chính xác từng giao dịch
+        // 9. Sinh Ca làm việc thu ngân (CashierShift & CashierShiftClosing) khớp 100% doanh thu
         List<CashierShift> shifts = seedCashierShifts(startDate, today, paymentsToSave, depositsToSave, letan1, letan2);
 
         // 10. Sinh Sổ cái tài chính ngày (DailyLedger) khớp chính xác từng ngày
@@ -461,16 +586,22 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         // 11. Sinh Sự cố phòng (RoomIncident) trải dài 9 tháng
         List<RoomIncident> incidents = seedRoomIncidents(allRooms, today, buongphong1, buongphong2, adminUser, letan1);
 
-        // 12. Sinh Đồ thất lạc (LostItem) gắn với phòng & khách lưu trú
+        // 12. Sinh Đồ thất lạc (LostItem & LostItemLog) gắn với phòng & khách lưu trú
         List<LostItem> lostItems = seedLostItems(allRooms, today, lastCheckoutBookingByRoom, buongphong1, buongphong2, letan1);
 
-        // 13. Cập nhật Điểm tích lũy & Hạng thành viên khách hàng dựa trên chi tiêu thực tế
+        // 13. Sinh Hồ sơ công nợ đối tác doanh nghiệp (DebtApprovalRequest & DebtCollectionLog)
+        seedCorporateDebtRecords(bookingsToSave, invoicesToSave, guests, letan1, adminUser, today);
+
+        // 14. Cập nhật Điểm tích lũy & Hạng thành viên khách hàng dựa trên chi tiêu thực tế
         updateGuestLoyaltyBasedOnSpending(guests, invoicesToSave);
 
-        // 14. Sinh Thông báo mẫu cho ngày hôm nay
+        // 15. Sinh Thông báo mẫu cho ngày hôm nay
         seedSampleNotifications(users, today);
 
-        // 15. Tự động khởi tạo bản sao lưu toàn diện (.ZIP) lưu trữ trong trung tâm backup
+        // 16. Sinh Nhật ký kiểm toán hệ thống (AuditLog) toàn diện từ tháng 1 đến nay
+        seedAuditLogs(users, bookingsToSave, invoicesToSave, shifts, incidents, lostItems, adminUser, letan1, buongphong1);
+
+        // 17. Tự động khởi tạo bản sao lưu toàn diện (.ZIP) lưu trữ trong trung tâm backup
         BackupHistoryDto backupDto = null;
         try {
             backupDto = backupService.createBackup(adminUser, "FULL_ZIP");
@@ -534,6 +665,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             User letan2
     ) {
         List<CashierShift> shiftsToSave = new ArrayList<>();
+        List<CashierShiftClosing> closingsToSave = new ArrayList<>();
         LocalDate cur = startDate;
 
         while (!cur.isAfter(today)) {
@@ -565,7 +697,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             BigDecimal baseCash = new BigDecimal("2000000");
             BigDecimal mExpCash = baseCash.add(mCash).add(mDepCash);
 
-            shiftsToSave.add(CashierShift.builder()
+            CashierShift shift1 = CashierShift.builder()
                     .openedBy(letan1)
                     .openedAt(mStart)
                     .openingCash(baseCash)
@@ -573,6 +705,26 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .status(CashierShiftStatus.CLOSED)
                     .closedBy(letan1)
                     .closedAt(mEnd)
+                    .invoiceCash(mCash)
+                    .invoiceTransfer(mTransfer)
+                    .invoiceCard(mCard)
+                    .depositCash(mDepCash)
+                    .depositTransfer(mDepTransfer)
+                    .depositCard(BigDecimal.ZERO)
+                    .refundCash(BigDecimal.ZERO)
+                    .refundTransfer(BigDecimal.ZERO)
+                    .refundCard(BigDecimal.ZERO)
+                    .expectedCash(mExpCash)
+                    .actualCash(mExpCash)
+                    .discrepancy(BigDecimal.ZERO)
+                    .build();
+            shiftsToSave.add(shift1);
+
+            closingsToSave.add(CashierShiftClosing.builder()
+                    .shift(shift1)
+                    .closedBy(letan1)
+                    .closedAt(mEnd)
+                    .openingCash(baseCash)
                     .invoiceCash(mCash)
                     .invoiceTransfer(mTransfer)
                     .invoiceCard(mCard)
@@ -615,7 +767,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             BigDecimal aExpCash = baseCash.add(aCash).add(aDepCash);
             boolean isPast = cur.isBefore(today);
 
-            shiftsToSave.add(CashierShift.builder()
+            CashierShift shift2 = CashierShift.builder()
                     .openedBy(letan2)
                     .openedAt(aStart)
                     .openingCash(baseCash)
@@ -635,13 +787,37 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .expectedCash(aExpCash)
                     .actualCash(aExpCash)
                     .discrepancy(BigDecimal.ZERO)
-                    .build());
+                    .build();
+            shiftsToSave.add(shift2);
+
+            if (isPast) {
+                closingsToSave.add(CashierShiftClosing.builder()
+                        .shift(shift2)
+                        .closedBy(letan2)
+                        .closedAt(aEnd)
+                        .openingCash(baseCash)
+                        .invoiceCash(aCash)
+                        .invoiceTransfer(aTransfer)
+                        .invoiceCard(aCard)
+                        .depositCash(aDepCash)
+                        .depositTransfer(aDepTransfer)
+                        .depositCard(BigDecimal.ZERO)
+                        .refundCash(BigDecimal.ZERO)
+                        .refundTransfer(BigDecimal.ZERO)
+                        .refundCard(BigDecimal.ZERO)
+                        .expectedCash(aExpCash)
+                        .actualCash(aExpCash)
+                        .discrepancy(BigDecimal.ZERO)
+                        .build());
+            }
 
             cur = cur.plusDays(1);
         }
 
         cashierShiftRepository.saveAll(shiftsToSave);
-        log.info("Đã tạo {} ca thu ngân trực ban liền mạch (khớp 100% doanh thu thực tế).", shiftsToSave.size());
+        cashierShiftClosingRepository.saveAll(closingsToSave);
+        log.info("Đã tạo {} ca thu ngân trực ban và {} bản ghi chốt ca (CashierShiftClosing).",
+                shiftsToSave.size(), closingsToSave.size());
         return shiftsToSave;
     }
 
@@ -790,6 +966,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
     ) {
         Map<String, Room> rMap = allRooms.stream().collect(Collectors.toMap(Room::getRoomNumber, r -> r));
         List<LostItem> items = new ArrayList<>();
+        List<LostItemLog> logsToSave = new ArrayList<>();
 
         Object[][] rawItems = {
                 {"102", 210, "Tai nghe Apple AirPods Pro có hộp sạc", "Bàn trang điểm cạnh gương", "Trần Thị Lan", "0912345678", true},
@@ -818,8 +995,9 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
 
             LocalDate fDate = today.minusDays(daysAgo);
             Booking booking = lastCheckoutBookingByRoom.get(rNum);
+            User creator = daysAgo % 2 == 0 ? housekeeper1 : housekeeper2;
 
-            items.add(LostItem.builder()
+            LostItem item = LostItem.builder()
                     .room(r)
                     .booking(booking)
                     .itemName(itemName)
@@ -834,13 +1012,235 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .receiverNote(isReturned ? "Khách quay lại nhận trực tiếp tại quầy hoặc gửi chuyển phát nhanh" : null)
                     .returnedAt(isReturned ? fDate.plusDays(1).atTime(14, 0) : null)
                     .returnedBy(isReturned ? letan : null)
-                    .createdBy(daysAgo % 2 == 0 ? housekeeper1 : housekeeper2)
+                    .createdBy(creator)
+                    .build();
+            items.add(item);
+
+            // Nhật ký LostItemLog
+            logsToSave.add(LostItemLog.builder()
+                    .lostItem(item)
+                    .action("CREATED")
+                    .previousStatus(null)
+                    .newStatus(LostItemStatus.HOLDING)
+                    .notes("Nhặt được đồ khi kiểm tra và dọn phòng sau khi khách trả")
+                    .performedBy(creator)
+                    .createdAt(fDate.atTime(12, 35))
                     .build());
+
+            if (isReturned) {
+                logsToSave.add(LostItemLog.builder()
+                        .lostItem(item)
+                        .action("RETURNED_TO_GUEST")
+                        .previousStatus(LostItemStatus.HOLDING)
+                        .newStatus(LostItemStatus.RETURNED)
+                        .notes("Đã liên hệ xác minh và trao trả tài sản cho khách: " + recName)
+                        .performedBy(letan)
+                        .createdAt(fDate.plusDays(1).atTime(14, 5))
+                        .build());
+            }
         }
 
         lostItemRepository.saveAll(items);
-        log.info("Đã tạo {} bản ghi đồ thất lạc mẫu (LostItem).", items.size());
+        lostItemLogRepository.saveAll(logsToSave);
+        log.info("Đã tạo {} đồ thất lạc mẫu (LostItem) và {} nhật ký xử lý (LostItemLog).", items.size(), logsToSave.size());
         return items;
+    }
+
+    private void seedCorporateDebtRecords(
+            List<Booking> bookings,
+            List<Invoice> invoices,
+            List<Guest> guests,
+            User letan,
+            User admin,
+            LocalDate today
+    ) {
+        List<Booking> corporateBookings = bookings.stream()
+                .filter(b -> b.getAppliedAgreement() != null && b.getStatus() == BookingStatus.CHECKED_OUT)
+                .toList();
+
+        if (corporateBookings.size() < 2) return;
+
+        List<DebtApprovalRequest> debtRequests = new ArrayList<>();
+        List<DebtCollectionLog> debtLogs = new ArrayList<>();
+
+        Booking b1 = corporateBookings.get(0);
+        Invoice inv1 = invoices.stream().filter(i -> i.getBooking() != null && i.getBooking().equals(b1)).findFirst().orElse(null);
+        if (inv1 != null) {
+            DebtApprovalRequest debt1 = DebtApprovalRequest.builder()
+                    .booking(b1)
+                    .invoice(inv1)
+                    .guest(b1.getGuest())
+                    .debtAmount(inv1.getTotalAmount())
+                    .dueDate(b1.getCheckOutDate().plusDays(30))
+                    .reason("Công nợ doanh nghiệp đối tác trả sau chu kỳ tháng")
+                    .status(DebtApprovalStatus.APPROVED)
+                    .requestedBy(letan)
+                    .requestedAt(b1.getCheckedOutAt().minusMinutes(20))
+                    .approvedBy(admin)
+                    .approvedAt(b1.getCheckedOutAt().minusMinutes(5))
+                    .lastContactedAt(b1.getCheckOutDate().plusDays(15).atTime(9, 30))
+                    .lastContactNote("Đã xác nhận thỏa thuận bảo lãnh thanh toán của công ty đối tác")
+                    .lastContactResult("PROMISED_TO_PAY")
+                    .promisedDate(b1.getCheckOutDate().plusDays(25))
+                    .build();
+            debtRequests.add(debt1);
+
+            debtLogs.add(DebtCollectionLog.builder()
+                    .debtApprovalRequest(debt1)
+                    .contactDate(b1.getCheckOutDate().plusDays(15).atTime(9, 30))
+                    .contactMethod("EMAIL")
+                    .contactResult("PROMISED_TO_PAY")
+                    .notes("Đã gửi sao kê bảng đối soát công nợ qua email cho kế toán trưởng công ty đối tác")
+                    .promisedDate(b1.getCheckOutDate().plusDays(25))
+                    .nextReminderDate(b1.getCheckOutDate().plusDays(26))
+                    .build());
+        }
+
+        debtApprovalRepository.saveAll(debtRequests);
+        debtCollectionLogRepository.saveAll(debtLogs);
+        log.info("Đã tạo {} hồ sơ công nợ đối tác và {} nhật ký đối soát công nợ.", debtRequests.size(), debtLogs.size());
+    }
+
+    private void seedAuditLogs(
+            List<User> users,
+            List<Booking> bookings,
+            List<Invoice> invoices,
+            List<CashierShift> shifts,
+            List<RoomIncident> incidents,
+            List<LostItem> lostItems,
+            User admin,
+            User letan,
+            User housekeeper
+    ) {
+        List<AuditLog> auditLogs = new ArrayList<>();
+
+        // 1. Audit logs cho các đặt phòng tiêu biểu trải dài từ T1 đến T9
+        int sampleStep = Math.max(1, bookings.size() / 50);
+        for (int i = 0; i < bookings.size(); i += sampleStep) {
+            Booking b = bookings.get(i);
+            LocalDateTime ts = b.getCheckedInAt() != null ? b.getCheckedInAt() : b.getCheckInDate().atTime(14, 0);
+
+            auditLogs.add(AuditLog.builder()
+                    .entityName("Booking")
+                    .entityId(b.getId())
+                    .action("CREATE_BOOKING")
+                    .actor(letan)
+                    .timestamp(ts.minusDays(1))
+                    .detailJson("{\"room\":\"" + (b.getRoom() != null ? b.getRoom().getRoomNumber() : "") + "\",\"guest\":\"" + (b.getGuest() != null ? b.getGuest().getName() : "") + "\"}")
+                    .build());
+
+            if (b.getStatus() == BookingStatus.CHECKED_OUT || b.getStatus() == BookingStatus.CHECKED_IN) {
+                auditLogs.add(AuditLog.builder()
+                        .entityName("Booking")
+                        .entityId(b.getId())
+                        .action("CHECK_IN")
+                        .actor(letan)
+                        .timestamp(ts)
+                        .detailJson("{\"roomNumber\":\"" + (b.getRoom() != null ? b.getRoom().getRoomNumber() : "") + "\",\"action\":\"Khách nhận phòng thành công\"}")
+                        .build());
+            }
+
+            if (b.getStatus() == BookingStatus.CHECKED_OUT && b.getCheckedOutAt() != null) {
+                auditLogs.add(AuditLog.builder()
+                        .entityName("Booking")
+                        .entityId(b.getId())
+                        .action("CHECK_OUT")
+                        .actor(letan)
+                        .timestamp(b.getCheckedOutAt())
+                        .detailJson("{\"roomNumber\":\"" + (b.getRoom() != null ? b.getRoom().getRoomNumber() : "") + "\",\"action\":\"Hoàn tất trả phòng\"}")
+                        .build());
+            }
+        }
+
+        // 2. Audit logs cho các hóa đơn thanh toán
+        int invStep = Math.max(1, invoices.size() / 30);
+        for (int i = 0; i < invoices.size(); i += invStep) {
+            Invoice inv = invoices.get(i);
+            if (inv.getBooking() != null && inv.getBooking().getCheckedOutAt() != null) {
+                auditLogs.add(AuditLog.builder()
+                        .entityName("Invoice")
+                        .entityId(inv.getId())
+                        .action("CREATE_INVOICE")
+                        .actor(letan)
+                        .timestamp(inv.getBooking().getCheckedOutAt())
+                        .detailJson("{\"totalAmount\":" + inv.getTotalAmount() + ",\"status\":\"PAID\"}")
+                        .build());
+            }
+        }
+
+        // 3. Audit logs cho ca làm việc thu ngân
+        int shiftStep = Math.max(1, shifts.size() / 25);
+        for (int i = 0; i < shifts.size(); i += shiftStep) {
+            CashierShift s = shifts.get(i);
+            auditLogs.add(AuditLog.builder()
+                    .entityName("CashierShift")
+                    .entityId(s.getId())
+                    .action("OPEN_SHIFT")
+                    .actor(s.getOpenedBy() != null ? s.getOpenedBy() : letan)
+                    .timestamp(s.getOpenedAt())
+                    .detailJson("{\"openingCash\":" + s.getOpeningCash() + "}")
+                    .build());
+
+            if (s.getStatus() == CashierShiftStatus.CLOSED && s.getClosedAt() != null) {
+                auditLogs.add(AuditLog.builder()
+                        .entityName("CashierShift")
+                        .entityId(s.getId())
+                        .action("CLOSE_SHIFT")
+                        .actor(s.getClosedBy() != null ? s.getClosedBy() : letan)
+                        .timestamp(s.getClosedAt())
+                        .detailJson("{\"actualCash\":" + s.getActualCash() + ",\"discrepancy\":" + s.getDiscrepancy() + "}")
+                        .build());
+            }
+        }
+
+        // 4. Audit logs cho các sự cố phòng
+        for (RoomIncident inc : incidents) {
+            auditLogs.add(AuditLog.builder()
+                    .entityName("RoomIncident")
+                    .entityId(inc.getId())
+                    .action("REPORT_INCIDENT")
+                    .actor(inc.getReportedBy() != null ? inc.getReportedBy() : housekeeper)
+                    .timestamp(inc.getReportedAt())
+                    .detailJson("{\"room\":\"" + (inc.getRoom() != null ? inc.getRoom().getRoomNumber() : "") + "\",\"desc\":\"" + inc.getDescription() + "\"}")
+                    .build());
+
+            if (inc.getStatus() == IncidentStatus.RESOLVED && inc.getResolvedAt() != null) {
+                auditLogs.add(AuditLog.builder()
+                        .entityName("RoomIncident")
+                        .entityId(inc.getId())
+                        .action("RESOLVE_INCIDENT")
+                        .actor(inc.getResolvedBy() != null ? inc.getResolvedBy() : admin)
+                        .timestamp(inc.getResolvedAt())
+                        .detailJson("{\"resolution\":\"" + inc.getResolutionNote() + "\"}")
+                        .build());
+            }
+        }
+
+        // 5. Audit logs cho đồ thất lạc
+        for (LostItem li : lostItems) {
+            auditLogs.add(AuditLog.builder()
+                    .entityName("LostItem")
+                    .entityId(li.getId())
+                    .action("REGISTER_LOST_ITEM")
+                    .actor(li.getCreatedBy() != null ? li.getCreatedBy() : housekeeper)
+                    .timestamp(li.getFoundDate().atTime(li.getFoundTime() != null ? li.getFoundTime() : LocalTime.of(12, 30)))
+                    .detailJson("{\"item\":\"" + li.getItemName() + "\",\"room\":\"" + (li.getRoom() != null ? li.getRoom().getRoomNumber() : "") + "\"}")
+                    .build());
+
+            if (li.getStatus() == LostItemStatus.RETURNED && li.getReturnedAt() != null) {
+                auditLogs.add(AuditLog.builder()
+                        .entityName("LostItem")
+                        .entityId(li.getId())
+                        .action("RETURN_LOST_ITEM")
+                        .actor(li.getReturnedBy() != null ? li.getReturnedBy() : letan)
+                        .timestamp(li.getReturnedAt())
+                        .detailJson("{\"receiver\":\"" + li.getReceiverName() + "\"}")
+                        .build());
+            }
+        }
+
+        auditLogRepository.saveAll(auditLogs);
+        log.info("Đã tạo {} bản ghi lịch sử kiểm toán hệ thống (AuditLog) chi tiết và liền mạch.", auditLogs.size());
     }
 
     private void updateGuestLoyaltyBasedOnSpending(List<Guest> guests, List<Invoice> invoices) {
