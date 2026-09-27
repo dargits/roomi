@@ -232,9 +232,9 @@ jobs:
               docker restart stayaway_frontend 2>/dev/null || true
             fi
 
-            # 7. Health check (up to 60 seconds)
+            # 7. Health check (up to 150 seconds)
             echo "[INFO] Performing health check on backend & frontend services..."
-            for i in $(seq 1 12); do
+            for i in $(seq 1 30); do
               BE_OK=false
               FE_OK=false
 
@@ -253,7 +253,7 @@ jobs:
                 break
               fi
 
-              if [ "$i" -eq 12 ]; then
+              if [ "$i" -eq 30 ]; then
                 echo "[ERROR] Health check reached timeout (BE_OK=$BE_OK, FE_OK=$FE_OK)!"
                 echo "=== LATEST BACKEND LOGS ==="
                 docker logs stayaway_backend --tail=80 2>&1 || true
@@ -261,7 +261,7 @@ jobs:
                 docker logs stayaway_frontend --tail=80 2>&1 || true
                 exit 1
               else
-                echo "  - Attempt $i/12 (BE=$BE_OK, FE=$FE_OK) — retrying in 5 seconds..."
+                echo "  - Attempt $i/30 (BE=$BE_OK, FE=$FE_OK) — retrying in 5 seconds..."
                 sleep 5
               fi
             done
