@@ -26,6 +26,7 @@ import Input from '../../components/ui/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { UserSessionResponse, Role, HotelSettingResponse } from '../../types';
 import { ROLE_LABEL, ROLE_BADGE_STYLE } from '../../layouts/DashboardLayout';
+import ConcurrentSessionControl from './ConcurrentSessionControl';
 
 const formatTimeAgo = (dateStr?: string) => {
   if (!dateStr) return '—';
@@ -585,16 +586,9 @@ const SessionManagementPage: React.FC = () => {
                 required
               />
 
-              <Input
-                label="Số phiên đăng nhập đồng thời tối đa trên 1 tài khoản *"
-                type="number"
-                min={0}
-                max={50}
-                value={String(configMaxConcurrent)}
-                onChange={(e) => setConfigMaxConcurrent(Number(e.target.value))}
-                icon={IoKeyOutline}
-                helperText="0 = Không giới hạn thiết bị. 1 = Chế độ phiên duy nhất (đăng nhập máy mới tự hủy phiên cũ)."
-                required
+              <ConcurrentSessionControl
+                value={configMaxConcurrent}
+                onChange={setConfigMaxConcurrent}
               />
 
               <Input
