@@ -15,7 +15,7 @@ import PublicBookingDetailPage from '../features/public/PublicBookingDetailPage'
 
 // Layout
 import DashboardLayout from '../layouts/DashboardLayout';
-import ProtectedRoute from './ProtectedRoute';
+import ProtectedRoute, { RoleBasedRedirect } from './ProtectedRoute';
 
 // Dashboard & Admin
 import DashboardPage from '../features/admin/DashboardPage';
@@ -82,15 +82,15 @@ const AppRoutes: React.FC = () => {
               <Route path="/p/booking/:bookingId" element={<PublicBookingDetailPage />} />
               <Route path="/p/booking/:bookingId/:tab" element={<PublicBookingDetailPage />} />
 
-              {/* Redirect old /admin & /dashboard paths */}
-              <Route path="/admin" element={<Navigate to="/manage/dashboard" replace />} />
-              <Route path="/admin/*" element={<Navigate to="/manage/dashboard" replace />} />
-              <Route path="/dashboard" element={<Navigate to="/manage/dashboard" replace />} />
+              {/* Redirect old /admin, /dashboard & /manage paths theo vai trò */}
+              <Route path="/admin" element={<RoleBasedRedirect />} />
+              <Route path="/admin/*" element={<RoleBasedRedirect />} />
+              <Route path="/dashboard" element={<RoleBasedRedirect />} />
               <Route path="/bookings" element={<Navigate to="/manage/bookings" replace />} />
               <Route path="/housekeeping" element={<Navigate to="/manage/housekeeping" replace />} />
               <Route path="/lost-and-found" element={<Navigate to="/manage/lost-and-found" replace />} />
               <Route path="/reports" element={<Navigate to="/manage/reports" replace />} />
-              <Route path="/manage" element={<Navigate to="/manage/dashboard" replace />} />
+              <Route path="/manage" element={<RoleBasedRedirect />} />
 
               {/* === Protected /manage Routes === */}
               <Route element={<ProtectedRoute />}>
@@ -100,7 +100,7 @@ const AppRoutes: React.FC = () => {
                     <Route path="/manage/dashboard" element={<DashboardPage />} />
                   </Route>
 
-                  {/* Đặt phòng & Khách lưu trú — OWNER / RECEPTIONIST / ADMIN / ACCOUNTANT */}
+                  {/* Quản lý đặt phòng, khách lưu trú & hợp đồng công ty — OWNER / RECEPTIONIST / ADMIN / ACCOUNTANT */}
                   <Route element={<ProtectedRoute allowedRoles={['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT']} />}>
                     <Route path="/manage/bookings" element={<BookingManagement />} />
                     <Route path="/manage/bookings/list" element={<BookingManagement />} />
@@ -111,36 +111,44 @@ const AppRoutes: React.FC = () => {
                     <Route path="/manage/bookings/:bookingId/:tab" element={<BookingDetailPage />} />
                     <Route path="/manage/in-house-guests" element={<InHouseGuestPage />} />
                     <Route path="/manage/deposit-policies" element={<DepositPolicyPage />} />
-                  </Route>
-
-                  {/* Khai báo lưu trú — OWNER / RECEPTIONIST / ADMIN */}
-                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'RECEPTIONIST', 'ADMIN']} />}>
-                    <Route path="/manage/stay-declarations" element={<StayDeclarationPage />} />
-                    <Route path="/manage/rooms" element={<RoomManagement />} />
                     <Route path="/manage/guests" element={<GuestManagement />} />
                     <Route path="/manage/corporate-clients" element={<CorporateClientManagement />} />
                     <Route path="/manage/negotiated-prices" element={<NegotiatedPriceManagement />} />
                   </Route>
 
-                  {/* Cấu hình nâng cao & Kênh phân phối — OWNER / ADMIN */}
+                  {/* Khai báo lưu trú — OWNER / RECEPTIONIST / ADMIN */}
+                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'RECEPTIONIST', 'ADMIN']} />}>
+                    <Route path="/manage/stay-declarations" element={<StayDeclarationPage />} />
+                  </Route>
+
+                  {/* Sơ đồ phòng — OWNER / RECEPTIONIST / ADMIN / HOUSEKEEPER */}
+                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER']} />}>
+                    <Route path="/manage/rooms" element={<RoomManagement />} />
+                  </Route>
+
+                  {/* Cấu hình phòng, giá, dịch vụ, nhân sự & hệ thống — OWNER / ADMIN */}
                   <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ADMIN']} />}>
                     <Route path="/manage/channels" element={<ChannelCalendarPage />} />
                     <Route path="/manage/room-types" element={<RoomTypeManagement />} />
                     <Route path="/manage/price-suggestions" element={<PriceSuggestionPage />} />
+                    <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
+                    <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
                     <Route path="/manage/staff" element={<StaffManagement />} />
+                    <Route path="/manage/sessions" element={<SessionManagementPage />} />
                     <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />
                     <Route path="/manage/audit-logs" element={<ActivityLog />} />
                     <Route path="/manage/personal-data-audit" element={<PersonalDataAuditLogPage />} />
                     <Route path="/manage/backup" element={<BackupDataPage />} />
                   </Route>
 
-                  {/* Chức năng dành riêng cho Chủ sở hữu — OWNER */}
+                  {/* Kho đồ dùng & vật tư tiêu hao — OWNER / ADMIN / HOUSEKEEPER */}
+                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ADMIN', 'HOUSEKEEPER']} />}>
+                    <Route path="/manage/inventory" element={<InventoryManagement />} />
+                  </Route>
+
+                  {/* Chức năng tối cao của Khách sạn — OWNER */}
                   <Route element={<ProtectedRoute allowedRoles={['OWNER']} />}>
                     <Route path="/manage/settings" element={<HotelSettings />} />
-                    <Route path="/manage/sessions" element={<SessionManagementPage />} />
-                    <Route path="/manage/inventory" element={<InventoryManagement />} />
-                    <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
-                    <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
                   </Route>
 
                   {/* Buồng phòng & Đồ thất lạc — OWNER / HOUSEKEEPER / RECEPTIONIST / ADMIN */}
@@ -149,13 +157,17 @@ const AppRoutes: React.FC = () => {
                     <Route path="/manage/lost-and-found" element={<LostAndFoundPage />} />
                   </Route>
 
-                  {/* Tài chính & Báo cáo */}
-                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST']} />}>
+                  {/* Báo cáo & Phân tích — OWNER / ACCOUNTANT / ADMIN */}
+                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ACCOUNTANT', 'ADMIN']} />}>
                     <Route path="/manage/reports" element={<ReportsPage />} />
                   </Route>
-                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ACCOUNTANT', 'RECEPTIONIST']} />}>
+
+                  {/* Chốt ca & đối soát tiền mặt — OWNER / ACCOUNTANT / ADMIN / RECEPTIONIST */}
+                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST']} />}>
                     <Route path="/manage/cashier-shifts" element={<CashierShiftPage />} />
                   </Route>
+
+                  {/* Sổ quỹ ngày — OWNER / ACCOUNTANT */}
                   <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ACCOUNTANT']} />}>
                     <Route path="/manage/daily-ledger" element={<DailyLedgerPage />} />
                   </Route>

@@ -15,6 +15,7 @@ import bookingApi from '../../services/bookingApi';
 import guestApi from '../../services/guestApi';
 import { useToast } from '../../context/ToastContext';
 import { GroupBookingResponse, RoomStatus } from '../../types';
+import { validatePhone, validateCCCD } from '../../utils/securitySanitizer';
 
 interface RoomGuestItem {
   name: string;
@@ -253,9 +254,20 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
         return;
       }
 
-      if (idNumber && !/^\d{9,12}$/.test(idNumber)) {
-        errors.push(`Dòng ${lineIdx + 1}: Số CCCD '${idNumber}' của khách ${guestName} không hợp lệ (phải từ 9-12 số).`);
-        return;
+      if (idNumber) {
+        const cccdCheck = validateCCCD(idNumber, false);
+        if (!cccdCheck.valid) {
+          errors.push(`Dòng ${lineIdx + 1} (Khách ${guestName}): ${cccdCheck.message}`);
+          return;
+        }
+      }
+
+      if (phone) {
+        const phoneCheck = validatePhone(phone, false);
+        if (!phoneCheck.valid) {
+          errors.push(`Dòng ${lineIdx + 1} (Khách ${guestName}): ${phoneCheck.message}`);
+          return;
+        }
       }
 
       targetRoom.guests.push({
@@ -349,9 +361,16 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
           return;
         }
         if (g.idNumber && g.idNumber.trim()) {
-          const cleanId = g.idNumber.trim();
-          if (cleanId.length < 6 || cleanId.length > 20) {
-            setErrorMsg(`Số CCCD/CMND của khách '${g.name}' tại Phòng ${room.roomNumber} không hợp lệ (từ 6-20 ký tự).`);
+          const cccdCheck = validateCCCD(g.idNumber, false);
+          if (!cccdCheck.valid) {
+            setErrorMsg(`Khách '${g.name}' (Phòng ${room.roomNumber}): ${cccdCheck.message}`);
+            return;
+          }
+        }
+        if (g.phone && g.phone.trim()) {
+          const phoneCheck = validatePhone(g.phone, false);
+          if (!phoneCheck.valid) {
+            setErrorMsg(`Khách '${g.name}' (Phòng ${room.roomNumber}): ${phoneCheck.message}`);
             return;
           }
         }

@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { STORAGE_KEYS, API_CONFIG } from '../constants';
 import { ApiErrorResponse } from '../types';
+import { toast } from '../context/ToastContext';
 
 // ── Base URL ──────────────────────────────────────────────────────────────────
 const getBaseURL = (): string => {
@@ -63,8 +64,19 @@ api.interceptors.response.use(
         msg.toLowerCase().includes('không được phép')
       ));
 
-    if (isPermissionError) {
-      console.warn('[API] Permission denied (không đủ quyền hạn) — giữ nguyên phiên đăng nhập:', msg);
+    // Xử lý xung đột dữ liệu (Optimistic Lock 409)
+    if (status === 409) {
+      console.warn('[API] Conflict (409) detected:', msg);
+      toast.error(
+        msg || 'Dữ liệu vừa được cập nhật bởi người khác. Đang tải lại...',
+        'Xung đột dữ liệu',
+        4000
+      );
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
       return Promise.reject(error);
     }
 

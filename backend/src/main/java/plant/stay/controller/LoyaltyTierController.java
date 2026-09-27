@@ -41,7 +41,10 @@ public class LoyaltyTierController {
                                                       HttpServletRequest request) {
         checkOwner(request);
         LoyaltyTier tier = LoyaltyTier.builder()
-                .name(req.getName()).minPoints(req.getMinPoints()).benefitDescription(req.getBenefitDescription())
+                .name(req.getName())
+                .minPoints(req.getMinPoints())
+                .discountPercent(req.getDiscountPercent() != null ? req.getDiscountPercent() : 0.0)
+                .benefitDescription(req.getBenefitDescription())
                 .build();
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(loyaltyTierRepository.save(tier)));
     }
@@ -55,6 +58,9 @@ public class LoyaltyTierController {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hạng thành viên"));
         tier.setName(req.getName());
         tier.setMinPoints(req.getMinPoints());
+        if (req.getDiscountPercent() != null) {
+            tier.setDiscountPercent(req.getDiscountPercent());
+        }
         tier.setBenefitDescription(req.getBenefitDescription());
         return ResponseEntity.ok(toResponse(loyaltyTierRepository.save(tier)));
     }
@@ -81,8 +87,11 @@ public class LoyaltyTierController {
 
     private LoyaltyTierResponse toResponse(LoyaltyTier t) {
         return LoyaltyTierResponse.builder()
-                .id(t.getId()).name(t.getName())
-                .minPoints(t.getMinPoints()).benefitDescription(t.getBenefitDescription())
+                .id(t.getId())
+                .name(t.getName())
+                .minPoints(t.getMinPoints())
+                .discountPercent(t.getDiscountPercent() != null ? t.getDiscountPercent() : 0.0)
+                .benefitDescription(t.getBenefitDescription())
                 .build();
     }
 }

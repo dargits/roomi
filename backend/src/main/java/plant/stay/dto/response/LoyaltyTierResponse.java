@@ -9,5 +9,6 @@ public class LoyaltyTierResponse {
     private Long id;
     private String name;
     private Integer minPoints;
+    private Double discountPercent;
     private String benefitDescription;
 }

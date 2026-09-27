@@ -73,14 +73,15 @@ public class GuestServiceImpl implements GuestService {
     @Override
     @Transactional
     public GuestResponse create(GuestRequest request) {
+        validateGuestFields(request);
         if (request.getPhone() != null && guestRepository.findByPhone(request.getPhone()).isPresent()) {
             throw new DuplicateResourceException("Số điện thoại đã tồn tại trong hệ thống");
         }
         Guest guest = Guest.builder()
-                .name(request.getName())
-                .phone(request.getPhone())
-                .idNumber(request.getIdNumber())
-                .email(request.getEmail())
+                .name(request.getName() != null ? request.getName().trim() : null)
+                .phone(request.getPhone() != null ? request.getPhone().trim() : null)
+                .idNumber(request.getIdNumber() != null ? request.getIdNumber().trim() : null)
+                .email(request.getEmail() != null ? request.getEmail().trim() : null)
                 .build();
         return toResponse(guestRepository.save(guest));
     }
@@ -88,17 +89,40 @@ public class GuestServiceImpl implements GuestService {
     @Override
     @Transactional
     public GuestResponse update(Long id, GuestRequest request) {
+        validateGuestFields(request);
         Guest guest = findById(id);
         if (request.getPhone() != null && !request.getPhone().equals(guest.getPhone())) {
             guestRepository.findByPhone(request.getPhone()).ifPresent(g -> {
                 throw new DuplicateResourceException("Số điện thoại đã tồn tại trong hệ thống");
             });
         }
-        guest.setName(request.getName());
-        guest.setPhone(request.getPhone());
-        guest.setIdNumber(request.getIdNumber());
-        guest.setEmail(request.getEmail());
+        guest.setName(request.getName() != null ? request.getName().trim() : guest.getName());
+        guest.setPhone(request.getPhone() != null ? request.getPhone().trim() : null);
+        guest.setIdNumber(request.getIdNumber() != null ? request.getIdNumber().trim() : null);
+        guest.setEmail(request.getEmail() != null ? request.getEmail().trim() : null);
         return toResponse(guestRepository.save(guest));
+    }
+
+    private void validateGuestFields(GuestRequest request) {
+        if (request == null) return;
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            String p = request.getPhone().trim();
+            if (!p.matches("^(0|\\+84)(3|5|7|8|9)[0-9]{8}$|^02[0-9]{9}$")) {
+                throw new IllegalArgumentException("Số điện thoại không đúng định dạng (10 chữ số, không chứa chữ cái)");
+            }
+        }
+        if (request.getIdNumber() != null && !request.getIdNumber().trim().isEmpty()) {
+            String id = request.getIdNumber().trim();
+            if (!id.matches("^[0-9]{9}$|^[0-9]{12}$|^[a-zA-Z][0-9]{7,8}$")) {
+                throw new IllegalArgumentException("Số CCCD/CMND không hợp lệ (phải gồm 9 hoặc 12 chữ số, hoặc Hộ chiếu 1 chữ cái và 7-8 số)");
+            }
+        }
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            String email = request.getEmail().trim();
+            if (!email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+                throw new IllegalArgumentException("Địa chỉ email không đúng định dạng");
+            }
+        }
     }
 
     @Override

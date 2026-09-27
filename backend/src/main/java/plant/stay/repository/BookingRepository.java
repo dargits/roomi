@@ -3,6 +3,7 @@ package plant.stay.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import plant.stay.model.Booking;
@@ -213,4 +214,21 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // Tìm ngày nhận phòng sớm nhất để đánh giá thời gian tích lũy dữ liệu công suất
     @Query("SELECT MIN(b.checkInDate) FROM Booking b WHERE b.status NOT IN ('CANCELLED', 'NO_SHOW')")
     LocalDate findEarliestBookingDate();
+
+    // P1-02: Tự động hủy booking trạng thái NEW/PENDING quá hạn giữ chỗ
+    @Modifying
+    @Query("UPDATE Booking b SET b.status = :newStatus, b.cancelledAt = CURRENT_TIMESTAMP, " +
+           "b.cancellationReason = 'Tự động hủy do hết thời gian giữ chỗ' " +
+           "WHERE b.status = :pendingStatus AND b.createdAt < :threshold")
+    int expireOldPendingBookings(
+        @Param("pendingStatus") BookingStatus pendingStatus,
+        @Param("newStatus") BookingStatus newStatus,
+        @Param("threshold") LocalDateTime threshold
+    );
+
+    // P1-05: Tìm các booking đã nhận phòng trong ngày nhưng chưa hoàn thành khai báo lưu trú
+    @Query("SELECT b FROM Booking b LEFT JOIN b.stayDeclaration sd " +
+           "WHERE b.status = 'CHECKED_IN' AND b.checkInDate = :today " +
+           "AND (sd IS NULL OR sd.status <> 'COMPLETED')")
+    List<Booking> findCheckedInToday(@Param("today") LocalDate today);
 }

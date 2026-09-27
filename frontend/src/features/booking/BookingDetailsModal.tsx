@@ -18,12 +18,15 @@ import {
   IoCashOutline,
   IoCopyOutline,
   IoShareSocialOutline,
-  IoOpenOutline
+  IoOpenOutline,
+  IoPencilOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 import Tabs from '../../components/ui/Tabs/Tabs';
 import bookingApi from '../../services/bookingApi';
+import guestApi from '../../services/guestApi';
 import { roomApi } from '../../services/roomApi';
 import BookingServicesTab from './BookingServicesTab';
 import BookingInvoiceTab from './BookingInvoiceTab';
@@ -36,6 +39,7 @@ import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatName, formatPhone, formatEmail, formatCCCD } from '../../utils/personalDataMasker';
+import { validatePhone, validateCCCD, validateEmail } from '../../utils/securitySanitizer';
 
 interface BookingDetailsModalProps {
   isOpen: boolean;
@@ -79,6 +83,70 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   // === NCL-04-CN-NEW: Dời lịch đặt phòng chưa nhận phòng ===
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  // Sửa thông tin khách hàng nhanh
+  const [showEditGuestModal, setShowEditGuestModal] = useState(false);
+  const [editGuestForm, setEditGuestForm] = useState({ name: '', phone: '', email: '', idNumber: '' });
+  const [editGuestError, setEditGuestError] = useState('');
+  const [savingGuest, setSavingGuest] = useState(false);
+
+  const openEditGuest = () => {
+    setEditGuestForm({
+      name: booking?.guestName || '',
+      phone: booking?.guestPhone || '',
+      email: booking?.guestEmail || '',
+      idNumber: booking?.guestIdNumber || ''
+    });
+    setEditGuestError('');
+    setShowEditGuestModal(true);
+  };
+
+  const handleSaveGuest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editGuestForm.name.trim()) {
+      setEditGuestError('Họ tên khách không được để trống.');
+      return;
+    }
+    const phoneCheck = validatePhone(editGuestForm.phone, true);
+    if (!phoneCheck.valid) {
+      setEditGuestError(phoneCheck.message || 'Số điện thoại không hợp lệ.');
+      return;
+    }
+    if (editGuestForm.idNumber.trim()) {
+      const cccdCheck = validateCCCD(editGuestForm.idNumber, false);
+      if (!cccdCheck.valid) {
+        setEditGuestError(cccdCheck.message || 'Số CCCD/CMND không hợp lệ.');
+        return;
+      }
+    }
+    if (editGuestForm.email.trim()) {
+      const emailCheck = validateEmail(editGuestForm.email, false);
+      if (!emailCheck.valid) {
+        setEditGuestError(emailCheck.message || 'Email không hợp lệ.');
+        return;
+      }
+    }
+
+    setSavingGuest(true);
+    setEditGuestError('');
+    try {
+      if (booking?.guestId) {
+        await guestApi.updateGuest(booking.guestId, {
+          name: editGuestForm.name.trim(),
+          phone: editGuestForm.phone.trim(),
+          idNumber: editGuestForm.idNumber.trim() || undefined,
+          email: editGuestForm.email.trim() || undefined
+        });
+      }
+      toastSuccess('Đã cập nhật thông tin khách hàng thành công!');
+      setShowEditGuestModal(false);
+      fetchBookingDetails();
+      if (onBookingUpdated) onBookingUpdated();
+    } catch (err: any) {
+      setEditGuestError(err.response?.data?.message || 'Không thể cập nhật thông tin khách hàng.');
+    } finally {
+      setSavingGuest(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen && bookingId) {
@@ -221,14 +289,59 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
-                    <h4 className="font-title-md text-on-surface mb-4 flex items-center gap-2 border-b border-border-grey pb-2">
-                      <IoPersonOutline size={18} className="text-primary"/> Chi tiết Khách hàng
-                    </h4>
+                    <div className="flex items-center justify-between mb-4 border-b border-border-grey pb-2">
+                      <h4 className="font-title-md text-on-surface flex items-center gap-2">
+                        <IoPersonOutline size={18} className="text-primary"/> Chi tiết Khách hàng
+                      </h4>
+                      {booking.guestId && (
+                        <button
+                          type="button"
+                          onClick={openEditGuest}
+                          className="text-xs text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                          title="Sửa thông tin khách hàng"
+                        >
+                          <IoPencilOutline size={13} /> Sửa thông tin
+                        </button>
+                      )}
+                    </div>
                     <div className="space-y-3 font-body-sm text-on-surface-variant">
-                      <div className="flex justify-between"><span className="w-1/3">Họ tên:</span><span className="font-medium text-on-surface flex-1">{formatName(booking.guestName, user)}</span></div>
-                      <div className="flex justify-between"><span className="w-1/3">Số điện thoại:</span><span className="font-medium text-on-surface flex-1">{formatPhone(booking.guestPhone, user)}</span></div>
-                      <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}</span></div>
-                      <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber, user)}</span></div>
+                      <div className="flex justify-between items-center">
+                        <span className="w-1/3">Họ tên:</span>
+                        <span className="font-medium text-on-surface flex-1">{formatName(booking.guestName, user)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="w-1/3">Số điện thoại:</span>
+                        <span className="font-medium text-on-surface flex-1 flex items-center gap-1.5 flex-wrap">
+                          <span>{formatPhone(booking.guestPhone, user)}</span>
+                          {booking.guestPhone && !validatePhone(booking.guestPhone, false).valid && (
+                            <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded font-normal" title="Số điện thoại sai chuẩn hoặc chứa chữ cái">
+                              Sai định dạng
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="w-1/3">Email:</span>
+                        <span className="font-medium text-on-surface flex-1 flex items-center gap-1.5 flex-wrap">
+                          <span>{booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}</span>
+                          {booking.guestEmail && !validateEmail(booking.guestEmail, false).valid && (
+                            <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded font-normal" title="Email không đúng định dạng">
+                              Sai định dạng
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="w-1/3">CCCD/CMND:</span>
+                        <span className="font-medium text-on-surface flex-1 flex items-center gap-1.5 flex-wrap">
+                          <span>{formatCCCD(booking.guestIdNumber, user)}</span>
+                          {booking.guestIdNumber && !validateCCCD(booking.guestIdNumber, false).valid && (
+                            <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded font-normal" title="CCCD/CMND không đúng chuẩn (phải là 9 hoặc 12 số, không chứa chữ cái)">
+                              Sai định dạng
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Danh sách khách ở cùng phòng (NCL-04-CN-011) */}
@@ -513,6 +626,65 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
         booking={booking}
         onSuccess={fetchBookingDetails}
       />
+
+      {/* Modal Cập nhật nhanh thông tin khách hàng */}
+      {showEditGuestModal && (
+        <Modal 
+          isOpen={showEditGuestModal} 
+          onClose={() => setShowEditGuestModal(false)} 
+          title="Cập nhật thông tin Khách hàng"
+          maxWidth="max-w-md"
+        >
+          <form onSubmit={handleSaveGuest} className="space-y-4">
+            {editGuestError && (
+              <div className="flex items-center gap-2 text-xs text-error bg-red-50 border border-red-200 rounded-lg p-3">
+                <IoAlertCircleOutline size={16} className="shrink-0" />
+                <span>{editGuestError}</span>
+              </div>
+            )}
+            <Input
+              label="Họ và tên khách"
+              icon={IoPersonOutline}
+              required
+              value={editGuestForm.name}
+              onChange={(e) => setEditGuestForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Nguyễn Văn A"
+            />
+            <Input
+              label="Số điện thoại"
+              icon={IoCallOutline}
+              required
+              value={editGuestForm.phone}
+              onChange={(e) => setEditGuestForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="0912345678"
+            />
+            <Input
+              label="Số CCCD / CMND / Hộ chiếu"
+              icon={IoDocumentOutline}
+              value={editGuestForm.idNumber}
+              onChange={(e) => setEditGuestForm(prev => ({ ...prev, idNumber: e.target.value }))}
+              placeholder="012345678912 (9 hoặc 12 số)"
+            />
+            <div className="text-[11px] text-on-surface-variant -mt-2">
+              Chỉ nhập 9 hoặc 12 chữ số, hoặc Hộ chiếu (1 chữ cái + 7-8 số). Không nhập chuỗi chữ cái tùy tiện.
+            </div>
+            <Input
+              label="Email"
+              icon={IoDocumentOutline}
+              type="email"
+              value={editGuestForm.email}
+              onChange={(e) => setEditGuestForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="khachhang@gmail.com"
+            />
+            <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
+              <Button variant="ghost" onClick={() => setShowEditGuestModal(false)}>Hủy</Button>
+              <Button type="submit" variant="primary" disabled={savingGuest}>
+                {savingGuest ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </Modal>
   );
 };

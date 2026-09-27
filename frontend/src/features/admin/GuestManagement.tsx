@@ -14,6 +14,7 @@ import Button from '../../components/ui/Button';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { formatStayDateTime, calculateNights } from '../../utils/formatDate';
 import { GuestResponse } from '../../types';
+import { validatePhone, validateEmail, validateCCCD } from '../../utils/securitySanitizer';
 
 const getBookingStatusBadge = (status?: string) => {
   switch(status) {
@@ -141,14 +142,51 @@ const GuestManagement: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
+
+    if (!formData.name.trim()) {
+      setFormError('Vui lòng nhập họ và tên khách hàng.');
+      return;
+    }
+
+    const phoneCheck = validatePhone(formData.phone, true);
+    if (!phoneCheck.valid) {
+      setFormError(phoneCheck.message || 'Số điện thoại không hợp lệ.');
+      return;
+    }
+
+    if (formData.idNumber && formData.idNumber.trim()) {
+      const cccdCheck = validateCCCD(formData.idNumber, false);
+      if (!cccdCheck.valid) {
+        setFormError(cccdCheck.message || 'Số CCCD/CMND không hợp lệ.');
+        return;
+      }
+    }
+
+    if (formData.email && formData.email.trim()) {
+      const emailCheck = validateEmail(formData.email, false);
+      if (!emailCheck.valid) {
+        setFormError(emailCheck.message || 'Email không hợp lệ.');
+        return;
+      }
+    }
+
     try {
+      const payload = {
+        ...formData,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        idNumber: formData.idNumber?.trim() || null,
+        email: formData.email?.trim() || null,
+      };
+
       if (isEditing && formData.id) {
-        await guestApi.updateGuest(formData.id, formData as any);
+        await guestApi.updateGuest(formData.id, payload as any);
       } else {
-        await guestApi.createGuest(formData as any);
+        await guestApi.createGuest(payload as any);
       }
       setIsFormModalOpen(false);
       fetchGuests();
+      toastSuccess(isEditing ? 'Cập nhật thông tin khách thành công!' : 'Thêm khách hàng mới thành công!');
     } catch (error: any) {
       console.error("Form submit error", error);
       setFormError(error.response?.data?.message || "Có lỗi xảy ra khi lưu dữ liệu.");
@@ -181,7 +219,8 @@ const GuestManagement: React.FC = () => {
     }
   };
 
-  const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role || '');
+  const canModify = ['OWNER', 'RECEPTIONIST', 'ADMIN'].includes(user?.role || '');
+  const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '');
 
   if (!hasAccess) {
     return <div className="p-6 text-alert-red bg-red-50 rounded-md">Bạn không có quyền truy cập trang này.</div>;
@@ -209,9 +248,11 @@ const GuestManagement: React.FC = () => {
               />
               <IoSearchOutline className="absolute left-3 top-2 text-on-surface-variant/70" size={15} />
             </div>
-            <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
-              Thêm khách
-            </Button>
+            {canModify && (
+              <Button size="sm" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
+                Thêm khách
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -273,7 +314,7 @@ const GuestManagement: React.FC = () => {
                       <button onClick={() => viewLoyalty(guest)} className="p-1.5 rounded-md hover:bg-yellow-50 hover:text-yellow-600 transition-colors text-on-surface-variant" title="Chi tiết Điểm/Hạng">
                         <IoStarOutline size={18} />
                       </button>
-                      {guest.name !== '[Đã xóa]' && (
+                      {canModify && guest.name !== '[Đã xóa]' && (
                         <button onClick={() => openEditModal(guest)} className="p-1.5 rounded-md hover:bg-surface-blue-light hover:text-primary transition-colors text-on-surface-variant" title="Sửa thông tin">
                           <IoPencilOutline size={18} />
                         </button>

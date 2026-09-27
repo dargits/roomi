@@ -259,14 +259,16 @@ const RevenueReport: React.FC = () => {
   }
 
   // Parse response
-  const totalRevenue   = Number(data?.totalRevenue   ?? 0);
-  const serviceRevenue = Number(data?.serviceRevenue ?? 0);
-  const roomRevenue    = Number(data?.roomRevenue    ?? (totalRevenue - serviceRevenue));
-  const penaltyRevenue = Number(data?.penaltyRevenue ?? 0);
-  const grandTotal     = Number(data?.grandTotal     ?? (totalRevenue + penaltyRevenue));
-  const bookingCount   = Number(data?.bookingCount   ?? 0);
-  const rows           = Array.isArray(data?.rows) ? data.rows : [];
-  const maxRevenue     = rows.length > 0 ? Math.max(...rows.map(r => Number(r.revenue || 0) + Number(r.penaltyRevenue || 0))) : 0;
+  const totalRevenue     = Number(data?.totalRevenue     ?? 0);
+  const serviceRevenue   = Number(data?.serviceRevenue   ?? 0);
+  const roomRevenue      = Number(data?.roomRevenue      ?? (totalRevenue - serviceRevenue));
+  const penaltyRevenue   = Number(data?.penaltyRevenue   ?? 0);
+  const grandTotal       = Number(data?.grandTotal       ?? (totalRevenue + penaltyRevenue));
+  const collectedRevenue = Number(data?.collectedRevenue ?? 0);
+  const debtRevenue      = Number(data?.debtRevenue      ?? 0);
+  const bookingCount     = Number(data?.bookingCount     ?? 0);
+  const rows             = Array.isArray(data?.rows) ? data.rows : [];
+  const maxRevenue       = rows.length > 0 ? Math.max(...rows.map(r => Number(r.revenue || 0) + Number(r.penaltyRevenue || 0))) : 0;
 
   // Export CSV
   const exportCSV = () => {
@@ -366,6 +368,68 @@ const RevenueReport: React.FC = () => {
               sub="Số đơn phòng hoàn tất lưu trú"
               color="text-tertiary font-bold"
             />
+          </div>
+
+          {/* Revenue Breakdown & Cash Flow Reconciliation Table (P1-03) */}
+          <div className="bg-surface-container-lowest border border-border-grey rounded-2xl p-5 shadow-xs">
+            <h4 className="font-title-md text-on-surface mb-3 flex items-center gap-2">
+              <IoCashOutline size={18} className="text-primary" />
+              Bảng Tổng hợp Cấu trúc Doanh thu & Dòng tiền
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border border-border-grey rounded-xl overflow-hidden text-sm">
+                <div className="bg-surface-container-low px-4 py-2.5 font-semibold text-on-surface text-xs uppercase tracking-wider border-b border-border-grey">
+                  Cơ cấu Doanh thu Ghi nhận
+                </div>
+                <div className="divide-y divide-border-grey">
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-on-surface-variant">Doanh thu phòng:</span>
+                    <span className="font-medium text-on-surface">{fmtCurrency(roomRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-on-surface-variant">Doanh thu dịch vụ phụ thu:</span>
+                    <span className="font-medium text-emerald-700">{fmtCurrency(serviceRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5 bg-surface-container-low/40 font-semibold">
+                    <span className="text-on-surface">Tổng doanh thu lưu trú:</span>
+                    <span className="text-on-surface">{fmtCurrency(totalRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5 text-amber-700">
+                    <span className="font-medium">+ Phí hủy / Tiền cọc phạt:</span>
+                    <span className="font-semibold">{fmtCurrency(penaltyRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-3 bg-primary/5 text-primary font-bold text-base border-t-2 border-primary/20">
+                    <span>TỔNG CỘNG THỰC THU:</span>
+                    <span>{fmtCurrency(grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-border-grey rounded-xl overflow-hidden text-sm">
+                <div className="bg-surface-container-low px-4 py-2.5 font-semibold text-on-surface text-xs uppercase tracking-wider border-b border-border-grey">
+                  Thực tế Dòng tiền Đã thu / Nợ
+                </div>
+                <div className="divide-y divide-border-grey">
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-on-surface-variant">Đã thanh toán (Thực thu):</span>
+                    <span className="font-semibold text-emerald-700">{fmtCurrency(collectedRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-on-surface-variant">Còn nợ / Công nợ chưa thu:</span>
+                    <span className="font-semibold text-error">{fmtCurrency(debtRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5 bg-surface-container-low/40">
+                    <span className="text-on-surface-variant">Tỷ lệ thu hồi công nợ:</span>
+                    <span className="font-bold text-on-surface">
+                      {grandTotal > 0 ? ((collectedRevenue / grandTotal) * 100).toFixed(1) + '%' : '100%'}
+                    </span>
+                  </div>
+                  <div className="p-3 text-xs text-on-surface-variant leading-relaxed bg-surface-container-lowest">
+                    💡 <em>Lưu ý:</em> Dữ liệu bao gồm các khoản doanh thu lưu trú phòng, chi phí minibar/giặt ủi, và các khoản phí phạt cọc/hủy phòng đã được tính vào hệ thống tài chính.
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Visual Interactive Bar Chart */}

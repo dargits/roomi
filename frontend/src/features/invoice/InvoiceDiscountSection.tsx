@@ -10,6 +10,7 @@ interface InvoiceDiscountSectionProps {
   userRole?: string;
   onInvoiceChange?: () => void;
   remainingAmount?: number;
+  booking?: any;
 }
 
 const InvoiceDiscountSection: React.FC<InvoiceDiscountSectionProps> = ({
@@ -17,6 +18,7 @@ const InvoiceDiscountSection: React.FC<InvoiceDiscountSectionProps> = ({
   userRole,
   onInvoiceChange,
   remainingAmount,
+  booking,
 }) => {
   const [showForm, setShowForm] = useState(false);
 
@@ -69,6 +71,7 @@ const InvoiceDiscountSection: React.FC<InvoiceDiscountSectionProps> = ({
         isLoading={isLoading}
         invoice={invoice}
         remainingAmount={remainingAmount}
+        booking={booking}
       />
     </section>
   );
