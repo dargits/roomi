@@ -581,7 +581,7 @@ const HotelSettings: React.FC = () => {
             <IoSparklesOutline size={20} className="text-primary" />
             <div>
               <h3 className="font-title-md text-on-surface font-semibold">
-                Cổng Tra Cứu Hóa Đơn Trực Tuyến Cho Khách (NCL-09-CN-008)
+                Cổng Tra Cứu Hóa Đơn Trực Tuyến Cho Khách
               </h3>
               <p className="text-xs text-on-surface-variant">
                 Quyết định việc cho phép khách lưu trú tự xem và tải hóa đơn của mình qua liên kết hoặc mã đặt phòng.

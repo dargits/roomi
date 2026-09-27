@@ -390,7 +390,7 @@ const RoomIncidentModal: React.FC<RoomIncidentModalProps> = ({ isOpen, onClose, 
                   <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 flex items-start gap-2">
                     <IoAlertCircleOutline size={18} className="shrink-0 mt-0.5 text-red-600" />
                     <span>
-                      <strong>Cảnh báo nghiệp vụ (NCL-06-CN-006):</strong> Khi báo mức độ Nặng hoặc Không thể phục vụ, phòng sẽ tự động chuyển sang trạng thái <strong>Khóa bảo trì (MAINTENANCE)</strong>. Hệ thống sẽ kiểm tra và cảnh báo số lượng đặt phòng sắp tới bị ảnh hưởng để lễ tân chủ động đổi phòng cho khách!
+                      <strong>Cảnh báo nghiệp vụ:</strong> Khi báo mức độ Nặng hoặc Không thể phục vụ, phòng sẽ tự động chuyển sang trạng thái <strong>Khóa bảo trì (MAINTENANCE)</strong>. Hệ thống sẽ kiểm tra và cảnh báo số lượng đặt phòng sắp tới bị ảnh hưởng để lễ tân chủ động đổi phòng cho khách!
                     </span>
                   </div>
                 )}

@@ -524,8 +524,18 @@ public class DataQueueServiceImpl implements DataQueueService {
             task.setCompletedAt(LocalDateTime.now());
             task.setDetails(details);
 
-            String summaryMessage = String.format("Nhập dữ liệu %s hoàn tất: %d bản ghi thành công (Bỏ qua: %d, Lỗi: %d) trong %d ms.",
-                    targetType, importedCount, skippedCount, errorCount, durationMs);
+            String friendlyTarget = switch (targetType.toLowerCase(Locale.ROOT)) {
+                case "extra-services", "extra_services" -> "Dịch vụ phụ thu";
+                case "room-types", "room_types" -> "Hạng phòng";
+                case "rooms" -> "Danh mục phòng";
+                case "guests" -> "Khách hàng";
+                case "bookings" -> "Đặt phòng";
+                case "users" -> "Nhân viên";
+                default -> targetType;
+            };
+            String durationStr = durationMs >= 1000 ? String.format("%.1f giây", durationMs / 1000.0) : durationMs + " ms";
+            String summaryMessage = String.format("Nhập dữ liệu %s hoàn tất: %,d bản ghi thành công (Bỏ qua: %,d, Lỗi: %,d) trong %s.",
+                    friendlyTarget, importedCount, skippedCount, errorCount, durationStr);
             task.setStatusMessage(summaryMessage);
             task.setSubMessage("Đã cập nhật đồng bộ CSDL.");
 

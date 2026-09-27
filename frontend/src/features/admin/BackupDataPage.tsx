@@ -123,7 +123,18 @@ const SAMPLE_CSV: Record<string, string> = {
   staff: "Họ và tên,Tài khoản,Số điện thoại,Email,Vai trò\nTrần Văn Hoàng,staff_hoang,0912888999,hoang.tran@stayaway.vn,RECEPTIONIST\nLê Thị Mai,staff_mai,0987111222,mai.le@stayaway.vn,HOUSEKEEPING\nPhạm Quốc Cường,staff_cuong,0903444555,cuong.pham@stayaway.vn,ACCOUNTANT"
 };
 
-// Parser CSV chuẩn RFC-4180 cho client-side preview
+export const getImportTypeLabel = (val: string): string => {
+  const found = IMPORT_TYPES.find((t) => t.value === val);
+  return found ? found.label.split('(')[0].trim() : val;
+};
+
+export const formatDuration = (ms?: number): string => {
+  if (!ms || ms <= 0) return 'Nhanh chóng';
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} giây`;
+};
+
+// Parser CSV cho client-side preview
 function parseClientCsvLine(line: string): string[] {
   const values: string[] = [];
   let current = '';
@@ -724,7 +735,7 @@ const BackupDataPage: React.FC = () => {
 
     // 1. Kiểm tra định dạng tệp .csv
     if (!file.name.toLowerCase().endsWith('.csv') && !file.type.includes('csv')) {
-      toastError('Định dạng tệp không hợp lệ. Hệ thống hiện chỉ hỗ trợ tệp định dạng .CSV (chuẩn UTF-8 RFC-4180).');
+      toastError('Định dạng tệp không hợp lệ. Vui lòng tải lên tệp bảng tính định dạng .CSV.');
       setSelectedFile(null);
       setFilePreview(null);
       return;
@@ -802,18 +813,18 @@ const BackupDataPage: React.FC = () => {
 
     const typeLabel = IMPORT_TYPES.find((t) => t.value === importType)?.label.split('(')[0].trim() || importType;
 
-    // Giai đoạn 1: Tiếp nhận và đưa vào hàng đợi
+    // Giai đoạn 1: Tiếp nhận và kiểm tra cấu trúc
     setImportProgress({
       active: true,
       stageIndex: 1,
-      stageName: 'Đưa vào Hàng đợi & Kiểm tra cú pháp CSV',
+      stageName: 'Đọc tệp dữ liệu & Kiểm tra cấu trúc',
       percent: 15,
-      statusMessage: 'Yêu cầu xử lý tệp dữ liệu đã được tiếp nhận và xếp vào hàng đợi xử lý ngầm. Quá trình có thể tốn một vài phút tùy theo dung lượng tệp, tiến trình sẽ tự động hoàn tất trong giây lát...',
+      statusMessage: 'Đang tiếp nhận tệp dữ liệu và kiểm tra cấu trúc danh mục...',
       subMessage: `Tệp: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB) • Danh mục: ${typeLabel}`
     });
 
     try {
-      // 1. Thử gửi vào Hàng đợi xử lý ngầm (Asynchronous Queue Worker)
+      // 1. Gửi xử lý tác vụ
       let task = await dataApi.importDataAsync(importType, selectedFile).catch(() => null);
 
       if (task && task.taskId) {
@@ -826,15 +837,15 @@ const BackupDataPage: React.FC = () => {
           task = await dataApi.getTaskStatus(task.taskId);
 
           const stageIndex = task.status === 'PROCESSING' ? 3 : 2;
-          const stageName = task.status === 'PROCESSING' ? 'Xử lý bản ghi & Ghi CSDL' : 'Đang xử lý trong hàng đợi';
+          const stageName = task.status === 'PROCESSING' ? 'Cập nhật dữ liệu hệ thống' : 'Đang kiểm tra dữ liệu';
 
           setImportProgress({
             active: true,
             stageIndex,
             stageName,
             percent: Math.max(25, Math.min(95, task.progressPercent || 25)),
-            statusMessage: task.statusMessage || 'Hệ thống đang tiến hành xử lý ngầm trong hàng đợi. Tiến trình sẽ hoàn thành sau lát nữa...',
-            subMessage: task.subMessage || 'Tác vụ có thể mất một vài phút tùy dung lượng tệp. Bạn có thể tiếp tục thao tác khác trong thời gian chờ.'
+            statusMessage: task.statusMessage || 'Hệ thống đang tiến hành cập nhật dữ liệu...',
+            subMessage: task.subMessage || 'Hệ thống đang đồng bộ và lưu trữ dữ liệu an toàn...'
           });
         }
 
@@ -845,7 +856,7 @@ const BackupDataPage: React.FC = () => {
             stageName: 'Đối soát & Hoàn tất kết quả',
             percent: 100,
             statusMessage: task.statusMessage || 'Đã hoàn tất quá trình nạp dữ liệu!',
-            subMessage: `Xử lý thành công trong ${task.durationMs || 0} ms`
+            subMessage: `Thời gian xử lý: ${formatDuration(task.durationMs)}`
           });
 
           await new Promise((r) => setTimeout(r, 400));
@@ -883,7 +894,7 @@ const BackupDataPage: React.FC = () => {
         stageName: 'Đối soát & Hoàn tất kết quả',
         percent: 100,
         statusMessage: 'Đã hoàn tất quá trình nạp dữ liệu!',
-        subMessage: `Xử lý thành công trong ${res.durationMs || 0} ms`
+        subMessage: `Thời gian xử lý: ${formatDuration(res.durationMs)}`
       });
       await new Promise((r) => setTimeout(r, 400));
       setImportResult(res);
@@ -1016,13 +1027,13 @@ const BackupDataPage: React.FC = () => {
               <div className="space-y-2 max-w-xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lodgify-lime/20 border border-lodgify-lime/30 text-xs font-semibold text-lodgify-lime">
                   <IoShieldCheckmarkOutline size={15} />
-                  <span>Bảo vệ toàn diện • Độc lập JDBC (Zero mysqldump)</span>
+                  <span>Bảo vệ toàn diện • Độc lập & Tự động hóa</span>
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight">
                   Sao Lưu Toàn Bộ Cơ Sở Dữ Liệu & Tài Liệu
                 </h3>
                 <p className="text-xs md:text-sm text-zinc-300 leading-relaxed">
-                  Đóng gói trọn vẹn tệp mã nguồn SQL DDL/DML, file kiểm toán manifest JSON và toàn bộ bảng dữ liệu định dạng CSV chuẩn UTF-8 trong một tệp nén duy nhất.
+                  Đóng gói toàn bộ cơ sở dữ liệu, lịch sử giao dịch và tài liệu hệ thống vào một tệp nén an toàn duy nhất.
                 </p>
               </div>
 
@@ -1369,11 +1380,11 @@ const BackupDataPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Banner giới thiệu cơ chế hàng đợi Export */}
+            {/* Banner giới thiệu xuất dữ liệu */}
             <div className="p-3 rounded-xl bg-surface-container-low border border-border-grey text-[11px] text-on-surface-variant flex items-center gap-2">
               <IoTimerOutline size={16} className="text-primary flex-shrink-0" />
               <span>
-                <strong>Hàng đợi xuất dữ liệu bất đồng bộ:</strong> Đối với các bảng có khối lượng bản ghi lớn, hệ thống sẽ tự động xếp vào hàng đợi xử lý ngầm và gửi thông báo khi tệp đã sẵn sàng tải xuống. Quá trình có thể tốn một khoảng thời gian ngắn, bạn có thể yên tâm tiếp tục công việc của mình.
+                <strong>Xuất dữ liệu an toàn:</strong> Đối với các bảng dữ liệu có khối lượng lớn, hệ thống tự động tối ưu hóa quá trình trích xuất để không ảnh hưởng đến hoạt động thường nhật của khách sạn.
               </span>
             </div>
           </div>
@@ -1395,7 +1406,7 @@ const BackupDataPage: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="font-title-sm text-on-surface font-bold">{item.name}</h4>
-                        <span className="text-[11px] font-mono text-on-surface-variant/70 uppercase">table: {item.type}</span>
+                        <span className="text-[10px] font-semibold text-primary bg-primary-50 px-2 py-0.5 rounded-full border border-primary/20">Dữ liệu hệ thống</span>
                       </div>
                     </div>
                     <p className="text-xs text-on-surface-variant leading-relaxed mb-4 min-h-[36px]">
@@ -1431,10 +1442,10 @@ const BackupDataPage: React.FC = () => {
                 Nhập Dữ Liệu Hàng Loạt Từ File CSV
               </h3>
               <p className="text-xs text-on-surface-variant mt-1">
-                Tự động nhận diện dữ liệu chuẩn RFC-4180. Hỗ trợ nhập theo Tên hoặc ID loại phòng, tự động bỏ qua bản ghi trùng lặp an toàn.
+                Hỗ trợ nhập danh sách dữ liệu từ tệp bảng tính CSV, tự động đối soát và cập nhật an toàn vào hệ thống.
               </p>
 
-              {/* Giới hạn đầu vào & Hàng đợi ngầm */}
+              {/* Giới hạn đầu vào */}
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low border border-border-grey text-on-surface">
                   📄 Định dạng: <strong className="text-primary">.CSV (UTF-8)</strong>
@@ -1446,15 +1457,15 @@ const BackupDataPage: React.FC = () => {
                   📊 Khuyến nghị: <strong className="text-primary">≤ 10.000 dòng</strong>
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  ⚡ Cơ chế: <strong>Hàng đợi ngầm (Queue)</strong>
+                  🛡️ Chế độ: <strong>Tự động kiểm tra trùng lặp</strong>
                 </span>
               </div>
 
-              {/* Banner giải thích tác vụ lâu */}
+              {/* Banner giải thích tác vụ */}
               <div className="mt-3 p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 text-blue-900 text-xs flex items-start gap-2.5">
                 <IoInformationCircleOutline size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="leading-relaxed text-[11px]">
-                  <strong>Lưu ý tiến trình:</strong> Với các tệp có dung lượng hoặc số lượng dòng lớn, hệ thống sẽ tự động xếp vào hàng đợi xử lý ngầm trên máy chủ để đảm bảo an toàn cơ sở dữ liệu. Quá trình xử lý có thể mất một vài phút tùy theo số lượng bản ghi, tiến trình sẽ tự động hoàn tất trong giây lát mà không làm gián đoạn các thao tác khác của bạn.
+                  <strong>Lưu ý:</strong> Đối với tệp có số lượng dòng lớn, hệ thống sẽ tự động xử lý tuần tự để đảm bảo tính toàn vẹn và độ chính xác của cơ sở dữ liệu.
                 </div>
               </div>
             </div>
@@ -1488,7 +1499,7 @@ const BackupDataPage: React.FC = () => {
                   className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
                 >
                   <IoDownloadOutline size={14} />
-                  Tải file mẫu ({importType}.csv)
+                  Tải file mẫu ({getImportTypeLabel(importType)})
                 </button>
               </div>
 
@@ -1568,7 +1579,7 @@ const BackupDataPage: React.FC = () => {
               </div>
 
               {/* TIẾN TRÌNH NHẬP DỮ LIỆU TINH GỌN & THÂN THIỆN */}
-              {importProgress && importProgress.active && (
+              {importing && importProgress && importProgress.active && (
                 <div className="p-4 rounded-xl bg-surface-container-low border border-border-grey space-y-2.5 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1594,7 +1605,7 @@ const BackupDataPage: React.FC = () => {
                   {importProgress.percent < 100 && (
                     <div className="text-[11px] text-on-surface-variant bg-white/70 p-2.5 rounded-lg border border-border-grey/60 flex items-start gap-1.5">
                       <IoInformationCircleOutline size={14} className="text-primary flex-shrink-0 mt-0.5" />
-                      <span>{importProgress.subMessage || 'Hệ thống đang tiến hành xử lý ngầm trong hàng đợi. Quá trình có thể tốn một vài phút tùy dung lượng tệp, tiến trình sẽ hoàn tất sau lát nữa. Bạn có thể tiếp tục thao tác các tính năng khác trong thời gian chờ.'}</span>
+                      <span>{importProgress.subMessage || 'Hệ thống đang tiến hành xử lý dữ liệu. Quá trình có thể tốn một vài phút tùy dung lượng tệp.'}</span>
                     </div>
                   )}
 
@@ -1602,8 +1613,8 @@ const BackupDataPage: React.FC = () => {
                   <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-0.5">
                     {[
                       { idx: 1, label: 'Đọc tệp' },
-                      { idx: 2, label: 'Hàng đợi' },
-                      { idx: 3, label: 'Ghi CSDL' },
+                      { idx: 2, label: 'Kiểm tra' },
+                      { idx: 3, label: 'Cập nhật' },
                       { idx: 4, label: 'Hoàn tất' }
                     ].map((step, sIdx, arr) => {
                       const isDone = importProgress.stageIndex > step.idx || importProgress.percent === 100;
@@ -1684,15 +1695,15 @@ const BackupDataPage: React.FC = () => {
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-200/70">
                   <div className="bg-white p-2.5 rounded-xl border border-zinc-200 text-center">
                     <span className="text-[10px] text-zinc-500 font-semibold block uppercase">Thành công</span>
-                    <span className="text-sm font-bold text-emerald-600 block mt-0.5">{importResult.importedCount}</span>
+                    <span className="text-sm font-bold text-emerald-600 block mt-0.5">{(importResult.importedCount || 0).toLocaleString()}</span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-zinc-200 text-center">
                     <span className="text-[10px] text-zinc-500 font-semibold block uppercase">Bỏ qua</span>
-                    <span className="text-sm font-bold text-amber-600 block mt-0.5">{importResult.skippedCount}</span>
+                    <span className="text-sm font-bold text-amber-600 block mt-0.5">{(importResult.skippedCount || 0).toLocaleString()}</span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-zinc-200 text-center">
                     <span className="text-[10px] text-zinc-500 font-semibold block uppercase">Lỗi dữ liệu</span>
-                    <span className="text-sm font-bold text-red-600 block mt-0.5">{importResult.errorCount}</span>
+                    <span className="text-sm font-bold text-red-600 block mt-0.5">{(importResult.errorCount || 0).toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -1700,7 +1711,7 @@ const BackupDataPage: React.FC = () => {
                 <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60">
                   <span className="text-[11px] text-zinc-500 flex items-center gap-1 font-mono">
                     <IoTimerOutline size={14} className="text-primary" />
-                    <span>Thời gian xử lý: <strong>{importResult.durationMs ? `${importResult.durationMs} ms` : 'Nhanh chóng'}</strong></span>
+                    <span>Thời gian xử lý: <strong>{formatDuration(importResult.durationMs)}</strong></span>
                   </span>
                   <button
                     type="button"
@@ -1782,7 +1793,7 @@ const BackupDataPage: React.FC = () => {
                   <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-[11px] flex items-center gap-2">
                     <IoTimerOutline size={15} className="text-amber-700 flex-shrink-0" />
                     <span>
-                      Tệp dữ liệu lớn ({filePreview.totalRows.toLocaleString()} dòng): Hệ thống sẽ tự động đưa vào <strong>Hàng đợi xử lý ngầm</strong> trên máy chủ. Quá trình có thể tốn một vài phút và sẽ hoàn tất sau lát nữa.
+                      Tệp dữ liệu lớn ({filePreview.totalRows.toLocaleString()} dòng): Hệ thống sẽ xử lý tuần tự để đảm bảo dữ liệu được cập nhật chính xác và an toàn.
                     </span>
                   </div>
                 )}
@@ -2108,9 +2119,9 @@ const BackupDataPage: React.FC = () => {
             </div>
             <div className="grid grid-cols-4 gap-2 text-center text-xs">
               {[
-                { idx: 1, label: 'Đọc tệp & Cú pháp' },
-                { idx: 2, label: 'Hàng đợi ngầm' },
-                { idx: 3, label: 'Ghi CSDL & Đối soát' },
+                { idx: 1, label: 'Đọc tệp dữ liệu' },
+                { idx: 2, label: 'Kiểm tra hợp lệ' },
+                { idx: 3, label: 'Cập nhật hệ thống' },
                 { idx: 4, label: 'Hoàn tất' }
               ].map((step) => {
                 const isDone = (importProgress?.stageIndex || 1) > step.idx || (importProgress?.percent === 100);
@@ -2205,7 +2216,7 @@ const BackupDataPage: React.FC = () => {
                   <span className="text-base font-extrabold text-on-surface font-mono">{importResult.totalRows.toLocaleString()}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
-                  <span className="text-[10px] uppercase font-bold text-emerald-700 block mb-0.5">Ghi vào CSDL</span>
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 block mb-0.5">Thành công</span>
                   <span className="text-base font-extrabold text-emerald-700 font-mono">+{importResult.importedCount.toLocaleString()}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-center">
