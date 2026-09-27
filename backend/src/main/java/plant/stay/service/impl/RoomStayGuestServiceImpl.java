@@ -181,12 +181,20 @@ public class RoomStayGuestServiceImpl implements RoomStayGuestService {
             }
         }
 
+        String docType = dto.getDocumentType() != null ? dto.getDocumentType().trim().toUpperCase() : "CCCD";
+        String docNum = dto.getDocumentNumber() != null ? dto.getDocumentNumber().trim() : null;
+        if (docNum != null && !docNum.isEmpty() && !"OTHER".equals(docType) && !"KHAC".equals(docType)) {
+            if (!docNum.matches("^[0-9]{9}$|^[0-9]{12}$|^[a-zA-Z][0-9]{7,8}$")) {
+                throw new IllegalArgumentException("Số giấy tờ định danh (CCCD/CMND/Hộ chiếu) không hợp lệ (phải gồm 9 hoặc 12 chữ số, hoặc Hộ chiếu 1 chữ cái và 7-8 số)");
+            }
+        }
+
         RoomStayGuest coOccupant = RoomStayGuest.builder()
                 .booking(booking)
                 .fullName(dto.getFullName().trim())
                 .birthYear(dto.getBirthYear())
                 .documentType(dto.getDocumentType() != null ? dto.getDocumentType() : "CCCD")
-                .documentNumber(dto.getDocumentNumber() != null ? dto.getDocumentNumber().trim() : null)
+                .documentNumber(docNum)
                 .isChild(isChild)
                 .isPrimaryGuest(false)
                 .checkInAt(LocalDateTime.now())

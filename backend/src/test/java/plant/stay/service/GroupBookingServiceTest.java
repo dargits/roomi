@@ -166,7 +166,7 @@ class GroupBookingServiceTest {
             .active(true)
             .build());
         Room otherRoom = roomRepository.save(Room.builder()
-            .roomNumber("OTHER-" + System.nanoTime())
+            .roomNumber("OTH-" + (System.nanoTime() % 1000000000L))
             .roomType(otherRoomType)
             .floor("2")
             .status(RoomStatus.AVAILABLE)

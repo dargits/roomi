@@ -198,16 +198,21 @@ const BookingDetailPage: React.FC = () => {
     }
   };
 
+const formatCurrency = (val?: number) => {
+  if (val === undefined || val === null) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+};
+
   if (loading) {
     return <LoadingScreen message={`Đang tải thông tin chi tiết đặt phòng #${bookingId}...`} />;
   }
 
   if (!booking) {
     return (
-      <div className="bg-surface rounded-lg shadow-sm border border-border-grey p-12 text-center space-y-4">
-        <IoAlertCircleOutline size={48} className="text-error mx-auto" />
-        <h3 className="text-lg font-bold text-on-surface">Không tìm thấy thông tin đặt phòng #{bookingId}</h3>
-        <Button onClick={handleBack} icon={IoArrowBackOutline}>
+      <div className="bg-surface rounded-xl shadow-xs border border-border-grey p-8 text-center space-y-3">
+        <IoAlertCircleOutline size={40} className="text-error mx-auto" />
+        <h3 className="text-base font-bold text-on-surface">Không tìm thấy thông tin đặt phòng #{bookingId}</h3>
+        <Button onClick={handleBack} icon={IoArrowBackOutline} size="sm">
           Quay lại {backLabel}
         </Button>
       </div>
@@ -215,118 +220,154 @@ const BookingDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb & Navigation Bar */}
-      <div className="flex flex-wrap justify-between items-center gap-4 bg-surface-container-lowest p-4 rounded-lg border border-border-grey shadow-xs">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low px-3 py-1.5 rounded-md border border-border-grey cursor-pointer"
-            title={`Quay lại ${backLabel}`}
-          >
-            <IoArrowBackOutline size={16} /> Quay lại {backLabel}
-          </button>
-          <span className="text-on-surface-variant/40">/</span>
-          <span className="text-sm font-semibold text-on-surface">
-            Chi tiết #{booking.id} ({booking.guestName})
-          </span>
-        </div>
-      </div>
-
-      {/* Header Tóm tắt Đặt phòng */}
-      <div className="bg-surface-container-lowest p-6 rounded-lg border border-border-grey shadow-sm flex flex-wrap gap-6 justify-between items-center">
-        <div>
-          <div className="font-headline-sm text-on-surface flex items-center gap-3 mb-2">
-            <span>{booking.guestName}</span>
-            {getStatusBadge(booking.status)}
-            <span className="text-xs font-normal text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">
-              Mã: #{booking.id}
+    <div className="space-y-3">
+      {/* Unified Compact Header: Breadcrumb + Overview + Actions */}
+      <div className="bg-surface-container-lowest px-4 py-3 rounded-xl border border-border-grey shadow-xs">
+        {/* Top bar: Back & Meta info */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2.5 border-b border-border-grey/60 text-xs">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex items-center gap-1 font-medium text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low hover:bg-surface-container px-2.5 py-1 rounded-md border border-border-grey/70 cursor-pointer"
+              title={`Quay lại ${backLabel}`}
+            >
+              <IoArrowBackOutline size={13} /> {backLabel}
+            </button>
+            <span className="text-on-surface-variant/40">/</span>
+            <span className="font-semibold text-on-surface">
+              Chi tiết đặt phòng #{booking.id}
             </span>
-          </div>
-          <div className="text-sm text-on-surface-variant flex flex-wrap items-center gap-6">
-            <span className="flex items-center gap-1.5">
-              <IoCallOutline size={16} className="text-primary" /> {booking.guestPhone}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <IoLocationOutline size={16} className="text-primary" /> 
-              <strong>{booking.roomTypeName}</strong> {booking.roomNumber ? `— Phòng ${booking.roomNumber}` : '— (Chưa gán)'}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-end gap-3">
-          <div className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Thời gian lưu trú</div>
-          <div className="font-title-sm text-on-surface bg-surface-container-low px-4 py-2 rounded-lg border border-border-grey flex items-center gap-2.5">
-            <span>{formatStayDateTime(booking.checkInDate, 'checkin')}</span>
-            <span className="text-on-surface-variant">→</span>
-            <span>{formatStayDateTime(booking.checkOutDate, 'checkout')}</span>
-            <span className="text-xs text-primary font-bold bg-primary/10 px-2.5 py-1 rounded">
-              {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
-            </span>
-          </div>
-          {/* Quick Action Buttons */}
-          <div className="flex gap-2 flex-wrap justify-end">
-            {/* Nút Bản xác nhận đặt phòng */}
-            {(booking.status === 'CONFIRMED' || booking.status === 'NEW') && (
-              <Button
-                size="sm"
-                variant="outline"
-                icon={IoDocumentTextOutline}
-                onClick={() => setShowConfirmationModal(true)}
-                className="border-blue-400 text-blue-700 hover:bg-blue-50"
-              >
-                Bản xác nhận
-              </Button>
+            {booking.createdAt && (
+              <span className="text-on-surface-variant/60 font-normal hidden sm:inline">
+                • Tạo lúc: {new Date(booking.createdAt).toLocaleDateString('vi-VN')}
+              </span>
             )}
-            {booking.status === 'CONFIRMED' && booking.roomId && (
-              <Button
-                size="sm"
-                variant="success"
-                icon={IoCheckmarkCircleOutline}
-                onClick={() => setCheckInModalOpen(true)}
-              >
-                Nhận phòng
-              </Button>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {booking.priceSource === 'NEGOTIATED' && (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                Thỏa thuận giá ({booking.appliedAgreementName || 'Riêng'})
+              </span>
             )}
-            {booking.status === 'CHECKED_IN' && (
-              <>
+            {booking.groupBookingId && (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                Đoàn #{booking.groupBookingId}
+              </span>
+            )}
+            {booking.source && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-surface-container text-on-surface-variant">
+                Kênh: {booking.source}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Main row: Guest name, Room info, Stay time & Quick Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Left: Customer + Room Pill */}
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5">
+            <div className="flex items-center gap-2">
+              <span className="text-base sm:text-lg font-bold text-on-surface">
+                {booking.guestName}
+              </span>
+              {getStatusBadge(booking.status)}
+            </div>
+
+            <div className="h-4 w-px bg-border-grey hidden sm:block" />
+
+            <div className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+              <IoCallOutline size={14} className="text-primary" />
+              <span className="font-medium text-on-surface">{booking.guestPhone}</span>
+            </div>
+
+            <div className="h-4 w-px bg-border-grey hidden sm:block" />
+
+            <div className="inline-flex items-center gap-1.5 text-xs bg-primary/5 text-primary border border-primary/20 px-2.5 py-1 rounded-md font-medium">
+              <IoLocationOutline size={14} />
+              <span>{booking.roomTypeName}</span>
+              <span className="font-bold">
+                {booking.roomNumber ? `• P.${booking.roomNumber}` : '• (Chưa gán)'}
+              </span>
+            </div>
+          </div>
+
+          {/* Right: Stay Duration & Quick Action Buttons */}
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap ml-auto">
+            <div className="text-xs bg-surface-container-low px-2.5 py-1 rounded-md border border-border-grey flex items-center gap-1.5 text-on-surface">
+              <span className="font-medium">{formatStayDateTime(booking.checkInDate, 'checkin')}</span>
+              <span className="text-on-surface-variant">→</span>
+              <span className="font-medium">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span>
+              <span className="font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[11px]">
+                {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
+              </span>
+            </div>
+
+            {/* Quick Action buttons */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(booking.status === 'CONFIRMED' || booking.status === 'NEW') && (
                 <Button
                   size="sm"
                   variant="outline"
-                  icon={IoPeopleOutline}
-                  onClick={() => setShowStayingGuestsModal(true)}
-                  className="border-primary/40 text-primary hover:bg-primary/5"
+                  icon={IoDocumentTextOutline}
+                  onClick={() => setShowConfirmationModal(true)}
+                  className="py-1 px-2.5 text-xs border-blue-400 text-blue-700 hover:bg-blue-50"
                 >
-                  Khách cùng phòng
+                  Bản xác nhận
                 </Button>
-                {booking.checkOutDate > new Date().toISOString().split('T')[0] && (
+              )}
+              {booking.status === 'CONFIRMED' && booking.roomId && (
+                <Button
+                  size="sm"
+                  variant="success"
+                  icon={IoCheckmarkCircleOutline}
+                  onClick={() => setCheckInModalOpen(true)}
+                  className="py-1 px-2.5 text-xs"
+                >
+                  Nhận phòng
+                </Button>
+              )}
+              {booking.status === 'CHECKED_IN' && (
+                <>
                   <Button
                     size="sm"
                     variant="outline"
-                    icon={IoTimeOutline}
-                    onClick={() => setShowEarlyCheckoutModal(true)}
-                    className="border-amber-400 text-amber-800 hover:bg-amber-50"
+                    icon={IoPeopleOutline}
+                    onClick={() => setShowStayingGuestsModal(true)}
+                    className="py-1 px-2 text-xs border-primary/40 text-primary hover:bg-primary/5"
                   >
-                    Trả phòng sớm
+                    Khách cùng phòng
                   </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="primary"
-                  icon={IoLogOutOutline}
-                  onClick={() => { setCheckOutConfirm(true); setCheckOutError(''); }}
-                >
-                  Trả phòng
-                </Button>
-              </>
-            )}
+                  {booking.checkOutDate > new Date().toISOString().split('T')[0] && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      icon={IoTimeOutline}
+                      onClick={() => setShowEarlyCheckoutModal(true)}
+                      className="py-1 px-2 text-xs border-amber-400 text-amber-800 hover:bg-amber-50"
+                    >
+                      Trả sớm
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={IoLogOutOutline}
+                    onClick={() => { setCheckOutConfirm(true); setCheckOutError(''); }}
+                    className="py-1 px-2.5 text-xs"
+                  >
+                    Trả phòng
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Tab Navigation Container */}
-      <div className="bg-surface rounded-lg border border-border-grey shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-border-grey shadow-xs overflow-hidden">
         {/* Navigation Tabs */}
         <Tabs 
           tabs={[
@@ -337,141 +378,211 @@ const BookingDetailPage: React.FC = () => {
           ]} 
           paramKey="tab" 
           defaultTab="info" 
-          className="mt-0 border-b border-border-grey bg-surface-container-lowest" 
+          className="mt-0 border-b border-border-grey bg-surface-container-lowest/80 px-2" 
         />
 
         {/* Tab Content Body */}
-        <div className="p-6">
-          {/* TAB 1: THÔNG TIN CHUNG */}
+        <div className="p-3 sm:p-3.5">
+          {/* TAB 1: THÔNG TIN CHUNG (Compact 3-Column Bento Grid - Zero Scroll) */}
           {activeTab === 'info' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Chi tiết khách hàng */}
-                <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
-                  <h4 className="font-title-md text-on-surface mb-4 flex items-center gap-2 border-b border-border-grey pb-2">
-                    <IoPersonOutline size={18} className="text-primary"/> Chi tiết Khách hàng
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* CỘT 1: Chi tiết khách hàng & liên hệ */}
+              <div className="bg-surface-container-lowest p-3 rounded-lg border border-border-grey flex flex-col justify-between">
+                <div>
+                  <h4 className="font-semibold text-xs text-on-surface mb-2.5 flex items-center gap-1.5 border-b border-border-grey/70 pb-1.5 text-primary">
+                    <IoPersonOutline size={15} /> Khách hàng &amp; Liên hệ
                   </h4>
-                  <div className="space-y-3 font-body-sm text-on-surface-variant">
-                    <div className="flex justify-between"><span className="w-1/3">Họ tên:</span><span className="font-medium text-on-surface flex-1">{formatName(booking.guestName, user)}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">Số điện thoại:</span><span className="font-medium text-on-surface flex-1">{formatPhone(booking.guestPhone, user)}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">Email:</span><span className="font-medium text-on-surface flex-1">{booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">CCCD/CMND:</span><span className="font-medium text-on-surface flex-1">{formatCCCD(booking.guestIdNumber, user)}</span></div>
-                    <div className="flex justify-between items-center pt-2 border-t border-border-grey/60">
-                      <span className="w-1/3 text-xs text-on-surface-variant">Email nhắc phòng:</span>
-                      <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs">
-                          {booking.reminderSentAt ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                              <IoCheckmarkCircleOutline size={13} /> Đã gửi ({new Date(booking.reminderSentAt).toLocaleString('vi-VN')})
-                            </span>
-                          ) : (
-                            <span className="text-on-surface-variant italic">Chưa gửi</span>
-                          )}
-                        </span>
-                        {(booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
-                          <button
-                            type="button"
-                            disabled={sendingReminder || !booking.guestEmail}
-                            onClick={async () => {
-                              if (!booking?.id) return;
-                              if (!booking?.guestEmail) {
-                                toastError('Khách hàng chưa có địa chỉ email để gửi nhắc nhở');
-                                return;
-                              }
-                              setSendingReminder(true);
-                              try {
-                                const res = await bookingApi.sendCheckInReminder(booking.id);
-                                toastSuccess(res.message || 'Đã gửi email nhắc nhận phòng thành công!');
-                                fetchBookingDetails();
-                              } catch (err: any) {
-                                toastError(err.response?.data?.message || err.message || 'Không thể gửi email nhắc nhận phòng');
-                              } finally {
-                                setSendingReminder(false);
-                              }
-                            }}
-                            className="text-xs px-2.5 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1 disabled:opacity-50 cursor-pointer"
-                            title={booking.guestEmail ? 'Gửi email nhắc nhận phòng ngay' : 'Khách chưa có email'}
-                          >
-                            <IoMailOutline size={13} /> {sendingReminder ? 'Đang gửi...' : (booking.reminderSentAt ? 'Gửi lại' : 'Gửi email nhắc')}
-                          </button>
-                        )}
-                      </div>
+                  <div className="space-y-1.5 text-xs text-on-surface-variant">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Họ tên:</span>
+                      <span className="font-semibold text-on-surface text-right">{formatName(booking.guestName, user)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Số điện thoại:</span>
+                      <span className="font-medium text-on-surface text-right">{formatPhone(booking.guestPhone, user)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Email:</span>
+                      <span className="font-medium text-on-surface text-right truncate max-w-[170px]" title={booking.guestEmail}>
+                        {booking.guestEmail ? formatEmail(booking.guestEmail, user) : 'Chưa cập nhật'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">CCCD/CMND:</span>
+                      <span className="font-medium text-on-surface text-right">{formatCCCD(booking.guestIdNumber, user)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Chi tiết phòng & Thao tác */}
-                <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
-                  <div className="flex justify-between items-center mb-4 border-b border-border-grey pb-2">
-                    <h4 className="font-title-md text-on-surface flex items-center gap-2">
-                      <IoLocationOutline size={18} className="text-primary"/> Chi tiết Phòng
+                {/* Email nhắc phòng */}
+                <div className="pt-2 mt-2 border-t border-border-grey/60 flex items-center justify-between gap-1 text-[11px]">
+                  <span className="text-on-surface-variant/70">Email nhắc:</span>
+                  <div className="flex items-center gap-1.5">
+                    {booking.reminderSentAt ? (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[11px] border border-emerald-200" title={`Đã gửi lúc: ${new Date(booking.reminderSentAt).toLocaleString('vi-VN')}`}>
+                        <IoCheckmarkCircleOutline size={12} /> Đã gửi
+                      </span>
+                    ) : (
+                      <span className="text-on-surface-variant italic">Chưa gửi</span>
+                    )}
+                    {(booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
+                      <button
+                        type="button"
+                        disabled={sendingReminder || !booking.guestEmail}
+                        onClick={async () => {
+                          if (!booking?.id) return;
+                          if (!booking?.guestEmail) {
+                            toastError('Khách hàng chưa có địa chỉ email để gửi nhắc nhở');
+                            return;
+                          }
+                          setSendingReminder(true);
+                          try {
+                            const res = await bookingApi.sendCheckInReminder(booking.id);
+                            toastSuccess(res.message || 'Đã gửi email nhắc nhận phòng thành công!');
+                            fetchBookingDetails();
+                          } catch (err: any) {
+                            toastError(err.response?.data?.message || err.message || 'Không thể gửi email nhắc nhận phòng');
+                          } finally {
+                            setSendingReminder(false);
+                          }
+                        }}
+                        className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                        title={booking.guestEmail ? 'Gửi email nhắc nhận phòng ngay' : 'Khách chưa có email'}
+                      >
+                        <IoMailOutline size={12} /> {sendingReminder ? '...' : (booking.reminderSentAt ? 'Gửi lại' : 'Gửi')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* CỘT 2: Chi tiết phòng & Thao tác */}
+              <div className="bg-surface-container-lowest p-3 rounded-lg border border-border-grey flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-2.5 border-b border-border-grey/70 pb-1.5">
+                    <h4 className="font-semibold text-xs text-on-surface flex items-center gap-1.5 text-primary">
+                      <IoLocationOutline size={15} /> Phòng &amp; Lưu trú
                     </h4>
-                    <div className="flex items-center gap-1.5">
+                    {/* Thao tác phòng */}
+                    <div className="flex items-center gap-1">
                       {(booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN') && (
                         <button
                           type="button"
                           onClick={openChangeRoom}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
+                          className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer bg-transparent font-medium"
+                          title="Đổi sang phòng khác cùng loại"
                         >
-                          <IoSwapHorizontalOutline size={14}/> Đổi phòng
+                          <IoSwapHorizontalOutline size={12}/> Đổi
                         </button>
                       )}
-                      {/* NCL-04-CN-NEW: Dời lịch */}
                       {(booking.status === 'NEW' || booking.status === 'CONFIRMED') && (
                         <button
                           type="button"
                           onClick={() => setShowRescheduleModal(true)}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-indigo-400/40 text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-indigo-400/40 text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          title="Dời ngày nhận/trả phòng"
                         >
-                          <IoCalendarOutline size={14}/> Dời lịch
+                          <IoCalendarOutline size={12}/> Dời
                         </button>
                       )}
                       {booking.status === 'CHECKED_IN' && (
                         <button
                           type="button"
                           onClick={() => setShowExtendModal(true)}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-teal-400/40 text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-teal-400/40 text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          title="Gia hạn lưu trú thêm đêm"
                         >
-                          <IoMoonOutline size={14}/> Gia hạn
+                          <IoMoonOutline size={12}/> Gia hạn
                         </button>
                       )}
                       {booking.status === 'CHECKED_IN' && (
                         <button
                           type="button"
                           onClick={() => setShowUpgradeModal(true)}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-purple-400/40 text-purple-700 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-purple-400/40 text-purple-700 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent font-medium"
+                          title="Nâng lên hạng phòng cao hơn"
                         >
-                          <IoSwapVerticalOutline size={14}/> Nâng hạng
+                          <IoSwapVerticalOutline size={12}/> Nâng hạng
                         </button>
                       )}
                     </div>
                   </div>
-                  <div className="space-y-3 font-body-sm text-on-surface-variant">
-                    <div className="flex justify-between">
-                      <span className="w-1/3">Loại phòng:</span>
-                      <span className="font-medium text-on-surface flex-1 flex items-center gap-2">
+
+                  <div className="space-y-1.5 text-xs text-on-surface-variant">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Loại phòng:</span>
+                      <span className="font-semibold text-on-surface flex items-center gap-1.5">
                         {booking.roomTypeName}
                         {booking.roomCapacity && (
-                          <span className="text-[11px] text-on-surface-variant flex items-center gap-1 font-normal bg-surface-container px-1.5 py-0.5 rounded">
-                            <IoPersonOutline size={12} /> {booking.roomCapacity} người
+                          <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5 bg-surface-container px-1 py-0.2 rounded font-normal">
+                            <IoPersonOutline size={10} /> {booking.roomCapacity} ng
                           </span>
                         )}
                       </span>
                     </div>
-                    <div className="flex justify-between"><span className="w-1/3">Phòng:</span><span className="font-medium text-on-surface flex-1">{booking.roomNumber ? `Phòng ${booking.roomNumber}` : 'Chưa phân phòng'}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">Nhận phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkInDate, 'checkin')}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">Trả phòng:</span><span className="font-medium text-on-surface flex-1">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span></div>
-                    <div className="flex justify-between"><span className="w-1/3">Thời gian ở:</span><span className="font-semibold text-primary flex-1">{calculateNights(booking.checkInDate, booking.checkOutDate)} đêm</span></div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Phòng:</span>
+                      <span className="font-bold text-primary">
+                        {booking.roomNumber ? `Phòng ${booking.roomNumber}` : 'Chưa phân phòng'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Nhận phòng:</span>
+                      <span className="font-medium text-on-surface">{formatStayDateTime(booking.checkInDate, 'checkin')}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Trả phòng:</span>
+                      <span className="font-medium text-on-surface">{formatStayDateTime(booking.checkOutDate, 'checkout')}</span>
+                    </div>
                   </div>
+                </div>
+
+                <div className="pt-2 mt-2 border-t border-border-grey/60 flex justify-between items-center text-xs">
+                  <span className="text-on-surface-variant/70">Thời gian ở:</span>
+                  <span className="font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                    {calculateNights(booking.checkInDate, booking.checkOutDate)} đêm
+                  </span>
                 </div>
               </div>
 
-              {/* Ghi chú */}
-              <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey">
-                <h4 className="font-title-md text-on-surface mb-3 border-b border-border-grey pb-2">Ghi chú đặt phòng</h4>
-                <p className="text-body-md text-on-surface-variant italic">
-                  {booking.note || "Không có ghi chú nào."}
-                </p>
+              {/* CỘT 3: Biểu giá & Ghi chú đặt phòng */}
+              <div className="bg-surface-container-lowest p-3 rounded-lg border border-border-grey flex flex-col justify-between">
+                <div>
+                  <h4 className="font-semibold text-xs text-on-surface mb-2.5 flex items-center gap-1.5 border-b border-border-grey/70 pb-1.5 text-primary">
+                    <IoCashOutline size={15} /> Giá phòng &amp; Ghi chú
+                  </h4>
+                  <div className="space-y-1.5 text-xs text-on-surface-variant">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Giá phòng:</span>
+                      <span className="font-bold text-primary">
+                        {formatCurrency(booking.actualPrice || booking.expectedPrice)}
+                        <span className="text-[10px] text-on-surface-variant font-normal"> /đêm</span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Chính sách giá:</span>
+                      <span className="font-medium text-on-surface">
+                        {booking.priceSource === 'NEGOTIATED' ? 'Giá thỏa thuận' : 'Giá tiêu chuẩn'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant/70">Nguồn đặt:</span>
+                      <span className="font-medium text-on-surface">
+                        {booking.source || booking.channelName || 'Trực tiếp tại quầy'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hộp Ghi chú đặt phòng compact */}
+                <div className="mt-2 bg-surface-container-low/70 border border-border-grey/60 rounded-md p-2 flex flex-col justify-center">
+                  <div className="text-[10px] uppercase font-bold text-on-surface-variant/70 mb-0.5 tracking-wider">
+                    Ghi chú
+                  </div>
+                  <p className="text-xs text-on-surface italic line-clamp-2" title={booking.note || 'Không có ghi chú'}>
+                    {booking.note || "Không có ghi chú đặc biệt."}
+                  </p>
+                </div>
               </div>
             </div>
           )}

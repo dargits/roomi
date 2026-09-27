@@ -17,6 +17,7 @@ import { bookingRequestApi } from '../../services/bookingRequestApi';
 import pricingApi from '../../services/pricingApi';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { toLocalDateString } from '../../utils/formatDate';
+import { validatePhone, validateEmail } from '../../utils/securitySanitizer';
 
 interface PublicBookingModalProps {
   isOpen: boolean;
@@ -86,6 +87,26 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!formData.guestName.trim()) {
+      setError('Vui lòng nhập họ và tên của bạn.');
+      return;
+    }
+
+    const phoneCheck = validatePhone(formData.phone, true);
+    if (!phoneCheck.valid) {
+      setError(phoneCheck.message || 'Số điện thoại không hợp lệ.');
+      return;
+    }
+
+    if (formData.email && formData.email.trim()) {
+      const emailCheck = validateEmail(formData.email, false);
+      if (!emailCheck.valid) {
+        setError(emailCheck.message || 'Địa chỉ email không đúng định dạng.');
+        return;
+      }
+    }
+
     setLoading(true);
     
     try {

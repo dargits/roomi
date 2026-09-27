@@ -29,7 +29,7 @@ const CashierShiftPage: React.FC = () => {
   const { user } = useAuth();
   const { success, error, confirm } = useToast();
   const isReceptionist = user?.role === 'RECEPTIONIST';
-  const canManage = ['OWNER', 'ACCOUNTANT'].includes(user?.role || '');
+  const canManage = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role || '');
   const [shift, setShift] = useState<CashierShiftResponse | null>(null);
   const [history, setHistory] = useState<CashierShiftResponse[]>([]);
   const [loading, setLoading] = useState(true);

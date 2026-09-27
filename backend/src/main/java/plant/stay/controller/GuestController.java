@@ -76,7 +76,7 @@ public class GuestController {
     @PostMapping
     public ResponseEntity<GuestResponse> create(@Valid @RequestBody GuestRequest req,
                                                 HttpServletRequest request) {
-        checkStaff(request);
+        checkWriteStaff(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(guestService.create(req));
     }
 
@@ -84,7 +84,7 @@ public class GuestController {
     public ResponseEntity<GuestResponse> update(@PathVariable Long id,
                                                 @Valid @RequestBody GuestRequest req,
                                                 HttpServletRequest request) {
-        checkStaff(request);
+        checkWriteStaff(request);
         return ResponseEntity.ok(guestService.update(id, req));
     }
 
@@ -92,7 +92,7 @@ public class GuestController {
     public ResponseEntity<Void> addIdentityDocument(@PathVariable Long id,
                                                     @Valid @RequestBody IdentityDocumentRequest req,
                                                     HttpServletRequest request) {
-        checkStaff(request);
+        checkWriteStaff(request);
         guestService.addIdentityDocument(id, req);
         return ResponseEntity.noContent().build();
     }
@@ -101,7 +101,7 @@ public class GuestController {
     public ResponseEntity<Void> deleteIdentityDocument(@PathVariable Long id,
                                                        @PathVariable Long docId,
                                                        HttpServletRequest request) {
-        checkStaff(request);
+        checkWriteStaff(request);
         guestService.deleteIdentityDocument(id, docId);
         return ResponseEntity.noContent().build();
     }
@@ -123,8 +123,17 @@ public class GuestController {
 
     private User checkStaff(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.RECEPTIONIST))
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN
+                && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ACCOUNTANT))
             throw new UnauthorizedException("Không có quyền truy cập");
+        return user;
+    }
+
+    private User checkWriteStaff(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN
+                && user.getRole() != Role.RECEPTIONIST))
+            throw new UnauthorizedException("Không có quyền thực hiện thao tác này");
         return user;
     }
     @DeleteMapping("/{id}")

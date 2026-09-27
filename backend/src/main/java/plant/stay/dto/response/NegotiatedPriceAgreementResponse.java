@@ -17,6 +17,7 @@ public class NegotiatedPriceAgreementResponse {
     private Long groupBookingId;
     private String groupBookingRepName;
     private BigDecimal pricePerNight;
+    private java.util.List<NegotiatedPriceItemResponse> items;
     private LocalDate startDate;
     private LocalDate endDate;
     private Boolean active;

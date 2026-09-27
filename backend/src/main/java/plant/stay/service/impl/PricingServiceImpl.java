@@ -135,16 +135,19 @@ public class PricingServiceImpl implements PricingService {
         // 0. Ưu tiên cao nhất: Giá thỏa thuận (cho đoàn hoặc khách công ty)
         if (agreement != null && Boolean.TRUE.equals(agreement.getActive())
                 && !night.isBefore(agreement.getStartDate()) && !night.isAfter(agreement.getEndDate())) {
-            String sourceName = agreement.getGroupBooking() != null
-                    ? "Giá thỏa thuận đoàn: " + agreement.getName()
-                    : "Giá thỏa thuận công ty: " + agreement.getName();
-            return NightlyPriceDetailDto.builder()
-                    .date(night)
-                    .dayOfWeek(dayName)
-                    .appliedPrice(agreement.getPricePerNight())
-                    .priceSource("NEGOTIATED")
-                    .sourceName(sourceName)
-                    .build();
+            BigDecimal agreedPrice = agreement.getPriceForRoomType(roomType != null ? roomType.getId() : null);
+            if (agreedPrice != null) {
+                String sourceName = agreement.getGroupBooking() != null
+                        ? "Giá thỏa thuận đoàn: " + agreement.getName()
+                        : "Giá thỏa thuận công ty: " + agreement.getName();
+                return NightlyPriceDetailDto.builder()
+                        .date(night)
+                        .dayOfWeek(dayName)
+                        .appliedPrice(agreedPrice)
+                        .priceSource("NEGOTIATED")
+                        .sourceName(sourceName)
+                        .build();
+            }
         }
 
         // 1. Ưu tiên cao nhất trong bảng giá: Giá ngày lễ
