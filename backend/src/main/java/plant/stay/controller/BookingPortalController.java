@@ -421,7 +421,7 @@ public class BookingPortalController {
             for (Room r : allRooms) {
                 if (r.getStatus() == RoomStatus.MAINTENANCE) {
                     occupiedRoomIds.add(r.getId());
-                } else if (cur.equals(today) && r.getStatus() == RoomStatus.OCCUPIED) {
+                } else if (cur.equals(today) && r.getStatus() != RoomStatus.AVAILABLE) {
                     occupiedRoomIds.add(r.getId());
                 }
             }
