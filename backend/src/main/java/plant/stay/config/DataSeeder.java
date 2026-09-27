@@ -69,21 +69,9 @@ public class DataSeeder implements CommandLineRunner {
             }
         }
 
-        boolean seedEnabled = false;
-        if (environment != null) {
-            seedEnabled = Boolean.parseBoolean(environment.getProperty("app.seed.enabled", "false"));
-        }
+        log.info("========== BẮT ĐẦU KIỂM TRA VÀ THIẾT LẬP DỮ LIỆU CẦN THIẾT (STAY AWAY) ==========");
 
-        // Nếu không phải trong môi trường Test và tính năng seed đã tắt, đồng thời hệ thống đã có tài khoản:
-        // Bỏ qua toàn bộ quá trình nạp dữ liệu để giữ nguyên dữ liệu hiện tại khi khởi động lại backend.
-        if (!isTest && !seedEnabled && userRepository.count() > 0) {
-            log.info("========== DATA SEEDER: Tự động khởi tạo dữ liệu mẫu đã bị VÔ HIỆU HÓA (app.seed.enabled=false). Giữ nguyên toàn bộ dữ liệu CSDL hiện tại khi khởi động lại backend. ==========");
-            return;
-        }
-
-        log.info("========== BẮT ĐẦU KIỂM TRA VÀ KHỞI TẠO DỮ LIỆU HỆ THỐNG STAY AWAY ==========");
-
-        // 1. Seed Users
+        // 1. Seed Users (Tài khoản hệ thống cần thiết: admin, letan, buongphong, ketoan, chusohuu)
         List<User> seededUsers = seedUsers();
         User adminUser = seededUsers.stream().filter(u -> u.getRole() == Role.ADMIN).findFirst().orElse(null);
         User ownerUser = seededUsers.stream().filter(u -> u.getRole() == Role.OWNER).findFirst().orElse(null);
@@ -93,38 +81,44 @@ public class DataSeeder implements CommandLineRunner {
         User housekeeperUser2 = seededUsers.stream().filter(u -> "buongphong2".equals(u.getAccount())).findFirst().orElse(housekeeperUser);
         User accountantUser = seededUsers.stream().filter(u -> u.getRole() == Role.ACCOUNTANT).findFirst().orElse(null);
 
-        // 2. Seed HotelSetting
+        // 2. Seed HotelSetting (Cấu hình cơ sở khách sạn)
         seedHotelSetting();
 
-        // 3. Seed RoomTypes & Rooms
+        // 3. Seed RoomTypes & Rooms (Danh mục loại phòng & sơ đồ phòng)
         Map<String, RoomType> roomTypeMap = seedRoomTypes();
         List<Room> allRooms = seedRooms(roomTypeMap);
 
-        // 4. Seed ExtraServices
+        // 4. Seed ExtraServices (Dịch vụ phụ thu)
         List<ExtraService> extraServices = seedExtraServices();
 
-        // 5. Seed InventoryItems
+        // 5. Seed InventoryItems (Kho đồ dùng vật tư)
         seedInventoryItems();
 
-        // 6. Seed LoyaltyTiers
+        // 6. Seed LoyaltyTiers (Hạng hội viên)
         Map<String, LoyaltyTier> tierMap = seedLoyaltyTiers();
 
-        // 7. Seed Policies & Pricing Configurations
+        // 7. Seed Policies & Pricing Configurations (Chính sách & Bảng giá)
         seedPolicies(roomTypeMap, ownerUser);
 
-        // 8. Seed NotificationRoleDefaults
+        // 8. Seed NotificationRoleDefaults (Cấu hình thông báo mặc định)
         seedNotificationRoleDefaults();
 
-        // 9. Seed CorporateClients & NegotiatedPriceAgreements
+        // 9. Seed CorporateClients & NegotiatedPriceAgreements (Khách doanh nghiệp)
         List<CorporateClient> corporateClients = seedCorporateClients(ownerUser);
         List<NegotiatedPriceAgreement> agreements = seedNegotiatedAgreements(corporateClients, ownerUser);
 
-        // 10. Seed Channels & ChannelRoomMappings
+        // 10. Seed Channels & ChannelRoomMappings (Kênh OTA)
         seedChannelsAndMappings(roomTypeMap, ownerUser);
 
-        // 11. Seed Full Operational Data (Bookings, Usages, Invoices, Payments, Shifts, Ledgers, Cleanings, etc.)
-        if (!isTest && seedEnabled && bookingRepository.count() <= 3) {
-            log.info("Phát hiện hệ thống chưa có dữ liệu vận hành đầy đủ. Bắt đầu khởi tạo dữ liệu hoạt động toàn diện (01/01/2026 - nay)...");
+        // 11. Seed Full Operational Data NẶNG (Bookings, Usages, Invoices, Payments, Shifts, Ledgers, Cleanings, etc.)
+        // Chỉ chạy khi được bật tường minh bằng cấu hình app.seed.operational-data.enabled=true
+        boolean seedOperationalDataEnabled = false;
+        if (environment != null) {
+            seedOperationalDataEnabled = Boolean.parseBoolean(environment.getProperty("app.seed.operational-data.enabled", "false"));
+        }
+
+        if (!isTest && seedOperationalDataEnabled && bookingRepository.count() <= 3) {
+            log.info("Bật nạp dữ liệu vận hành giả lập (app.seed.operational-data.enabled=true). Bắt đầu khởi tạo dữ liệu hoạt động...");
             
             // 11.1 Seed Guests
             List<Guest> seededGuests = seedGuests(tierMap);
@@ -154,11 +148,10 @@ public class DataSeeder implements CommandLineRunner {
                 log.warn("Bỏ qua tự động tạo bản backup khởi đầu: {}", e.getMessage());
             }
         } else {
-            log.info("Dữ liệu vận hành hệ thống đã sẵn sàng ({}/{} lượt đặt phòng). Bỏ qua bước nạp dữ liệu hoạt động.",
-                    bookingRepository.count(), guestRepository.count());
+            log.info("Đã bỏ qua phần nạp dữ liệu vận hành nặng (Bookings, Invoices, Shifts, Ledgers). Các dữ liệu cần thiết (Tài khoản, Phòng, Dịch vụ, Cấu hình) đã được bảo toàn.");
         }
 
-        log.info("========== HOÀN TẤT KHỞI TẠO DỮ LIỆU HỆ THỐNG STAY AWAY ==========");
+        log.info("========== HOÀN TẤT THIẾT LẬP DỮ LIỆU HỆ THỐNG STAY AWAY ==========");
     }
 
     private List<User> seedUsers() {
