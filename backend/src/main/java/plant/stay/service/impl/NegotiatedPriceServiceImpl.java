@@ -20,8 +20,16 @@ import plant.stay.service.AuditLogService;
 import plant.stay.service.NegotiatedPriceService;
 import plant.stay.service.PricingService;
 
+import plant.stay.dto.request.NegotiatedPriceItemRequest;
+import plant.stay.dto.response.NegotiatedPriceItemResponse;
+import plant.stay.model.NegotiatedPriceItem;
+import plant.stay.model.RoomType;
+import plant.stay.repository.RoomTypeRepository;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,6 +42,7 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
     private final CorporateClientRepository corporateClientRepository;
     private final GroupBookingRepository groupBookingRepository;
     private final BookingRepository bookingRepository;
+    private final RoomTypeRepository roomTypeRepository;
     private final PricingService pricingService;
     private final AuditLogService auditLogService;
 
@@ -59,6 +68,28 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
         return toResponse(agreement);
     }
 
+    private List<NegotiatedPriceItem> buildItemsFromRequest(List<NegotiatedPriceItemRequest> itemRequests) {
+        List<NegotiatedPriceItem> items = new ArrayList<>();
+        if (itemRequests != null) {
+            for (NegotiatedPriceItemRequest itemReq : itemRequests) {
+                if (itemReq.getRoomTypeId() != null && itemReq.getPricePerNight() != null) {
+                    String name = itemReq.getRoomTypeName();
+                    if (name == null || name.isBlank()) {
+                        name = roomTypeRepository.findById(itemReq.getRoomTypeId())
+                                .map(RoomType::getName)
+                                .orElse("Loại phòng #" + itemReq.getRoomTypeId());
+                    }
+                    items.add(NegotiatedPriceItem.builder()
+                            .roomTypeId(itemReq.getRoomTypeId())
+                            .roomTypeName(name)
+                            .pricePerNight(itemReq.getPricePerNight())
+                            .build());
+                }
+            }
+        }
+        return items;
+    }
+
     @Override
     public NegotiatedPriceAgreementResponse create(NegotiatedPriceAgreementRequest request, User actor) {
         if (request.getCorporateClientId() == null && request.getGroupBookingId() == null) {
@@ -66,6 +97,15 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
         }
         if (request.getStartDate().isAfter(request.getEndDate())) {
             throw new IllegalArgumentException("Ngày bắt đầu không được sau ngày kết thúc");
+        }
+
+        List<NegotiatedPriceItem> items = buildItemsFromRequest(request.getItems());
+        BigDecimal defaultPrice = request.getPricePerNight();
+        if (defaultPrice == null && !items.isEmpty()) {
+            defaultPrice = items.get(0).getPricePerNight();
+        }
+        if (defaultPrice == null && items.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập mức giá thỏa thuận hoặc thiết lập giá cho từng hạng phòng");
         }
 
         CorporateClient corporateClient = null;
@@ -84,7 +124,8 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
                 .name(request.getName())
                 .corporateClient(corporateClient)
                 .groupBooking(groupBooking)
-                .pricePerNight(request.getPricePerNight())
+                .pricePerNight(defaultPrice)
+                .items(items)
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .active(request.getActive() != null ? request.getActive() : true)
@@ -109,8 +150,19 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
             throw new IllegalArgumentException("Ngày bắt đầu không được sau ngày kết thúc");
         }
 
+        List<NegotiatedPriceItem> items = buildItemsFromRequest(request.getItems());
+        BigDecimal defaultPrice = request.getPricePerNight();
+        if (defaultPrice == null && !items.isEmpty()) {
+            defaultPrice = items.get(0).getPricePerNight();
+        }
+        if (defaultPrice != null) {
+            agreement.setPricePerNight(defaultPrice);
+        }
+        if (request.getItems() != null) {
+            agreement.setItems(items);
+        }
+
         agreement.setName(request.getName());
-        agreement.setPricePerNight(request.getPricePerNight());
         agreement.setStartDate(request.getStartDate());
         agreement.setEndDate(request.getEndDate());
         if (request.getActive() != null) {
@@ -143,14 +195,17 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
             List<plant.stay.model.Booking> bookings = bookingRepository.findByGroupBookingId(agreement.getGroupBooking().getId());
             for (plant.stay.model.Booking b : bookings) {
                 if (b.getStatus() == plant.stay.model.BookingStatus.NEW) {
-                    long nights = java.time.temporal.ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate());
+                    long nights = ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate());
                     if (nights <= 0) nights = 1;
-                    java.math.BigDecimal newPrice = agreement.getPricePerNight().multiply(java.math.BigDecimal.valueOf(nights));
-                    b.setExpectedPrice(newPrice);
-                    b.setActualPrice(newPrice);
-                    b.setAppliedAgreement(agreement);
-                    b.setPriceSource("NEGOTIATED");
-                    bookingRepository.save(b);
+                    BigDecimal nightPrice = agreement.getPriceForRoomType(b.getRoomType() != null ? b.getRoomType().getId() : null);
+                    if (nightPrice != null) {
+                        BigDecimal newPrice = nightPrice.multiply(BigDecimal.valueOf(nights));
+                        b.setExpectedPrice(newPrice);
+                        b.setActualPrice(newPrice);
+                        b.setAppliedAgreement(agreement);
+                        b.setPriceSource("NEGOTIATED");
+                        bookingRepository.save(b);
+                    }
                 }
             }
         }
@@ -216,6 +271,17 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
                     .build();
         }
 
+        BigDecimal agreedPricePerNight = agreement.getPriceForRoomType(roomTypeId);
+        if (agreedPricePerNight == null) {
+            return NegotiatedPricePreviewResponse.builder()
+                    .applied(false)
+                    .agreementType("NONE")
+                    .standardPrice(standardBreakdown.getGrandTotal())
+                    .totalPrice(standardBreakdown.getGrandTotal())
+                    .totalNights((int) nights)
+                    .build();
+        }
+
         NightlyPriceBreakdownResponse negotiatedBreakdown = pricingService.calculateBreakdown(roomTypeId, checkIn, checkOut, guestCount, childCount, agreement);
 
         String agreementType = agreement.getGroupBooking() != null ? "GROUP" : "CORPORATE";
@@ -229,7 +295,7 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
                 .agreementName(agreement.getName())
                 .agreementType(agreementType)
                 .clientOrGroupName(clientOrGroupName)
-                .pricePerNight(agreement.getPricePerNight())
+                .pricePerNight(agreedPricePerNight)
                 .totalNights((int) nights)
                 .totalPrice(negotiatedBreakdown.getGrandTotal())
                 .standardPrice(standardBreakdown.getGrandTotal())
@@ -237,6 +303,17 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
     }
 
     private NegotiatedPriceAgreementResponse toResponse(NegotiatedPriceAgreement a) {
+        List<NegotiatedPriceItemResponse> itemResponses = null;
+        if (a.getItems() != null && !a.getItems().isEmpty()) {
+            itemResponses = a.getItems().stream()
+                    .map(it -> NegotiatedPriceItemResponse.builder()
+                            .roomTypeId(it.getRoomTypeId())
+                            .roomTypeName(it.getRoomTypeName())
+                            .pricePerNight(it.getPricePerNight())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
         return NegotiatedPriceAgreementResponse.builder()
                 .id(a.getId())
                 .name(a.getName())
@@ -245,6 +322,7 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
                 .groupBookingId(a.getGroupBooking() != null ? a.getGroupBooking().getId() : null)
                 .groupBookingRepName(a.getGroupBooking() != null && a.getGroupBooking().getRepresentativeGuest() != null ? a.getGroupBooking().getRepresentativeGuest().getName() : null)
                 .pricePerNight(a.getPricePerNight())
+                .items(itemResponses)
                 .startDate(a.getStartDate())
                 .endDate(a.getEndDate())
                 .active(a.getActive())

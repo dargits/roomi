@@ -281,7 +281,9 @@ public class BookingServiceImpl implements BookingService {
             finalNote = (finalNote != null && !finalNote.isBlank()) ? (finalNote + " " + surchargeNote) : surchargeNote;
         }
         if (appliedAgreement != null) {
-            String agreementNote = "[Áp dụng thỏa thuận giá: " + appliedAgreement.getName() + " (" + appliedAgreement.getPricePerNight() + " đ/đêm)]";
+            BigDecimal agreedRate = appliedAgreement.getPriceForRoomType(roomType.getId());
+            String rateStr = agreedRate != null ? agreedRate.toPlainString() : (appliedAgreement.getPricePerNight() != null ? appliedAgreement.getPricePerNight().toPlainString() : "0");
+            String agreementNote = "[Áp dụng thỏa thuận giá: " + appliedAgreement.getName() + " (" + rateStr + " đ/đêm)]";
             finalNote = (finalNote != null && !finalNote.isBlank()) ? (finalNote + " " + agreementNote) : agreementNote;
         }
 
@@ -537,6 +539,14 @@ public class BookingServiceImpl implements BookingService {
                 String cleanPhone = (dto.getPhone() != null && !dto.getPhone().trim().isEmpty()) ? dto.getPhone().trim() : null;
                 String cleanIdNumber = (dto.getIdNumber() != null && !dto.getIdNumber().trim().isEmpty()) ? dto.getIdNumber().trim() : null;
                 String cleanName = (dto.getName() != null && !dto.getName().trim().isEmpty()) ? dto.getName().trim() : "Khách lưu trú";
+
+                if (cleanIdNumber != null && !cleanIdNumber.matches("^[0-9]{9}$|^[0-9]{12}$|^[a-zA-Z][0-9]{7,8}$")) {
+                    throw new IllegalArgumentException("Số CCCD/CMND của khách '" + cleanName + "' không hợp lệ: phải gồm 9 hoặc 12 chữ số, hoặc Hộ chiếu (không chứa ký tự chữ cái tùy tiện)");
+                }
+
+                if (cleanPhone != null && !cleanPhone.matches("^(0|\\+84)(3|5|7|8|9)[0-9]{8}$|^02[0-9]{9}$")) {
+                    throw new IllegalArgumentException("Số điện thoại của khách '" + cleanName + "' không đúng định dạng (10 chữ số, không chứa chữ cái)");
+                }
 
                 if (guest == null) {
                     guest = Guest.builder()
@@ -1606,6 +1616,9 @@ public class BookingServiceImpl implements BookingService {
                 .appliedAgreementName(b.getAppliedAgreement() != null ? b.getAppliedAgreement().getName() : null)
                 .corporateClientId(b.getAppliedAgreement() != null && b.getAppliedAgreement().getCorporateClient() != null ? b.getAppliedAgreement().getCorporateClient().getId() : null)
                 .corporateClientName(b.getAppliedAgreement() != null && b.getAppliedAgreement().getCorporateClient() != null ? b.getAppliedAgreement().getCorporateClient().getCompanyName() : null)
+                .loyaltyTierId(b.getGuest() != null && b.getGuest().getLoyaltyTier() != null ? b.getGuest().getLoyaltyTier().getId() : null)
+                .loyaltyTierName(b.getGuest() != null && b.getGuest().getLoyaltyTier() != null ? b.getGuest().getLoyaltyTier().getName() : null)
+                .loyaltyDiscountPercent(b.getGuest() != null && b.getGuest().getLoyaltyTier() != null ? b.getGuest().getLoyaltyTier().getDiscountPercent() : null)
                 .build();
     }
 

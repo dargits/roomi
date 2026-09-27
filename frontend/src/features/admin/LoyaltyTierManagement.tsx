@@ -77,7 +77,7 @@ const getTierTheme = (name: string, index: number): TierTheme => {
   return fallbacks[index % fallbacks.length];
 };
 
-const EMPTY_FORM = { name: "", minPoints: 0, benefitDescription: "" };
+const EMPTY_FORM = { name: "", minPoints: 0, discountPercent: 0, benefitDescription: "" };
 
 const LoyaltyTierManagement: React.FC = () => {
   const [tiers, setTiers] = useState<any[]>([]);
@@ -125,9 +125,14 @@ const LoyaltyTierManagement: React.FC = () => {
 
   const openEdit = (tier: any) => {
     setEditingTier(tier);
-    setForm({ name: tier.name, minPoints: tier.minPoints, benefitDescription: tier.benefitDescription || "" });
+    setForm({
+      name: tier.name,
+      minPoints: tier.minPoints,
+      discountPercent: tier.discountPercent != null ? tier.discountPercent : 0,
+      benefitDescription: tier.benefitDescription || ""
+    });
     setError(""); 
-    setShowModal(true);
+    setShowModal(true); 
   };
 
   const closeModal = () => { 
@@ -138,7 +143,10 @@ const LoyaltyTierManagement: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: name === "minPoints" ? Number(value) : value }));
+    setForm(prev => ({
+      ...prev,
+      [name]: (name === "minPoints" || name === "discountPercent") ? Number(value) : value
+    }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -310,9 +318,16 @@ const LoyaltyTierManagement: React.FC = () => {
                         STAY AWAY • CẤP 0{idx + 1}
                       </span>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/15 backdrop-blur-xs text-white border border-white/20 font-mono shadow-2xs">
-                      {tier.minPoints.toLocaleString("vi-VN")} ĐIỂM
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/15 backdrop-blur-xs text-white border border-white/20 font-mono shadow-2xs">
+                        {tier.minPoints.toLocaleString("vi-VN")} ĐIỂM
+                      </span>
+                      {tier.discountPercent > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-amber-400 text-amber-950 font-mono shadow-xs">
+                          GIẢM {tier.discountPercent}%
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-4 relative z-10">
@@ -334,6 +349,11 @@ const LoyaltyTierManagement: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
+                      {tier.discountPercent > 0 && (
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 mb-2">
+                          <span>🏷️ Giảm {tier.discountPercent}% trực tiếp trên hóa đơn</span>
+                        </div>
+                      )}
                       {benefits.length > 0 ? (
                         benefits.map((b, bIdx) => (
                           <div key={bIdx} className="flex items-start gap-2 text-xs text-[#1A2411] leading-relaxed">
@@ -387,6 +407,7 @@ const LoyaltyTierManagement: React.FC = () => {
                   <th className="p-4">Cấp Bậc</th>
                   <th className="p-4">Tên Hạng</th>
                   <th className="p-4">Ngưỡng Điểm</th>
+                  <th className="p-4">Mức Giảm</th>
                   <th className="p-4">Chi Tiêu Tích Lũy</th>
                   <th className="p-4">Số Hội Viên</th>
                   <th className="p-4">Đặc Quyền & Ưu Đãi</th>
@@ -411,6 +432,15 @@ const LoyaltyTierManagement: React.FC = () => {
                         <span className="font-mono font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md border border-primary/20">
                           {tier.minPoints.toLocaleString("vi-VN")} điểm
                         </span>
+                      </td>
+                      <td className="p-4">
+                        {tier.discountPercent > 0 ? (
+                          <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            Giảm {tier.discountPercent}%
+                          </span>
+                        ) : (
+                          <span className="text-on-surface-variant/60 font-medium">0%</span>
+                        )}
                       </td>
                       <td className="p-4 font-medium text-[#606D56]">
                         {(tier.minPoints * 100000).toLocaleString("vi-VN")} đ
@@ -500,6 +530,36 @@ const LoyaltyTierManagement: React.FC = () => {
               />
               <p className="text-xs text-[#8A9A7D] mt-1 font-medium">
                 Tương đương chi tiêu tích lũy từ: <strong className="text-[#1A2411]">{(Number(form.minPoints || 0) * 100000).toLocaleString("vi-VN")} đ</strong>
+              </p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#606D56]">
+                  Mức Giảm Giá Ưu Đãi (%)
+                </label>
+                <span className="text-[11px] text-primary font-bold">
+                  Áp dụng tự động khi xuất hóa đơn
+                </span>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  name="discountPercent"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={form.discountPercent}
+                  onChange={handleChange}
+                  placeholder="VD: 10"
+                  className="w-full px-3.5 py-2.5 pr-10 border border-border-grey rounded-xl text-sm bg-white text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium font-mono"
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-on-surface-variant font-mono">
+                  %
+                </span>
+              </div>
+              <p className="text-xs text-[#8A9A7D] mt-1 font-medium">
+                Khách hàng đạt hạng này sẽ được hệ thống gợi ý giảm <strong className="text-primary">{form.discountPercent || 0}%</strong> trực tiếp trên hóa đơn thanh toán.
               </p>
             </div>
 

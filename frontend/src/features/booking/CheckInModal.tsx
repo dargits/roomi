@@ -19,6 +19,7 @@ import guestApi from '../../services/guestApi';
 import { fileApi } from '../../services/fileApi';
 import { useToast } from '../../context/ToastContext';
 import { BookingResponse } from '../../types';
+import { validateCCCD, validatePhone } from '../../utils/securitySanitizer';
 
 interface GuestFormItem {
   name: string;
@@ -52,6 +53,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, booking, o
       setGuests([{ 
         name: booking.guestName || '', 
         idNumber: booking.guestIdNumber || '',
+        phone: booking.guestPhone || '',
         frontImage: '',
         backImage: '',
         isUploadingFront: false,
@@ -209,13 +211,20 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, booking, o
         return;
       }
       if (!g.idNumber || !g.idNumber.trim()) {
-        setErrorMsg(`Vui lòng nhập số CCCD/CMND cho khách '${g.name}'.`);
+        setErrorMsg(`Vui lòng nhập số CCCD/CMND hoặc Hộ chiếu cho khách '${g.name}'.`);
         return;
       }
-      const cleanId = g.idNumber.trim();
-      if (cleanId.length < 6 || cleanId.length > 20) {
-        setErrorMsg(`Số CCCD/CMND/Hộ chiếu của khách '${g.name}' không hợp lệ (từ 6-20 ký tự).`);
+      const cccdCheck = validateCCCD(g.idNumber, true);
+      if (!cccdCheck.valid) {
+        setErrorMsg(`Khách '${g.name}': ${cccdCheck.message}`);
         return;
+      }
+      if (g.phone && g.phone.trim()) {
+        const phoneCheck = validatePhone(g.phone, false);
+        if (!phoneCheck.valid) {
+          setErrorMsg(`Khách '${g.name}': ${phoneCheck.message}`);
+          return;
+        }
       }
     }
 
@@ -333,7 +342,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, booking, o
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] text-on-surface-variant mb-1">Họ và tên <span className="text-red-500">*</span></label>
                     <input
@@ -351,6 +360,16 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, booking, o
                       value={guest.idNumber}
                       onChange={(e) => handleGuestChange(index, 'idNumber', e.target.value)}
                       placeholder="012345678912"
+                      className="w-full px-3 py-2 bg-surface-container border border-border-grey rounded text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-on-surface-variant mb-1">Số điện thoại</label>
+                    <input
+                      type="tel"
+                      value={guest.phone || ''}
+                      onChange={(e) => handleGuestChange(index, 'phone', e.target.value)}
+                      placeholder="0912345678"
                       className="w-full px-3 py-2 bg-surface-container border border-border-grey rounded text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-mono"
                     />
                   </div>

@@ -203,4 +203,63 @@ public class NegotiatedPriceServiceTest {
         assertFalse(preview.isApplied());
         assertEquals(0, preview.getTotalPrice().compareTo(preview.getStandardPrice()));
     }
+
+    @Test
+    @DisplayName("Thỏa thuận giá cho từng loại phòng riêng biệt")
+    void testNegotiatedPricePerRoomType() {
+        // Tạo thêm loại phòng Suite: giá gốc 2.0M
+        RoomType suiteType = roomTypeRepository.save(RoomType.builder()
+                .name("Phòng Suite Hoàng Gia")
+                .standardCapacity(2)
+                .maxCapacity(4)
+                .basePrice(new BigDecimal("2000000"))
+                .active(true)
+                .build());
+
+        CorporateClientRequest cReq = new CorporateClientRequest();
+        cReq.setCompanyName("Saigontourist Test");
+        CorporateClientResponse corp = corporateClientService.create(cReq, adminUser);
+
+        // Hợp đồng thỏa thuận giá cho 2 loại phòng:
+        // roomType (Deluxe 1.2M) -> 700.000 đ
+        // suiteType (Suite 2.0M) -> 1.300.000 đ
+        NegotiatedPriceAgreementRequest aReq = new NegotiatedPriceAgreementRequest();
+        aReq.setName("Hợp đồng Saigontourist từng loại phòng");
+        aReq.setCorporateClientId(corp.getId());
+        aReq.setStartDate(LocalDate.now().minusDays(1));
+        aReq.setEndDate(LocalDate.now().plusMonths(3));
+        aReq.setItems(java.util.List.of(
+                plant.stay.dto.request.NegotiatedPriceItemRequest.builder()
+                        .roomTypeId(roomType.getId())
+                        .pricePerNight(new BigDecimal("700000"))
+                        .build(),
+                plant.stay.dto.request.NegotiatedPriceItemRequest.builder()
+                        .roomTypeId(suiteType.getId())
+                        .pricePerNight(new BigDecimal("1300000"))
+                        .build()
+        ));
+
+        NegotiatedPriceAgreementResponse agreement = negotiatedPriceService.create(aReq, adminUser);
+        assertNotNull(agreement.getId());
+        assertNotNull(agreement.getItems());
+        assertEquals(2, agreement.getItems().size());
+
+        // Test preview với roomType: được giá 700k
+        LocalDate checkIn = LocalDate.now().plusDays(2);
+        LocalDate checkOut = checkIn.plusDays(2);
+        NegotiatedPricePreviewResponse previewDeluxe = negotiatedPriceService.preview(
+                corp.getId(), null, roomType.getId(), checkIn, checkOut, 2, 0
+        );
+        assertTrue(previewDeluxe.isApplied());
+        assertEquals(0, new BigDecimal("700000").compareTo(previewDeluxe.getPricePerNight()));
+        assertEquals(0, new BigDecimal("1400000").compareTo(previewDeluxe.getTotalPrice()));
+
+        // Test preview với suiteType: được giá 1.3M
+        NegotiatedPricePreviewResponse previewSuite = negotiatedPriceService.preview(
+                corp.getId(), null, suiteType.getId(), checkIn, checkOut, 2, 0
+        );
+        assertTrue(previewSuite.isApplied());
+        assertEquals(0, new BigDecimal("1300000").compareTo(previewSuite.getPricePerNight()));
+        assertEquals(0, new BigDecimal("2600000").compareTo(previewSuite.getTotalPrice()));
+    }
 }

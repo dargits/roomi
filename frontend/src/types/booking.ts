@@ -56,6 +56,9 @@ export interface BookingResponse {
   priceSource?: 'STANDARD' | 'NEGOTIATED' | string;
   appliedAgreementId?: number;
   appliedAgreementName?: string;
+  loyaltyTierId?: number;
+  loyaltyTierName?: string;
+  loyaltyDiscountPercent?: number;
   stayingGuests?: Array<{
     id?: number;
     name?: string;

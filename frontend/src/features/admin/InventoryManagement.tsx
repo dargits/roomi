@@ -9,6 +9,7 @@ import Button from "../../components/ui/Button";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import Pagination from "../../components/ui/Pagination";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 const fmtDate = (dt?: string) => dt ? new Date(dt).toLocaleDateString("vi-VN") : "";
 
@@ -28,6 +29,9 @@ const InventoryManagement: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const { user } = useAuth();
+  const canManage = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   const { success: toastSuccess, error: toastError, confirm } = useToast();
 
@@ -198,9 +202,11 @@ const InventoryManagement: React.FC = () => {
           <Button variant="outline" size="sm" icon={IoRefreshOutline} onClick={fetchItems}>
             Làm mới
           </Button>
-          <Button variant="primary" size="sm" icon={IoAddOutline} onClick={openCreate}>
-            Thêm mặt hàng
-          </Button>
+          {canManage && (
+            <Button variant="primary" size="sm" icon={IoAddOutline} onClick={openCreate}>
+              Thêm mặt hàng
+            </Button>
+          )}
         </div>
       </div>
 
@@ -226,7 +232,7 @@ const InventoryManagement: React.FC = () => {
           )}
         </div>
 
-        {selectedIds.size > 0 && (
+        {canManage && selectedIds.size > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 animate-fadeIn">
             <span>Đã chọn <strong>{selectedIds.size}</strong> mục</span>
             {selectedIds.size < filteredItems.length && (
@@ -343,21 +349,23 @@ const InventoryManagement: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-surface-container-low border-b border-border-grey font-semibold text-on-surface-variant uppercase tracking-wider">
                 <tr>
-                  <th className="p-3 w-10 text-center">
-                    <input
-                      type="checkbox"
-                      checked={isAllPageSelected}
-                      onChange={toggleSelectPage}
-                      className="rounded border-border-grey text-primary focus:ring-primary cursor-pointer"
-                      title="Chọn tất cả mặt hàng trên trang này"
-                    />
-                  </th>
+                  {canManage && (
+                    <th className="p-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isAllPageSelected}
+                        onChange={toggleSelectPage}
+                        className="rounded border-border-grey text-primary focus:ring-primary cursor-pointer"
+                        title="Chọn tất cả mặt hàng trên trang này"
+                      />
+                    </th>
+                  )}
                   <th className="p-3">Mặt hàng</th>
                   <th className="p-3 text-right">Tồn kho</th>
                   <th className="p-3 text-right">Ngưỡng báo ít</th>
                   <th className="p-3 text-center">Trạng thái</th>
                   <th className="p-3">Cập nhật lúc</th>
-                  <th className="p-3 text-right">Thao tác</th>
+                  {canManage && <th className="p-3 text-right">Thao tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-grey text-on-surface">
@@ -368,14 +376,16 @@ const InventoryManagement: React.FC = () => {
                       selectedIds.has(item.id) ? 'bg-primary/5' : ''
                     }`}
                   >
-                    <td className="p-3 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(item.id)}
-                        onChange={() => toggleSelectItem(item.id)}
-                        className="rounded border-border-grey text-primary focus:ring-primary cursor-pointer"
-                      />
-                    </td>
+                    {canManage && (
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(item.id)}
+                          onChange={() => toggleSelectItem(item.id)}
+                          className="rounded border-border-grey text-primary focus:ring-primary cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="p-3 font-semibold text-on-surface">{item.name}</td>
                     <td className="p-3 text-right font-bold tabular-nums">
                       {item.quantityOnHand} <span className="text-[10px] text-on-surface-variant font-normal">{item.unit}</span>
@@ -395,22 +405,24 @@ const InventoryManagement: React.FC = () => {
                       )}
                     </td>
                     <td className="p-3 text-on-surface-variant text-[11px]">{fmtDate(item.updatedAt)}</td>
-                    <td className="p-3 text-right space-x-1">
-                      <button
-                        onClick={() => openEdit(item)}
-                        className="p-1 rounded text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                        title="Chỉnh sửa"
-                      >
-                        <IoCreateOutline size={15} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item)}
-                        className="p-1 rounded text-error hover:bg-red-50 transition-colors cursor-pointer"
-                        title="Xóa"
-                      >
-                        <IoTrashOutline size={15} />
-                      </button>
-                    </td>
+                    {canManage && (
+                      <td className="p-3 text-right space-x-1">
+                        <button
+                          onClick={() => openEdit(item)}
+                          className="p-1 rounded text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                          title="Chỉnh sửa"
+                        >
+                          <IoCreateOutline size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item)}
+                          className="p-1 rounded text-error hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Xóa"
+                        >
+                          <IoTrashOutline size={15} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
