@@ -465,6 +465,14 @@ public class GroupBookingServiceImpl implements GroupBookingService {
     public Deposit createDeposit(Long groupBookingId, GroupDepositCreateRequest request, User actor) {
         GroupBooking groupBooking = findGroupBooking(groupBookingId);
 
+        // Chặn thu cọc khi hóa đơn gộp của đoàn đã thanh toán hoàn tất (PAID)
+        List<Invoice> existingInvoices = invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBookingId);
+        boolean hasPaidCombinedInvoice = existingInvoices.stream()
+                .anyMatch(inv -> inv.getStatus() == InvoiceStatus.PAID && inv.getMode() == InvoiceMode.COMBINED);
+        if (hasPaidCombinedInvoice) {
+            throw new IllegalArgumentException("Hóa đơn gộp của đoàn này đã được thanh toán hoàn tất (PAID). Không thể thu thêm tiền cọc.");
+        }
+
         Deposit deposit = Deposit.builder()
                 .groupBooking(groupBooking)
                 .booking(null)
@@ -480,7 +488,6 @@ public class GroupBookingServiceImpl implements GroupBookingService {
         Deposit saved = depositRepository.save(deposit);
 
         // Tự động ghi nhận payment vào hóa đơn gộp đoàn nếu đã được tạo trước đó
-        List<Invoice> existingInvoices = invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBookingId);
         for (Invoice invoice : existingInvoices) {
             if (invoice.getStatus() == InvoiceStatus.PENDING && invoice.getMode() == InvoiceMode.COMBINED) {
                 paymentRepository.save(Payment.builder()
