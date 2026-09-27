@@ -9,6 +9,7 @@ export interface SEOProps {
   ogDescription?: string;
   ogImage?: string;
   ogType?: string;
+  googleSiteVerification?: string;
 }
 
 export const useSEO = ({
@@ -20,6 +21,7 @@ export const useSEO = ({
   ogDescription,
   ogImage,
   ogType = 'website',
+  googleSiteVerification,
 }: SEOProps) => {
   useEffect(() => {
     // 1. Update Title
@@ -38,6 +40,10 @@ export const useSEO = ({
       }
       element.setAttribute('content', content);
     };
+
+    if (googleSiteVerification) {
+      setMeta('google-site-verification', googleSiteVerification);
+    }
 
     if (description) {
       setMeta('description', description);
