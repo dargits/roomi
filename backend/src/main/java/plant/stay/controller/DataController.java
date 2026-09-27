@@ -537,8 +537,17 @@ public class DataController {
                     String.format("Nhập dữ liệu %s: Thành công %d, Bỏ qua %d, Lỗi %d trên tổng số %d dòng (%d ms)",
                             targetType, importedCount, skippedCount, errorCount, totalRows, durationMs));
 
-            String summaryMessage = String.format("Nhập dữ liệu %s hoàn tất: %d bản ghi thành công (Bỏ qua %d, Lỗi %d)",
-                    targetType, importedCount, skippedCount, errorCount);
+            String friendlyTarget = switch (targetType.toLowerCase(Locale.ROOT)) {
+                case "extra-services", "extra_services" -> "Dịch vụ phụ thu";
+                case "room-types", "room_types" -> "Hạng phòng";
+                case "rooms" -> "Danh mục phòng";
+                case "guests" -> "Khách hàng";
+                case "bookings" -> "Đặt phòng";
+                case "users" -> "Nhân viên";
+                default -> targetType;
+            };
+            String summaryMessage = String.format("Nhập dữ liệu %s hoàn tất: %,d bản ghi thành công (Bỏ qua %,d, Lỗi %,d)",
+                    friendlyTarget, importedCount, skippedCount, errorCount);
 
             return ResponseEntity.ok(ImportResultDto.builder()
                     .success(importedCount > 0 || (totalRows > 0 && skippedCount == totalRows))

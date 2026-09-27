@@ -437,7 +437,7 @@ const ConvertBlockModal: React.FC<ConvertBlockModalProps> = ({
           <div className="bg-red-50 border border-red-300 rounded-xl p-4 space-y-3 shadow-xs">
             <div className="flex items-center gap-2 text-red-900 font-bold text-sm">
               <IoAlertCircleOutline size={20} className="text-red-600" />
-              <span>Từ chối lượt chặn từ kênh phân phối (NCL-15-CN-004)</span>
+              <span>Từ chối lượt chặn từ kênh phân phối</span>
             </div>
             <p className="text-xs text-red-800">
               Lễ tân sử dụng chức năng này để từ chối lượt chặn kèm ghi chú lý do (ví dụ: không thỏa thuận được đổi ngày, kênh hủy trước hoặc không còn phòng). Thao tác này sẽ đóng cảnh báo trùng phòng và lưu nhật ký.

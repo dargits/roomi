@@ -228,7 +228,7 @@ const SessionManagementPage: React.FC = () => {
       <PageHeader
         icon={IoKeyOutline}
         title="Theo dõi phiên đăng nhập"
-        subtitle="Giám sát các phiên đang kết nối vào hệ thống, phát hiện phiên bị bỏ quên ở máy quầy và buộc đăng xuất từ xa (NCL-10-CN-007)"
+        subtitle="Giám sát các phiên đang kết nối vào hệ thống, phát hiện phiên bị bỏ quên ở máy quầy và buộc đăng xuất từ xa"
         actions={
           <div className="flex items-center gap-2">
             <Button
