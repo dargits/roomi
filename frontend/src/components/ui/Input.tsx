@@ -1,4 +1,5 @@
 import React from 'react';
+import { hasPotentialXss, sanitizeInput } from '../../utils/securitySanitizer';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -10,6 +11,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   helperTextClassName?: string;
   className?: string;
   containerClassName?: string;
+  sanitize?: boolean;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -22,8 +24,29 @@ const Input: React.FC<InputProps> = ({
   helperTextClassName = '',
   className = '',
   containerClassName = '',
+  sanitize = false,
+  onChange,
   ...props
 }) => {
+  const [securityWarning, setSecurityWarning] = React.useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    if (hasPotentialXss(rawValue)) {
+      setSecurityWarning('Phát hiện ký tự/mã độc không hợp lệ. Đã tự động loại bỏ để bảo vệ hệ thống.');
+      if (sanitize) {
+        e.target.value = sanitizeInput(rawValue);
+      }
+    } else {
+      if (securityWarning) setSecurityWarning('');
+    }
+    if (onChange) {
+      onChange(e);
+    }
+  };
+
+  const displayedError = error || securityWarning;
+
   return (
     <div className={containerClassName}>
       {label && (
@@ -42,14 +65,15 @@ const Input: React.FC<InputProps> = ({
         <input
           className={`w-full h-[42px] py-2.5 px-3.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] placeholder:text-slate-400 transition-all ${
             Icon ? 'pl-10 pr-4' : 'px-3.5'
-          } ${error ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-slate-300'} ${className}`}
+          } ${displayedError ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-slate-300'} ${className}`}
           required={required}
+          onChange={handleChange}
           {...props}
         />
       </div>
 
-      {error && <p className="text-error text-xs mt-1.5 font-medium">{error}</p>}
-      {!error && helperText && <p className={`text-slate-500 text-xs mt-1.5 ${helperTextClassName}`}>{helperText}</p>}
+      {displayedError && <p className="text-error text-xs mt-1.5 font-medium">{displayedError}</p>}
+      {!displayedError && helperText && <p className={`text-slate-500 text-xs mt-1.5 ${helperTextClassName}`}>{helperText}</p>}
     </div>
   );
 };

@@ -30,6 +30,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import Pagination from '../../components/ui/Pagination';
+import { validateCCCD } from '../../utils/securitySanitizer';
 
 const HISTORY_PAGE_SIZE = 15;
 
@@ -233,6 +234,11 @@ const StayDeclarationPage: React.FC = () => {
 
   // ── Complete Declaration ──────────────────────────────────────────────────
   const handleComplete = async (guest) => {
+    if (guest.documentStatus === 'MISSING' || (guest.missingRequirements && guest.missingRequirements.length > 0)) {
+      const missingDetails = guest.missingRequirements?.join(', ') || 'Ảnh 2 mặt CCCD hoặc Hộ chiếu';
+      toastError(`Không thể đánh dấu khai báo: Khách "${guest.guestName}" còn thiếu giấy tờ (${missingDetails}). Vui lòng tải đủ ảnh trước!`);
+      return;
+    }
     setCompletingId(guest.bookingId);
     setConfirmModal({ open: false, guest: null });
     try {
@@ -265,6 +271,14 @@ const StayDeclarationPage: React.FC = () => {
     } else {
       if (!uploadData.frontFile) {
         toastError('Vui lòng chọn ảnh hộ chiếu');
+        return;
+      }
+    }
+
+    if (uploadData.documentNumber && uploadData.documentNumber.trim()) {
+      const cccdCheck = validateCCCD(uploadData.documentNumber.trim(), false);
+      if (!cccdCheck.valid) {
+        toastError(cccdCheck.message || 'Số giấy tờ định danh không hợp lệ');
         return;
       }
     }
@@ -622,19 +636,34 @@ const StayDeclarationPage: React.FC = () => {
                           <td className="p-4 text-center">
                             {canComplete && !isCompleted && (
                               <div className="flex flex-col gap-2">
+                                {guest.documentStatus === 'MISSING' ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    icon={IoAlertCircleOutline}
+                                    className="opacity-60 cursor-not-allowed border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-50"
+                                    onClick={() => {
+                                      toastError(`Chưa thể đánh dấu: Khách "${guest.guestName}" chưa tải lên đủ ảnh 2 mặt CCCD hoặc Hộ chiếu. Vui lòng bấm "Tải ảnh lên"!`);
+                                    }}
+                                    title="Chưa tải lên đủ ảnh 2 mặt CCCD hoặc Hộ chiếu"
+                                  >
+                                    Thiếu ảnh CCCD
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    icon={IoCheckmarkCircleOutline}
+                                    isLoading={isCompleting}
+                                    disabled={isCompleting}
+                                    onClick={() => setConfirmModal({ open: true, guest })}
+                                  >
+                                    Đánh dấu
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  icon={IoCheckmarkCircleOutline}
-                                  isLoading={isCompleting}
-                                  disabled={isCompleting}
-                                  onClick={() => setConfirmModal({ open: true, guest })}
-                                >
-                                  Đánh dấu
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
+                                  variant={guest.documentStatus === 'MISSING' ? 'primary' : 'outline'}
                                   icon={IoImageOutline}
                                   onClick={() => handleOpenUploadModal(guest)}
                                 >
@@ -965,22 +994,46 @@ const StayDeclarationPage: React.FC = () => {
                 <> (phòng <strong>{confirmModal.guest.roomNumber}</strong>)</>
               )}?
             </p>
-            {confirmModal.guest.documentStatus === 'MISSING' && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                <IoWarningOutline size={16} className="mr-1 inline" />
-                Khách này vẫn còn thiếu giấy tờ. Bạn chắc chắn muốn đánh dấu hoàn tất?
+            {confirmModal.guest.documentStatus === 'MISSING' ? (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 space-y-2">
+                <div className="font-semibold flex items-center gap-1.5 text-red-700">
+                  <IoAlertCircleOutline size={18} />
+                  Chưa đủ điều kiện khai báo lưu trú
+                </div>
+                <p className="text-xs">
+                  Khách <strong>{confirmModal.guest.guestName}</strong> chưa có đủ ảnh 2 mặt CCCD (mặt trước và mặt sau) hoặc Hộ chiếu theo quy định.
+                </p>
+                {confirmModal.guest.missingRequirements?.length > 0 && (
+                  <p className="text-xs text-red-600 font-medium">
+                    Thiếu: {confirmModal.guest.missingRequirements.join(', ')}
+                  </p>
+                )}
               </div>
-            )}
+            ) : null}
             <div className="flex justify-end gap-3 border-t border-border-grey pt-4">
               <Button variant="secondary" onClick={() => setConfirmModal({ open: false, guest: null })}>
-                Hủy
+                {confirmModal.guest.documentStatus === 'MISSING' ? 'Đóng' : 'Hủy'}
               </Button>
-              <Button
-                icon={IoCheckmarkCircleOutline}
-                onClick={() => handleComplete(confirmModal.guest)}
-              >
-                Xác nhận khai báo
-              </Button>
+              {confirmModal.guest.documentStatus === 'MISSING' ? (
+                <Button
+                  variant="primary"
+                  icon={IoCloudUploadOutline}
+                  onClick={() => {
+                    const targetGuest = confirmModal.guest;
+                    setConfirmModal({ open: false, guest: null });
+                    handleOpenUploadModal(targetGuest);
+                  }}
+                >
+                  Tải ảnh CCCD ngay
+                </Button>
+              ) : (
+                <Button
+                  icon={IoCheckmarkCircleOutline}
+                  onClick={() => handleComplete(confirmModal.guest)}
+                >
+                  Xác nhận khai báo
+                </Button>
+              )}
             </div>
           </div>
         )}

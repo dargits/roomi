@@ -10,14 +10,23 @@ export const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Quản trị viên',
   RECEPTIONIST: 'Lễ tân',
   HOUSEKEEPER: 'Buồng phòng',
-  ACCOUNTANT: 'Kế toán'
+  ACCOUNTANT: 'Kế toán',
+  CUSTOMER: 'Khách hàng'
 };
 
 export const getDefaultRouteForRole = (role?: Role): string => {
   if (role === 'HOUSEKEEPER') {
     return '/manage/housekeeping';
   }
+  if (role === 'CUSTOMER' || role === 'NONE') {
+    return '/';
+  }
   return '/manage/dashboard';
+};
+
+export const RoleBasedRedirect: React.FC = () => {
+  const { user } = useAuth();
+  return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
 };
 
 export interface ProtectedRouteProps {

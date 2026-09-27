@@ -29,8 +29,27 @@ public class NegotiatedPriceAgreement {
     @JoinColumn(name = "group_booking_id")
     private GroupBooking groupBooking;
 
-    @Column(name = "price_per_night", precision = 12, scale = 2, nullable = false)
+    @Column(name = "price_per_night", precision = 12, scale = 2)
     private BigDecimal pricePerNight;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "negotiated_price_items", joinColumns = @JoinColumn(name = "agreement_id"))
+    @Builder.Default
+    private java.util.List<NegotiatedPriceItem> items = new java.util.ArrayList<>();
+
+    public BigDecimal getPriceForRoomType(Long roomTypeId) {
+        if (items != null && !items.isEmpty()) {
+            if (roomTypeId != null) {
+                for (NegotiatedPriceItem item : items) {
+                    if (roomTypeId.equals(item.getRoomTypeId()) && item.getPricePerNight() != null) {
+                        return item.getPricePerNight();
+                    }
+                }
+            }
+            return null;
+        }
+        return pricePerNight;
+    }
 
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;

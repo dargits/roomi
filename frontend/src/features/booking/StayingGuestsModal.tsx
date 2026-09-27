@@ -14,6 +14,7 @@ import {
 } from 'react-icons/io5';
 import roomTypeApi from '../../services/roomTypeApi';
 import { BookingResponse, RoomStayGuestResponseDto, StayingGuestsSummaryDto, RoomTypeResponse } from '../../types';
+import { validateCCCD } from '../../utils/securitySanitizer';
 
 interface StayingGuestsModalProps {
   isOpen: boolean;
@@ -148,6 +149,14 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
     if (!fullName.trim()) {
       toastError('Vui lòng nhập họ và tên khách cùng phòng.');
       return;
+    }
+
+    if (documentNumber.trim()) {
+      const cccdCheck = validateCCCD(documentNumber.trim(), false);
+      if (!cccdCheck.valid) {
+        toastError(cccdCheck.message || 'Số giấy tờ định danh không hợp lệ.');
+        return;
+      }
     }
 
     if (remainingSlots <= 0 || currentStayingCount >= maxCapacity) {

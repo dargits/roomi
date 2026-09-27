@@ -464,6 +464,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
           onClose={() => setShowProvisionalDiscountModal(false)}
           onSubmit={handleCreateInvoiceWithDiscount}
           isLoading={processing}
+          booking={booking}
           invoice={{
             roomAmount: provisionalRoomAmount,
             serviceAmount: provisionalServicesAmount,
@@ -562,6 +563,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
         <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey shadow-sm">
           <InvoiceDiscountSection
             invoice={invoice}
+            booking={booking}
             userRole={user?.role}
             onInvoiceChange={fetchInvoiceData}
             remainingAmount={remainingAmount}

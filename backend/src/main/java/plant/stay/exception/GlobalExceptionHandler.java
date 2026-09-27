@@ -100,6 +100,36 @@ public class GlobalExceptionHandler {
                 .body(new MessageResponse("Không thể xóa dữ liệu này do đang được liên kết với các thông tin khác trong hệ thống (như đặt phòng hoặc hóa đơn)."));
     }
 
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<MessageResponse> handleConstraintViolationException(jakarta.validation.ConstraintViolationException ex) {
+        log.warn("Validation constraint violation: {}", ex.getMessage());
+        String msg = ex.getConstraintViolations().stream()
+                .map(jakarta.validation.ConstraintViolation::getMessage)
+                .findFirst().orElse("Dữ liệu đầu vào không hợp lệ.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(msg));
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<MessageResponse> handleHttpMessageNotReadableException(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        log.warn("Malformed JSON request: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new MessageResponse("Dữ liệu gửi lên không đúng định dạng JSON hoặc giá trị không hợp lệ."));
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<MessageResponse> handleMethodArgumentTypeMismatchException(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        log.warn("Type mismatch for param {}: {}", ex.getName(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new MessageResponse("Tham số '" + ex.getName() + "' không đúng kiểu dữ liệu yêu cầu."));
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<MessageResponse> handleMissingServletRequestParameterException(org.springframework.web.bind.MissingServletRequestParameterException ex) {
+        log.warn("Missing request parameter: {}", ex.getParameterName());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new MessageResponse("Thiếu tham số bắt buộc: " + ex.getParameterName()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<MessageResponse> handleGlobalException(Exception ex) {
         log.error("Unhandled Exception: ", ex);

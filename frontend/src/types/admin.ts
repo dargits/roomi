@@ -72,6 +72,7 @@ export interface LoyaltyTierResponse {
   id: number;
   name: string;
   minPoints: number;
+  discountPercent?: number;
   benefitDescription?: string;
   minimumSpend?: number;
   discountPercentage?: number;
@@ -81,6 +82,7 @@ export interface LoyaltyTierResponse {
 export interface LoyaltyTierRequest {
   name: string;
   minPoints: number;
+  discountPercent?: number;
   benefitDescription?: string;
   minimumSpend?: number;
   discountPercentage?: number;

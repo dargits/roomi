@@ -219,6 +219,30 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
             throw new IllegalArgumentException("Chỉ có thể hoàn tất khai báo cho khách đã nhận phòng");
         }
 
+        List<Guest> roomGuests = (booking.getStayingGuests() != null && !booking.getStayingGuests().isEmpty())
+                ? booking.getStayingGuests()
+                : (booking.getGuest() != null ? List.of(booking.getGuest()) : List.of());
+
+        for (Guest g : roomGuests) {
+            if (g == null || g.getId() == null) continue;
+            List<IdentityDocument> docs = identityDocumentRepository.findByGuestId(g.getId());
+            boolean hasPassport = docs.stream().anyMatch(d -> d.getDocumentType() == IdentityDocumentType.PASSPORT && !isBlank(d.getImageUrl()));
+            boolean hasFront = docs.stream().anyMatch(d -> d.getDocumentType() == IdentityDocumentType.NATIONAL_ID_FRONT && !isBlank(d.getImageUrl()));
+            boolean hasBack = docs.stream().anyMatch(d -> d.getDocumentType() == IdentityDocumentType.NATIONAL_ID_BACK && !isBlank(d.getImageUrl()));
+
+            if (!hasPassport && (!hasFront || !hasBack)) {
+                String missing;
+                if (!hasFront && !hasBack) {
+                    missing = "ảnh 2 mặt CCCD (hoặc Hộ chiếu)";
+                } else if (!hasFront) {
+                    missing = "ảnh CCCD mặt trước";
+                } else {
+                    missing = "ảnh CCCD mặt sau";
+                }
+                throw new IllegalArgumentException("Không thể đánh dấu hoàn tất khai báo: Khách '" + g.getName() + "' chưa tải lên đủ " + missing + "!");
+            }
+        }
+
         StayDeclaration declaration = stayDeclarationRepository.findByBookingId(bookingId)
                 .orElseGet(() -> StayDeclaration.builder().booking(booking).build());
         declaration.setStatus(StayDeclarationStatus.COMPLETED);

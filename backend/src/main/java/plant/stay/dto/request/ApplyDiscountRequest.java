@@ -34,5 +34,6 @@ public class ApplyDiscountRequest {
      * Lý do giảm giá – bắt buộc nhập (QTN yêu cầu audit trail).
      */
     @NotBlank(message = "Lý do giảm giá là bắt buộc nhập")
+    @jakarta.validation.constraints.Size(max = 500, message = "Lý do giảm giá không được vượt quá 500 ký tự")
     private String reason;
 }

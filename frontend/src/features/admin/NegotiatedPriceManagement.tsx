@@ -212,10 +212,23 @@ export const NegotiatedPriceManagement: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="font-semibold text-emerald-700 text-base">
-                            {formatVND(a.pricePerNight)}
-                          </span>
-                          <span className="text-xs text-gray-400 block">/ đêm (mọi loại phòng)</span>
+                          {a.items && a.items.length > 0 ? (
+                            <div className="space-y-1">
+                              {a.items.map((item) => (
+                                <div key={item.roomTypeId} className="text-xs flex items-center justify-between gap-3 max-w-xs">
+                                  <span className="text-gray-600 font-medium truncate">{item.roomTypeName || `Loại #${item.roomTypeId}`}:</span>
+                                  <span className="font-semibold text-emerald-700 shrink-0">{formatVND(item.pricePerNight)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <>
+                              <span className="font-semibold text-emerald-700 text-base">
+                                {formatVND(a.pricePerNight || 0)}
+                              </span>
+                              <span className="text-xs text-gray-400 block">/ đêm (áp dụng chung)</span>
+                            </>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1.5 text-xs text-gray-600">
