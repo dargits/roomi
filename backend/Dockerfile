@@ -18,12 +18,15 @@ RUN mvn clean package -DskipTests -B
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Tạo user không đặc quyền để tăng bảo mật
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
+# Tạo user không đặc quyền và cấp quyền cho thư mục ứng dụng / thư mục sao lưu
+RUN addgroup -S spring && adduser -S spring -G spring \
+    && mkdir -p /app/backups \
+    && chown -R spring:spring /app
 
-# Copy file jar từ giai đoạn build
-COPY --from=builder /app/target/*.jar app.jar
+# Copy file jar từ giai đoạn build với quyền sở hữu spring:spring
+COPY --from=builder --chown=spring:spring /app/target/*.jar app.jar
+
+USER spring:spring
 
 EXPOSE 8080
 

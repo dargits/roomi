@@ -58,8 +58,18 @@ public class BackupServiceImpl implements BackupService {
                 Files.createDirectories(BACKUP_STORAGE_DIR);
             }
             return BACKUP_STORAGE_DIR;
-        } catch (IOException e) {
-            throw new RuntimeException("Không thể khởi tạo thư mục lưu trữ sao lưu: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.warn("Không thể tạo hoặc truy cập thư mục lưu trữ sao lưu cục bộ '{}' ({}). Tự động chuyển sang dùng thư mục tạm hệ thống (tmpdir).", BACKUP_STORAGE_DIR, e.getMessage());
+            try {
+                Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir", "/tmp"), "stayaway_backups");
+                if (!Files.exists(tmpDir)) {
+                    Files.createDirectories(tmpDir);
+                }
+                return tmpDir;
+            } catch (Exception ex) {
+                log.error("Không thể khởi tạo cả thư mục tạm để lưu trữ bản sao lưu: {}", ex.getMessage());
+                throw new RuntimeException("Lỗi khởi tạo thư mục lưu trữ bản sao lưu: " + ex.getMessage(), ex);
+            }
         }
     }
 
@@ -71,14 +81,15 @@ public class BackupServiceImpl implements BackupService {
         String extension = "DATABASE_SQL".equals(type) ? ".sql" : ".zip";
         String fileName = "stayaway_backup_" + timestamp + extension;
 
-        Path targetDir = getStorageDirectory();
-        Path targetFile = targetDir.resolve(fileName);
-
         int tableCount = 0;
         long recordCount = 0;
         String checksum = "";
+        Path targetFile = null;
 
         try {
+            Path targetDir = getStorageDirectory();
+            targetFile = targetDir.resolve(fileName);
+
             if ("DATABASE_SQL".equals(type)) {
                 try (OutputStream os = Files.newOutputStream(targetFile);
                      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8))) {
@@ -155,7 +166,7 @@ public class BackupServiceImpl implements BackupService {
 
             SystemBackup failedBackup = SystemBackup.builder()
                     .fileName(fileName)
-                    .filePath(targetFile.toAbsolutePath().toString())
+                    .filePath(targetFile != null ? targetFile.toAbsolutePath().toString() : fileName)
                     .fileSizeBytes(0L)
                     .backupType(type)
                     .status("FAILED")
@@ -587,77 +598,83 @@ public class BackupServiceImpl implements BackupService {
      */
     private DumpResult packageFullZip(OutputStream outputStream, User actor, String timestamp) throws Exception {
         DumpResult result;
-        ByteArrayOutputStream sqlBaos = new ByteArrayOutputStream();
+        Path tempSqlFile = null;
 
-        // 1. Tạo SQL Dump trong bộ nhớ
-        try (BufferedWriter sqlWriter = new BufferedWriter(new OutputStreamWriter(sqlBaos, StandardCharsets.UTF_8))) {
-            result = generateSqlDump(sqlWriter);
-        }
-
-        byte[] sqlBytes = sqlBaos.toByteArray();
-
-        try (ZipOutputStream zos = new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
-            // A. Thêm database_dump.sql
-            ZipEntry sqlEntry = new ZipEntry("database_dump.sql");
-            zos.putNextEntry(sqlEntry);
-            zos.write(sqlBytes);
-            zos.closeEntry();
-
-            // B. Thêm manifest.json
-            String manifestJson = buildManifestJson(actor, timestamp, result);
-            ZipEntry manifestEntry = new ZipEntry("manifest.json");
-            zos.putNextEntry(manifestEntry);
-            zos.write(manifestJson.getBytes(StandardCharsets.UTF_8));
-            zos.closeEntry();
-
-            // C. Thêm từng bảng dữ liệu dạng CSV vào thư mục csv/
-            Set<String> addedCsvEntries = new HashSet<>();
-            try (Connection conn = dataSource.getConnection()) {
-                String catalog = conn.getCatalog();
-                List<String> tables = getTableNames(conn, catalog);
-
-                for (String tableName : tables) {
-                    String entryName = "csv/" + tableName.toLowerCase() + ".csv";
-                    if (!addedCsvEntries.add(entryName.toLowerCase())) {
-                        continue;
-                    }
-                    ZipEntry csvEntry = new ZipEntry(entryName);
-                    zos.putNextEntry(csvEntry);
-                    // UTF-8 BOM
-                    zos.write(0xEF);
-                    zos.write(0xBB);
-                    zos.write(0xBF);
-
-                    try (Statement stmt = conn.createStatement();
-                         ResultSet rs = stmt.executeQuery("SELECT * FROM `" + tableName + "`")) {
-                        ResultSetMetaData rsmd = rs.getMetaData();
-                        int colCount = rsmd.getColumnCount();
-
-                        StringBuilder header = new StringBuilder();
-                        for (int i = 1; i <= colCount; i++) {
-                            if (i > 1) header.append(",");
-                            header.append(escapeCsv(rsmd.getColumnName(i)));
-                        }
-                        header.append("\n");
-                        zos.write(header.toString().getBytes(StandardCharsets.UTF_8));
-
-                        while (rs.next()) {
-                            StringBuilder row = new StringBuilder();
-                            for (int i = 1; i <= colCount; i++) {
-                                if (i > 1) row.append(",");
-                                String val = rs.getString(i);
-                                row.append(escapeCsv(val));
-                            }
-                            row.append("\n");
-                            zos.write(row.toString().getBytes(StandardCharsets.UTF_8));
-                        }
-                    } catch (Exception ex) {
-                        log.warn("Không thể xuất CSV cho bảng {}: {}", tableName, ex.getMessage());
-                    }
-                    zos.closeEntry();
-                }
+        try {
+            tempSqlFile = Files.createTempFile("stayaway_dump_", ".sql");
+            try (BufferedWriter sqlWriter = Files.newBufferedWriter(tempSqlFile, StandardCharsets.UTF_8)) {
+                result = generateSqlDump(sqlWriter);
             }
-            zos.finish();
+
+            try (ZipOutputStream zos = new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
+                // A. Thêm database_dump.sql từ file tạm (tránh OutOfMemoryError trên AWS Free Tier 1GB RAM)
+                ZipEntry sqlEntry = new ZipEntry("database_dump.sql");
+                zos.putNextEntry(sqlEntry);
+                Files.copy(tempSqlFile, zos);
+                zos.closeEntry();
+
+                // B. Thêm manifest.json
+                String manifestJson = buildManifestJson(actor, timestamp, result);
+                ZipEntry manifestEntry = new ZipEntry("manifest.json");
+                zos.putNextEntry(manifestEntry);
+                zos.write(manifestJson.getBytes(StandardCharsets.UTF_8));
+                zos.closeEntry();
+
+                // C. Thêm từng bảng dữ liệu dạng CSV vào thư mục csv/
+                Set<String> addedCsvEntries = new HashSet<>();
+                try (Connection conn = dataSource.getConnection()) {
+                    String catalog = conn.getCatalog();
+                    List<String> tables = getTableNames(conn, catalog);
+
+                    for (String tableName : tables) {
+                        String entryName = "csv/" + tableName.toLowerCase() + ".csv";
+                        if (!addedCsvEntries.add(entryName.toLowerCase())) {
+                            continue;
+                        }
+                        ZipEntry csvEntry = new ZipEntry(entryName);
+                        zos.putNextEntry(csvEntry);
+                        // UTF-8 BOM
+                        zos.write(0xEF);
+                        zos.write(0xBB);
+                        zos.write(0xBF);
+
+                        try (Statement stmt = conn.createStatement();
+                             ResultSet rs = stmt.executeQuery("SELECT * FROM `" + tableName + "`")) {
+                            ResultSetMetaData rsmd = rs.getMetaData();
+                            int colCount = rsmd.getColumnCount();
+
+                            StringBuilder header = new StringBuilder();
+                            for (int i = 1; i <= colCount; i++) {
+                                if (i > 1) header.append(",");
+                                header.append(escapeCsv(rsmd.getColumnName(i)));
+                            }
+                            header.append("\n");
+                            zos.write(header.toString().getBytes(StandardCharsets.UTF_8));
+
+                            while (rs.next()) {
+                                StringBuilder row = new StringBuilder();
+                                for (int i = 1; i <= colCount; i++) {
+                                    if (i > 1) row.append(",");
+                                    String val = rs.getString(i);
+                                    row.append(escapeCsv(val));
+                                }
+                                row.append("\n");
+                                zos.write(row.toString().getBytes(StandardCharsets.UTF_8));
+                            }
+                        } catch (Exception ex) {
+                            log.warn("Không thể xuất CSV cho bảng {}: {}", tableName, ex.getMessage());
+                        }
+                        zos.closeEntry();
+                    }
+                }
+                zos.finish();
+            }
+        } finally {
+            if (tempSqlFile != null) {
+                try {
+                    Files.deleteIfExists(tempSqlFile);
+                } catch (Exception ignored) {}
+            }
         }
 
         return result;
