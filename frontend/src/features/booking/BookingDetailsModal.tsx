@@ -480,7 +480,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
               <IoOpenOutline size={14} /> Mở trang riêng
             </button>
 
-            <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
+            <Button variant="secondary" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
           </div>
         </div>
       )}
@@ -596,7 +596,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
             )}
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
-              <Button variant="ghost" onClick={() => setShowChangeRoom(false)} icon={IoCloseOutline}>Hủy</Button>
+              <Button variant="secondary" onClick={() => setShowChangeRoom(false)} icon={IoCloseOutline}>Hủy</Button>
               <Button
                 variant="primary"
                 icon={IoSwapHorizontalOutline}
@@ -677,7 +677,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
               placeholder="khachhang@gmail.com"
             />
             <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-              <Button variant="ghost" onClick={() => setShowEditGuestModal(false)}>Hủy</Button>
+              <Button variant="secondary" onClick={() => setShowEditGuestModal(false)}>Hủy</Button>
               <Button type="submit" variant="primary" disabled={savingGuest}>
                 {savingGuest ? 'Đang lưu...' : 'Lưu thay đổi'}
               </Button>

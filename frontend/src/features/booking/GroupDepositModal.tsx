@@ -363,7 +363,7 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-border-grey">
-            <Button variant="ghost" onClick={onClose} disabled={submitting} icon={IoCloseOutline}>
+            <Button variant="secondary" onClick={onClose} disabled={submitting} icon={IoCloseOutline}>
               Hủy
             </Button>
             <Button

@@ -491,7 +491,7 @@ const ConvertBlockModal: React.FC<ConvertBlockModalProps> = ({
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={onClose}
                 disabled={submitting}
               >

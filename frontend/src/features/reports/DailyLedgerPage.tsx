@@ -238,7 +238,7 @@ const DailyLedgerPage: React.FC = () => {
                   <Input label="Lý do mở lại" value={reopenReason} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReopenReason(e.target.value)} required />
                   <div className="flex gap-2">
                     <Button variant="danger" onClick={handleReopen}>Xác nhận mở lại</Button>
-                    <Button variant="ghost" onClick={() => setShowReopenForm(false)}>Hủy</Button>
+                    <Button variant="secondary" onClick={() => setShowReopenForm(false)}>Hủy</Button>
                   </div>
                 </div>
               )}
