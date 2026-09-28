@@ -36,10 +36,10 @@ public class BackupController {
     private final AuthUtil authUtil;
 
     /**
-     * Endpoint kiểm tra kết nối và upload thử nghiệm lên Catbox.moe Cloud
+     * Endpoint kiểm tra kết nối và upload thử nghiệm lên Telegram Bot Cloud
      */
-    @GetMapping("/test-catbox")
-    public ResponseEntity<java.util.Map<String, Object>> testCatbox(HttpServletRequest request) {
+    @GetMapping({"/test-telegram", "/test-cloud"})
+    public ResponseEntity<java.util.Map<String, Object>> testTelegram(HttpServletRequest request) {
         checkAdmin(request);
         java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
         try {

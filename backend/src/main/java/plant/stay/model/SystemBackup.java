@@ -55,5 +55,5 @@ public class SystemBackup {
     private String note;
 
     @Column(name = "cloud_url", length = 500)
-    private String cloudUrl; // URL lưu trữ trực tuyến vĩnh viễn trên Catbox.moe
+    private String cloudUrl; // URL lưu trữ trực tuyến đám mây (Telegram Bot Cloud)
 }
