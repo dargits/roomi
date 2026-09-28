@@ -482,7 +482,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         if (appFrontendUrl != null && !appFrontendUrl.isBlank()) {
             return appFrontendUrl.replaceAll("/+$", "");
         }
-        return "https://stayaway.io.vn";
+        return "";
     }
 
     /**

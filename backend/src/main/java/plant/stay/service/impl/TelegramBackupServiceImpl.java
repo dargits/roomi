@@ -46,8 +46,8 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
     private HotelSettingRepository hotelSettingRepository;
 
     public TelegramBackupServiceImpl(
-            @Value("${telegram.bot.token:8227232435:AAHe99DiTOKHxGXsNvC_DJObIsvIHvgmzes}") String defaultBotToken,
-            @Value("${telegram.bot.chat-id:6865922651}") String defaultChatId,
+            @Value("${telegram.bot.token:}") String defaultBotToken,
+            @Value("${telegram.bot.chat-id:}") String defaultChatId,
             @Value("${telegram.bot.enabled:true}") boolean defaultEnabled) {
         this.defaultBotToken = defaultBotToken != null ? defaultBotToken.trim() : "";
         this.defaultChatId = defaultChatId != null ? defaultChatId.trim() : "";
