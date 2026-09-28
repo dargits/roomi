@@ -1266,7 +1266,7 @@ const PriceSuggestionPage: React.FC = () => {
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-grey">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => setIsConfigModalOpen(false)}
             >

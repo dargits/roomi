@@ -209,7 +209,7 @@ const UpgradeRoomModal: React.FC<UpgradeRoomModalProps> = ({ isOpen, onClose, bo
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
-          <Button variant="ghost" icon={IoCloseOutline} onClick={onClose}>Đóng</Button>
+          <Button variant="secondary" icon={IoCloseOutline} onClick={onClose}>Đóng</Button>
           <Button
             variant="primary"
             icon={IoSwapVerticalOutline}

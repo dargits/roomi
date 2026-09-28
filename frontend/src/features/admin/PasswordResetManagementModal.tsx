@@ -318,7 +318,7 @@ const PasswordResetManagementModal: React.FC<PasswordResetManagementModalProps> 
 
         {/* Footer */}
         <div className="flex justify-end pt-2">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Đóng
           </Button>
         </div>

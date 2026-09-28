@@ -542,7 +542,7 @@ const SessionManagementPage: React.FC = () => {
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant/30">
-              <Button variant="outline" onClick={handleCloseModal} disabled={isSubmitting}>
+              <Button variant="secondary" onClick={handleCloseModal} disabled={isSubmitting}>
                 Hủy bỏ
               </Button>
               <Button
@@ -611,7 +611,7 @@ const SessionManagementPage: React.FC = () => {
             <div className="flex justify-end gap-2 pt-3 border-t border-outline-variant/30">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setIsConfigModalOpen(false)}
                 disabled={isSavingConfig}
               >

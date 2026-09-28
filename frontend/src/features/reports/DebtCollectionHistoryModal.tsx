@@ -176,7 +176,7 @@ const DebtCollectionHistoryModal: React.FC<DebtCollectionHistoryModalProps> = ({
         )}
 
         <div className="flex justify-end pt-2 border-t border-border-grey">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Đóng
           </Button>
         </div>

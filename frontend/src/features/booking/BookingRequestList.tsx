@@ -365,7 +365,7 @@ const BookingRequestList: React.FC<BookingRequestListProps> = ({ onRequestHandle
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={closeModal}
               disabled={processing}
               icon={IoCloseOutline}

@@ -581,7 +581,7 @@ const LoyaltyTierManagement: React.FC = () => {
             </div>
 
             <div className="flex gap-2.5 justify-end pt-3 border-t border-border-grey">
-              <Button type="button" variant="ghost" size="md" onClick={closeModal}>
+              <Button type="button" variant="secondary" size="md" onClick={closeModal}>
                 Hủy bỏ
               </Button>
               <Button type="submit" variant="primary" size="md" isLoading={saving}>

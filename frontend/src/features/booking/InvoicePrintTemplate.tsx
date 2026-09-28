@@ -151,7 +151,7 @@ const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, bo
             </span>
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
+            <Button variant="secondary" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
             <Button onClick={handlePrint} icon={IoPrintOutline} className="bg-blue-600 hover:bg-blue-700 text-white">
               In Hóa đơn
             </Button>
