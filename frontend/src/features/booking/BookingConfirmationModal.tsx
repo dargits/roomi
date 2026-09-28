@@ -835,7 +835,7 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
 
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Đóng
           </Button>
         </div>
@@ -925,7 +925,7 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
 
             <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setShowReconfirmModal(false)}
                 disabled={sendingEmail}

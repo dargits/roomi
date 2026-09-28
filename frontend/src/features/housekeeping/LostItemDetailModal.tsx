@@ -362,7 +362,7 @@ const LostItemDetailModal: React.FC<LostItemDetailModalProps> = ({
               className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setShowContactInput(false)}>
+              <Button size="sm" variant="secondary" onClick={() => setShowContactInput(false)}>
                 Đóng
               </Button>
               <Button
@@ -456,7 +456,7 @@ const LostItemDetailModal: React.FC<LostItemDetailModalProps> = ({
             </div>
           )}
 
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Đóng
           </Button>
         </div>

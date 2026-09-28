@@ -296,7 +296,7 @@ const PublicHeader: React.FC = () => {
           )}
 
           <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-            <Button type="button" variant="ghost" onClick={() => setIsLookupOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setIsLookupOpen(false)}>
               Hủy
             </Button>
             <Button type="submit" variant="primary" icon={IoSearchOutline}>
