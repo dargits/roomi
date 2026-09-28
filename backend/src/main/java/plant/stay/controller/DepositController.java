@@ -84,11 +84,15 @@ public class DepositController {
         User actor = checkReceptionistOrOwner(request);
         Booking booking = findBooking(bookingId);
 
-        // Không cho phép thu cọc nếu đặt phòng đã kết thúc hoặc bị hủy
-        if (booking.getStatus() == BookingStatus.CHECKED_OUT ||
+        // Không cho phép thu cọc nếu đặt phòng đang ở (CHECKED_IN) trở đi hoặc đã hủy/no-show
+        if (booking.getStatus() == BookingStatus.CHECKED_IN ||
+            booking.getStatus() == BookingStatus.CHECKED_OUT ||
             booking.getStatus() == BookingStatus.CANCELLED ||
             booking.getStatus() == BookingStatus.NO_SHOW) {
-            throw new IllegalArgumentException("Không thể thu cọc cho đặt phòng ở trạng thái " + booking.getStatus());
+            String statusText = booking.getStatus() == BookingStatus.CHECKED_IN ? "Đang ở (CHECKED_IN)" :
+                                booking.getStatus() == BookingStatus.CHECKED_OUT ? "Đã trả phòng (CHECKED_OUT)" :
+                                booking.getStatus() == BookingStatus.CANCELLED ? "Đã hủy (CANCELLED)" : "Khách không đến (NO_SHOW)";
+            throw new IllegalArgumentException("Không thể thu cọc khi đặt phòng ở trạng thái " + statusText + ". Khi khách đã nhận phòng trở đi, các khoản thanh toán được ghi nhận trực tiếp qua hóa đơn.");
         }
 
         // Chặn thu cọc khi hóa đơn đặt phòng đã thanh toán hoàn tất (PAID)

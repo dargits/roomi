@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   IoCashOutline, IoAlertCircleOutline, IoCheckmarkCircleOutline, IoCloseOutline,
   IoArrowUndoOutline, IoTimeOutline, IoWarningOutline,
-  IoReceiptOutline, IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline
+  IoReceiptOutline, IoQrCodeOutline, IoCopyOutline, IoCheckmarkOutline,
+  IoInformationCircleOutline
 } from 'react-icons/io5';
 import { depositApi } from '../../services/depositApi';
 import { invoiceApi } from '../../services/invoiceApi';
@@ -154,6 +155,16 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
       });
       return;
     }
+    if (isCheckedInOrPast) {
+      const statusText = booking?.status === 'CHECKED_IN' ? 'Đang ở (CHECKED_IN)' :
+                         booking?.status === 'CHECKED_OUT' ? 'Đã trả phòng (CHECKED_OUT)' :
+                         booking?.status === 'CANCELLED' ? 'Đã hủy (CANCELLED)' : 'Khách không đến (NO_SHOW)';
+      setActionMsg({
+        type: 'error',
+        text: `Đặt phòng đang ở trạng thái "${statusText}". Không thể thu thêm tiền đặt cọc khi khách đã nhận phòng trở đi. Tiền thanh toán lúc này được ghi nhận trực tiếp qua hóa đơn.`
+      });
+      return;
+    }
     const suggested = calculateSuggestedDeposit();
     const initAmount = suggested != null ? String(suggested) : '';
     setRecordForm({
@@ -265,8 +276,9 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
   const hasCollectedDeposit = deposits.some(d =>
     ['COLLECTED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'FORFEITED'].includes(d.status)
   );
+  const isCheckedInOrPast = ['CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(booking?.status);
   const canRecord_deposit = canRecord &&
-    !['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(booking?.status) &&
+    !isCheckedInOrPast &&
     !hasCollectedDeposit &&
     !isInvoicePaid;
   const canRefund = canRecord && latestDeposit &&
@@ -309,6 +321,11 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
             {isInvoicePaid && (
               <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-md font-semibold text-xs flex items-center gap-1.5 shadow-2xs">
                 <IoReceiptOutline size={14} className="text-emerald-700" /> Hóa đơn đã thanh toán (Đã khóa thu/hoàn cọc)
+              </span>
+            )}
+            {booking?.status === 'CHECKED_IN' && !hasCollectedDeposit && !isInvoicePaid && (
+              <span className="px-2.5 py-1 bg-sky-50 text-sky-800 border border-sky-300 rounded-md font-semibold text-xs flex items-center gap-1.5 shadow-2xs">
+                <IoInformationCircleOutline size={14} className="text-sky-600" /> Khách đang ở (Thanh toán qua hóa đơn)
               </span>
             )}
             {hasCollectedDeposit && latestDeposit?.status === 'COLLECTED' && !isInvoicePaid && (
@@ -367,6 +384,14 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
                 <p className="text-xs text-on-surface-variant">
                   Nhấn <strong>Thu tiền cọc</strong> để tự động tính và ghi nhận.
                 </p>
+              </div>
+            )}
+            {booking?.status === 'CHECKED_IN' && (
+              <div className="mt-3 p-3 bg-sky-50/80 border border-sky-200 text-sky-900 rounded-xl text-xs max-w-md mx-auto flex items-start gap-2 text-left">
+                <IoInformationCircleOutline size={16} className="text-sky-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Khách đã nhận phòng (Đang ở):</strong> Không áp dụng thu cọc cho giai đoạn này. Các khoản thanh toán dịch vụ và tiền phòng sẽ được ghi nhận trực tiếp vào hóa đơn của phòng.
+                </span>
               </div>
             )}
           </div>

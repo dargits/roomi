@@ -473,6 +473,18 @@ public class GroupBookingServiceImpl implements GroupBookingService {
             throw new IllegalArgumentException("Hóa đơn gộp của đoàn này đã được thanh toán hoàn tất (PAID). Không thể thu thêm tiền cọc.");
         }
 
+        // Chặn thu cọc khi đoàn đã nhận phòng (đang ở) trở đi
+        if (groupBooking.getBookings() != null && !groupBooking.getBookings().isEmpty()) {
+            boolean allCheckedInOrPast = groupBooking.getBookings().stream().allMatch(b ->
+                    b.getStatus() == BookingStatus.CHECKED_IN ||
+                    b.getStatus() == BookingStatus.CHECKED_OUT ||
+                    b.getStatus() == BookingStatus.CANCELLED ||
+                    b.getStatus() == BookingStatus.NO_SHOW);
+            if (allCheckedInOrPast) {
+                throw new IllegalArgumentException("Không thể thu cọc khi đoàn đã nhận phòng (đang ở) trở đi. Các khoản thanh toán được ghi nhận qua hóa đơn.");
+            }
+        }
+
         Deposit deposit = Deposit.builder()
                 .groupBooking(groupBooking)
                 .booking(null)

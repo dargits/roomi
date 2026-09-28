@@ -371,8 +371,8 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex flex-wrap justify-center gap-2">
-                      {/* Nút Thu cọc: Chỉ hiện khi CHƯA thu đủ cọc và chưa thanh toán PAID */}
-                      {!group.depositPaid && group.status !== 'CANCELLED' && group.status !== 'COMPLETED' && group.invoiceStatus !== 'PAID' && (
+                      {/* Nút Thu cọc: Chỉ hiện khi CHƯA thu đủ cọc, chưa nhận phòng và chưa thanh toán PAID */}
+                      {!group.depositPaid && !['CHECKED_IN', 'COMPLETED', 'CANCELLED'].includes(group.status) && group.invoiceStatus !== 'PAID' && (
                         <Button
                           size="sm"
                           variant="outline"
