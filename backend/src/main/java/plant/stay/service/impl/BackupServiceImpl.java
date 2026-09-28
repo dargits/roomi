@@ -52,14 +52,28 @@ public class BackupServiceImpl implements BackupService {
     private static final Path BACKUP_STORAGE_DIR = Paths.get("backups");
     private static final DateTimeFormatter FILE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss");
 
+    private static class SafeFileOutput {
+        final Path targetFile;
+        final OutputStream outputStream;
+
+        SafeFileOutput(Path targetFile, OutputStream outputStream) {
+            this.targetFile = targetFile;
+            this.outputStream = outputStream;
+        }
+    }
+
     private Path getStorageDirectory() {
         try {
             if (!Files.exists(BACKUP_STORAGE_DIR)) {
                 Files.createDirectories(BACKUP_STORAGE_DIR);
             }
+            // Thử kiểm tra quyền ghi thực tế
+            Path testProbe = BACKUP_STORAGE_DIR.resolve(".write_test_" + System.currentTimeMillis());
+            Files.createFile(testProbe);
+            Files.deleteIfExists(testProbe);
             return BACKUP_STORAGE_DIR;
         } catch (Exception e) {
-            log.warn("Không thể tạo hoặc truy cập thư mục lưu trữ sao lưu cục bộ '{}' ({}). Tự động chuyển sang dùng thư mục tạm hệ thống (tmpdir).", BACKUP_STORAGE_DIR, e.getMessage());
+            log.warn("Thư mục sao lưu '{}' không thể ghi ({}), chuyển sang thư mục tạm của hệ thống.", BACKUP_STORAGE_DIR, e.getMessage());
             try {
                 Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir", "/tmp"), "stayaway_backups");
                 if (!Files.exists(tmpDir)) {
@@ -67,14 +81,38 @@ public class BackupServiceImpl implements BackupService {
                 }
                 return tmpDir;
             } catch (Exception ex) {
-                log.error("Không thể khởi tạo cả thư mục tạm để lưu trữ bản sao lưu: {}", ex.getMessage());
-                throw new RuntimeException("Lỗi khởi tạo thư mục lưu trữ bản sao lưu: " + ex.getMessage(), ex);
+                log.error("Không thể khởi tạo thư mục tạm: {}", ex.getMessage());
+                return Paths.get(System.getProperty("java.io.tmpdir", "/tmp"));
             }
         }
     }
 
+    private SafeFileOutput createSafeBackupOutputStream(String fileName) throws IOException {
+        List<Path> candidateDirs = new ArrayList<>();
+        candidateDirs.add(BACKUP_STORAGE_DIR);
+        candidateDirs.add(Paths.get(System.getProperty("java.io.tmpdir", "/tmp"), "stayaway_backups"));
+        candidateDirs.add(Paths.get(System.getProperty("java.io.tmpdir", "/tmp")));
+        candidateDirs.add(Paths.get("."));
+
+        IOException lastException = null;
+        for (Path dir : candidateDirs) {
+            try {
+                if (!Files.exists(dir)) {
+                    Files.createDirectories(dir);
+                }
+                Path candidateFile = dir.resolve(fileName);
+                OutputStream os = Files.newOutputStream(candidateFile);
+                log.info("Khởi tạo luồng ghi tệp sao lưu thành công tại: {}", candidateFile.toAbsolutePath());
+                return new SafeFileOutput(candidateFile, os);
+            } catch (Exception e) {
+                log.warn("Không thể ghi file sao lưu vào '{}' ({}). Thử thư mục dự phòng tiếp theo...", dir, e.getMessage());
+                lastException = new IOException("Không thể ghi file vào " + dir + ": " + e.getMessage(), e);
+            }
+        }
+        throw (lastException != null) ? lastException : new IOException("Không thể tạo file sao lưu trên bất kỳ thư mục nào của hệ thống.");
+    }
+
     @Override
-    @Transactional
     public BackupHistoryDto createBackup(User actor, String backupType) {
         String type = (backupType != null && backupType.equalsIgnoreCase("DATABASE_SQL")) ? "DATABASE_SQL" : "FULL_ZIP";
         String timestamp = LocalDateTime.now().format(FILE_DATE_FORMAT);
@@ -87,11 +125,11 @@ public class BackupServiceImpl implements BackupService {
         Path targetFile = null;
 
         try {
-            Path targetDir = getStorageDirectory();
-            targetFile = targetDir.resolve(fileName);
+            SafeFileOutput safeOutput = createSafeBackupOutputStream(fileName);
+            targetFile = safeOutput.targetFile;
 
             if ("DATABASE_SQL".equals(type)) {
-                try (OutputStream os = Files.newOutputStream(targetFile);
+                try (OutputStream os = safeOutput.outputStream;
                      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8))) {
                     DumpResult result = generateSqlDump(writer);
                     tableCount = result.tableCount;
@@ -99,7 +137,7 @@ public class BackupServiceImpl implements BackupService {
                 }
             } else {
                 // FULL_ZIP (SQL dump + Manifest + CSVs)
-                try (OutputStream os = Files.newOutputStream(targetFile)) {
+                try (OutputStream os = safeOutput.outputStream) {
                     DumpResult result = packageFullZip(os, actor, timestamp);
                     tableCount = result.tableCount;
                     recordCount = result.recordCount;
@@ -164,20 +202,24 @@ public class BackupServiceImpl implements BackupService {
             log.error("Lỗi khi tạo bản sao lưu hệ thống: ", e);
             updateHotelSettingLastBackup("FAILED");
 
-            SystemBackup failedBackup = SystemBackup.builder()
-                    .fileName(fileName)
-                    .filePath(targetFile != null ? targetFile.toAbsolutePath().toString() : fileName)
-                    .fileSizeBytes(0L)
-                    .backupType(type)
-                    .status("FAILED")
-                    .tableCount(tableCount)
-                    .recordCount(recordCount)
-                    .createdBy(actor)
-                    .note("Lỗi: " + e.getMessage())
-                    .build();
-            systemBackupRepository.save(failedBackup);
+            try {
+                SystemBackup failedBackup = SystemBackup.builder()
+                        .fileName(fileName)
+                        .filePath(targetFile != null ? targetFile.toAbsolutePath().toString() : fileName)
+                        .fileSizeBytes(0L)
+                        .backupType(type)
+                        .status("FAILED")
+                        .tableCount(tableCount)
+                        .recordCount(recordCount)
+                        .createdBy(actor)
+                        .note("Lỗi: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()))
+                        .build();
+                systemBackupRepository.save(failedBackup);
+            } catch (Exception saveEx) {
+                log.error("Không thể lưu bản ghi sao lưu thất bại vào CSDL: {}", saveEx.getMessage());
+            }
 
-            throw new RuntimeException("Lỗi tạo bản sao lưu: " + e.getMessage(), e);
+            throw new BusinessException("Lỗi tạo bản sao lưu: " + (e.getMessage() != null ? e.getMessage() : "Đã xảy ra lỗi không xác định"));
         }
     }
 
@@ -209,13 +251,20 @@ public class BackupServiceImpl implements BackupService {
         SystemBackup backup = systemBackupRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản sao lưu với mã ID: " + id));
 
-        Path path = Paths.get(backup.getFilePath());
-        if (!Files.exists(path)) {
+        Path path = null;
+        if (backup.getFilePath() != null && !backup.getFilePath().startsWith("http://") && !backup.getFilePath().startsWith("https://")) {
+            try {
+                path = Paths.get(backup.getFilePath());
+            } catch (Exception ignored) {}
+        }
+        if (path == null || !Files.exists(path)) {
             // Fallback to local storage dir
-            path = getStorageDirectory().resolve(backup.getFileName());
+            try {
+                path = getStorageDirectory().resolve(backup.getFileName());
+            } catch (Exception ignored) {}
         }
 
-        if (Files.exists(path)) {
+        if (path != null && Files.exists(path)) {
             return new FileSystemResource(path);
         }
 
@@ -240,13 +289,15 @@ public class BackupServiceImpl implements BackupService {
         SystemBackup backup = systemBackupRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản sao lưu với mã ID: " + id));
 
-        try {
-            Path path = Paths.get(backup.getFilePath());
-            if (Files.exists(path)) {
-                Files.delete(path);
+        if (backup.getFilePath() != null && !backup.getFilePath().startsWith("http://") && !backup.getFilePath().startsWith("https://")) {
+            try {
+                Path path = Paths.get(backup.getFilePath());
+                if (Files.exists(path)) {
+                    Files.delete(path);
+                }
+            } catch (Exception e) {
+                log.warn("Không thể xóa file vật lý của bản sao lưu {}: {}", backup.getFileName(), e.getMessage());
             }
-        } catch (IOException e) {
-            log.warn("Không thể xóa file vật lý của bản sao lưu {}: {}", backup.getFileName(), e.getMessage());
         }
 
         systemBackupRepository.delete(backup);
@@ -288,11 +339,18 @@ public class BackupServiceImpl implements BackupService {
         }
 
         // Trường hợp 2: Tệp tin lưu cục bộ
-        Path path = Paths.get(backup.getFilePath());
-        if (!Files.exists(path)) {
-            path = getStorageDirectory().resolve(backup.getFileName());
+        Path path = null;
+        if (backup.getFilePath() != null && !backup.getFilePath().startsWith("http://") && !backup.getFilePath().startsWith("https://")) {
+            try {
+                path = Paths.get(backup.getFilePath());
+            } catch (Exception ignored) {}
         }
-        if (!Files.exists(path)) {
+        if (path == null || !Files.exists(path)) {
+            try {
+                path = getStorageDirectory().resolve(backup.getFileName());
+            } catch (Exception ignored) {}
+        }
+        if (path == null || !Files.exists(path)) {
             throw new ResourceNotFoundException("Tệp sao lưu không tồn tại trên máy chủ hoặc liên kết đám mây: " + backup.getFileName());
         }
 
