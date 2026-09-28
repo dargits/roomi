@@ -3,19 +3,25 @@ import {
   IoAlertCircleOutline,
   IoArchiveOutline,
   IoBedOutline,
+  IoBusinessOutline,
+  IoCashOutline,
   IoCheckmarkCircleOutline,
   IoCheckmarkDoneOutline,
   IoChevronDownOutline,
   IoChevronUpOutline,
   IoCloseCircleOutline,
   IoCloseOutline,
+  IoCloudDoneOutline,
   IoCloudDownloadOutline,
   IoCloudUploadOutline,
+  IoConstructOutline,
   IoCopyOutline,
   IoDocumentOutline,
   IoDocumentTextOutline,
   IoDownloadOutline,
   IoEyeOutline,
+  IoOpenOutline,
+  IoFileTrayFullOutline,
   IoInformationCircleOutline,
   IoLayersOutline,
   IoListOutline,
@@ -43,7 +49,7 @@ import dataApi, { BackupConfig, BackupHistoryItem, ImportResult, RestoreSummary 
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
-// Danh sách các bảng hỗ trợ xuất dữ liệu
+// Danh sách tất cả 12 bảng hỗ trợ xuất dữ liệu (Đảm bảo 100% đối xứng nhập - xuất)
 const EXPORT_ITEMS = [
   {
     type: 'bookings',
@@ -100,30 +106,81 @@ const EXPORT_ITEMS = [
     desc: 'Bao gồm họ tên nhân viên, tài khoản đăng nhập, số điện thoại, email và phân quyền',
     icon: IoPeopleOutline,
     color: 'bg-sky-600'
+  },
+  {
+    type: 'corporate-clients',
+    name: 'Khách Hàng Doanh Nghiệp',
+    desc: 'Bao gồm tên công ty, mã số thuế, người đại diện, số điện thoại, email và địa chỉ',
+    icon: IoBusinessOutline,
+    color: 'bg-cyan-600'
+  },
+  {
+    type: 'lost-items',
+    name: 'Quản Lý Đồ Thất Lạc',
+    desc: 'Bao gồm số phòng, tên đồ vật thất lạc, vị trí nhặt được, ngày tìm thấy và nơi cất giữ',
+    icon: IoFileTrayFullOutline,
+    color: 'bg-orange-600'
+  },
+  {
+    type: 'room-incidents',
+    name: 'Sự Cố & Báo Hỏng Phòng',
+    desc: 'Bao gồm số phòng, mức độ sự cố (nhẹ/nặng/khóa phòng), mô tả hư hỏng và trạng thái',
+    icon: IoConstructOutline,
+    color: 'bg-red-600'
+  },
+  {
+    type: 'deposit-policies',
+    name: 'Chính Sách Đặt Cọc',
+    desc: 'Bao gồm loại phòng áp dụng, tỷ lệ đặt cọc (%) theo đêm và trạng thái kích hoạt',
+    icon: IoCashOutline,
+    color: 'bg-violet-600'
   }
 ];
 
-// Danh sách các loại dữ liệu hỗ trợ nhập nhanh
+// Danh sách các loại dữ liệu hỗ trợ nhập nhanh (Đồng bộ 1-1 với danh sách xuất)
 const IMPORT_TYPES = [
-  { value: 'rooms', label: 'Danh sách Phòng (Số phòng, Tên/Mã loại phòng, Tầng)' },
+  { value: 'rooms', label: 'Danh sách Phòng (Số phòng, Loại phòng, Tầng)' },
   { value: 'guests', label: 'Khách hàng (Tên, SĐT, CCCD/CMND, Email)' },
   { value: 'room-types', label: 'Loại phòng (Tên, Giá cơ bản, Sức chứa, Tiện nghi)' },
   { value: 'extra-services', label: 'Dịch vụ phụ thu (Tên dịch vụ, Đơn giá, Đơn vị tính)' },
   { value: 'inventory', label: 'Kho đồ dùng (Tên đồ dùng, Đơn vị tính, Số lượng tồn, Ngưỡng cảnh báo)' },
-  { value: 'staff', label: 'Danh sách Nhân sự (Họ tên, Tài khoản, SĐT, Email, Vai trò)' }
+  { value: 'staff', label: 'Danh sách Nhân sự (Họ tên, Tài khoản, SĐT, Email, Vai trò)' },
+  { value: 'bookings', label: 'Dữ liệu Đặt phòng (Tên khách, SĐT, Số phòng, Ngày nhận/trả, Giá, Trạng thái)' },
+  { value: 'invoices', label: 'Hóa đơn & Doanh thu (Mã Booking, Tiền phòng, Tiền dịch vụ, Giảm giá, Tổng tiền)' },
+  { value: 'corporate-clients', label: 'Khách hàng Doanh nghiệp (Tên công ty, MST, Người liên hệ, SĐT, Email)' },
+  { value: 'lost-items', label: 'Đồ thất lạc (Số phòng, Tên tài sản, Vị trí tìm thấy, Ngày, Nơi cất giữ)' },
+  { value: 'room-incidents', label: 'Sự cố & Báo hỏng phòng (Số phòng, Mức độ sự cố, Mô tả sự cố, Trạng thái)' },
+  { value: 'deposit-policies', label: 'Chính sách đặt cọc (Loại phòng áp dụng, Tỷ lệ cọc %, Trạng thái)' }
 ];
 
-// File CSV mẫu chuẩn hóa thực tế
+// File CSV mẫu chuẩn hóa thực tế cho tất cả 12 bảng
 const SAMPLE_CSV: Record<string, string> = {
   rooms: "Số phòng,Loại phòng hoặc Mã loại phòng,Tầng\n101,Phòng Tiêu Chuẩn,1\n102,Phòng Tiêu Chuẩn,1\n201,Phòng Cao Cấp VIP,2\n202,Phòng Cao Cấp VIP,2\n301,Phòng Gia Đình,3",
   guests: "Tên khách hàng,Số điện thoại,CCCD,Email\nNguyễn Văn An,0912345678,001234567890,an.nguyen@gmail.com\nTrần Thị Bích,0987654321,001987654321,bich.tran@gmail.com\nLê Hoàng Nam,0901234567,001198765432,nam.le@gmail.com",
   'room-types': "Tên loại phòng,Giá cơ bản,Sức chứa,Mô tả tiện nghi\nPhòng Tiêu Chuẩn,500000,2,\"Giường đôi, TV, Điều hòa, Minibar\"\nPhòng Cao Cấp VIP,1200000,4,\"View biển, Ban công, Bồn tắm massage, TV 65 inch\"\nPhòng Gia Đình,950000,4,\"2 giường lớn, Bếp mini, Bàn làm việc\"",
   'extra-services': "Tên dịch vụ,Đơn giá,Đơn vị tính\nNước ngọt lon,15000,Lon\nBia lon Heineken,25000,Lon\nGiặt là lấy ngay,50000,Kg\nThuê xe máy tay ga,150000,Ngày\nĂn sáng buffet phụ thu,80000,Người",
   inventory: "Tên đồ dùng,Đơn vị tính,Số lượng tồn,Ngưỡng cảnh báo\nKhăn tắm lớn trắng,Cái,60,15\nKhăn mặt,Cái,100,20\nBàn chải & Kem đánh răng,Bộ,150,30\nDầu gội sữa tắm mini,Chai,200,40\nNước khoáng đóng chai 500ml,Chai,120,24",
-  staff: "Họ và tên,Tài khoản,Số điện thoại,Email,Vai trò\nTrần Văn Hoàng,staff_hoang,0912888999,hoang.tran@stayaway.vn,RECEPTIONIST\nLê Thị Mai,staff_mai,0987111222,mai.le@stayaway.vn,HOUSEKEEPING\nPhạm Quốc Cường,staff_cuong,0903444555,cuong.pham@stayaway.vn,ACCOUNTANT"
+  staff: "Họ và tên,Tài khoản,Số điện thoại,Email,Vai trò\nTrần Văn Hoàng,staff_hoang,0912888999,hoang.tran@stayaway.vn,RECEPTIONIST\nLê Thị Mai,staff_mai,0987111222,mai.le@stayaway.vn,HOUSEKEEPING\nPhạm Quốc Cường,staff_cuong,0903444555,cuong.pham@stayaway.vn,ACCOUNTANT",
+  bookings: "Khách hàng,Số điện thoại,Phòng,Loại phòng,Ngày nhận,Ngày trả,Giá dự kiến,Giá thực tế,Trạng thái,Nguồn,Ghi chú\nNguyễn Văn An,0912345678,101,Phòng Tiêu Chuẩn,2026-10-01,2026-10-03,1000000,1000000,CONFIRMED,DIRECT,Khách yêu cầu phòng yên tĩnh tầng cao\nTrần Thị Bích,0987654321,201,Phòng Cao Cấp VIP,2026-10-05,2026-10-08,3600000,3600000,CHECKED_IN,BOOKING_COM,Khách VIP quen thuộc",
+  invoices: "Mã Booking,Tiền phòng,Tiền dịch vụ,Giảm giá,Tổng tiền,Trạng thái,Ghi chú\n1,1000000,150000,50000,1100000,PAID,Đã thanh toán chuyển khoản quét mã VietQR\n2,3600000,0,0,3600000,PENDING_PAYMENT,Chờ thanh toán khi trả phòng",
+  'corporate-clients': "Tên doanh nghiệp / Công ty,Mã số thuế,Người liên hệ,Số điện thoại,Email,Địa chỉ,Ghi chú\nCông ty TNHH Giải Pháp Công Nghệ Số,0109988776,Nguyễn Minh Khang,0909123456,contact@digitaltech.vn,Số 12 Duy Tân, Cầu Giấy, Hà Nội,Hợp đồng đặt phòng định kỳ năm\nTổng Công Ty Du Lịch Miền Trung,0401122334,Phan Thanh Vân,0918776655,van.phan@mientrungtour.vn,78 Bạch Đằng, Hải Châu, Đà Nẵng,Đối tác lữ hành chiến lược",
+  'lost-items': "Số phòng,Tên tài sản / Đồ vật,Vị trí tìm thấy,Ngày tìm thấy,Nơi cất giữ,Trạng thái,Người nhận\n101,Đồng hồ thông minh Apple Watch,Dưới gối phòng ngủ,2026-09-25,Kho két sắt lễ tân,HOLDING,\n201,Tai nghe Bluetooth AirPods Pro,Bàn trang điểm,2026-09-20,Kho két sắt lễ tân,RETURNED,Trần Thị Bích",
+  'room-incidents': "Số phòng,Mức độ sự cố,Mô tả sự cố,Trạng thái\n102,LIGHT,Điều hòa chảy nước nhẹ cần vệ sinh lưới lọc,OPEN\n202,HEAVY,Vòi hoa sen nhà tắm bị rò rỉ nước áp lực yếu,OPEN\n301,LIGHT,Đèn bàn làm việc chập chờn,RESOLVED",
+  'deposit-policies': "Loại phòng áp dụng,Tỷ lệ cọc (%),Trạng thái\nPhòng Tiêu Chuẩn,30,Hoạt động\nPhòng Cao Cấp VIP,50,Hoạt động\nTất cả loại phòng (Mặc định),30,Hoạt động"
 };
 
-// Parser CSV chuẩn RFC-4180 cho client-side preview
+export const getImportTypeLabel = (val: string): string => {
+  const found = IMPORT_TYPES.find((t) => t.value === val);
+  return found ? found.label.split('(')[0].trim() : val;
+};
+
+export const formatDuration = (ms?: number): string => {
+  if (!ms || ms <= 0) return 'Nhanh chóng';
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} giây`;
+};
+
+// Parser CSV cho client-side preview
 function parseClientCsvLine(line: string): string[] {
   const values: string[] = [];
   let current = '';
@@ -166,6 +223,7 @@ const BackupDataPage: React.FC = () => {
   const [config, setConfig] = useState<BackupConfig | null>(null);
   const [loadingBackups, setLoadingBackups] = useState<boolean>(false);
   const [creatingBackup, setCreatingBackup] = useState<boolean>(false);
+  const [reseedingData, setReseedingData] = useState<boolean>(false);
   const [instantDownloading, setInstantDownloading] = useState<boolean>(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -220,6 +278,34 @@ const BackupDataPage: React.FC = () => {
     statusMessage: string;
     subMessage: string;
   } | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+
+  // Bộ đếm thời gian thực thi tác vụ nhập dữ liệu
+  useEffect(() => {
+    let timer: any = null;
+    if (importing) {
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [importing]);
+
+  // Ngăn chặn tắt tab hoặc làm mới trang trình duyệt khi đang nhập dữ liệu
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (importing) {
+        e.preventDefault();
+        e.returnValue = 'Hệ thống đang nhập dữ liệu CSV. Vui lòng không rời khỏi trang để tránh gián đoạn tiến trình!';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [importing]);
 
   // Load Initial Full Backup Data
   useEffect(() => {
@@ -274,6 +360,22 @@ const BackupDataPage: React.FC = () => {
     }
   };
 
+  const handleReseedSampleData = async () => {
+    if (!window.confirm('Hành động này sẽ làm sạch các dữ liệu vận hành cũ và tái tạo lại toàn bộ dữ liệu mẫu chuẩn chỉ từ tháng 01/2026 đến nay (bao gồm Bookings, Hóa đơn, Thanh toán, Ca trực, Sổ cái, Dọn phòng, Sự cố, Đồ thất lạc) và tự động tạo bản sao lưu .ZIP mới. Bạn có chắc chắn muốn thực hiện?')) {
+      return;
+    }
+    setReseedingData(true);
+    try {
+      const res = await dataApi.reseedSampleData();
+      toastSuccess(`Tái tạo thành công: ${res.bookingsCount} lượt đặt phòng, ${res.invoicesCount} hóa đơn, ${res.cashierShiftsCount} ca trực, ${res.cleaningsCount} nhật ký dọn phòng. Đã tự động tạo bản backup: ${res.backupFile}`);
+      fetchBackupsAndConfig();
+    } catch (err: any) {
+      toastError('Lỗi tái tạo dữ liệu mẫu: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setReseedingData(false);
+    }
+  };
+
   const handleInstantDownload = async () => {
     setInstantDownloading(true);
     setExportProgress({
@@ -289,11 +391,11 @@ const BackupDataPage: React.FC = () => {
       setExportProgress((prev) =>
         prev && prev.targetType === 'full_zip'
           ? {
-              ...prev,
-              stage: 'format',
-              percent: 50,
-              statusMessage: 'Đang tạo database_dump.sql và đóng gói 15 tệp CSV...'
-            }
+            ...prev,
+            stage: 'format',
+            percent: 50,
+            statusMessage: 'Đang tạo database_dump.sql và đóng gói 15 tệp CSV...'
+          }
           : prev
       );
     }, 400);
@@ -302,11 +404,11 @@ const BackupDataPage: React.FC = () => {
       setExportProgress((prev) =>
         prev && prev.targetType === 'full_zip'
           ? {
-              ...prev,
-              stage: 'format',
-              percent: 75,
-              statusMessage: 'Đang nén luồng ZIP và tạo chữ ký xác thực SHA-256...'
-            }
+            ...prev,
+            stage: 'format',
+            percent: 75,
+            statusMessage: 'Đang nén luồng ZIP và tạo chữ ký xác thực SHA-256...'
+          }
           : prev
       );
     }, 900);
@@ -316,11 +418,11 @@ const BackupDataPage: React.FC = () => {
         setExportProgress((prev) =>
           prev && prev.targetType === 'full_zip'
             ? {
-                ...prev,
-                stage: 'download',
-                percent: Math.max(80, Math.min(98, percent)),
-                statusMessage: `Đang tải gói ZIP về máy khách (${percent}%)...`
-              }
+              ...prev,
+              stage: 'download',
+              percent: Math.max(80, Math.min(98, percent)),
+              statusMessage: `Đang tải gói ZIP về máy khách (${percent}%)...`
+            }
             : prev
         );
       });
@@ -377,10 +479,10 @@ const BackupDataPage: React.FC = () => {
         setExportProgress((prev) =>
           prev && prev.targetType === `backup_${item.id}`
             ? {
-                ...prev,
-                percent: Math.max(25, percent),
-                statusMessage: `Đang tải xuống (${percent}%)...`
-              }
+              ...prev,
+              percent: Math.max(25, percent),
+              statusMessage: `Đang tải xuống (${percent}%)...`
+            }
             : prev
         );
       });
@@ -620,11 +722,11 @@ const BackupDataPage: React.FC = () => {
         setExportProgress((prev) =>
           prev && prev.targetType === type
             ? {
-                ...prev,
-                stage: 'download',
-                percent: Math.max(40, Math.min(95, percent)),
-                statusMessage: `Đang truyền tải tệp (${percent}%)...`
-              }
+              ...prev,
+              stage: 'download',
+              percent: Math.max(40, Math.min(95, percent)),
+              statusMessage: `Đang truyền tải tệp (${percent}%)...`
+            }
             : prev
         );
       });
@@ -696,7 +798,7 @@ const BackupDataPage: React.FC = () => {
 
     // 1. Kiểm tra định dạng tệp .csv
     if (!file.name.toLowerCase().endsWith('.csv') && !file.type.includes('csv')) {
-      toastError('Định dạng tệp không hợp lệ. Hệ thống hiện chỉ hỗ trợ tệp định dạng .CSV (chuẩn UTF-8 RFC-4180).');
+      toastError('Định dạng tệp không hợp lệ. Vui lòng tải lên tệp bảng tính định dạng .CSV.');
       setSelectedFile(null);
       setFilePreview(null);
       return;
@@ -766,24 +868,26 @@ const BackupDataPage: React.FC = () => {
       return;
     }
 
+    setElapsedSeconds(0);
+    setIsImportModalOpen(true);
     setImporting(true);
     setImportResult(null);
     setShowDetails(false);
 
     const typeLabel = IMPORT_TYPES.find((t) => t.value === importType)?.label.split('(')[0].trim() || importType;
 
-    // Giai đoạn 1: Tiếp nhận và đưa vào hàng đợi
+    // Giai đoạn 1: Tiếp nhận và kiểm tra cấu trúc
     setImportProgress({
       active: true,
       stageIndex: 1,
-      stageName: 'Đưa vào Hàng đợi & Kiểm tra cú pháp CSV',
+      stageName: 'Đọc tệp dữ liệu & Kiểm tra cấu trúc',
       percent: 15,
-      statusMessage: 'Yêu cầu xử lý tệp dữ liệu đã được tiếp nhận và xếp vào hàng đợi xử lý ngầm. Quá trình có thể tốn một vài phút tùy theo dung lượng tệp, tiến trình sẽ tự động hoàn tất trong giây lát...',
+      statusMessage: 'Đang tiếp nhận tệp dữ liệu và kiểm tra cấu trúc danh mục...',
       subMessage: `Tệp: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB) • Danh mục: ${typeLabel}`
     });
 
     try {
-      // 1. Thử gửi vào Hàng đợi xử lý ngầm (Asynchronous Queue Worker)
+      // 1. Gửi xử lý tác vụ
       let task = await dataApi.importDataAsync(importType, selectedFile).catch(() => null);
 
       if (task && task.taskId) {
@@ -796,15 +900,15 @@ const BackupDataPage: React.FC = () => {
           task = await dataApi.getTaskStatus(task.taskId);
 
           const stageIndex = task.status === 'PROCESSING' ? 3 : 2;
-          const stageName = task.status === 'PROCESSING' ? 'Xử lý bản ghi & Ghi CSDL' : 'Đang xử lý trong hàng đợi';
+          const stageName = task.status === 'PROCESSING' ? 'Cập nhật dữ liệu hệ thống' : 'Đang kiểm tra dữ liệu';
 
           setImportProgress({
             active: true,
             stageIndex,
             stageName,
             percent: Math.max(25, Math.min(95, task.progressPercent || 25)),
-            statusMessage: task.statusMessage || 'Hệ thống đang tiến hành xử lý ngầm trong hàng đợi. Tiến trình sẽ hoàn thành sau lát nữa...',
-            subMessage: task.subMessage || 'Tác vụ có thể mất một vài phút tùy dung lượng tệp. Bạn có thể tiếp tục thao tác khác trong thời gian chờ.'
+            statusMessage: task.statusMessage || 'Hệ thống đang tiến hành cập nhật dữ liệu...',
+            subMessage: task.subMessage || 'Hệ thống đang đồng bộ và lưu trữ dữ liệu an toàn...'
           });
         }
 
@@ -815,7 +919,7 @@ const BackupDataPage: React.FC = () => {
             stageName: 'Đối soát & Hoàn tất kết quả',
             percent: 100,
             statusMessage: task.statusMessage || 'Đã hoàn tất quá trình nạp dữ liệu!',
-            subMessage: `Xử lý thành công trong ${task.durationMs || 0} ms`
+            subMessage: `Thời gian xử lý: ${formatDuration(task.durationMs)}`
           });
 
           await new Promise((r) => setTimeout(r, 400));
@@ -853,7 +957,7 @@ const BackupDataPage: React.FC = () => {
         stageName: 'Đối soát & Hoàn tất kết quả',
         percent: 100,
         statusMessage: 'Đã hoàn tất quá trình nạp dữ liệu!',
-        subMessage: `Xử lý thành công trong ${res.durationMs || 0} ms`
+        subMessage: `Thời gian xử lý: ${formatDuration(res.durationMs)}`
       });
       await new Promise((r) => setTimeout(r, 400));
       setImportResult(res);
@@ -986,13 +1090,13 @@ const BackupDataPage: React.FC = () => {
               <div className="space-y-2 max-w-xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lodgify-lime/20 border border-lodgify-lime/30 text-xs font-semibold text-lodgify-lime">
                   <IoShieldCheckmarkOutline size={15} />
-                  <span>Bảo vệ toàn diện • Độc lập JDBC (Zero mysqldump)</span>
+                  <span>Bảo vệ toàn diện • Độc lập & Tự động hóa</span>
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight">
                   Sao Lưu Toàn Bộ Cơ Sở Dữ Liệu & Tài Liệu
                 </h3>
                 <p className="text-xs md:text-sm text-zinc-300 leading-relaxed">
-                  Đóng gói trọn vẹn tệp mã nguồn SQL DDL/DML, file kiểm toán manifest JSON và toàn bộ bảng dữ liệu định dạng CSV chuẩn UTF-8 trong một tệp nén duy nhất.
+                  Đóng gói toàn bộ cơ sở dữ liệu, lịch sử giao dịch và tài liệu hệ thống vào một tệp nén an toàn duy nhất.
                 </p>
               </div>
 
@@ -1017,6 +1121,18 @@ const BackupDataPage: React.FC = () => {
                 >
                   <IoSaveOutline size={16} className={creatingBackup ? 'animate-spin' : ''} />
                   <span>{creatingBackup ? 'Đang tạo...' : 'Tạo Bản Sao Lưu Server'}</span>
+                </button>
+
+                {/* Nút: Tái tạo dữ liệu mẫu chuẩn (từ 01/2026 đến nay) */}
+                <button
+                  type="button"
+                  onClick={handleReseedSampleData}
+                  disabled={reseedingData}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white font-semibold text-xs border border-purple-400/40 backdrop-blur-sm transition-all cursor-pointer shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                  title="Tái tạo lại bộ dữ liệu vận hành chuẩn chỉ từ 01/2026 đến nay và tự động tạo bản sao lưu .ZIP mới"
+                >
+                  <IoSparklesOutline size={16} className={reseedingData ? 'animate-spin' : ''} />
+                  <span>{reseedingData ? 'Đang tái tạo...' : 'Tái Tạo Dữ Liệu Mẫu'}</span>
                 </button>
 
                 {/* Nút 3: Khôi phục */}
@@ -1192,6 +1308,7 @@ const BackupDataPage: React.FC = () => {
                       <th className="py-3 px-4">Thời Gian Tạo</th>
                       <th className="py-3 px-4">Người Thực Hiện</th>
                       <th className="py-3 px-4 text-center">Toàn Vẹn (SHA-256)</th>
+                      <th className="py-3 px-4 text-center">Lưu Trữ Đám Mây</th>
                       <th className="py-3 px-4 text-center">Trạng Thái</th>
                       <th className="py-3 px-4 text-right">Thao Tác</th>
                     </tr>
@@ -1240,12 +1357,41 @@ const BackupDataPage: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3 px-4 text-center">
+                          {item.cloudUrl ? (
+                            <div className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                              <IoCloudDoneOutline size={13} className="text-indigo-600" />
+                              <a
+                                href={item.cloudUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:underline flex items-center gap-1"
+                                title="Mở liên kết tệp sao lưu trên Catbox.moe"
+                              >
+                                <span>Catbox.moe</span>
+                                <IoOpenOutline size={10} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.cloudUrl!);
+                                  toastSuccess('Đã sao chép liên kết Catbox vào clipboard');
+                                }}
+                                className="text-indigo-500 hover:text-indigo-800 cursor-pointer ml-0.5"
+                                title="Sao chép link tải"
+                              >
+                                <IoCopyOutline size={11} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-zinc-400 text-[11px] italic">Cục bộ</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              item.status === 'SUCCESS'
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'SUCCESS'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : 'bg-red-50 text-red-700 border border-red-200'
-                            }`}
+                              }`}
                           >
                             {item.status === 'SUCCESS' ? 'Thành công' : 'Thất bại'}
                           </span>
@@ -1339,11 +1485,11 @@ const BackupDataPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Banner giới thiệu cơ chế hàng đợi Export */}
+            {/* Banner giới thiệu xuất dữ liệu */}
             <div className="p-3 rounded-xl bg-surface-container-low border border-border-grey text-[11px] text-on-surface-variant flex items-center gap-2">
               <IoTimerOutline size={16} className="text-primary flex-shrink-0" />
               <span>
-                <strong>Hàng đợi xuất dữ liệu bất đồng bộ:</strong> Đối với các bảng có khối lượng bản ghi lớn, hệ thống sẽ tự động xếp vào hàng đợi xử lý ngầm và gửi thông báo khi tệp đã sẵn sàng tải xuống. Quá trình có thể tốn một khoảng thời gian ngắn, bạn có thể yên tâm tiếp tục công việc của mình.
+                <strong>Xuất dữ liệu an toàn:</strong> Đối với các bảng dữ liệu có khối lượng lớn, hệ thống tự động tối ưu hóa quá trình trích xuất để không ảnh hưởng đến hoạt động thường nhật của khách sạn.
               </span>
             </div>
           </div>
@@ -1365,7 +1511,7 @@ const BackupDataPage: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="font-title-sm text-on-surface font-bold">{item.name}</h4>
-                        <span className="text-[11px] font-mono text-on-surface-variant/70 uppercase">table: {item.type}</span>
+                        <span className="text-[10px] font-semibold text-primary bg-primary-50 px-2 py-0.5 rounded-full border border-primary/20">Dữ liệu hệ thống</span>
                       </div>
                     </div>
                     <p className="text-xs text-on-surface-variant leading-relaxed mb-4 min-h-[36px]">
@@ -1373,14 +1519,28 @@ const BackupDataPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <Button
-                    onClick={() => handleExportCsv(item.type, item.name)}
-                    isLoading={isDownloading}
-                    icon={IoDownloadOutline}
-                    className="w-full justify-center text-xs py-2"
-                  >
-                    Xuất CSV
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => handleExportCsv(item.type, item.name)}
+                      isLoading={isDownloading}
+                      icon={IoDownloadOutline}
+                      className="flex-1 justify-center text-xs py-2"
+                    >
+                      Xuất CSV
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportType(item.type);
+                        setActiveTab('import');
+                      }}
+                      className="px-3 py-2 rounded-xl border border-border-grey text-on-surface hover:bg-primary-50 hover:text-primary hover:border-primary/40 text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                      title={`Chuyển sang nhập dữ liệu cho ${item.name}`}
+                    >
+                      <IoCloudUploadOutline size={15} className="text-primary" />
+                      <span>Nhập</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1401,10 +1561,10 @@ const BackupDataPage: React.FC = () => {
                 Nhập Dữ Liệu Hàng Loạt Từ File CSV
               </h3>
               <p className="text-xs text-on-surface-variant mt-1">
-                Tự động nhận diện dữ liệu chuẩn RFC-4180. Hỗ trợ nhập theo Tên hoặc ID loại phòng, tự động bỏ qua bản ghi trùng lặp an toàn.
+                Hỗ trợ nhập danh sách dữ liệu từ tệp bảng tính CSV, tự động đối soát và cập nhật an toàn vào hệ thống.
               </p>
 
-              {/* Giới hạn đầu vào & Hàng đợi ngầm */}
+              {/* Giới hạn đầu vào */}
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low border border-border-grey text-on-surface">
                   📄 Định dạng: <strong className="text-primary">.CSV (UTF-8)</strong>
@@ -1416,15 +1576,15 @@ const BackupDataPage: React.FC = () => {
                   📊 Khuyến nghị: <strong className="text-primary">≤ 10.000 dòng</strong>
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  ⚡ Cơ chế: <strong>Hàng đợi ngầm (Queue)</strong>
+                  🛡️ Chế độ: <strong>Tự động kiểm tra trùng lặp</strong>
                 </span>
               </div>
 
-              {/* Banner giải thích tác vụ lâu */}
+              {/* Banner giải thích tác vụ */}
               <div className="mt-3 p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 text-blue-900 text-xs flex items-start gap-2.5">
                 <IoInformationCircleOutline size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="leading-relaxed text-[11px]">
-                  <strong>Lưu ý tiến trình:</strong> Với các tệp có dung lượng hoặc số lượng dòng lớn, hệ thống sẽ tự động xếp vào hàng đợi xử lý ngầm trên máy chủ để đảm bảo an toàn cơ sở dữ liệu. Quá trình xử lý có thể mất một vài phút tùy theo số lượng bản ghi, tiến trình sẽ tự động hoàn tất trong giây lát mà không làm gián đoạn các thao tác khác của bạn.
+                  <strong>Lưu ý:</strong> Đối với tệp có số lượng dòng lớn, hệ thống sẽ tự động xử lý tuần tự để đảm bảo tính toàn vẹn và độ chính xác của cơ sở dữ liệu.
                 </div>
               </div>
             </div>
@@ -1447,19 +1607,31 @@ const BackupDataPage: React.FC = () => {
                 />
               </div>
 
-              {/* Tải file mẫu */}
-              <div className="flex justify-between items-center p-3 bg-surface-container-low rounded-xl border border-border-grey">
+              {/* Tải file mẫu & Xuất dữ liệu hiện có */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-3 bg-surface-container-low rounded-xl border border-border-grey">
                 <div className="text-xs text-on-surface-variant">
-                  <span>Chưa có mẫu cấu trúc chuẩn? Tải file mẫu cấu trúc sẵn:</span>
+                  <span>Mẫu cấu trúc chuẩn & Trích xuất xem trước:</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDownloadSample}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
-                >
-                  <IoDownloadOutline size={14} />
-                  Tải file mẫu ({importType}.csv)
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDownloadSample}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+                  >
+                    <IoDownloadOutline size={14} />
+                    Tải file mẫu ({getImportTypeLabel(importType)})
+                  </button>
+                  <span className="text-zinc-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => handleExportCsv(importType, getImportTypeLabel(importType))}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+                    title="Xuất bảng này ra CSV để đối chiếu dữ liệu"
+                  >
+                    <IoDocumentTextOutline size={14} />
+                    Xuất CSV hiện có
+                  </button>
+                </div>
               </div>
 
               {/* Bước 2: Kéo thả file CSV */}
@@ -1483,13 +1655,12 @@ const BackupDataPage: React.FC = () => {
                       toastWarning('Vui lòng chỉ tải lên tệp định dạng .csv');
                     }
                   }}
-                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
-                    isDragging
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${isDragging
                       ? 'border-primary bg-primary-50/40'
                       : selectedFile
-                      ? 'border-emerald-400 bg-emerald-50/20'
-                      : 'border-border-grey bg-surface-container-low/50 hover:bg-surface-container-low'
-                  }`}
+                        ? 'border-emerald-400 bg-emerald-50/20'
+                        : 'border-border-grey bg-surface-container-low/50 hover:bg-surface-container-low'
+                    }`}
                   onClick={() => document.getElementById('csv-file-input')?.click()}
                 >
                   <input
@@ -1538,7 +1709,7 @@ const BackupDataPage: React.FC = () => {
               </div>
 
               {/* TIẾN TRÌNH NHẬP DỮ LIỆU TINH GỌN & THÂN THIỆN */}
-              {importProgress && importProgress.active && (
+              {importing && importProgress && importProgress.active && (
                 <div className="p-4 rounded-xl bg-surface-container-low border border-border-grey space-y-2.5 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1564,7 +1735,7 @@ const BackupDataPage: React.FC = () => {
                   {importProgress.percent < 100 && (
                     <div className="text-[11px] text-on-surface-variant bg-white/70 p-2.5 rounded-lg border border-border-grey/60 flex items-start gap-1.5">
                       <IoInformationCircleOutline size={14} className="text-primary flex-shrink-0 mt-0.5" />
-                      <span>{importProgress.subMessage || 'Hệ thống đang tiến hành xử lý ngầm trong hàng đợi. Quá trình có thể tốn một vài phút tùy dung lượng tệp, tiến trình sẽ hoàn tất sau lát nữa. Bạn có thể tiếp tục thao tác các tính năng khác trong thời gian chờ.'}</span>
+                      <span>{importProgress.subMessage || 'Hệ thống đang tiến hành xử lý dữ liệu. Quá trình có thể tốn một vài phút tùy dung lượng tệp.'}</span>
                     </div>
                   )}
 
@@ -1572,8 +1743,8 @@ const BackupDataPage: React.FC = () => {
                   <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-0.5">
                     {[
                       { idx: 1, label: 'Đọc tệp' },
-                      { idx: 2, label: 'Hàng đợi' },
-                      { idx: 3, label: 'Ghi CSDL' },
+                      { idx: 2, label: 'Kiểm tra' },
+                      { idx: 3, label: 'Cập nhật' },
                       { idx: 4, label: 'Hoàn tất' }
                     ].map((step, sIdx, arr) => {
                       const isDone = importProgress.stageIndex > step.idx || importProgress.percent === 100;
@@ -1581,13 +1752,12 @@ const BackupDataPage: React.FC = () => {
                       return (
                         <React.Fragment key={step.idx}>
                           <span
-                            className={`flex items-center gap-1 ${
-                              isDone
+                            className={`flex items-center gap-1 ${isDone
                                 ? 'text-emerald-700 font-semibold'
                                 : isCurrent
-                                ? 'text-primary font-bold'
-                                : 'text-zinc-400'
-                            }`}
+                                  ? 'text-primary font-bold'
+                                  : 'text-zinc-400'
+                              }`}
                           >
                             {isDone ? (
                               <IoCheckmarkCircleOutline size={13} className="text-emerald-600" />
@@ -1624,11 +1794,10 @@ const BackupDataPage: React.FC = () => {
             {/* Kết Quả Nhập (Nếu có) */}
             {importResult && (
               <div
-                className={`p-5 rounded-2xl border shadow-xs space-y-4 animate-in fade-in duration-200 ${
-                  importResult.success || (importResult.importedCount > 0)
+                className={`p-5 rounded-2xl border shadow-xs space-y-4 animate-in fade-in duration-200 ${importResult.success || (importResult.importedCount > 0)
                     ? 'bg-emerald-50/50 border-emerald-200'
                     : 'bg-red-50/50 border-red-200'
-                }`}
+                  }`}
               >
                 <div className="flex items-start gap-3">
                   {importResult.importedCount > 0 ? (
@@ -1654,15 +1823,15 @@ const BackupDataPage: React.FC = () => {
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-200/70">
                   <div className="bg-white p-2.5 rounded-xl border border-zinc-200 text-center">
                     <span className="text-[10px] text-zinc-500 font-semibold block uppercase">Thành công</span>
-                    <span className="text-sm font-bold text-emerald-600 block mt-0.5">{importResult.importedCount}</span>
+                    <span className="text-sm font-bold text-emerald-600 block mt-0.5">{(importResult.importedCount || 0).toLocaleString()}</span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-zinc-200 text-center">
                     <span className="text-[10px] text-zinc-500 font-semibold block uppercase">Bỏ qua</span>
-                    <span className="text-sm font-bold text-amber-600 block mt-0.5">{importResult.skippedCount}</span>
+                    <span className="text-sm font-bold text-amber-600 block mt-0.5">{(importResult.skippedCount || 0).toLocaleString()}</span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-zinc-200 text-center">
                     <span className="text-[10px] text-zinc-500 font-semibold block uppercase">Lỗi dữ liệu</span>
-                    <span className="text-sm font-bold text-red-600 block mt-0.5">{importResult.errorCount}</span>
+                    <span className="text-sm font-bold text-red-600 block mt-0.5">{(importResult.errorCount || 0).toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -1670,7 +1839,7 @@ const BackupDataPage: React.FC = () => {
                 <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60">
                   <span className="text-[11px] text-zinc-500 flex items-center gap-1 font-mono">
                     <IoTimerOutline size={14} className="text-primary" />
-                    <span>Thời gian xử lý: <strong>{importResult.durationMs ? `${importResult.durationMs} ms` : 'Nhanh chóng'}</strong></span>
+                    <span>Thời gian xử lý: <strong>{formatDuration(importResult.durationMs)}</strong></span>
                   </span>
                   <button
                     type="button"
@@ -1719,11 +1888,10 @@ const BackupDataPage: React.FC = () => {
                         {importResult.details.map((detail, idx) => (
                           <div
                             key={idx}
-                            className={`p-1.5 rounded ${
-                              detail.includes('Lỗi')
+                            className={`p-1.5 rounded ${detail.includes('Lỗi')
                                 ? 'bg-red-50 text-red-800'
                                 : 'bg-amber-50 text-amber-800'
-                            }`}
+                              }`}
                           >
                             {detail}
                           </div>
@@ -1752,7 +1920,7 @@ const BackupDataPage: React.FC = () => {
                   <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-[11px] flex items-center gap-2">
                     <IoTimerOutline size={15} className="text-amber-700 flex-shrink-0" />
                     <span>
-                      Tệp dữ liệu lớn ({filePreview.totalRows.toLocaleString()} dòng): Hệ thống sẽ tự động đưa vào <strong>Hàng đợi xử lý ngầm</strong> trên máy chủ. Quá trình có thể tốn một vài phút và sẽ hoàn tất sau lát nữa.
+                      Tệp dữ liệu lớn ({filePreview.totalRows.toLocaleString()} dòng): Hệ thống sẽ xử lý tuần tự để đảm bảo dữ liệu được cập nhật chính xác và an toàn.
                     </span>
                   </div>
                 )}
@@ -1881,11 +2049,10 @@ const BackupDataPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRestoreSource('server')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                  restoreSource === 'server'
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${restoreSource === 'server'
                     ? 'border-primary bg-primary-50/50 text-primary'
                     : 'border-border-grey bg-white text-on-surface-variant hover:bg-zinc-50'
-                }`}
+                  }`}
               >
                 <IoServerOutline size={16} />
                 <span>Bản sao lưu trên Server</span>
@@ -1894,11 +2061,10 @@ const BackupDataPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRestoreSource('upload')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                  restoreSource === 'upload'
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${restoreSource === 'upload'
                     ? 'border-primary bg-primary-50/50 text-primary'
                     : 'border-border-grey bg-white text-on-surface-variant hover:bg-zinc-50'
-                }`}
+                  }`}
               >
                 <IoCloudUploadOutline size={16} />
                 <span>Tải file từ máy tính</span>
@@ -1912,9 +2078,29 @@ const BackupDataPage: React.FC = () => {
                   onChange={(e) => setSelectedBackupId(Number(e.target.value))}
                   options={backups.map((b) => ({
                     value: String(b.id),
-                    label: `${b.fileName} (${b.formattedSize} - ${new Date(b.createdAt).toLocaleDateString('vi-VN')})`
+                    label: `${b.fileName} (${b.formattedSize}${b.cloudUrl ? ' • Catbox Cloud' : ''} - ${new Date(b.createdAt).toLocaleDateString('vi-VN')})`
                   }))}
                 />
+                {selectedBackupId && (() => {
+                  const b = backups.find(x => x.id === selectedBackupId);
+                  if (b?.cloudUrl) {
+                    return (
+                      <div className="mt-2.5 p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-start gap-2.5">
+                        <IoCloudDoneOutline className="text-indigo-600 shrink-0 mt-0.5" size={18} />
+                        <div className="space-y-0.5">
+                          <p className="font-bold flex items-center gap-1.5">
+                            <span>Lưu trữ trên Catbox.moe Cloud</span>
+                            <span className="text-[10px] font-normal text-indigo-700 bg-white px-1.5 py-0.2 rounded border border-indigo-200">Đám mây vĩnh viễn</span>
+                          </p>
+                          <p className="text-[11px] text-indigo-800">
+                            Khi xác nhận khôi phục, máy chủ sẽ tự động tải file từ đám mây Catbox, giải nén và nạp toàn bộ cấu trúc &amp; dữ liệu CSDL.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             ) : (
               <div>
@@ -1966,6 +2152,294 @@ const BackupDataPage: React.FC = () => {
       </Modal>
 
       {/* ══════════════════════════════════════════════ */}
+      {/* MODAL TIẾN TRÌNH NHẬP CSV (KHÓA ĐÓNG KHI ĐANG XỬ LÝ) */}
+      {/* ══════════════════════════════════════════════ */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          if (!importing) {
+            setIsImportModalOpen(false);
+          }
+        }}
+        showCloseButton={!importing}
+        closeOnBackdrop={!importing}
+        maxWidth="max-w-2xl"
+        title={
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${importing
+                  ? 'bg-primary-50 text-primary border border-primary/20'
+                  : importResult && (importResult.importedCount > 0 || importResult.success)
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}
+            >
+              {importing ? (
+                <IoSyncOutline className="animate-spin" size={20} />
+              ) : importResult && (importResult.importedCount > 0 || importResult.success) ? (
+                <IoCheckmarkCircleOutline size={22} />
+              ) : (
+                <IoAlertCircleOutline size={22} />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-[#002146] leading-tight">
+                  {importing ? 'Tiến Trình Nhập Dữ Liệu CSV' : 'Kết Quả Xử Lý Tệp CSV'}
+                </h3>
+                {importing ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                    ⚡ Đang xử lý
+                  </span>
+                ) : importResult && (importResult.importedCount > 0 || importResult.success) ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    ✓ Hoàn tất
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-300">
+                    ✕ Có lỗi xảy ra
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-on-surface-variant font-normal mt-0.5">
+                Danh mục: <strong className="text-[#002146]">{IMPORT_TYPES.find((t) => t.value === importType)?.label.split('(')[0].trim() || importType}</strong>
+              </p>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {/* CẢNH BÁO QUAN TRỌNG: TÁC VỤ MẤT THỜI GIAN & KHÔNG ĐÓNG MODAL */}
+          {importing && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-950 flex items-start gap-3.5 shadow-xs">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                <IoWarningOutline size={22} className="animate-bounce" />
+              </div>
+              <div className="space-y-1.5 text-xs leading-relaxed">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-amber-900 text-sm">
+                    Vui lòng giữ nguyên màn hình và KHÔNG TẮT MODAL này!
+                  </span>
+                </div>
+                <p className="text-amber-900 font-medium">
+                  Tính năng này cần phải xử lý trong một khoảng thời gian (khoảng <strong>1 đến 2 phút</strong> tùy theo khối lượng bản ghi) để hệ thống đọc tệp, phân tích đối soát, loại bỏ trùng lặp và ghi nhận an toàn vào cơ sở dữ liệu.
+                </p>
+                <div className="pt-1 flex items-center gap-1.5 text-[11px] text-amber-800 font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                  <span>Nút đóng và thao tác thoát tạm thời bị vô hiệu hóa để bảo đảm tiến trình tiếp tục không bị gián đoạn.</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* THÔNG TIN TỆP & ĐỒNG HỒ ĐẾM THỜI GIAN THỰC THI */}
+          <div className="p-3.5 rounded-xl bg-surface-container-low border border-border-grey flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary flex items-center justify-center shrink-0">
+                <IoDocumentTextOutline size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-on-surface truncate max-w-xs">{selectedFile?.name || 'Tệp CSV'}</p>
+                <p className="text-[11px] text-on-surface-variant">
+                  Dung lượng: <strong>{selectedFile ? (selectedFile.size / 1024).toFixed(1) : 0} KB</strong>
+                  {filePreview?.totalRows ? ` • Tổng dữ liệu: ${filePreview.totalRows.toLocaleString()} dòng` : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-border-grey shadow-2xs">
+              <IoTimerOutline size={16} className={importing ? 'text-primary animate-spin' : 'text-zinc-500'} />
+              <span className="text-[11px] text-on-surface-variant font-medium">Thời gian chạy:</span>
+              <span className="font-mono font-bold text-xs text-primary">
+                {Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
+              </span>
+            </div>
+          </div>
+
+          {/* SƠ ĐỒ 4 GIAI ĐOẠN TIẾN TRÌNH */}
+          <div className="p-3.5 rounded-xl bg-white border border-border-grey space-y-2">
+            <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+              Các giai đoạn tiến trình
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              {[
+                { idx: 1, label: 'Đọc tệp dữ liệu' },
+                { idx: 2, label: 'Kiểm tra hợp lệ' },
+                { idx: 3, label: 'Cập nhật hệ thống' },
+                { idx: 4, label: 'Hoàn tất' }
+              ].map((step) => {
+                const isDone = (importProgress?.stageIndex || 1) > step.idx || (importProgress?.percent === 100);
+                const isCurrent = (importProgress?.stageIndex || 1) === step.idx && (importProgress?.percent || 0) < 100;
+                return (
+                  <div
+                    key={step.idx}
+                    className={`p-2 rounded-xl border transition-all ${isDone
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : isCurrent
+                          ? 'bg-primary-50 border-primary/40 text-primary font-bold shadow-2xs'
+                          : 'bg-surface-container-low border-border-grey/50 text-zinc-400'
+                      }`}
+                  >
+                    <div className="flex items-center justify-center mb-1">
+                      {isDone ? (
+                        <IoCheckmarkCircleOutline size={16} className="text-emerald-600" />
+                      ) : isCurrent ? (
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block animate-ping" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-zinc-300 inline-block" />
+                      )}
+                    </div>
+                    <span className="text-[11px] block leading-tight">{step.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* THANH TIẾN ĐỘ & TRẠNG THÁI HIỆN TẠI */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <IoSyncOutline size={16} className={`text-primary shrink-0 ${importing ? 'animate-spin' : ''}`} />
+                <span className="font-semibold text-on-surface truncate">
+                  {importProgress?.statusMessage || (importing ? 'Hệ thống đang xử lý...' : 'Đã hoàn tất')}
+                </span>
+              </div>
+              <span className="font-mono font-bold text-sm text-primary shrink-0 ml-2">
+                {importProgress?.percent || (importing ? 15 : 100)}%
+              </span>
+            </div>
+
+            <div className="w-full h-3 bg-zinc-100 rounded-full overflow-hidden border border-border-grey/60 p-0.5">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ease-out ${importProgress?.percent === 100 ? 'bg-emerald-600' : 'bg-primary'
+                  }`}
+                style={{ width: `${importProgress?.percent || (importing ? 15 : 100)}%` }}
+              />
+            </div>
+
+            {importProgress?.subMessage && (
+              <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5 pt-0.5">
+                <IoInformationCircleOutline size={14} className="text-primary shrink-0" />
+                <span>{importProgress.subMessage}</span>
+              </p>
+            )}
+          </div>
+
+          {/* KẾT QUẢ XỬ LÝ (KHI HOÀN TẤT) */}
+          {importResult && (
+            <div className="space-y-3 pt-3 border-t border-border-grey animate-in fade-in duration-200">
+              <div
+                className={`p-4 rounded-xl border flex items-start gap-3 ${importResult.importedCount > 0 || importResult.success
+                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                    : 'bg-red-50/70 border-red-200 text-red-900'
+                  }`}
+              >
+                {importResult.importedCount > 0 || importResult.success ? (
+                  <IoCheckmarkCircleOutline size={24} className="text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <IoAlertCircleOutline size={24} className="text-red-600 shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-sm">
+                    {importResult.importedCount > 0 || importResult.success
+                      ? 'Nhập dữ liệu hoàn tất!'
+                      : 'Nhập dữ liệu không thành công'}
+                  </h4>
+                  <p className="text-xs mt-0.5 leading-relaxed">{importResult.message}</p>
+                </div>
+              </div>
+
+              {/* Thống kê 4 ô KPI */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-xl bg-surface-container-low border border-border-grey text-center">
+                  <span className="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Tổng số dòng</span>
+                  <span className="text-base font-extrabold text-on-surface font-mono">{importResult.totalRows.toLocaleString()}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 block mb-0.5">Thành công</span>
+                  <span className="text-base font-extrabold text-emerald-700 font-mono">+{importResult.importedCount.toLocaleString()}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-amber-700 block mb-0.5">Bỏ qua / Trùng</span>
+                  <span className="text-base font-extrabold text-amber-700 font-mono">{importResult.skippedCount.toLocaleString()}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-red-700 block mb-0.5">Dòng lỗi</span>
+                  <span className="text-base font-extrabold text-red-700 font-mono">{importResult.errorCount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Chi tiết lỗi nếu có */}
+              {importResult.details && importResult.details.length > 0 && (
+                <div className="p-3 rounded-xl bg-white border border-border-grey space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-on-surface">Chi tiết bản ghi ({importResult.details.length})</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(importResult.details?.join('\n') || '');
+                        toastSuccess('Đã sao chép danh sách chi tiết lỗi vào clipboard');
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+                    >
+                      <IoCopyOutline size={12} />
+                      <span>Sao chép chi tiết</span>
+                    </button>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto space-y-1 text-[11px] font-mono border border-zinc-200 rounded-lg p-2.5 bg-zinc-50">
+                    {importResult.details.map((detail, idx) => (
+                      <div key={idx} className={detail.includes('Lỗi') ? 'text-red-700 font-semibold' : 'text-amber-800'}>
+                        {detail}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CHÂN MODAL / HÀNH ĐỘNG */}
+          <div className="pt-4 border-t border-border-grey flex flex-wrap justify-between items-center gap-3">
+            <div className="text-[11px]">
+              {importing ? (
+                <span className="inline-flex items-center gap-1.5 text-amber-800 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+                  Đang xử lý dữ liệu... Vui lòng không đóng cửa sổ để tiến trình tiếp tục
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                  <IoCheckmarkCircleOutline size={14} />
+                  Tiến trình đã hoàn thành, bạn có thể an toàn đóng cửa sổ này
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              {importing ? (
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-200 text-zinc-500 cursor-not-allowed flex items-center gap-2 border border-zinc-300"
+                >
+                  <IoSyncOutline className="animate-spin" size={14} />
+                  <span>Đang Nhập Dữ Liệu...</span>
+                </button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="text-xs font-bold px-5"
+                >
+                  Hoàn Tất & Đóng
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ══════════════════════════════════════════════ */}
       {/* THÔNG BÁO TIẾN TRÌNH XUẤT TỆP THÂN THIỆN       */}
       {/* ══════════════════════════════════════════════ */}
       {exportProgress && exportProgress.active && (
@@ -1999,9 +2473,8 @@ const BackupDataPage: React.FC = () => {
           {/* Thanh tiến độ mảnh & thanh thoát */}
           <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-300 ease-out ${
-                exportProgress.stage === 'done' ? 'bg-emerald-600' : 'bg-primary'
-              }`}
+              className={`h-full rounded-full transition-all duration-300 ease-out ${exportProgress.stage === 'done' ? 'bg-emerald-600' : 'bg-primary'
+                }`}
               style={{ width: `${exportProgress.percent}%` }}
             />
           </div>

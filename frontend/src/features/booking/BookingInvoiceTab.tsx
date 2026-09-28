@@ -826,15 +826,15 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
                         <label className="font-label-md text-on-surface-variant text-xs">Số tiền thanh toán (VNĐ) *</label>
                         {Number(newPayment.amount) > 0 && (
                           <span className="text-[11px] text-primary font-medium">
-                            {parseInt(newPayment.amount).toLocaleString('vi-VN')} đ
+                            {Number(newPayment.amount).toLocaleString('vi-VN')} đ
                           </span>
                         )}
                       </div>
                       <Input
                         type="number"
-                        min="1000"
+                        min="0.01"
                         max={remainingAmount}
-                        step="1000"
+                        step="any"
                         value={newPayment.amount}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -927,7 +927,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
 
                         <Input
                           type="number"
-                          step="1000"
+                          step="any"
                           value={receivedCash}
                           onChange={(e) => setReceivedCash(e.target.value)}
                           placeholder="Nhập số tiền khách đưa..."
@@ -1078,9 +1078,9 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
           <Input
             label="Số tiền giảm trừ / điều chỉnh (VNĐ)"
             type="number"
-            min="1000"
+            min="0.01"
             max={invoice.totalAmount}
-            step="1000"
+            step="any"
             value={adjustData.discountAmount}
             onChange={(e) => setAdjustData({ ...adjustData, discountAmount: e.target.value })}
             placeholder="Ví dụ: 100000"

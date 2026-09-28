@@ -263,7 +263,7 @@ const SeasonalPricing: React.FC<SeasonalPricingProps> = ({ roomTypeId, basePrice
             label="Giá mỗi đêm (VNĐ)"
             type="number"
             min="0"
-            step="1000"
+            step="any"
             value={formData.pricePerNight}
             onChange={(e) => setFormData({ ...formData, pricePerNight: e.target.value })}
             placeholder="Ví dụ: 2000000"

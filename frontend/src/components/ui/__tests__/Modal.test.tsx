@@ -38,4 +38,31 @@ describe('Modal component', () => {
     fireEvent.click(closeBtn);
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
+
+  it('does not render close button when showCloseButton=false', () => {
+    const handleClose = vi.fn();
+    render(
+      <Modal isOpen={true} title="Tiến Trình Nhập Dữ Liệu" onClose={handleClose} showCloseButton={false}>
+        <p>Đang xử lý dữ liệu...</p>
+      </Modal>
+    );
+
+    expect(screen.queryByTitle('Đóng')).not.toBeInTheDocument();
+  });
+
+  it('does not call onClose when clicking backdrop and closeOnBackdrop=false', () => {
+    const handleClose = vi.fn();
+    const { container } = render(
+      <Modal isOpen={true} title="Tiến Trình Nhập Dữ Liệu" onClose={handleClose} closeOnBackdrop={false}>
+        <p>Đang xử lý dữ liệu...</p>
+      </Modal>
+    );
+
+    const backdrop = container.querySelector('.fixed.inset-0');
+    if (backdrop) {
+      fireEvent.mouseDown(backdrop);
+      fireEvent.mouseUp(backdrop);
+    }
+    expect(handleClose).not.toHaveBeenCalled();
+  });
 });

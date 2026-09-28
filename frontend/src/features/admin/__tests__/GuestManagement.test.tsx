@@ -1,7 +1,17 @@
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import GuestManagement from '../GuestManagement';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 // Mock useAuth
 vi.mock('../../../context/AuthContext', () => ({
@@ -33,7 +43,17 @@ vi.mock('../../../services/guestApi', () => {
     getGuests: vi.fn().mockResolvedValue([
       { id: 1, name: 'Nguyễn Văn A', phone: '0901234567', idNumber: '123456789012', email: 'a@example.com' },
     ]),
-    getGuestHistory: vi.fn().mockResolvedValue([]),
+    getGuestHistory: vi.fn().mockResolvedValue([
+      {
+        id: 101,
+        bookingId: 101,
+        checkInDate: '2026-09-20',
+        checkOutDate: '2026-09-22',
+        roomNumber: '103',
+        roomTypeName: 'Tiêu Chuẩn',
+        status: 'CHECKED_OUT',
+      },
+    ]),
     getGuestLoyalty: vi.fn().mockResolvedValue({ tier: 'SILVER', points: 100 }),
   };
   return {
@@ -45,7 +65,11 @@ vi.mock('../../../services/guestApi', () => {
 describe('GuestManagement Component', () => {
   it('renders guest management header and search input', async () => {
     await act(async () => {
-      render(<GuestManagement />);
+      render(
+        <MemoryRouter>
+          <GuestManagement />
+        </MemoryRouter>
+      );
     });
 
     expect(screen.getByText('Quản lý Khách hàng')).toBeInTheDocument();
@@ -54,7 +78,11 @@ describe('GuestManagement Component', () => {
 
   it('renders guest list table headers and loaded data', async () => {
     await act(async () => {
-      render(<GuestManagement />);
+      render(
+        <MemoryRouter>
+          <GuestManagement />
+        </MemoryRouter>
+      );
     });
 
     expect(screen.getByText('Tên Khách Hàng')).toBeInTheDocument();
@@ -64,6 +92,45 @@ describe('GuestManagement Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument();
+    });
+  });
+
+  it('opens history modal and clicking on a stay history item navigates to invoice details', async () => {
+    await act(async () => {
+      render(
+        <MemoryRouter>
+          <GuestManagement />
+        </MemoryRouter>
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument();
+    });
+
+    // Bấm nút xem lịch sử lưu trú
+    const historyButtons = screen.getAllByTitle('Lịch sử lưu trú');
+    expect(historyButtons.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      historyButtons[0].click();
+    });
+
+    // Kiểm tra modal lịch sử mở ra với thông tin phòng 103
+    await waitFor(() => {
+      expect(screen.getByText('Lịch sử Lưu trú')).toBeInTheDocument();
+      expect(screen.getByText(/Phòng 103/)).toBeInTheDocument();
+    });
+
+    // Bấm vào thẻ lịch sử lưu trú (hoặc nút Xem Hóa đơn)
+    const invoiceBtn = screen.getByText('Xem Hóa đơn');
+    await act(async () => {
+      invoiceBtn.click();
+    });
+
+    // Xác nhận đã điều hướng sang /manage/bookings/101?tab=invoice
+    expect(mockNavigate).toHaveBeenCalledWith('/manage/bookings/101?tab=invoice', {
+      state: { from: '/manage/guests' },
     });
   });
 });

@@ -8,4 +8,6 @@ import java.util.List;
 public interface PublicGroupBookingRequestRepository extends JpaRepository<PublicGroupBookingRequest, Long> {
 	List<PublicGroupBookingRequest> findAllByOrderByCreatedAtDesc();
 	long countByStatus(plant.stay.model.PublicGroupBookingRequestStatus status);
+	long countByPhoneAndStatus(String phone, plant.stay.model.PublicGroupBookingRequestStatus status);
+	boolean existsByPhoneAndCheckInDateAndCreatedAtAfter(String phone, java.time.LocalDate checkInDate, java.time.LocalDateTime since);
 }

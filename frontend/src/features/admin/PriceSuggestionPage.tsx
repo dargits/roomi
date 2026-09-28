@@ -22,7 +22,9 @@ import {
   IoSparklesOutline,
   IoSend,
   IoChatbubbleEllipsesOutline,
-  IoBulbOutline
+  IoBulbOutline,
+  IoFlameOutline,
+  IoPricetagOutline
 } from 'react-icons/io5';
 import PageHeader from '../../components/ui/PageHeader';
 import Button from '../../components/ui/Button';
@@ -40,32 +42,64 @@ import {
 const fmtCurrency = (amount?: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount || 0);
 
+// Helper nhận diện ngày cuối tuần chính xác (Thứ Sáu, Thứ Bảy, Chủ Nhật)
+const isWeekendDay = (dow?: string): boolean => {
+  if (!dow) return false;
+  const d = dow.toLowerCase().trim();
+  return d.includes('sáu') || d.includes('6') 
+      || d.includes('bảy') || d.includes('7') 
+      || d.includes('chủ nhật') || d.includes('cn')
+      || d.includes('friday') || d.includes('saturday') || d.includes('sunday');
+};
+
 const renderAiMarkdown = (content: string) => {
   if (!content) return null;
   const lines = content.split('\n');
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5 text-xs sm:text-sm text-on-surface leading-relaxed">
       {lines.map((line, i) => {
         const trimmed = line.trim();
-        if (!trimmed) return <div key={i} className="h-1" />;
+        if (!trimmed) return <div key={i} className="h-1.5" />;
+
+        // Table row
+        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+          const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
+          const isHeader = i > 0 && lines[i - 1]?.includes('|---');
+          const isSeparator = trimmed.includes('---');
+          if (isSeparator) return null;
+
+          return (
+            <div key={i} className="overflow-x-auto my-1">
+              <div className="grid grid-flow-col auto-cols-fr gap-2 p-2 bg-surface-container-lowest border border-border-grey/70 rounded-lg text-xs">
+                {cells.map((cell, cIdx) => (
+                  <span key={cIdx} className={isHeader ? 'font-bold text-primary' : 'text-on-surface'}>
+                    {cell}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
         if (trimmed.startsWith('### ')) {
           return (
-            <h4 key={i} className="text-xs sm:text-sm font-bold text-primary mt-2 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+            <h4 key={i} className="text-xs sm:text-sm font-bold text-primary mt-3 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
               {trimmed.replace('### ', '')}
             </h4>
           );
         }
         if (trimmed.startsWith('## ')) {
           return (
-            <h3 key={i} className="text-sm sm:text-base font-bold text-on-surface border-b border-border-grey pb-1 mt-3">
-              {trimmed.replace('## ', '')}
+            <h3 key={i} className="text-sm sm:text-base font-bold text-on-surface border-b border-border-grey/80 pb-1 mt-4 flex items-center gap-2">
+              <IoSparkles className="text-primary text-sm shrink-0" />
+              <span>{trimmed.replace('## ', '')}</span>
             </h3>
           );
         }
         if (trimmed.startsWith('# ')) {
           return (
-            <h2 key={i} className="text-base font-extrabold text-on-surface mt-3">
+            <h2 key={i} className="text-base sm:text-lg font-extrabold text-on-surface mt-4 text-primary">
               {trimmed.replace('# ', '')}
             </h2>
           );
@@ -75,8 +109,8 @@ const renderAiMarkdown = (content: string) => {
           const parts = text.split(/(\*\*.*?\*\*)/g);
           return (
             <div key={i} className="flex items-start gap-2 pl-2">
-              <span className="text-primary font-bold mt-0.5">•</span>
-              <div className="text-on-surface">
+              <span className="text-primary font-bold mt-1 text-xs">•</span>
+              <div className="text-on-surface flex-1">
                 {parts.map((part, pIdx) => {
                   if (part.startsWith('**') && part.endsWith('**')) {
                     return <strong key={pIdx} className="font-bold text-primary">{part.slice(2, -2)}</strong>;
@@ -136,17 +170,24 @@ const PriceSuggestionPage: React.FC = () => {
   const [loadingDayAiDate, setLoadingDayAiDate] = useState<string | null>(null);
   const [isDayAiModalOpen, setIsDayAiModalOpen] = useState<boolean>(false);
 
-  // Tính toán dữ liệu kinh doanh 30 ngày cần thiết cho việc phân tích
+  // Tính toán dữ liệu kinh doanh 30 ngày chuẩn xác theo công thức
   const metrics = React.useMemo(() => {
     if (!data?.suggestions || data.suggestions.length === 0) {
       return {
         avgOccupancy: 0,
         totalBookedNights: 0,
         totalCapacityNights: 0,
+        weekendDaysCount: 0,
+        weekendBookedNights: 0,
+        weekendCapacityNights: 0,
         weekendAvgOcc: 0,
+        weekdayDaysCount: 0,
+        weekdayBookedNights: 0,
+        weekdayCapacityNights: 0,
         weekdayAvgOcc: 0,
         estimatedRevenue: 0,
         potentialBoostRevenue: 0,
+        boostPercent: 0,
         roomTypeSummary: [] as Array<{
           name: string;
           basePrice: number;
@@ -162,9 +203,12 @@ const PriceSuggestionPage: React.FC = () => {
     let totalCapacity = 0;
     let weekendBooked = 0;
     let weekendCap = 0;
+    let weekendDays = 0;
     let weekdayBooked = 0;
     let weekdayCap = 0;
+    let weekdayDays = 0;
     let totalRev = 0;
+    let weekendRev = 0;
 
     const roomTypeMap = new Map<string, { name: string; basePrice: number; totalRooms: number; booked: number; daysCount: number }>();
 
@@ -174,12 +218,13 @@ const PriceSuggestionPage: React.FC = () => {
       totalBooked += occ;
       totalCapacity += tot;
 
-      const dow = s.dayOfWeek || '';
-      const isWeekend = ['Thứ 6', 'Thứ 7', 'Chủ Nhật', 'Friday', 'Saturday', 'Sunday'].includes(dow);
+      const isWeekend = isWeekendDay(s.dayOfWeek);
       if (isWeekend) {
+        weekendDays++;
         weekendBooked += occ;
         weekendCap += tot;
       } else {
+        weekdayDays++;
         weekdayBooked += occ;
         weekdayCap += tot;
       }
@@ -198,7 +243,11 @@ const PriceSuggestionPage: React.FC = () => {
           prev.daysCount += 1;
           roomTypeMap.set(key, prev);
 
-          totalRev += (rt.occupiedRooms || 0) * (rt.basePrice || 0);
+          const rev = (rt.occupiedRooms || 0) * (rt.basePrice || 0);
+          totalRev += rev;
+          if (isWeekend) {
+            weekendRev += rev;
+          }
         }
       }
     }
@@ -206,7 +255,16 @@ const PriceSuggestionPage: React.FC = () => {
     const avgOcc = totalCapacity > 0 ? (totalBooked / totalCapacity) * 100 : 0;
     const weekendAvgOcc = weekendCap > 0 ? (weekendBooked / weekendCap) * 100 : 0;
     const weekdayAvgOcc = weekdayCap > 0 ? (weekdayBooked / weekdayCap) * 100 : 0;
-    const potentialBoostRevenue = Math.round(totalRev * 0.14);
+
+    // Công thức tính tiềm năng tăng doanh thu dựa trên Dynamic Pricing thực tế:
+    // 1. Tối ưu surge pricing cho ngày cuối tuần & cao điểm (+15% giá bán)
+    // 2. Kích cầu ngày thường: kích hoạt lấp thêm 12% số đêm trống với mức giá ưu đãi (-15% so với giá cơ sở)
+    const avgRoomPrice = totalBooked > 0 ? (totalRev / totalBooked) : 700000;
+    const weekdayVacantNights = Math.max(0, weekdayCap - weekdayBooked);
+    const potentialSurgeBoost = Math.round(weekendRev * 0.15);
+    const potentialStimulationBoost = Math.round(weekdayVacantNights * 0.12 * (avgRoomPrice * 0.85));
+    const potentialBoostRevenue = potentialSurgeBoost + potentialStimulationBoost;
+    const boostPercent = totalRev > 0 ? Math.round((potentialBoostRevenue / totalRev) * 100) : 15;
 
     const roomTypeSummary = Array.from(roomTypeMap.values()).map(r => {
       const maxPossible = r.totalRooms * (r.daysCount || 30);
@@ -224,10 +282,17 @@ const PriceSuggestionPage: React.FC = () => {
       avgOccupancy: Math.round(avgOcc * 10) / 10,
       totalBookedNights: totalBooked,
       totalCapacityNights: totalCapacity,
+      weekendDaysCount: weekendDays,
+      weekendBookedNights: weekendBooked,
+      weekendCapacityNights: weekendCap,
       weekendAvgOcc: Math.round(weekendAvgOcc * 10) / 10,
+      weekdayDaysCount: weekdayDays,
+      weekdayBookedNights: weekdayBooked,
+      weekdayCapacityNights: weekdayCap,
       weekdayAvgOcc: Math.round(weekdayAvgOcc * 10) / 10,
       estimatedRevenue: totalRev,
       potentialBoostRevenue,
+      boostPercent,
       roomTypeSummary
     };
   }, [data]);
@@ -239,7 +304,6 @@ const PriceSuggestionPage: React.FC = () => {
   const fetchSuggestions = async () => {
     try {
       setIsLoading(true);
-      // Lấy toàn bộ gợi ý bao gồm cả đã bỏ qua để phân loại tab
       const res = await priceSuggestionApi.getSuggestions(30, true);
       setData(res);
       if (res) {
@@ -250,8 +314,8 @@ const PriceSuggestionPage: React.FC = () => {
         });
       }
     } catch (err: any) {
-      console.error('Failed to load suggestions:', err);
-      toastError(err?.response?.data?.message || 'Không thể tải danh sách gợi ý điều chỉnh giá.');
+      console.error('Failed to fetch price suggestions:', err);
+      toastError(err?.response?.data?.message || 'Không thể tải danh sách gợi ý giá.');
     } finally {
       setIsLoading(false);
     }
@@ -259,20 +323,20 @@ const PriceSuggestionPage: React.FC = () => {
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (configForm.highOccupancyThreshold <= configForm.lowOccupancyThreshold) {
-      toastError('Ngưỡng trên phải lớn hơn ngưỡng dưới.');
+    if (configForm.lowOccupancyThreshold >= configForm.highOccupancyThreshold) {
+      toastError('Ngưỡng lấp đầy thấp phải nhỏ hơn ngưỡng cao.');
       return;
     }
 
     try {
       setIsSavingConfig(true);
       await priceSuggestionApi.updateConfig(configForm);
-      toastSuccess('Đã cập nhật cấu hình ngưỡng lấp đầy thành công.');
+      toastSuccess('Đã cập nhật ngưỡng gợi ý điều chỉnh giá.');
       setIsConfigModalOpen(false);
       fetchSuggestions();
     } catch (err: any) {
-      console.error('Failed to save config:', err);
-      toastError(err?.response?.data?.message || 'Cập nhật cấu hình thất bại.');
+      console.error('Failed to update config:', err);
+      toastError(err?.response?.data?.message || 'Lưu cấu hình thất bại.');
     } finally {
       setIsSavingConfig(false);
     }
@@ -283,7 +347,7 @@ const PriceSuggestionPage: React.FC = () => {
     try {
       setIsDismissing(true);
       await priceSuggestionApi.dismissSuggestion(dismissTargetDate);
-      toastSuccess(`Đã bỏ qua gợi ý cho ngày ${dismissTargetDate}. Gợi ý sẽ không hiện lại.`);
+      toastSuccess(`Đã bỏ qua gợi ý cho ngày ${dismissTargetDate}.`);
       setDismissTargetDate(null);
       fetchSuggestions();
     } catch (err: any) {
@@ -372,7 +436,6 @@ const PriceSuggestionPage: React.FC = () => {
     if (activeTab === 'dismissed') {
       return s.dismissed;
     }
-    // Các tab hoạt động không chứa gợi ý đã bỏ qua và không lấy OPTIMAL
     if (s.dismissed || s.suggestionType === 'OPTIMAL') {
       return false;
     }
@@ -389,21 +452,23 @@ const PriceSuggestionPage: React.FC = () => {
     setExpandedDate(prev => prev === dateStr ? null : dateStr);
   };
 
+  const occDiff = Math.round((metrics.weekendAvgOcc - metrics.weekdayAvgOcc) * 10) / 10;
+
   return (
-    <div className="space-y-4">
-      {/* Header trang */}
+    <div className="space-y-4 pb-10">
+      {/* Header trang đồng bộ chuẩn PMS */}
       <PageHeader
         icon={IoTrendingUpOutline}
         title="Gợi ý điều chỉnh giá theo công suất dự báo"
-        subtitle="Phân tích chiến lược & Gợi ý điều chỉnh giá thông minh bằng AI Gemini Flash nạp toàn bộ công suất 30 ngày, dữ liệu quá khứ và giá các loại phòng"
+        subtitle="Hệ thống Revenue Management tự động đối chiếu công suất 30 ngày tới & quá khứ, kết hợp Trợ lý AI Gemini Flash đề xuất chiến lược giá tối ưu."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="primary"
               size="sm"
               onClick={handleRunOverallAiAnalysis}
               isLoading={isAiAnalyzing}
-              className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-primary to-indigo-700 hover:from-primary-hover hover:to-indigo-800 text-white shadow-sm cursor-pointer rounded-xl font-semibold"
             >
               <IoSparkles size={16} className="text-lodgify-lime" />
               <span>AI Phân tích chiến lược 30 ngày</span>
@@ -412,7 +477,7 @@ const PriceSuggestionPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setIsConfigModalOpen(true)}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 rounded-xl border-border-grey hover:bg-surface-container"
             >
               <IoSettingsOutline size={16} />
               <span>Cấu hình ngưỡng</span>
@@ -422,7 +487,7 @@ const PriceSuggestionPage: React.FC = () => {
               size="sm"
               onClick={fetchSuggestions}
               disabled={isLoading}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 rounded-xl border-border-grey hover:bg-surface-container"
             >
               <IoRefreshOutline size={16} className={isLoading ? 'animate-spin' : ''} />
               <span>Làm mới</span>
@@ -431,7 +496,7 @@ const PriceSuggestionPage: React.FC = () => {
               variant="primary"
               size="sm"
               onClick={() => navigate('/manage/room-types')}
-              className="flex items-center gap-1.5 bg-agoda-blue"
+              className="flex items-center gap-1.5 bg-agoda-blue rounded-xl"
             >
               <IoBedOutline size={16} />
               <span>Cấu hình giá phòng</span>
@@ -440,130 +505,169 @@ const PriceSuggestionPage: React.FC = () => {
         }
       />
 
-      {/* Cam kết kiểm soát & An toàn: Tuyệt đối không tự ý đổi giá */}
-      <div className="p-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-DEFAULT flex items-start gap-3">
-        <IoShieldCheckmarkOutline size={20} className="text-[#2563EB] shrink-0 mt-0.5" />
-        <div className="text-xs text-[#1E40AF]">
-          <p className="font-bold">Hệ thống hỗ trợ gợi ý có kiểm soát — Tuyệt đối không tự động đổi giá</p>
-          <p className="mt-0.5 text-on-surface-variant">
+      {/* Cam kết an toàn & Nguyên tắc kiểm soát */}
+      <div className="p-3.5 bg-blue-50/80 border border-blue-200/90 rounded-2xl flex items-start gap-3 shadow-xs">
+        <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+          <IoShieldCheckmarkOutline size={18} />
+        </div>
+        <div className="text-xs text-blue-900 leading-relaxed">
+          <p className="font-bold text-sm text-blue-950">Hệ thống hỗ trợ gợi ý có kiểm soát — Tuyệt đối không tự động đổi giá</p>
+          <p className="mt-0.5 text-blue-800">
             Mọi gợi ý chỉ mang tính chất tham khảo dựa trên công suất phòng và dữ liệu tham chiếu. 
-            Mọi thao tác thay đổi giá phải do Chủ cơ sở trực tiếp thực hiện qua tính năng cấu hình giá đã có.
+            Mọi thao tác thay đổi giá phải do Chủ cơ sở hoặc Quản trị viên trực tiếp thực hiện qua tính năng cấu hình giá loại phòng.
           </p>
         </div>
       </div>
 
-      {/* Dữ liệu Kinh Doanh & Dự Báo 30 Ngày (Dành cho AI và Chủ cơ sở) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Card 1: Công suất trung bình */}
-        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
-          <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Công suất dự báo 30 ngày</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className={`text-2xl font-extrabold ${metrics.avgOccupancy >= (data?.highOccupancyThreshold || 80) ? 'text-alert-red' : metrics.avgOccupancy <= (data?.lowOccupancyThreshold || 30) ? 'text-primary' : 'text-on-surface'}`}>
-              {metrics.avgOccupancy}%
-            </span>
-            <span className="text-xs text-on-surface-variant font-medium">
-              ({metrics.totalBookedNights}/{metrics.totalCapacityNights} đêm)
-            </span>
+      {/* 4 Thẻ KPI Chỉ Số Vận Hành & Dự Báo 30 Ngày */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Card 1: Công suất dự báo 30 ngày */}
+        <div className="p-4 bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-secondary uppercase tracking-wider">Công suất dự báo 30 ngày</span>
+              <span className="w-2 h-2 rounded-full bg-primary" />
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className={`text-2xl sm:text-3xl font-extrabold ${metrics.avgOccupancy >= (data?.highOccupancyThreshold || 80) ? 'text-alert-red' : metrics.avgOccupancy <= (data?.lowOccupancyThreshold || 30) ? 'text-primary' : 'text-on-surface'}`}>
+                {metrics.avgOccupancy}%
+              </span>
+              <span className="text-xs text-on-surface-variant font-medium">
+                ({metrics.totalBookedNights}/{metrics.totalCapacityNights} đêm)
+              </span>
+            </div>
           </div>
-          <div className="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden">
-            <div
-              className={`h-full rounded-full ${metrics.avgOccupancy >= 70 ? 'bg-emerald-600' : metrics.avgOccupancy >= 40 ? 'bg-agoda-blue' : 'bg-amber-500'}`}
-              style={{ width: `${Math.min(100, metrics.avgOccupancy)}%` }}
-            />
+          <div className="mt-3">
+            <div className="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${metrics.avgOccupancy >= 70 ? 'bg-emerald-600' : metrics.avgOccupancy >= 40 ? 'bg-agoda-blue' : 'bg-amber-500'}`}
+                style={{ width: `${Math.min(100, metrics.avgOccupancy)}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-on-surface-variant mt-1.5 flex items-center justify-between">
+              <span>Đã đặt trước on-the-books</span>
+              <span className="font-semibold text-on-surface">{metrics.totalBookedNights} đêm</span>
+            </p>
           </div>
         </div>
 
-        {/* Card 2: Doanh thu phòng cơ sở dự kiến */}
-        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
-          <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Doanh thu phòng đã đặt</span>
-          <div className="mt-1">
-            <span className="text-2xl font-extrabold text-on-surface">
-              {fmtCurrency(metrics.estimatedRevenue)}
-            </span>
+        {/* Card 2: Doanh thu phòng đã đặt */}
+        <div className="p-4 bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-secondary uppercase tracking-wider">Doanh thu phòng đã đặt</span>
+              <IoPricetagOutline size={16} className="text-primary" />
+            </div>
+            <div className="mt-2">
+              <span className="text-2xl sm:text-3xl font-extrabold text-on-surface">
+                {fmtCurrency(metrics.estimatedRevenue)}
+              </span>
+            </div>
           </div>
-          <p className="text-[11px] text-on-surface-variant mt-1.5">
+          <p className="text-[11px] text-on-surface-variant mt-3 border-t border-border-grey/40 pt-2">
             Tính trên các lượt đặt hiện có trong 30 ngày tới
           </p>
         </div>
 
-        {/* Card 3: Tiềm năng tối ưu thêm */}
-        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Tiềm năng tăng thêm (AI)</span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-              +14%
-            </span>
+        {/* Card 3: Tiềm năng tối ưu thêm (AI) */}
+        <div className="p-4 bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-secondary uppercase tracking-wider">Tiềm năng tăng thêm (AI)</span>
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                +{metrics.boostPercent}%
+              </span>
+            </div>
+            <div className="mt-2">
+              <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600">
+                +{fmtCurrency(metrics.potentialBoostRevenue)}
+              </span>
+            </div>
           </div>
-          <div className="mt-1">
-            <span className="text-2xl font-extrabold text-emerald-700">
-              +{fmtCurrency(metrics.potentialBoostRevenue)}
-            </span>
-          </div>
-          <p className="text-[11px] text-on-surface-variant mt-1.5">
-            Ước tính khi tăng giá ngày cao điểm &amp; kích cầu
+          <p className="text-[11px] text-on-surface-variant mt-3 border-t border-border-grey/40 pt-2 flex items-center gap-1">
+            <IoSparkles className="text-emerald-600 shrink-0" size={13} />
+            <span>Tối ưu surge pricing ngày cao điểm &amp; kích cầu</span>
           </p>
         </div>
 
-        {/* Card 4: Phân bổ Cuối tuần vs Ngày thường */}
-        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
-          <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Cuối tuần vs Ngày thường</span>
-          <div className="flex items-center justify-between mt-1 text-xs">
-            <div>
-              <span className="text-on-surface-variant">Cuối tuần (T6-CN):</span>
-              <p className="text-base font-bold text-alert-red">{metrics.weekendAvgOcc}%</p>
+        {/* Card 4: Phân bổ Cuối tuần vs Ngày thường (ĐÃ SỬA CÔNG THỨC) */}
+        <div className="p-4 bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-secondary uppercase tracking-wider">Cuối tuần vs Ngày thường</span>
+              <IoCalendarOutline size={16} className="text-secondary" />
             </div>
-            <div className="text-right">
-              <span className="text-on-surface-variant">Ngày thường (T2-T5):</span>
-              <p className="text-base font-bold text-primary">{metrics.weekdayAvgOcc}%</p>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="p-2 bg-amber-50/50 border border-amber-100 rounded-xl">
+                <span className="text-[10px] text-amber-900 font-semibold block">Cuối tuần (T6-CN)</span>
+                <span className="text-lg font-extrabold text-amber-700">{metrics.weekendAvgOcc}%</span>
+                <span className="text-[10px] text-amber-800/80 block mt-0.5">({metrics.weekendBookedNights}/{metrics.weekendCapacityNights} đêm)</span>
+              </div>
+              <div className="p-2 bg-blue-50/50 border border-blue-100 rounded-xl">
+                <span className="text-[10px] text-blue-900 font-semibold block">Ngày thường (T2-T5)</span>
+                <span className="text-lg font-extrabold text-primary">{metrics.weekdayAvgOcc}%</span>
+                <span className="text-[10px] text-blue-800/80 block mt-0.5">({metrics.weekdayBookedNights}/{metrics.weekdayCapacityNights} đêm)</span>
+              </div>
             </div>
           </div>
-          <p className="text-[11px] text-on-surface-variant mt-1">
-            Chênh lệch: <strong>{Math.round((metrics.weekendAvgOcc - metrics.weekdayAvgOcc) * 10) / 10}%</strong>
-          </p>
+          <div className="text-[11px] text-on-surface-variant mt-2 border-t border-border-grey/40 pt-1.5 flex items-center justify-between">
+            <span>Chênh lệch:</span>
+            <span className={`font-bold ${occDiff > 0 ? 'text-amber-700' : occDiff < 0 ? 'text-primary' : 'text-on-surface'}`}>
+              {occDiff > 0 ? `+${occDiff}% (Cuối tuần cao hơn)` : occDiff < 0 ? `${occDiff}% (Ngày thường cao hơn)` : 'Cân bằng'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Thẻ Bảng Tóm Tắt Công Suất Theo Từng Loại Phòng */}
+      {/* Bảng Tóm Tắt Nhu Cầu & Công Suất Theo Từng Hạng Phòng */}
       {metrics.roomTypeSummary.length > 0 && (
-        <div className="bg-surface-container-lowest border border-border-grey rounded-DEFAULT p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
-              <IoBedOutline className="text-primary" size={15} />
+        <div className="bg-surface-container-lowest border border-border-grey/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+            <h4 className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <IoBedOutline size={14} />
+              </div>
               <span>Phân rã nhu cầu &amp; Công suất theo từng hạng phòng (30 ngày tới)</span>
             </h4>
-            <span className="text-[11px] text-on-surface-variant">
-              Tổng số phòng cơ sở: <strong>{data?.totalRooms || 0} phòng</strong>
+            <span className="text-xs text-on-surface-variant font-medium">
+              Tổng quy mô cơ sở: <strong className="text-on-surface">{data?.totalRooms || 0} phòng</strong>
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {metrics.roomTypeSummary.map((rt) => {
-              const isHigh = rt.occRate >= 70;
-              const isLow = rt.occRate <= 35;
+              const isHigh = rt.occRate >= 60;
+              const isLow = rt.occRate <= 25;
               return (
-                <div key={rt.name} className="p-3 bg-surface-container-low border border-border-grey rounded-DEFAULT text-xs">
-                  <div className="flex items-center justify-between">
-                    <strong className="text-on-surface font-bold truncate">{rt.name}</strong>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      isHigh
-                        ? 'bg-red-50 text-alert-red border border-red-200'
-                        : isLow
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    }`}>
-                      {isHigh ? 'Nhu cầu cao' : isLow ? 'Nhu cầu thấp' : 'Ổn định'}
-                    </span>
+                <div key={rt.name} className="p-3.5 bg-surface-container-low/60 hover:bg-surface-container-low border border-border-grey/70 rounded-xl transition-all text-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <strong className="text-on-surface font-bold text-sm truncate">{rt.name}</strong>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                        isHigh
+                          ? 'bg-red-50 text-alert-red border border-red-200'
+                          : isLow
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      }`}>
+                        {isHigh ? 'Nhu cầu cao' : isLow ? 'Nhu cầu thấp' : 'Ổn định'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-3 text-on-surface-variant">
+                      <span>Giá niêm yết:</span>
+                      <strong className="text-on-surface font-bold">{fmtCurrency(rt.basePrice)}/đêm</strong>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-1.5 text-on-surface-variant">
+                      <span>Đã bán 30 ngày:</span>
+                      <strong className="text-on-surface">{rt.bookedRooms30d} đêm ({rt.occRate}%)</strong>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between mt-2 text-on-surface-variant">
-                    <span>Giá cơ sở:</span>
-                    <strong className="text-on-surface">{fmtCurrency(rt.basePrice)}/đêm</strong>
-                  </div>
-                  <div className="flex items-center justify-between mt-1 text-on-surface-variant">
-                    <span>Đã bán 30 ngày:</span>
-                    <strong className="text-on-surface">{rt.bookedRooms30d} đêm ({rt.occRate}%)</strong>
-                  </div>
-                  <div className="w-full bg-surface-container rounded-full h-1 mt-2 overflow-hidden">
+
+                  <div className="w-full bg-surface-container rounded-full h-1.5 mt-3 overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${isHigh ? 'bg-alert-red' : isLow ? 'bg-amber-500' : 'bg-emerald-600'}`}
+                      className={`h-full rounded-full transition-all duration-500 ${isHigh ? 'bg-alert-red' : isLow ? 'bg-amber-500' : 'bg-emerald-600'}`}
                       style={{ width: `${Math.min(100, rt.occRate)}%` }}
                     />
                   </div>
@@ -574,24 +678,24 @@ const PriceSuggestionPage: React.FC = () => {
         </div>
       )}
 
-      {/* Trợ Lý AI Phân Tích & Chiến Lược Giá (Đồng bộ chuẩn hệ thống StayAway) */}
-      <div className="bg-surface-container-lowest border border-border-grey rounded-DEFAULT shadow-xs p-4 sm:p-5 space-y-4">
+      {/* Trợ Lý AI Phân Tích & Chiến Lược Giá (Copilot Stay Away) */}
+      <div className="bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs p-4 sm:p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-DEFAULT bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-              <IoSparkles size={20} className="text-primary" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+              <IoSparkles size={20} className="text-lodgify-lime" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm sm:text-base font-bold text-on-surface">
                   Chiến Lược Định Giá &amp; Tối Ưu Doanh Thu Bằng AI
                 </h3>
-                <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
-                  Gemini Flash AI
+                <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                  Gemini Flash AI Copilot
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant mt-0.5">
-                AI nạp toàn bộ công suất 30 ngày, lịch sử đặt phòng và giá từng hạng phòng để chẩn đoán &amp; khuyến nghị tăng/giảm giá.
+                AI tổng hợp dữ liệu 30 ngày qua (thực tế), lịch sử booking 30 ngày tới, chính sách giá cuối tuần và phân rã từng loại phòng để tư vấn.
               </p>
             </div>
           </div>
@@ -602,7 +706,7 @@ const PriceSuggestionPage: React.FC = () => {
               size="sm"
               isLoading={isAiAnalyzing}
               onClick={handleRunOverallAiAnalysis}
-              className="bg-primary hover:bg-primary-hover text-white font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="bg-primary hover:bg-primary-hover text-white font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer rounded-xl"
             >
               <IoSparkles size={15} className="text-lodgify-lime" />
               <span>{aiOverallAnalysis ? 'Phân tích lại toàn diện' : 'Khởi chạy Phân tích AI'}</span>
@@ -613,6 +717,7 @@ const PriceSuggestionPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsAiPanelOpen((v) => !v)}
+                className="rounded-xl border-border-grey"
               >
                 {isAiPanelOpen ? 'Thu gọn' : 'Xem kết quả'}
               </Button>
@@ -622,17 +727,17 @@ const PriceSuggestionPage: React.FC = () => {
 
         {/* Nội dung kết quả phân tích AI */}
         {isAiPanelOpen && (
-          <div className="pt-3 border-t border-border-grey space-y-4 animate-page-enter">
+          <div className="pt-3 border-t border-border-grey/70 space-y-4 animate-page-enter">
             {isAiAnalyzing ? (
-              <div className="py-8 text-center space-y-2.5 bg-surface-container-low rounded-DEFAULT border border-border-grey">
-                <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs font-bold text-on-surface">Đang phân tích dữ liệu 30 ngày với Gemini AI...</p>
-                <p className="text-[11px] text-on-surface-variant max-w-md mx-auto">
-                  Hệ thống đang đối chiếu tỷ lệ lấp đầy, xu hướng cuối tuần và tính toán mức điều chỉnh giá tối ưu doanh thu cho từng loại phòng.
+              <div className="py-10 text-center space-y-3 bg-surface-container-low/50 rounded-2xl border border-border-grey/70">
+                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-sm font-bold text-on-surface">Đang phân tích dữ liệu chuyên sâu với Gemini AI...</p>
+                <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+                  Hệ thống đang đối chiếu tỷ lệ lấp đầy lịch sử, xu hướng cuối tuần và xây dựng bảng giá đề xuất cho từng hạng phòng.
                 </p>
               </div>
             ) : aiOverallAnalysis ? (
-              <div className="bg-surface-container-low border border-border-grey rounded-DEFAULT p-4 text-xs text-on-surface leading-relaxed max-h-[500px] overflow-y-auto">
+              <div className="bg-surface-container-low/40 border border-border-grey/70 rounded-2xl p-4 sm:p-5 text-xs text-on-surface leading-relaxed max-h-[520px] overflow-y-auto shadow-inner">
                 {renderAiMarkdown(aiOverallAnalysis)}
               </div>
             ) : null}
@@ -640,7 +745,7 @@ const PriceSuggestionPage: React.FC = () => {
             {/* Khung đặt câu hỏi tùy ý cho AI */}
             <div className="space-y-2 pt-2">
               <label className="block text-xs font-bold text-on-surface flex items-center gap-1.5">
-                <IoChatbubbleEllipsesOutline size={15} className="text-primary" />
+                <IoChatbubbleEllipsesOutline size={16} className="text-primary" />
                 <span>Đặt câu hỏi chiến lược cho AI:</span>
               </label>
               <form onSubmit={handleAskAi} className="flex gap-2">
@@ -649,7 +754,7 @@ const PriceSuggestionPage: React.FC = () => {
                   value={aiQuestion}
                   onChange={(e) => setAiQuestion(e.target.value)}
                   placeholder="Ví dụ: Cuối tuần sau tôi nên tăng giá phòng nào? Làm sao để lấp đầy phòng thứ 2-4?..."
-                  className="flex-1 text-xs bg-surface-container-lowest border border-border-grey rounded-DEFAULT px-3.5 py-2.5 text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  className="flex-1 text-xs bg-surface-container-lowest border border-border-grey rounded-xl px-3.5 py-2.5 text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-xs"
                 />
                 <Button
                   type="submit"
@@ -657,28 +762,27 @@ const PriceSuggestionPage: React.FC = () => {
                   size="sm"
                   isLoading={isAiAsking}
                   disabled={!aiQuestion.trim()}
-                  className="bg-primary hover:bg-primary-hover text-white shrink-0 cursor-pointer"
+                  className="bg-primary hover:bg-primary-hover text-white shrink-0 cursor-pointer rounded-xl px-4"
                 >
                   <IoSend size={13} />
                   <span>Gửi</span>
                 </Button>
               </form>
 
-              {/* Suggestion Chips */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span className="text-on-surface-variant">Gợi ý nhanh:</span>
+              {/* Chips câu hỏi gợi ý */}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
+                <span className="text-on-surface-variant text-[11px] font-medium">Gợi ý nhanh:</span>
                 {[
                   'Cuối tuần sau nên tăng giá bao nhiêu %?',
                   'Làm sao để lấp đầy phòng thứ 2 - thứ 5?',
-                  'Hạng phòng nào đang có doanh thu thấp nhất?'
+                  'Hạng phòng nào đang có doanh thu thấp nhất?',
+                  'Có nên áp dụng chính sách ở tối thiểu 2 đêm cuối tuần?'
                 ].map((chip, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => {
-                      setAiQuestion(chip);
-                    }}
-                    className="bg-surface-container-low hover:bg-surface-container border border-border-grey text-on-surface px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+                    onClick={() => setAiQuestion(chip)}
+                    className="bg-surface-container-low hover:bg-surface-container border border-border-grey/70 text-on-surface px-2.5 py-1 rounded-full transition-colors cursor-pointer text-[11px]"
                   >
                     {chip}
                   </button>
@@ -686,20 +790,23 @@ const PriceSuggestionPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Lịch sử hỏi đáp AI */}
+            {/* Lịch sử trao đổi với AI */}
             {aiQnAList.length > 0 && (
-              <div className="space-y-2.5 pt-2">
+              <div className="space-y-3 pt-2">
                 <p className="text-xs font-bold text-on-surface flex items-center gap-1.5">
-                  <IoBulbOutline size={15} className="text-amber-600" />
+                  <IoBulbOutline size={16} className="text-amber-600" />
                   <span>Lịch sử trao đổi với AI ({aiQnAList.length}):</span>
                 </p>
                 {aiQnAList.map((item, idx) => (
-                  <div key={idx} className="p-3 bg-surface-container-low border border-border-grey rounded-DEFAULT text-xs space-y-2">
+                  <div key={idx} className="p-3.5 bg-surface-container-low/50 border border-border-grey/70 rounded-2xl text-xs space-y-2">
                     <div className="flex items-center justify-between text-on-surface font-bold">
-                      <span className="text-primary">Q: {item.question}</span>
+                      <span className="text-primary flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        Hỏi: {item.question}
+                      </span>
                       <span className="text-[10px] text-on-surface-variant font-normal">{item.timestamp}</span>
                     </div>
-                    <div className="p-2.5 bg-surface-container-lowest border border-border-grey/70 rounded-md text-on-surface leading-relaxed">
+                    <div className="p-3 bg-surface-container-lowest border border-border-grey/60 rounded-xl text-on-surface leading-relaxed">
                       {renderAiMarkdown(item.answer)}
                     </div>
                   </div>
@@ -710,218 +817,167 @@ const PriceSuggestionPage: React.FC = () => {
         )}
       </div>
 
-      {/* Thanh trạng thái Tiền điều kiện & Độ tin cậy dữ liệu */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* Độ tin cậy dữ liệu & Cấu hình ngưỡng */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {/* Tiền điều kiện 1: Đủ 3 tháng dữ liệu công suất */}
-        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
+        <div className="p-4 bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-secondary">Dữ liệu công suất tối thiểu</span>
+            <span className="text-xs font-bold text-secondary">Dữ liệu công suất tối thiểu</span>
             {data?.hasMinimumData ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                 <IoCheckmarkCircleOutline size={13} />
                 Đủ điều kiện (≥ 3 tháng)
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                 <IoAlertCircleOutline size={13} />
                 Chưa đủ 3 tháng
               </span>
             )}
           </div>
-          <p className="text-sm font-bold text-on-surface mt-1.5">
+          <p className="text-base font-bold text-on-surface mt-2">
             Đã tích lũy: {data?.dataMonthsCount || 0} tháng
           </p>
-          <p className="text-xs text-on-surface-variant mt-0.5">
+          <p className="text-xs text-on-surface-variant mt-1">
             {data?.hasMinimumData 
-              ? 'Hệ thống có đủ lịch sử để đánh giá xu hướng công suất.'
+              ? 'Hệ thống có đủ lịch sử để đánh giá chính xác xu hướng công suất.'
               : 'Dữ liệu quá khứ còn ít, gợi ý có thể chưa phản ánh hết chu kỳ mùa vụ.'}
           </p>
         </div>
 
         {/* Tiền điều kiện 2: Độ tin cậy dữ liệu quá khứ (1 năm) */}
-        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
+        <div className="p-4 bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-secondary">Độ tin cậy dữ liệu lịch sử</span>
+            <span className="text-xs font-bold text-secondary">Độ tin cậy dữ liệu lịch sử</span>
             {data?.hasFullYearData ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                 <IoCheckmarkCircleOutline size={13} />
                 Mức tin cậy Cao
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                 <IoAlertCircleOutline size={13} />
                 Mức tin cậy Thấp
               </span>
             )}
           </div>
-          <p className="text-sm font-bold text-on-surface mt-1.5">
+          <p className="text-base font-bold text-on-surface mt-2">
             {data?.hasFullYearData ? 'Đầy đủ dữ liệu cùng kỳ năm trước' : 'Chưa đủ dữ liệu 1 năm'}
           </p>
-          <p className="text-xs text-on-surface-variant mt-0.5">
+          <p className="text-xs text-on-surface-variant mt-1">
             {data?.hasFullYearData
               ? 'Gợi ý được đối chiếu trực tiếp với cùng kỳ năm ngoái.'
-              : 'Hệ thống chỉ dùng ngưỡng do bạn cấu hình làm tham chiếu.'}
+              : 'Hệ thống kết hợp ngưỡng cấu hình và baseline 30 ngày qua.'}
           </p>
         </div>
 
         {/* Ngưỡng cấu hình hiện tại */}
-        <div className="p-3.5 bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
+        <div className="p-4 bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-secondary">Ngưỡng cấu hình đang dùng</span>
+            <span className="text-xs font-bold text-secondary">Ngưỡng cấu hình tham chiếu</span>
             <button
               onClick={() => setIsConfigModalOpen(true)}
-              className="text-xs font-semibold text-primary hover:underline"
+              className="text-xs font-bold text-primary hover:underline"
             >
               Chỉnh sửa
             </button>
           </div>
-          <div className="flex items-center gap-4 mt-2 text-xs">
+          <div className="flex items-center gap-3 mt-2 text-xs">
             <div>
-              <span className="text-on-surface-variant">Ngưỡng trên:</span>{' '}
+              <span className="text-on-surface-variant block text-[10px]">Ngưỡng trên:</span>
               <span className="font-bold text-alert-red">≥ {data?.highOccupancyThreshold || 80}%</span>
             </div>
             <div>
-              <span className="text-on-surface-variant">Ngưỡng dưới:</span>{' '}
+              <span className="text-on-surface-variant block text-[10px]">Ngưỡng dưới:</span>
               <span className="font-bold text-primary">≤ {data?.lowOccupancyThreshold || 30}%</span>
             </div>
             <div>
-              <span className="text-on-surface-variant">Cận kề:</span>{' '}
+              <span className="text-on-surface-variant block text-[10px]">Cận kề:</span>
               <span className="font-bold text-on-surface">≤ {data?.imminentDaysThreshold || 7} ngày</span>
             </div>
           </div>
-          <p className="text-[11px] text-on-surface-variant mt-1.5">
-            Tổng số phòng cơ sở: <strong>{data?.totalRooms || 0} phòng</strong>
+          <p className="text-[11px] text-on-surface-variant mt-2 border-t border-border-grey/40 pt-1.5">
+            Cơ sở có: <strong className="text-on-surface">{data?.totalRooms || 0} phòng vật lý</strong>
           </p>
         </div>
       </div>
 
-      {/* KPI Cards: Tổng hợp số lượng ngày cần xử lý */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div 
-          onClick={() => setActiveTab('all')}
-          className={`p-3 bg-surface-container-lowest border rounded-DEFAULT cursor-pointer transition-all ${
-            activeTab === 'all' ? 'border-primary ring-1 ring-primary' : 'border-border-grey hover:border-outline'
-          }`}
-        >
-          <p className="text-xs font-semibold text-secondary">Tổng ngày cần xem lại</p>
-          <p className="text-2xl font-extrabold text-on-surface mt-1">
-            {(data?.increaseCount || 0) + (data?.decreaseCount || 0)}
-          </p>
-          <p className="text-[11px] text-on-surface-variant mt-0.5">Trong 30 ngày tới</p>
-        </div>
-
-        <div 
-          onClick={() => setActiveTab('increase')}
-          className={`p-3 bg-surface-container-lowest border rounded-DEFAULT cursor-pointer transition-all ${
-            activeTab === 'increase' ? 'border-alert-red ring-1 ring-alert-red' : 'border-border-grey hover:border-outline'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-alert-red">Cân nhắc tăng giá</p>
-            <IoTrendingUpOutline size={16} className="text-alert-red" />
-          </div>
-          <p className="text-2xl font-extrabold text-alert-red mt-1">
-            {data?.increaseCount || 0}
-          </p>
-          <p className="text-[11px] text-on-surface-variant mt-0.5">Ngày cháy phòng (≥ {data?.highOccupancyThreshold}%)</p>
-        </div>
-
-        <div 
-          onClick={() => setActiveTab('decrease')}
-          className={`p-3 bg-surface-container-lowest border rounded-DEFAULT cursor-pointer transition-all ${
-            activeTab === 'decrease' ? 'border-primary ring-1 ring-primary' : 'border-border-grey hover:border-outline'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-primary">Cân nhắc giảm giá / mở kênh</p>
-            <IoTrendingDownOutline size={16} className="text-primary" />
-          </div>
-          <p className="text-2xl font-extrabold text-primary mt-1">
-            {data?.decreaseCount || 0}
-          </p>
-          <p className="text-[11px] text-on-surface-variant mt-0.5">Cận kề vắng khách (≤ {data?.lowOccupancyThreshold}%)</p>
-        </div>
-
-        <div 
-          onClick={() => setActiveTab('dismissed')}
-          className={`p-3 bg-surface-container-lowest border rounded-DEFAULT cursor-pointer transition-all ${
-            activeTab === 'dismissed' ? 'border-secondary ring-1 ring-secondary' : 'border-border-grey hover:border-outline'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-secondary">Đã bỏ qua</p>
-            <IoEyeOffOutline size={16} className="text-secondary" />
-          </div>
-          <p className="text-2xl font-extrabold text-secondary mt-1">
-            {data?.dismissedCount || 0}
-          </p>
-          <p className="text-[11px] text-on-surface-variant mt-0.5">Không hiện lại</p>
-        </div>
-      </div>
-
-      {/* Bộ lọc Tab */}
-      <div className="flex items-center gap-1 border-b border-border-grey pt-1">
+      {/* Tabs Phân Loại Gợi Ý Điều Chỉnh Giá */}
+      <div className="flex items-center gap-2 border-b border-border-grey/80 pt-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${
+          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'all'
               ? 'border-primary text-primary'
               : 'border-transparent text-secondary hover:text-on-surface'
           }`}
         >
-          Tất cả cần xử lý ({(data?.increaseCount || 0) + (data?.decreaseCount || 0)})
+          <span>Tất cả cần xử lý</span>
+          <span className="px-1.5 py-0.2 bg-primary/10 text-primary text-[10px] rounded-full">
+            {(data?.increaseCount || 0) + (data?.decreaseCount || 0)}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('increase')}
-          className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'increase'
               ? 'border-alert-red text-alert-red'
               : 'border-transparent text-secondary hover:text-on-surface'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-alert-red"></span>
-          Nên tăng giá ({data?.increaseCount || 0})
+          <IoTrendingUpOutline size={14} className="text-alert-red" />
+          <span>Cân nhắc tăng giá</span>
+          <span className="px-1.5 py-0.2 bg-red-100 text-alert-red text-[10px] rounded-full">
+            {data?.increaseCount || 0}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('decrease')}
-          className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'decrease'
               ? 'border-primary text-primary'
               : 'border-transparent text-secondary hover:text-on-surface'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-agoda-blue"></span>
-          Nên giảm giá / Mở kênh ({data?.decreaseCount || 0})
+          <IoTrendingDownOutline size={14} className="text-primary" />
+          <span>Cân nhắc giảm giá / Mở kênh</span>
+          <span className="px-1.5 py-0.2 bg-blue-100 text-primary text-[10px] rounded-full">
+            {data?.decreaseCount || 0}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('dismissed')}
-          className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${
+          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'dismissed'
               ? 'border-secondary text-on-surface'
               : 'border-transparent text-secondary hover:text-on-surface'
           }`}
         >
-          Đã bỏ qua ({data?.dismissedCount || 0})
+          <IoEyeOffOutline size={14} />
+          <span>Đã bỏ qua</span>
+          <span className="px-1.5 py-0.2 bg-surface-container text-secondary text-[10px] rounded-full">
+            {data?.dismissedCount || 0}
+          </span>
         </button>
       </div>
 
       {/* Danh sách các ngày gợi ý */}
       {isLoading ? (
-        <div className="p-8 text-center bg-surface-container-lowest border border-border-grey rounded-DEFAULT">
-          <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-          <p className="text-xs text-on-surface-variant">Đang rà soát công suất 30 ngày tới...</p>
+        <div className="p-12 text-center bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs">
+          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs text-on-surface-variant font-medium">Đang rà soát công suất và lập đề xuất giá 30 ngày tới...</p>
         </div>
       ) : filteredSuggestions.length === 0 ? (
-        <div className="p-10 text-center bg-surface-container-lowest border border-border-grey rounded-DEFAULT space-y-2">
-          <div className="w-12 h-12 bg-surface-container rounded-full flex items-center justify-center mx-auto text-secondary">
-            <IoCheckmarkCircleOutline size={28} className="text-emerald-600" />
+        <div className="p-12 text-center bg-surface-container-lowest border border-border-grey/80 rounded-2xl shadow-xs space-y-3">
+          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-100">
+            <IoCheckmarkCircleOutline size={32} />
           </div>
-          <h3 className="text-sm font-bold text-on-surface">
+          <h3 className="text-sm sm:text-base font-bold text-on-surface">
             {activeTab === 'dismissed' 
               ? 'Chưa có gợi ý nào bị bỏ qua' 
               : 'Không có ngày nào cần điều chỉnh giá'}
           </h3>
-          <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+          <p className="text-xs text-on-surface-variant max-w-md mx-auto leading-relaxed">
             {activeTab === 'dismissed'
               ? 'Khi bạn bấm "Bỏ qua" trên một gợi ý, ngày đó sẽ được chuyển vào đây để xem lại hoặc khôi phục.'
               : 'Mức lấp đầy các ngày trong 30 ngày tới đang ở mức bình thường hoặc phù hợp với thời gian còn lại.'}
@@ -933,53 +989,60 @@ const PriceSuggestionPage: React.FC = () => {
             const isIncrease = item.suggestionType === 'INCREASE_PRICE';
             const isDecrease = item.suggestionType === 'DECREASE_PRICE_OR_CHANNELS';
             const isExpanded = expandedDate === item.targetDate;
+            const isWeekend = isWeekendDay(item.dayOfWeek);
 
             return (
               <div 
                 key={item.targetDate}
-                className={`bg-surface-container-lowest border rounded-DEFAULT transition-all ${
+                className={`bg-surface-container-lowest border rounded-2xl transition-all shadow-xs overflow-hidden ${
                   item.dismissed 
                     ? 'border-border-grey opacity-75'
                     : isIncrease 
-                      ? 'border-[#FECACA] hover:border-alert-red' 
-                      : 'border-[#BAE6FD] hover:border-primary'
+                      ? 'border-red-200 hover:border-alert-red hover:shadow-sm' 
+                      : 'border-blue-200 hover:border-primary hover:shadow-sm'
                 }`}
               >
                 <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   {/* Cột 1: Ngày & Loại gợi ý */}
-                  <div className="flex items-start gap-3 min-w-[220px]">
-                    <div className={`p-2.5 rounded-DEFAULT shrink-0 text-center min-w-[64px] border ${
+                  <div className="flex items-start gap-3.5 min-w-[240px]">
+                    {/* Hộp ngày tháng */}
+                    <div className={`p-2.5 rounded-xl shrink-0 text-center min-w-[68px] border shadow-xs ${
                       isIncrease 
-                        ? 'bg-[#FEF2F2] border-[#FECACA] text-alert-red' 
+                        ? 'bg-red-50/70 border-red-200 text-alert-red' 
                         : isDecrease 
-                          ? 'bg-[#EFF6FF] border-[#BFDBFE] text-primary' 
+                          ? 'bg-blue-50/70 border-blue-200 text-primary' 
                           : 'bg-surface-container border-border-grey text-secondary'
                     }`}>
                       <p className="text-[10px] font-bold uppercase tracking-wider">{item.dayOfWeek}</p>
-                      <p className="text-lg font-extrabold leading-tight">{item.targetDate.split('-')[2]}</p>
-                      <p className="text-[10px] font-semibold text-on-surface-variant">{item.targetDate.split('-')[1]}/{item.targetDate.split('-')[0]}</p>
+                      <p className="text-2xl font-extrabold leading-tight">{item.targetDate.split('-')[2]}</p>
+                      <p className="text-[10px] font-semibold opacity-80">{item.targetDate.split('-')[1]}/{item.targetDate.split('-')[0]}</p>
                     </div>
 
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {isIncrease && (
-                          <span className="px-2 py-0.5 bg-[#FEF2F2] text-alert-red rounded font-bold text-xs border border-[#FECACA] inline-flex items-center gap-1">
+                          <span className="px-2.5 py-0.5 bg-red-50 text-alert-red rounded-full font-bold text-xs border border-red-200 inline-flex items-center gap-1">
                             <IoTrendingUpOutline size={13} />
                             Cân nhắc tăng giá
                           </span>
                         )}
                         {isDecrease && (
-                          <span className="px-2 py-0.5 bg-[#EFF6FF] text-primary rounded font-bold text-xs border border-[#BFDBFE] inline-flex items-center gap-1">
+                          <span className="px-2.5 py-0.5 bg-blue-50 text-primary rounded-full font-bold text-xs border border-blue-200 inline-flex items-center gap-1">
                             <IoTrendingDownOutline size={13} />
                             Cân nhắc giảm giá / Mở kênh
                           </span>
                         )}
+                        {isWeekend && (
+                          <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded-full text-[10px] font-bold border border-amber-200">
+                            Cuối tuần
+                          </span>
+                        )}
                         {item.dismissed && (
-                          <span className="px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed rounded text-xs font-semibold">
+                          <span className="px-2 py-0.5 bg-surface-container text-secondary rounded-full text-[10px] font-semibold">
                             Đã bỏ qua
                           </span>
                         )}
-                        <span className="text-xs font-semibold text-secondary bg-surface-container px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-medium text-secondary bg-surface-container-low px-2 py-0.5 rounded-full">
                           Còn {item.daysRemaining} ngày
                         </span>
                       </div>
@@ -990,7 +1053,7 @@ const PriceSuggestionPage: React.FC = () => {
                       </p>
 
                       {/* Độ tin cậy & Ghi chú */}
-                      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+                      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-on-surface-variant flex-wrap">
                         <span className={`font-semibold ${item.confidenceLevel === 'HIGH' ? 'text-emerald-700' : 'text-amber-700'}`}>
                           • Mức tin cậy: {item.confidenceLevel === 'HIGH' ? 'Cao' : 'Thấp'}
                         </span>
@@ -1001,17 +1064,17 @@ const PriceSuggestionPage: React.FC = () => {
                   </div>
 
                   {/* Cột 2: Căn cứ minh bạch (Metrics) */}
-                  <div className="flex items-center gap-4 border-y md:border-y-0 md:border-x border-border-grey py-3 md:py-0 md:px-5 shrink-0">
+                  <div className="flex items-center gap-5 border-y md:border-y-0 md:border-x border-border-grey/70 py-3 md:py-0 md:px-5 shrink-0">
                     <div>
-                      <span className="text-[11px] font-semibold text-secondary uppercase block">Mức lấp đầy</span>
+                      <span className="text-[11px] font-bold text-secondary uppercase block">Mức lấp đầy</span>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-xl font-extrabold ${isIncrease ? 'text-alert-red' : isDecrease ? 'text-primary' : 'text-on-surface'}`}>
+                        <span className={`text-2xl font-extrabold ${isIncrease ? 'text-alert-red' : isDecrease ? 'text-primary' : 'text-on-surface'}`}>
                           {item.currentOccupancyRate}%
                         </span>
                       </div>
-                      <div className="w-24 bg-surface-container rounded-full h-1.5 mt-1 overflow-hidden">
+                      <div className="w-28 bg-surface-container rounded-full h-1.5 mt-1.5 overflow-hidden">
                         <div 
-                          className={`h-full rounded-full ${isIncrease ? 'bg-alert-red' : isDecrease ? 'bg-agoda-blue' : 'bg-secondary'}`}
+                          className={`h-full rounded-full transition-all duration-500 ${isIncrease ? 'bg-alert-red' : isDecrease ? 'bg-agoda-blue' : 'bg-secondary'}`}
                           style={{ width: `${Math.min(100, item.currentOccupancyRate)}%` }}
                         />
                       </div>
@@ -1029,7 +1092,7 @@ const PriceSuggestionPage: React.FC = () => {
                         </strong>
                       </p>
                       <p>
-                        <span className="text-on-surface-variant">Cùng kỳ năm trước:</span>{' '}
+                        <span className="text-on-surface-variant">Cùng kỳ năm ngoái:</span>{' '}
                         <strong>
                           {item.referenceOccupancyRate !== null ? `${item.referenceOccupancyRate}%` : 'Chưa có'}
                         </strong>
@@ -1045,7 +1108,7 @@ const PriceSuggestionPage: React.FC = () => {
                           variant="primary"
                           size="sm"
                           onClick={() => navigate('/manage/room-types')}
-                          className="flex items-center gap-1.5 bg-agoda-blue whitespace-nowrap"
+                          className="flex items-center gap-1.5 bg-agoda-blue whitespace-nowrap rounded-xl shadow-xs"
                         >
                           <span>Xem & Điều chỉnh giá</span>
                           <IoArrowForwardOutline size={14} />
@@ -1055,7 +1118,7 @@ const PriceSuggestionPage: React.FC = () => {
                           size="sm"
                           onClick={() => handleAnalyzeDay(item.targetDate)}
                           isLoading={loadingDayAiDate === item.targetDate}
-                          className="flex items-center gap-1 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary whitespace-nowrap cursor-pointer"
+                          className="flex items-center gap-1 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary whitespace-nowrap cursor-pointer rounded-xl"
                           title="Xem AI phân tích chuyên sâu cho ngày này"
                         >
                           <IoSparkles size={14} className="text-primary" />
@@ -1065,7 +1128,7 @@ const PriceSuggestionPage: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => setDismissTargetDate(item.targetDate)}
-                          className="flex items-center gap-1 text-secondary border-border-grey hover:bg-surface-container whitespace-nowrap"
+                          className="flex items-center gap-1 text-secondary border-border-grey hover:bg-surface-container whitespace-nowrap rounded-xl"
                         >
                           <IoEyeOffOutline size={14} />
                           <span>Bỏ qua</span>
@@ -1076,7 +1139,7 @@ const PriceSuggestionPage: React.FC = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleRestore(item.targetDate)}
-                        className="flex items-center gap-1 text-primary border-primary hover:bg-surface-blue-light whitespace-nowrap"
+                        className="flex items-center gap-1 text-primary border-primary hover:bg-surface-blue-light whitespace-nowrap rounded-xl"
                       >
                         <IoArrowUndoOutline size={14} />
                         <span>Khôi phục gợi ý</span>
@@ -1086,31 +1149,38 @@ const PriceSuggestionPage: React.FC = () => {
                     {/* Nút xem chi tiết loại phòng */}
                     <button
                       onClick={() => toggleExpand(item.targetDate)}
-                      className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-0.5 mt-1"
+                      className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-0.5 mt-1 cursor-pointer"
                     >
-                      <span>{isExpanded ? 'Ẩn chi tiết loại phòng' : 'Xem chi tiết loại phòng'}</span>
+                      <span>{isExpanded ? 'Ẩn phân rã loại phòng' : 'Xem chi tiết loại phòng'}</span>
                       {isExpanded ? <IoChevronUpOutline size={13} /> : <IoChevronDownOutline size={13} />}
                     </button>
                   </div>
                 </div>
 
-                {/* Phân rã theo loại phòng (Collapsible) */}
+                {/* Phân rã theo loại phòng (Collapsible Drawer) */}
                 {isExpanded && (
-                  <div className="border-t border-border-grey p-3 bg-surface-container-low text-xs">
-                    <p className="font-bold text-on-surface mb-2">Chi tiết số phòng trống theo từng loại phòng ngày {item.targetDate}:</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="border-t border-border-grey/70 p-4 bg-surface-container-low/50 text-xs animate-page-enter">
+                    <p className="font-bold text-on-surface mb-2.5 flex items-center gap-1.5">
+                      <IoBedOutline className="text-primary" />
+                      <span>Chi tiết đặt phòng &amp; Phòng trống ngày {item.targetDate}:</span>
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                       {item.roomTypeBreakdown?.map(rt => (
-                        <div key={rt.roomTypeId} className="p-2 bg-surface-container-lowest border border-border-grey rounded">
-                          <p className="font-bold text-on-surface truncate">{rt.roomTypeName}</p>
+                        <div key={rt.roomTypeId} className="p-3 bg-surface-container-lowest border border-border-grey/70 rounded-xl shadow-xs">
+                          <p className="font-bold text-on-surface truncate text-sm">{rt.roomTypeName}</p>
+                          <div className="flex items-center justify-between text-[11px] text-on-surface-variant mt-1.5">
+                            <span>Đã đặt:</span>
+                            <span className="font-bold text-on-surface">{rt.occupiedRooms}/{rt.totalRooms}</span>
+                          </div>
                           <div className="flex items-center justify-between text-[11px] text-on-surface-variant mt-1">
-                            <span>Đã đặt: {rt.occupiedRooms}/{rt.totalRooms}</span>
+                            <span>Còn trống:</span>
                             <span className={`font-bold ${rt.vacantRooms === 0 ? 'text-alert-red' : 'text-emerald-700'}`}>
-                              Trống: {rt.vacantRooms}
+                              {rt.vacantRooms} phòng
                             </span>
                           </div>
                           {rt.basePrice && (
-                            <p className="text-[10px] text-secondary mt-1">
-                              Giá cơ sở: {fmtCurrency(rt.basePrice)}/đêm
+                            <p className="text-[10px] text-secondary mt-1.5 pt-1.5 border-t border-border-grey/40">
+                              Giá cơ sở: <strong>{fmtCurrency(rt.basePrice)}/đêm</strong>
                             </p>
                           )}
                         </div>
@@ -1207,7 +1277,7 @@ const PriceSuggestionPage: React.FC = () => {
               variant="primary"
               size="sm"
               disabled={isSavingConfig}
-              className="bg-agoda-blue"
+              className="bg-agoda-blue rounded-xl"
             >
               {isSavingConfig ? 'Đang lưu...' : 'Lưu cấu hình'}
             </Button>
@@ -1242,7 +1312,7 @@ const PriceSuggestionPage: React.FC = () => {
               size="sm"
               onClick={handleDismiss}
               disabled={isDismissing}
-              className="bg-alert-red text-white"
+              className="bg-alert-red text-white rounded-xl"
             >
               {isDismissing ? 'Đang xử lý...' : 'Xác nhận bỏ qua'}
             </Button>
@@ -1258,11 +1328,11 @@ const PriceSuggestionPage: React.FC = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-3 text-xs">
-          <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-900 flex items-center gap-2">
+          <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-900 flex items-center gap-2">
             <IoSparkles className="text-indigo-600 shrink-0" size={18} />
             <p>Phân tích từ Google Gemini kết hợp công suất thực tế, ngày trong tuần và lịch sử đặt phòng của ngày <strong>{activeDayAi?.date}</strong>.</p>
           </div>
-          <div className="bg-surface-container-low p-4 rounded-xl border border-border-grey max-h-[60vh] overflow-y-auto leading-relaxed text-on-surface">
+          <div className="bg-surface-container-low p-4 rounded-2xl border border-border-grey/70 max-h-[60vh] overflow-y-auto leading-relaxed text-on-surface shadow-inner">
             {activeDayAi?.analysis ? renderAiMarkdown(activeDayAi.analysis) : 'Đang tải phân tích...'}
           </div>
           <div className="flex justify-end pt-2 border-t border-border-grey">

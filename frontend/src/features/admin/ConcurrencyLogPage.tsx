@@ -181,7 +181,7 @@ const ConcurrencyLogPage: React.FC = () => {
           <div className="bg-surface-blue-light border border-primary/20 rounded p-4 text-sm flex items-start gap-3">
             <IoInformationCircleOutline size={20} className="text-primary mt-0.5 flex-shrink-0" />
             <div className="text-on-surface">
-              <p className="font-medium mb-1">Kịch bản minh chứng (NCL-03-CN-008)</p>
+              <p className="font-medium mb-1">Kịch bản kiểm thử tải đồng thời</p>
               <p className="text-on-surface-variant text-xs">
                 Hệ thống gửi <strong>N yêu cầu gán phòng đồng thời</strong> vào cùng một phòng.
                 Nhờ cơ chế khóa, chỉ <strong>1 yêu cầu thành công</strong>, N-1 bị từ chối.

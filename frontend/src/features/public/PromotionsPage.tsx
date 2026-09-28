@@ -100,7 +100,16 @@ const PROMOTIONS_DATA: PromotionItem[] = [
   }
 ];
 
+import useSEO from '../../hooks/useSEO';
+
 const PromotionsPage: React.FC = () => {
+  useSEO({
+    title: 'Ưu Đãi & Khuyến Mãi Đặt Phòng',
+    description: 'Tổng hợp các chương trình ưu đãi, voucher giảm giá đặt phòng độc quyền tại Stay Away: Early Bird, chiết khấu hội viên, ưu đãi đặt phòng theo đoàn lớn.',
+    keywords: 'khuyến mãi khách sạn, mã giảm giá đặt phòng, voucher nghỉ dưỡng, ưu đãi stay away',
+    canonical: 'https://stayaway.io.vn/promotions'
+  });
+
   const navigate = useNavigate();
   const { hotelSetting } = useAppConfig();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);

@@ -322,7 +322,7 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
                 onChange={(e) => setBatchPrice(e.target.value)}
                 placeholder="Nhập giá chung..."
                 className="w-32 px-2.5 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 text-right"
-                step="10000"
+                step="any"
               />
               <button
                 type="button"
@@ -372,7 +372,7 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
                             onChange={(e) => handleRoomPriceChange(rt.id, e.target.value)}
                             placeholder="Chưa thỏa thuận"
                             min="0"
-                            step="10000"
+                            step="any"
                             className="w-full px-2.5 py-1.5 text-xs text-right font-medium text-emerald-800 bg-emerald-50/40 border border-emerald-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
                           />
                         </td>

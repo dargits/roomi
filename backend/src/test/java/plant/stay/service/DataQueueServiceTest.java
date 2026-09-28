@@ -41,6 +41,14 @@ public class DataQueueServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private plant.stay.repository.CorporateClientRepository corporateClientRepository;
+    @Mock
+    private plant.stay.repository.LostItemRepository lostItemRepository;
+    @Mock
+    private plant.stay.repository.RoomIncidentRepository roomIncidentRepository;
+    @Mock
+    private plant.stay.repository.DepositPolicyRepository depositPolicyRepository;
+    @Mock
     private AuditLogService auditLogService;
 
     private DataQueueServiceImpl dataQueueService;
@@ -57,6 +65,10 @@ public class DataQueueServiceTest {
                 invoiceRepository,
                 inventoryItemRepository,
                 userRepository,
+                corporateClientRepository,
+                lostItemRepository,
+                roomIncidentRepository,
+                depositPolicyRepository,
                 auditLogService
         );
 

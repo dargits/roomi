@@ -8,11 +8,13 @@ import {
   IoPersonOutline, 
   IoShieldCheckmarkOutline, 
   IoSparklesOutline, 
-  IoTimeOutline 
+  IoTimeOutline,
+  IoAlertCircleOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import AntiSpamSlider from '../../components/common/AntiSpamSlider';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
 import pricingApi from '../../services/pricingApi';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -39,6 +41,12 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Anti-spam states
+  const [isVerified, setIsVerified] = useState(false);
+  const [websiteTrap, setWebsiteTrap] = useState('');
+  const [formMountedAt, setFormMountedAt] = useState<number>(Date.now());
+  const [rateLimitError, setRateLimitError] = useState(false);
+
   const [formData, setFormData] = useState({
     guestName: '',
     phone: '',
@@ -47,6 +55,16 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   });
 
   const [breakdown, setBreakdown] = useState<any>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsVerified(false);
+      setWebsiteTrap('');
+      setFormMountedAt(Date.now());
+      setRateLimitError(false);
+      setError('');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && roomType?.id && checkInDate && checkOutDate) {
@@ -80,6 +98,9 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const handleClose = () => {
     setSuccess(false);
     setError('');
+    setRateLimitError(false);
+    setIsVerified(false);
+    setWebsiteTrap('');
     setFormData({ guestName: '', phone: '', email: '', note: '' });
     onClose();
   };
@@ -87,6 +108,7 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setRateLimitError(false);
 
     if (!formData.guestName.trim()) {
       setError('Vui lòng nhập họ và tên của bạn.');
@@ -107,6 +129,11 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
       }
     }
 
+    if (!isVerified) {
+      setError('Vui lòng trượt thanh xác nhận bên dưới để hoàn tất gửi yêu cầu đặt phòng.');
+      return;
+    }
+
     setLoading(true);
     
     try {
@@ -114,13 +141,21 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         ...formData,
         roomTypeId: roomType?.id,
         checkInDate: toLocalDateString(checkInDate),
-        checkOutDate: toLocalDateString(checkOutDate)
+        checkOutDate: toLocalDateString(checkOutDate),
+        websiteTrap: websiteTrap.trim(),
+        submissionElapsedMs: Math.max(0, Date.now() - formMountedAt),
+        botVerificationToken: isVerified ? 'VERIFIED_HUMAN' : undefined
       };
       
       await bookingRequestApi.createBookingRequest(requestData);
       setSuccess(true);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || "Lỗi gửi yêu cầu đặt phòng");
+      const status = err.response?.status;
+      const errMsg = err.response?.data?.message || err.message || "Lỗi gửi yêu cầu đặt phòng";
+      setError(errMsg);
+      if (status === 429) {
+        setRateLimitError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -255,8 +290,25 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Yêu Cầu Đặt Phòng Trực Tuyến" maxWidth="max-w-2xl">
       {error && (
-        <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-error text-xs font-medium flex items-center gap-2 animate-shake">
-          {error}
+        <div className={`mb-4 p-3.5 border text-xs font-medium rounded-xl space-y-2 animate-shake ${
+          rateLimitError ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-red-50 border-red-200 text-error'
+        }`}>
+          <div className="flex items-start gap-2">
+            <IoAlertCircleOutline size={18} className="shrink-0 mt-0.5 text-amber-700" />
+            <div className="leading-relaxed flex-1">{error}</div>
+          </div>
+          {hotelSetting?.phone && (
+            <div className="pt-2 border-t border-amber-200/80 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] text-amber-800 font-semibold">Cần đặt phòng hoặc hỗ trợ gấp?</span>
+              <a
+                href={`tel:${hotelSetting.phone}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                <IoCallOutline size={14} />
+                Gọi hotline: {hotelSetting.phone}
+              </a>
+            </div>
+          )}
         </div>
       )}
       
@@ -396,6 +448,34 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
           </div>
         </div>
 
+        {/* Bẫy Honeypot ẩn (Không hiển thị với người dùng thật) */}
+        <div className="sr-only opacity-0 absolute -left-[9999px] h-0 w-0 pointer-events-none" aria-hidden="true">
+          <label htmlFor="website_trap_field">Website</label>
+          <input
+            type="text"
+            id="website_trap_field"
+            name="websiteTrap"
+            tabIndex={-1}
+            autoComplete="off"
+            value={websiteTrap}
+            onChange={(e) => setWebsiteTrap(e.target.value)}
+          />
+        </div>
+
+        {/* Thanh trượt xác thực chống bot & spam */}
+        <div className="pt-1">
+          <AntiSpamSlider
+            isVerified={isVerified}
+            onVerify={(verified) => {
+              setIsVerified(verified);
+              if (verified && error.includes('trượt')) {
+                setError('');
+              }
+            }}
+            disabled={loading}
+          />
+        </div>
+
         <div className="p-3 bg-surface-container-low border border-border-grey/70 flex items-center gap-2 text-xs text-on-surface-variant">
           <IoShieldCheckmarkOutline size={16} className="text-green-600 flex-shrink-0" />
           <span>Không cần thanh toán trước. Lễ tân sẽ gọi điện xác nhận và giữ phòng cho quý khách.</span>
@@ -406,7 +486,15 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         <Button variant="ghost" onClick={handleClose} disabled={loading} className="w-full sm:w-auto rounded-none justify-center">
           Hủy bỏ
         </Button>
-        <Button type="submit" form="publicBookingForm" isLoading={loading} className="w-full sm:w-auto px-6 py-2.5 font-bold shadow-md rounded-none justify-center">
+        <Button 
+          type="submit" 
+          form="publicBookingForm" 
+          isLoading={loading} 
+          disabled={!isVerified || loading}
+          className={`w-full sm:w-auto px-6 py-2.5 font-bold shadow-md rounded-none justify-center transition-all ${
+            !isVerified ? 'opacity-60 cursor-not-allowed' : ''
+          }`}
+        >
           GỬI YÊU CẦU ĐẶT PHÒNG
         </Button>
       </div>

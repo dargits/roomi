@@ -13,8 +13,16 @@ import Button from '../../components/ui/Button';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import ForceChangePasswordModal from './ForceChangePasswordModal';
 import { getDefaultRouteForRole } from '../../routes/ProtectedRoute';
+import useSEO from '../../hooks/useSEO';
 
 const LoginPage: React.FC = () => {
+  useSEO({
+    title: 'Đăng Nhập Quản Trị Hệ Thống',
+    description: 'Cổng đăng nhập hệ thống quản lý khách sạn Stay Away PMS dành cho Ban quản trị, Lễ tân, Buồng phòng và Kế toán.',
+    keywords: 'đăng nhập stay away, hotel pms login, quản trị khách sạn',
+    canonical: 'https://stayaway.io.vn/login'
+  });
+
   const navigate = useNavigate();
   const { login, logout, isAuthenticated, user, updateUser } = useAuth();
   const { hotelSetting } = useAppConfig();
