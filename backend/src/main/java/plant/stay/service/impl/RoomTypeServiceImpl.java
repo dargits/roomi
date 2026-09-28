@@ -177,7 +177,9 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                     }
                 }
                 for (var r : allRooms) {
-                    if (r.getStatus() == plant.stay.model.RoomStatus.MAINTENANCE || r.getStatus() == plant.stay.model.RoomStatus.OCCUPIED) {
+                    if (r.getStatus() == plant.stay.model.RoomStatus.MAINTENANCE 
+                            || r.getStatus() == plant.stay.model.RoomStatus.OCCUPIED
+                            || r.getStatus() == plant.stay.model.RoomStatus.DIRTY) {
                         occupiedRoomIds.add(r.getId());
                     }
                 }

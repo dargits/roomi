@@ -26,8 +26,9 @@ public class BackupControllerTest {
     @DisplayName("OWNER và ADMIN được phép truy cập danh sách sao lưu")
     public void testOwnerAndAdminCanListBackups() {
         BackupService backupService = Mockito.mock(BackupService.class);
+        plant.stay.service.OperationalDataSeederService operationalDataSeederService = Mockito.mock(plant.stay.service.OperationalDataSeederService.class);
         AuthUtil authUtil = Mockito.mock(AuthUtil.class);
-        BackupController controller = new BackupController(backupService, authUtil);
+        BackupController controller = new BackupController(backupService, operationalDataSeederService, authUtil);
 
         User mockOwner = new User();
         mockOwner.setRole(Role.OWNER);
@@ -45,8 +46,9 @@ public class BackupControllerTest {
     @DisplayName("Nhân viên lễ tân RECEPTIONIST bị từ chối truy cập sao lưu")
     public void testReceptionistCannotAccessBackups() {
         BackupService backupService = Mockito.mock(BackupService.class);
+        plant.stay.service.OperationalDataSeederService operationalDataSeederService = Mockito.mock(plant.stay.service.OperationalDataSeederService.class);
         AuthUtil authUtil = Mockito.mock(AuthUtil.class);
-        BackupController controller = new BackupController(backupService, authUtil);
+        BackupController controller = new BackupController(backupService, operationalDataSeederService, authUtil);
 
         User mockStaff = new User();
         mockStaff.setRole(Role.RECEPTIONIST);
@@ -60,8 +62,9 @@ public class BackupControllerTest {
     @DisplayName("Khôi phục hệ thống bắt buộc phải có từ khóa RESTORE")
     public void testRestoreRequiresConfirmCode() {
         BackupService backupService = Mockito.mock(BackupService.class);
+        plant.stay.service.OperationalDataSeederService operationalDataSeederService = Mockito.mock(plant.stay.service.OperationalDataSeederService.class);
         AuthUtil authUtil = Mockito.mock(AuthUtil.class);
-        BackupController controller = new BackupController(backupService, authUtil);
+        BackupController controller = new BackupController(backupService, operationalDataSeederService, authUtil);
 
         User mockOwner = new User();
         mockOwner.setRole(Role.OWNER);
@@ -79,8 +82,9 @@ public class BackupControllerTest {
     @DisplayName("OWNER có quyền cập nhật cấu hình tự động sao lưu")
     public void testOwnerCanUpdateConfig() {
         BackupService backupService = Mockito.mock(BackupService.class);
+        plant.stay.service.OperationalDataSeederService operationalDataSeederService = Mockito.mock(plant.stay.service.OperationalDataSeederService.class);
         AuthUtil authUtil = Mockito.mock(AuthUtil.class);
-        BackupController controller = new BackupController(backupService, authUtil);
+        BackupController controller = new BackupController(backupService, operationalDataSeederService, authUtil);
 
         User mockOwner = new User();
         mockOwner.setRole(Role.OWNER);

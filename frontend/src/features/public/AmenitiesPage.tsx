@@ -18,6 +18,7 @@ import {
   IoPricetagOutline
 } from 'react-icons/io5';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import useSEO from '../../hooks/useSEO';
 
 const FEATURED_FACILITIES = [
   {
@@ -71,6 +72,13 @@ const FEATURED_FACILITIES = [
 ];
 
 const AmenitiesPage: React.FC = () => {
+  useSEO({
+    title: 'Tiện Ích & Dịch Vụ Đẳng Cấp',
+    description: 'Khám phá chuỗi tiện ích tiêu chuẩn 5 sao tại Stay Away: hồ bơi ngoài trời, nhà hàng buffet Á - Âu, phòng gym hiện đại, spa thư giãn và dịch vụ đưa đón sân bay.',
+    keywords: 'tiện ích khách sạn, dịch vụ khách sạn, hồ bơi, nhà hàng buffet, phòng gym, đưa đón sân bay, stay away',
+    canonical: 'https://stayaway.io.vn/amenities'
+  });
+
   const { hotelSetting } = useAppConfig();
   const [extraServices, setExtraServices] = useState<ExtraServiceResponse[]>([]);
   const [loading, setLoading] = useState(true);

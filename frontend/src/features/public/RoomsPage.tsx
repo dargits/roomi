@@ -15,8 +15,16 @@ import {
 } from 'react-icons/io5';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { toLocalDateString } from '../../utils/formatDate';
+import useSEO from '../../hooks/useSEO';
 
 const RoomsPage: React.FC = () => {
+  useSEO({
+    title: 'Danh Sách Phòng & Giá Tốt Nhất',
+    description: 'Danh sách các hạng phòng cao cấp tại Stay Away: Phòng Standard, Deluxe, Suite, VIP Family. Đặt phòng trực tuyến nhanh chóng với xác nhận tức thì và giá phòng ưu đãi.',
+    keywords: 'phòng khách sạn, phòng deluxe, phòng suite, giá phòng khách sạn, stay away rooms, đặt phòng trực tuyến',
+    canonical: 'https://stayaway.io.vn/rooms'
+  });
+
   const { hotelSetting } = useAppConfig();
   const { warning: toastWarning } = useToast();
   const [rooms, setRooms] = useState<RoomCardData[]>([]);

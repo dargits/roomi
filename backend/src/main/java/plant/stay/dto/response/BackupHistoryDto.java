@@ -24,4 +24,5 @@ public class BackupHistoryDto {
     private LocalDateTime createdAt;
     private String createdByName;
     private String note;
+    private String cloudUrl;
 }

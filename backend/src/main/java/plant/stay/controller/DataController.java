@@ -25,6 +25,7 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -49,6 +50,10 @@ public class DataController {
     private final ExtraServiceRepository extraServiceRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final UserRepository userRepository;
+    private final CorporateClientRepository corporateClientRepository;
+    private final LostItemRepository lostItemRepository;
+    private final RoomIncidentRepository roomIncidentRepository;
+    private final DepositPolicyRepository depositPolicyRepository;
     private final AuditLogService auditLogService;
     private final AuthUtil authUtil;
     private final DataQueueService dataQueueService;
@@ -200,6 +205,7 @@ public class DataController {
 
             // Bản đồ vị trí cột thông minh theo tiêu đề
             int col0 = -1, col1 = -1, col2 = -1, col3 = -1, col4 = -1;
+            int col5 = -1, col6 = -1, col7 = -1, col8 = -1, col9 = -1, col10 = -1, col11 = -1;
             boolean hasIdCol = !headerCols.isEmpty() && normalizeHeader(headerCols.get(0)).contains("id");
 
             if ("rooms".equalsIgnoreCase(targetType)) {
@@ -266,6 +272,102 @@ public class DataController {
                     col3 = hasIdCol ? 4 : 3;
                     col4 = hasIdCol ? 5 : 4;
                 }
+            } else if ("bookings".equalsIgnoreCase(targetType)) {
+                col0 = findColumnIndex(headerCols, "khachhang", "tenkhachhang", "tenkhach", "hoten", "name");
+                col1 = findColumnIndex(headerCols, "sodienthoai", "dienthoai", "sdt", "phone");
+                col2 = findColumnIndex(headerCols, "phong", "sophong", "roomnumber", "room");
+                col3 = findColumnIndex(headerCols, "loaiphong", "tenloaiphong", "roomtype");
+                col4 = findColumnIndex(headerCols, "ngaynhan", "ngaynhanphong", "checkin", "checkindate");
+                col5 = findColumnIndex(headerCols, "ngaytra", "ngaytraphong", "checkout", "checkoutdate");
+                col6 = findColumnIndex(headerCols, "giadukien", "expectedprice", "gia", "price", "tongtien");
+                col7 = findColumnIndex(headerCols, "giathucte", "actualprice");
+                col8 = findColumnIndex(headerCols, "trangthai", "status");
+                col9 = findColumnIndex(headerCols, "nguon", "source", "kenh");
+                col10 = findColumnIndex(headerCols, "ghichu", "note");
+                if (col0 < 0) {
+                    col0 = hasIdCol ? 1 : 0;
+                    col1 = hasIdCol ? 2 : 1;
+                    col2 = hasIdCol ? 3 : 2;
+                    col3 = hasIdCol ? 4 : 3;
+                    col4 = hasIdCol ? 5 : 4;
+                    col5 = hasIdCol ? 6 : 5;
+                    col6 = hasIdCol ? 7 : 6;
+                    col7 = hasIdCol ? 8 : 7;
+                    col8 = hasIdCol ? 9 : 8;
+                    col9 = hasIdCol ? 10 : 9;
+                    col10 = hasIdCol ? 11 : 10;
+                }
+            } else if ("invoices".equalsIgnoreCase(targetType)) {
+                col0 = findColumnIndex(headerCols, "mabooking", "bookingid", "booking", "madatphong");
+                col1 = findColumnIndex(headerCols, "tienphong", "roomamount");
+                col2 = findColumnIndex(headerCols, "tiendichvu", "serviceamount", "dichvu");
+                col3 = findColumnIndex(headerCols, "giamgia", "discountamount", "discount");
+                col4 = findColumnIndex(headerCols, "tongtien", "totalamount", "tongcong", "total");
+                col5 = findColumnIndex(headerCols, "trangthai", "status");
+                col6 = findColumnIndex(headerCols, "ghichu", "note");
+                if (col0 < 0) {
+                    col0 = hasIdCol ? 1 : 0;
+                    col1 = hasIdCol ? 2 : 1;
+                    col2 = hasIdCol ? 3 : 2;
+                    col3 = hasIdCol ? 4 : 3;
+                    col4 = hasIdCol ? 5 : 4;
+                    col5 = hasIdCol ? 6 : 5;
+                    col6 = hasIdCol ? 7 : 6;
+                }
+            } else if ("corporate-clients".equalsIgnoreCase(targetType) || "corporate_clients".equalsIgnoreCase(targetType)) {
+                col0 = findColumnIndex(headerCols, "tendoanhnghiep", "tencongty", "companyname", "congty", "ten");
+                col1 = findColumnIndex(headerCols, "masothue", "mst", "taxcode");
+                col2 = findColumnIndex(headerCols, "nguoilienhe", "contactperson", "nguoidaidien", "contact");
+                col3 = findColumnIndex(headerCols, "sodienthoai", "dienthoai", "sdt", "phone");
+                col4 = findColumnIndex(headerCols, "email", "mail", "contactemail");
+                col5 = findColumnIndex(headerCols, "diachi", "address");
+                col6 = findColumnIndex(headerCols, "ghichu", "note");
+                if (col0 < 0) {
+                    col0 = hasIdCol ? 1 : 0;
+                    col1 = hasIdCol ? 2 : 1;
+                    col2 = hasIdCol ? 3 : 2;
+                    col3 = hasIdCol ? 4 : 3;
+                    col4 = hasIdCol ? 5 : 4;
+                    col5 = hasIdCol ? 6 : 5;
+                    col6 = hasIdCol ? 7 : 6;
+                }
+            } else if ("lost-items".equalsIgnoreCase(targetType) || "lost_items".equalsIgnoreCase(targetType)) {
+                col0 = findColumnIndex(headerCols, "sophong", "phong", "roomnumber", "room");
+                col1 = findColumnIndex(headerCols, "tentaisan", "tendovat", "itemname", "tendo", "ten");
+                col2 = findColumnIndex(headerCols, "vitri", "vitritimthay", "foundlocation", "noitimthay");
+                col3 = findColumnIndex(headerCols, "ngaytimthay", "founddate", "ngay");
+                col4 = findColumnIndex(headerCols, "noicatgiu", "storagelocation", "kho");
+                col5 = findColumnIndex(headerCols, "trangthai", "status");
+                col6 = findColumnIndex(headerCols, "nguoinhan", "receivername", "receiver");
+                if (col0 < 0) {
+                    col0 = hasIdCol ? 1 : 0;
+                    col1 = hasIdCol ? 2 : 1;
+                    col2 = hasIdCol ? 3 : 2;
+                    col3 = hasIdCol ? 4 : 3;
+                    col4 = hasIdCol ? 5 : 4;
+                    col5 = hasIdCol ? 6 : 5;
+                    col6 = hasIdCol ? 7 : 6;
+                }
+            } else if ("room-incidents".equalsIgnoreCase(targetType) || "room_incidents".equalsIgnoreCase(targetType)) {
+                col0 = findColumnIndex(headerCols, "sophong", "phong", "roomnumber", "room");
+                col1 = findColumnIndex(headerCols, "mucdo", "mucdosuco", "severity", "capdo");
+                col2 = findColumnIndex(headerCols, "motasuco", "mota", "description", "noidung");
+                col3 = findColumnIndex(headerCols, "trangthai", "status");
+                if (col0 < 0) {
+                    col0 = hasIdCol ? 1 : 0;
+                    col1 = hasIdCol ? 2 : 1;
+                    col2 = hasIdCol ? 3 : 2;
+                    col3 = hasIdCol ? 4 : 3;
+                }
+            } else if ("deposit-policies".equalsIgnoreCase(targetType) || "deposit_policies".equalsIgnoreCase(targetType)) {
+                col0 = findColumnIndex(headerCols, "loaiphong", "tenloaiphong", "roomtype", "hangphong");
+                col1 = findColumnIndex(headerCols, "tylecoc", "phantramcoc", "percent", "depositpercent", "tyle");
+                col2 = findColumnIndex(headerCols, "trangthai", "active", "hoatdong");
+                if (col0 < 0) {
+                    col0 = hasIdCol ? 1 : 0;
+                    col1 = hasIdCol ? 2 : 1;
+                    col2 = hasIdCol ? 3 : 2;
+                }
             } else {
                 return ResponseEntity.badRequest().body(ImportResultDto.builder()
                         .success(false)
@@ -310,7 +412,6 @@ public class DataController {
                             continue;
                         }
 
-                        // Tìm RoomType theo ID hoặc Tên loại phòng
                         RoomType rt = null;
                         try {
                             Long rtId = Long.parseLong(rtCol);
@@ -322,7 +423,6 @@ public class DataController {
                         }
 
                         if (rt == null) {
-                            // Tự động khởi tạo RoomType để quy trình nhập phòng luôn liền mạch
                             rt = roomTypeRepository.save(RoomType.builder()
                                     .name(rtCol)
                                     .basePrice(new BigDecimal("500000"))
@@ -523,6 +623,296 @@ public class DataController {
                                 .active(true)
                                 .build());
                         importedCount++;
+
+                    } else if ("bookings".equalsIgnoreCase(targetType)) {
+                        String guestName = getColValue(cols, col0, "");
+                        String phone = getColValue(cols, col1, null);
+                        String roomNum = getColValue(cols, col2, "");
+                        String rtName = getColValue(cols, col3, "");
+                        String checkInStr = getColValue(cols, col4, "");
+                        String checkOutStr = getColValue(cols, col5, "");
+                        String expPriceStr = getColValue(cols, col6, "");
+                        String actPriceStr = getColValue(cols, col7, "");
+                        String statusStr = getColValue(cols, col8, "CONFIRMED");
+                        String sourceStr = getColValue(cols, col9, "DIRECT");
+                        String noteStr = getColValue(cols, col10, "");
+
+                        if (guestName.isEmpty()) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Tên khách hàng không được để trống", lineNum));
+                            continue;
+                        }
+
+                        // Tìm hoặc tạo khách hàng
+                        Guest guest = null;
+                        if (phone != null && !phone.isEmpty()) {
+                            guest = guestRepository.findByPhone(phone).orElse(null);
+                        }
+                        if (guest == null) {
+                            guest = guestRepository.save(Guest.builder()
+                                    .name(guestName)
+                                    .phone(phone != null && !phone.isEmpty() ? phone : null)
+                                    .loyaltyPoints(0)
+                                    .build());
+                        }
+
+                        // Tìm phòng & hạng phòng
+                        Room room = null;
+                        if (!roomNum.isEmpty()) {
+                            room = roomRepository.findByRoomNumber(roomNum).orElse(null);
+                        }
+
+                        RoomType rt = (room != null) ? room.getRoomType() : null;
+                        if (rt == null && !rtName.isEmpty()) {
+                            rt = roomTypeRepository.findByNameIgnoreCase(rtName).orElse(null);
+                        }
+                        if (rt == null) {
+                            rt = roomTypeRepository.findAll().stream().findFirst().orElse(null);
+                        }
+                        if (rt == null) {
+                            rt = roomTypeRepository.save(RoomType.builder()
+                                    .name("Phòng Tiêu Chuẩn")
+                                    .basePrice(new BigDecimal("500000"))
+                                    .maxCapacity(2)
+                                    .active(true)
+                                    .build());
+                        }
+
+                        LocalDate checkIn = parseLocalDate(checkInStr, LocalDate.now());
+                        LocalDate checkOut = parseLocalDate(checkOutStr, checkIn.plusDays(1));
+                        if (!checkOut.isAfter(checkIn)) {
+                            checkOut = checkIn.plusDays(1);
+                        }
+
+                        BookingStatus status = BookingStatus.CONFIRMED;
+                        if (!statusStr.isEmpty()) {
+                            String sNorm = normalizeHeader(statusStr);
+                            if (sNorm.contains("nhan") || sNorm.contains("checkin")) status = BookingStatus.CHECKED_IN;
+                            else if (sNorm.contains("tra") || sNorm.contains("checkout")) status = BookingStatus.CHECKED_OUT;
+                            else if (sNorm.contains("huy") || sNorm.contains("cancel")) status = BookingStatus.CANCELLED;
+                            else if (sNorm.contains("noshow")) status = BookingStatus.NO_SHOW;
+                            else if (sNorm.contains("moi") || sNorm.contains("new")) status = BookingStatus.NEW;
+                            else {
+                                try {
+                                    status = BookingStatus.valueOf(statusStr.toUpperCase(Locale.ROOT));
+                                } catch (Exception ignored) {}
+                            }
+                        }
+
+                        BigDecimal expPrice = parseBigDecimal(expPriceStr, rt.getBasePrice());
+                        BigDecimal actPrice = parseBigDecimal(actPriceStr, expPrice);
+
+                        bookingRepository.save(Booking.builder()
+                                .guest(guest)
+                                .room(room)
+                                .roomType(rt)
+                                .checkInDate(checkIn)
+                                .checkOutDate(checkOut)
+                                .status(status)
+                                .expectedPrice(expPrice)
+                                .actualPrice(actPrice)
+                                .source(sourceStr.isEmpty() ? "DIRECT" : sourceStr)
+                                .note(noteStr)
+                                .build());
+                        importedCount++;
+
+                    } else if ("invoices".equalsIgnoreCase(targetType)) {
+                        String bookingIdStr = getColValue(cols, col0, "");
+                        String roomAmtStr = getColValue(cols, col1, "0");
+                        String srvAmtStr = getColValue(cols, col2, "0");
+                        String discAmtStr = getColValue(cols, col3, "0");
+                        String totalAmtStr = getColValue(cols, col4, "0");
+                        String statusStr = getColValue(cols, col5, "PAID");
+                        String noteStr = getColValue(cols, col6, "");
+
+                        Long bookingId = parseLong(bookingIdStr, null);
+                        Booking booking = (bookingId != null) ? bookingRepository.findById(bookingId).orElse(null) : null;
+                        if (booking == null) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Không tìm thấy Mã Booking '%s' tương ứng trong hệ thống (Bỏ qua)", lineNum, bookingIdStr));
+                            continue;
+                        }
+
+                        BigDecimal roomAmt = parseBigDecimal(roomAmtStr, booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+                        BigDecimal srvAmt = parseBigDecimal(srvAmtStr, BigDecimal.ZERO);
+                        BigDecimal discAmt = parseBigDecimal(discAmtStr, BigDecimal.ZERO);
+                        BigDecimal totalAmt = parseBigDecimal(totalAmtStr, roomAmt.add(srvAmt).subtract(discAmt));
+
+                        InvoiceStatus status = InvoiceStatus.PAID;
+                        if (!statusStr.isEmpty()) {
+                            String sNorm = normalizeHeader(statusStr);
+                            if (sNorm.contains("cho") || sNorm.contains("pending")) status = InvoiceStatus.PENDING_PAYMENT;
+                            else if (sNorm.contains("huy") || sNorm.contains("cancel")) status = InvoiceStatus.CANCELLED;
+                            else if (sNorm.contains("nhap") || sNorm.contains("draft")) status = InvoiceStatus.DRAFT;
+                            else {
+                                try {
+                                    status = InvoiceStatus.valueOf(statusStr.toUpperCase(Locale.ROOT));
+                                } catch (Exception ignored) {}
+                            }
+                        }
+
+                        invoiceRepository.save(Invoice.builder()
+                                .booking(booking)
+                                .roomAmount(roomAmt)
+                                .serviceAmount(srvAmt)
+                                .discountAmount(discAmt)
+                                .totalAmount(totalAmt)
+                                .status(status)
+                                .note(noteStr)
+                                .createdBy(actor)
+                                .build());
+                        importedCount++;
+
+                    } else if ("corporate-clients".equalsIgnoreCase(targetType) || "corporate_clients".equalsIgnoreCase(targetType)) {
+                        String companyName = getColValue(cols, col0, "");
+                        String taxCode = getColValue(cols, col1, null);
+                        String contactPerson = getColValue(cols, col2, null);
+                        String phone = getColValue(cols, col3, null);
+                        String email = getColValue(cols, col4, null);
+                        String address = getColValue(cols, col5, null);
+                        String note = getColValue(cols, col6, null);
+
+                        if (companyName.isEmpty()) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Tên doanh nghiệp/công ty không được để trống", lineNum));
+                            continue;
+                        }
+
+                        if (taxCode != null && !taxCode.isEmpty() && corporateClientRepository.findByTaxCode(taxCode).isPresent()) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Doanh nghiệp '%s' có Mã số thuế '%s' đã tồn tại (Bỏ qua)", lineNum, companyName, taxCode));
+                            continue;
+                        }
+
+                        corporateClientRepository.save(CorporateClient.builder()
+                                .companyName(companyName)
+                                .taxCode(taxCode != null && !taxCode.isEmpty() ? taxCode : null)
+                                .contactPerson(contactPerson)
+                                .contactPhone(phone)
+                                .contactEmail(email)
+                                .address(address)
+                                .note(note)
+                                .active(true)
+                                .createdBy(actor)
+                                .build());
+                        importedCount++;
+
+                    } else if ("lost-items".equalsIgnoreCase(targetType) || "lost_items".equalsIgnoreCase(targetType)) {
+                        String roomNum = getColValue(cols, col0, "");
+                        String itemName = getColValue(cols, col1, "");
+                        String foundLoc = getColValue(cols, col2, "");
+                        String dateStr = getColValue(cols, col3, "");
+                        String storage = getColValue(cols, col4, "Kho lễ tân");
+                        String statusStr = getColValue(cols, col5, "HOLDING");
+                        String receiver = getColValue(cols, col6, null);
+
+                        if (itemName.isEmpty()) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Tên đồ vật/tài sản thất lạc không được để trống", lineNum));
+                            continue;
+                        }
+
+                        Room room = null;
+                        if (!roomNum.isEmpty()) {
+                            room = roomRepository.findByRoomNumber(roomNum).orElse(null);
+                        }
+                        if (room == null) {
+                            room = roomRepository.findAll().stream().findFirst().orElse(null);
+                        }
+                        if (room == null) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Không tìm thấy phòng '%s' cho đồ thất lạc '%s'", lineNum, roomNum, itemName));
+                            continue;
+                        }
+
+                        LocalDate foundDate = parseLocalDate(dateStr, LocalDate.now());
+                        LostItemStatus status = LostItemStatus.HOLDING;
+                        if (!statusStr.isEmpty()) {
+                            try {
+                                status = LostItemStatus.valueOf(statusStr.toUpperCase(Locale.ROOT));
+                            } catch (Exception ignored) {}
+                        }
+
+                        lostItemRepository.save(LostItem.builder()
+                                .room(room)
+                                .itemName(itemName)
+                                .foundLocation(foundLoc.isEmpty() ? "Phòng " + room.getRoomNumber() : foundLoc)
+                                .foundDate(foundDate)
+                                .storageLocation(storage)
+                                .status(status)
+                                .receiverName(receiver)
+                                .createdBy(actor)
+                                .build());
+                        importedCount++;
+
+                    } else if ("room-incidents".equalsIgnoreCase(targetType) || "room_incidents".equalsIgnoreCase(targetType)) {
+                        String roomNum = getColValue(cols, col0, "");
+                        String sevStr = getColValue(cols, col1, "LIGHT");
+                        String desc = getColValue(cols, col2, "");
+                        String statusStr = getColValue(cols, col3, "OPEN");
+
+                        if (desc.isEmpty()) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Mô tả sự cố phòng không được để trống", lineNum));
+                            continue;
+                        }
+
+                        Room room = null;
+                        if (!roomNum.isEmpty()) {
+                            room = roomRepository.findByRoomNumber(roomNum).orElse(null);
+                        }
+                        if (room == null) {
+                            skippedCount++;
+                            details.add(String.format("Dòng %d: Không tìm thấy phòng '%s' để ghi nhận sự cố", lineNum, roomNum));
+                            continue;
+                        }
+
+                        IncidentSeverity severity = IncidentSeverity.LIGHT;
+                        if (!sevStr.isEmpty()) {
+                            String sNorm = normalizeHeader(sevStr);
+                            if (sNorm.contains("nang") || sNorm.contains("heavy")) severity = IncidentSeverity.HEAVY;
+                            else if (sNorm.contains("khoa") || sNorm.contains("out")) severity = IncidentSeverity.OUT_OF_SERVICE;
+                            else {
+                                try {
+                                    severity = IncidentSeverity.valueOf(sevStr.toUpperCase(Locale.ROOT));
+                                } catch (Exception ignored) {}
+                            }
+                        }
+
+                        IncidentStatus status = IncidentStatus.OPEN;
+                        if (!statusStr.isEmpty() && normalizeHeader(statusStr).contains("giai quyet")) {
+                            status = IncidentStatus.RESOLVED;
+                        }
+
+                        roomIncidentRepository.save(RoomIncident.builder()
+                                .room(room)
+                                .severity(severity)
+                                .description(desc)
+                                .status(status)
+                                .reportedBy(actor)
+                                .build());
+                        importedCount++;
+
+                    } else if ("deposit-policies".equalsIgnoreCase(targetType) || "deposit_policies".equalsIgnoreCase(targetType)) {
+                        String rtCol = getColValue(cols, col0, "");
+                        String percentStr = getColValue(cols, col1, "30");
+                        String activeStr = getColValue(cols, col2, "true");
+
+                        RoomType rt = null;
+                        if (!rtCol.isEmpty() && !rtCol.equalsIgnoreCase("tatca") && !rtCol.equalsIgnoreCase("all") && !rtCol.contains("mặc định")) {
+                            rt = roomTypeRepository.findByNameIgnoreCase(rtCol).orElse(null);
+                        }
+
+                        BigDecimal percent = parseBigDecimal(percentStr, new BigDecimal("30"));
+                        boolean active = !"khoa".equalsIgnoreCase(activeStr) && !"false".equalsIgnoreCase(activeStr);
+
+                        depositPolicyRepository.save(DepositPolicy.builder()
+                                .roomType(rt)
+                                .depositPercent(percent)
+                                .active(active)
+                                .updatedBy(actor)
+                                .build());
+                        importedCount++;
                     }
 
                 } catch (Exception ex) {
@@ -537,8 +927,23 @@ public class DataController {
                     String.format("Nhập dữ liệu %s: Thành công %d, Bỏ qua %d, Lỗi %d trên tổng số %d dòng (%d ms)",
                             targetType, importedCount, skippedCount, errorCount, totalRows, durationMs));
 
-            String summaryMessage = String.format("Nhập dữ liệu %s hoàn tất: %d bản ghi thành công (Bỏ qua %d, Lỗi %d)",
-                    targetType, importedCount, skippedCount, errorCount);
+            String friendlyTarget = switch (targetType.toLowerCase(Locale.ROOT)) {
+                case "extra-services", "extra_services" -> "Dịch vụ phụ thu";
+                case "room-types", "room_types" -> "Hạng phòng";
+                case "rooms" -> "Danh mục phòng";
+                case "guests" -> "Khách hàng";
+                case "bookings" -> "Đặt phòng";
+                case "invoices" -> "Hóa đơn & Doanh thu";
+                case "inventory", "inventory-items" -> "Kho đồ dùng & Vật tư";
+                case "staff", "users" -> "Nhân sự & Người dùng";
+                case "corporate-clients", "corporate_clients" -> "Khách hàng doanh nghiệp";
+                case "lost-items", "lost_items" -> "Đồ thất lạc";
+                case "room-incidents", "room_incidents" -> "Sự cố phòng";
+                case "deposit-policies", "deposit_policies" -> "Chính sách đặt cọc";
+                default -> targetType;
+            };
+            String summaryMessage = String.format("Nhập dữ liệu %s hoàn tất: %,d bản ghi thành công (Bỏ qua %,d, Lỗi %,d)",
+                    friendlyTarget, importedCount, skippedCount, errorCount);
 
             return ResponseEntity.ok(ImportResultDto.builder()
                     .success(importedCount > 0 || (totalRows > 0 && skippedCount == totalRows))
@@ -675,6 +1080,53 @@ public class DataController {
                     csv.append(u.isActive() ? "Hoạt động" : "Khóa").append("\n");
                 });
 
+            } else if ("corporate-clients".equals(targetType) || "corporate_clients".equals(targetType)) {
+                csv.append("ID,Tên doanh nghiệp / Công ty,Mã số thuế,Người liên hệ,Số điện thoại,Email,Địa chỉ,Ghi chú,Trạng thái\n");
+                corporateClientRepository.findAllByOrderByIdDesc().forEach(c -> {
+                    csv.append(c.getId()).append(",");
+                    csv.append(escapeCsv(c.getCompanyName())).append(",");
+                    csv.append(escapeCsv(c.getTaxCode() != null ? c.getTaxCode() : "")).append(",");
+                    csv.append(escapeCsv(c.getContactPerson() != null ? c.getContactPerson() : "")).append(",");
+                    csv.append(escapeCsv(c.getContactPhone() != null ? PersonalDataMasker.displayPhone(c.getContactPhone(), actor.getRole()) : "")).append(",");
+                    csv.append(escapeCsv(c.getContactEmail() != null ? PersonalDataMasker.displayEmail(c.getContactEmail(), actor.getRole()) : "")).append(",");
+                    csv.append(escapeCsv(c.getAddress() != null ? c.getAddress() : "")).append(",");
+                    csv.append(escapeCsv(c.getNote() != null ? c.getNote() : "")).append(",");
+                    csv.append(c.getActive() != null && c.getActive() ? "Hoạt động" : "Tạm ngưng").append("\n");
+                });
+
+            } else if ("lost-items".equals(targetType) || "lost_items".equals(targetType)) {
+                csv.append("ID,Số phòng,Tên tài sản / Đồ vật,Vị trí tìm thấy,Ngày tìm thấy,Nơi cất giữ,Trạng thái,Người nhận\n");
+                lostItemRepository.findAll().forEach(item -> {
+                    csv.append(item.getId()).append(",");
+                    csv.append(escapeCsv(item.getRoom() != null ? item.getRoom().getRoomNumber() : "")).append(",");
+                    csv.append(escapeCsv(item.getItemName())).append(",");
+                    csv.append(escapeCsv(item.getFoundLocation() != null ? item.getFoundLocation() : "")).append(",");
+                    csv.append(item.getFoundDate() != null ? item.getFoundDate().toString() : "").append(",");
+                    csv.append(escapeCsv(item.getStorageLocation() != null ? item.getStorageLocation() : "")).append(",");
+                    csv.append(item.getStatus() != null ? item.getStatus().name() : "").append(",");
+                    csv.append(escapeCsv(item.getReceiverName() != null ? item.getReceiverName() : "")).append("\n");
+                });
+
+            } else if ("room-incidents".equals(targetType) || "room_incidents".equals(targetType)) {
+                csv.append("ID,Số phòng,Mức độ sự cố,Mô tả sự cố,Trạng thái,Thời gian báo\n");
+                roomIncidentRepository.findAll().forEach(inc -> {
+                    csv.append(inc.getId()).append(",");
+                    csv.append(escapeCsv(inc.getRoom() != null ? inc.getRoom().getRoomNumber() : "")).append(",");
+                    csv.append(inc.getSeverity() != null ? inc.getSeverity().name() : "").append(",");
+                    csv.append(escapeCsv(inc.getDescription())).append(",");
+                    csv.append(inc.getStatus() != null ? inc.getStatus().name() : "").append(",");
+                    csv.append(inc.getReportedAt() != null ? inc.getReportedAt().toString() : "").append("\n");
+                });
+
+            } else if ("deposit-policies".equals(targetType) || "deposit_policies".equals(targetType)) {
+                csv.append("ID,Loại phòng áp dụng,Tỷ lệ cọc (%),Trạng thái\n");
+                depositPolicyRepository.findAll().forEach(dp -> {
+                    csv.append(dp.getId()).append(",");
+                    csv.append(escapeCsv(dp.getRoomType() != null ? dp.getRoomType().getName() : "Tất cả loại phòng (Mặc định)")).append(",");
+                    csv.append(dp.getDepositPercent() != null ? dp.getDepositPercent() : "0").append(",");
+                    csv.append(dp.getActive() != null && dp.getActive() ? "Hoạt động" : "Tạm ngưng").append("\n");
+                });
+
             } else {
                 return ResponseEntity.badRequest().body(new MessageResponse("Loại bảng không hỗ trợ: " + targetType));
             }
@@ -695,6 +1147,54 @@ public class DataController {
             log.error("Lỗi khi xuất CSV cho loại {}: ", targetType, ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new MessageResponse("Lỗi trích xuất dữ liệu bảng " + targetType + ": " + ex.getMessage()));
+        }
+    }
+
+    // ==========================================
+    // TIỆN ÍCH PARSER & NORMALIZER CSV
+    // ==========================================
+    public static LocalDate parseLocalDate(String str, LocalDate defaultVal) {
+        if (str == null || str.trim().isEmpty()) return defaultVal;
+        String s = str.trim();
+        if (s.contains("T")) s = s.split("T")[0];
+        if (s.contains(" ")) s = s.split(" ")[0];
+        try {
+            if (s.contains("-")) {
+                String[] parts = s.split("-");
+                if (parts[0].length() == 4) {
+                    return LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+                }
+            } else if (s.contains("/")) {
+                String[] parts = s.split("/");
+                if (parts[2].length() == 4) {
+                    return LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+                }
+            }
+        } catch (Exception ignored) {}
+        try {
+            return LocalDate.parse(s);
+        } catch (Exception ignored) {}
+        return defaultVal;
+    }
+
+    public static BigDecimal parseBigDecimal(String str, BigDecimal defaultVal) {
+        if (str == null || str.trim().isEmpty()) return defaultVal;
+        try {
+            String clean = str.trim().replaceAll("[^0-9.-]", "");
+            if (clean.isEmpty() || clean.equals("-") || clean.equals(".")) return defaultVal;
+            return new BigDecimal(clean);
+        } catch (Exception e) {
+            return defaultVal;
+        }
+    }
+
+    public static Long parseLong(String str, Long defaultVal) {
+        if (str == null || str.trim().isEmpty()) return defaultVal;
+        try {
+            String clean = str.trim().replaceAll("[^0-9]", "");
+            return clean.isEmpty() ? defaultVal : Long.parseLong(clean);
+        } catch (Exception e) {
+            return defaultVal;
         }
     }
 

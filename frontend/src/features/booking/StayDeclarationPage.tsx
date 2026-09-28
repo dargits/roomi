@@ -495,10 +495,30 @@ const StayDeclarationPage: React.FC = () => {
             {loading ? (
               <LoadingScreen message="Đang tải danh sách khai báo..." />
             ) : !data || data.guests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant">
-                <IoDocumentTextOutline size={40} className="mb-3 text-on-surface-variant/40" />
-                <p className="font-medium">Không có khách nhận phòng trong ngày này</p>
-                <p className="text-sm mt-1">Chọn ngày khác hoặc kiểm tra lại lịch nhận phòng</p>
+              <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant text-center px-4">
+                <IoDocumentTextOutline size={44} className="mb-3 text-on-surface-variant/40" />
+                <p className="font-semibold text-base text-on-surface">Không có khách làm thủ tục nhận phòng trong ngày này</p>
+                <p className="text-xs text-on-surface-variant mt-1 max-w-md">
+                  Mục này chỉ hiển thị khách làm thủ tục Check-in trong ngày để khai báo tạm trú công an trước 23h. Để xem toàn bộ khách đang ở hoặc các ngày trước:
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={IoLayersOutline}
+                    onClick={() => setActiveTab('history')}
+                  >
+                    Xem lịch sử lưu trú
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={IoPeopleOutline}
+                    onClick={() => { window.location.href = '/manage/in-house-guests'; }}
+                  >
+                    Quản lý khách đang ở
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="overflow-x-auto">

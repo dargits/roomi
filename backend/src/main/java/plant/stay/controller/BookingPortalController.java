@@ -48,6 +48,7 @@ public class BookingPortalController {
     private final InvoiceRepository invoiceRepository;
     private final HotelSettingRepository hotelSettingRepository;
     private final PublicGroupBookingRequestRepository publicGroupBookingRequestRepository;
+    private final plant.stay.service.PublicBookingAntiSpamService publicBookingAntiSpamService;
 
     // === PUBLIC: Lấy thông tin đặt phòng chi tiết để chia sẻ ===
     @GetMapping("/api/v1/public/bookings/{id}")
@@ -280,9 +281,15 @@ public class BookingPortalController {
         }).collect(Collectors.toList()));
     }
 
-    // === PUBLIC: Gửi yêu cầu đặt phòng ===
+    // === PUBLIC: Gửi yêu cầu đặt phòng (Có kiểm soát chống spam / bot) ===
     @PostMapping("/api/v1/booking-requests")
-    public ResponseEntity<BookingRequestResponse> submit(@Valid @RequestBody BookingRequestDto req) {
+    public ResponseEntity<BookingRequestResponse> submit(
+            @Valid @RequestBody BookingRequestDto req,
+            HttpServletRequest httpServletRequest) {
+        
+        // 0. Xác thực phòng chống spam & bot
+        publicBookingAntiSpamService.validateIndividualBooking(req, httpServletRequest);
+
         RoomType roomType = roomTypeRepository.findById(req.getRoomTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
         if (!req.getCheckOutDate().isAfter(req.getCheckInDate())) {
@@ -421,7 +428,7 @@ public class BookingPortalController {
             for (Room r : allRooms) {
                 if (r.getStatus() == RoomStatus.MAINTENANCE) {
                     occupiedRoomIds.add(r.getId());
-                } else if (cur.equals(today) && r.getStatus() == RoomStatus.OCCUPIED) {
+                } else if (cur.equals(today) && (r.getStatus() == RoomStatus.OCCUPIED || r.getStatus() == RoomStatus.DIRTY)) {
                     occupiedRoomIds.add(r.getId());
                 }
             }

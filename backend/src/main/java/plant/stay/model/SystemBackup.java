@@ -53,4 +53,7 @@ public class SystemBackup {
 
     @Column(name = "note", length = 1000)
     private String note;
+
+    @Column(name = "cloud_url", length = 500)
+    private String cloudUrl; // URL lưu trữ trực tuyến vĩnh viễn trên Catbox.moe
 }

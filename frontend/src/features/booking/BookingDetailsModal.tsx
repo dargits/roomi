@@ -151,9 +151,9 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
   useEffect(() => {
     if (isOpen && bookingId) {
       fetchBookingDetails();
-      setActiveTab('info');
+      setActiveTab(initialTab || 'info');
     }
-  }, [isOpen, bookingId]);
+  }, [isOpen, bookingId, initialTab]);
 
   const fetchBookingDetails = async () => {
     setLoading(true);

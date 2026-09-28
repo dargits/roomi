@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import hotelSettingApi from '../../services/hotelSettingApi';
 import roomApi from '../../services/roomApi';
-import { 
-  IoAlertCircleOutline, 
-  IoBusinessOutline, 
-  IoCallOutline, 
-  IoCameraOutline, 
-  IoCheckmarkCircleOutline, 
-  IoCloseOutline, 
-  IoImageOutline, 
-  IoLocationOutline, 
-  IoLogInOutline, 
-  IoLogOutOutline, 
-  IoMailOutline, 
-  IoNotificationsOutline, 
-  IoSaveOutline, 
+import {
+  IoAlertCircleOutline,
+  IoBusinessOutline,
+  IoCallOutline,
+  IoCameraOutline,
+  IoCheckmarkCircleOutline,
+  IoImageOutline,
+  IoLocationOutline,
+  IoLogInOutline,
+  IoLogOutOutline,
+  IoMailOutline,
+  IoNotificationsOutline,
+  IoSaveOutline,
   IoTimeOutline,
   IoBrushOutline,
   IoSparklesOutline,
@@ -22,16 +21,51 @@ import {
   IoCalendarOutline,
   IoKeyOutline,
   IoEyeOutline,
-  IoEyeOffOutline
+  IoEyeOffOutline,
+  IoShieldCheckmarkOutline,
+  IoReceiptOutline
 } from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import PageHeader from '../../components/ui/PageHeader';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { HotelSettingRequest } from '../../types';
+import ConcurrentSessionControl from './ConcurrentSessionControl';
+
+type SettingTabType = 'general' | 'security' | 'operations';
+
+interface TabItem {
+  id: SettingTabType;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  description: string;
+}
+
+const SETTING_TABS: TabItem[] = [
+  {
+    id: 'general',
+    label: 'Thông tin cơ sở & Nhận diện',
+    icon: IoBusinessOutline,
+    description: 'Tên khách sạn, thông tin liên hệ, giờ nhận/trả phòng & ảnh đại diện'
+  },
+  {
+    id: 'security',
+    label: 'Bảo mật & Phiên đăng nhập',
+    icon: IoShieldCheckmarkOutline,
+    description: 'Chính sách phiên đăng nhập đồng thời, thời gian chờ timeout & Google AI Key'
+  },
+  {
+    id: 'operations',
+    label: 'Vận hành & Dịch vụ',
+    icon: IoSparklesOutline,
+    description: 'Lịch dọn định kỳ phòng trống, email nhắc nhận phòng & tra cứu hóa đơn'
+  }
+];
 
 const HotelSettings: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<SettingTabType>('general');
   const [settings, setSettings] = useState<HotelSettingRequest>({
     propertyName: '',
     address: '',
@@ -45,6 +79,8 @@ const HotelSettings: React.FC = () => {
     periodicCleaningEnabled: true,
     periodicCleaningDays: 5,
     sessionTimeoutMinutes: 120,
+    maxConcurrentSessions: 0,
+    maxSessionLifetimeHours: 24,
     publicInvoiceLookupEnabled: true
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +96,8 @@ const HotelSettings: React.FC = () => {
   const [googleApiKeys, setGoogleApiKeys] = useState('');
   const [isSavingKeys, setIsSavingKeys] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+
+  const { success: toastSuccess, error: toastError } = useToast();
 
   useEffect(() => {
     fetchSettings();
@@ -109,6 +147,8 @@ const HotelSettings: React.FC = () => {
         rest.periodicCleaningEnabled = rest.periodicCleaningEnabled !== false;
         rest.periodicCleaningDays = rest.periodicCleaningDays || 5;
         rest.sessionTimeoutMinutes = rest.sessionTimeoutMinutes || 120;
+        rest.maxConcurrentSessions = rest.maxConcurrentSessions !== undefined ? rest.maxConcurrentSessions : 0;
+        rest.maxSessionLifetimeHours = rest.maxSessionLifetimeHours || 24;
         rest.publicInvoiceLookupEnabled = rest.publicInvoiceLookupEnabled !== false;
         setSettings(rest);
       }
@@ -127,8 +167,6 @@ const HotelSettings: React.FC = () => {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
   };
-
-  const { success: toastSuccess, error: toastError } = useToast();
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -211,485 +249,553 @@ const HotelSettings: React.FC = () => {
   };
 
   if (isLoading) {
-    return <LoadingScreen message="Đang tải thông tin cấu hình..." />;
+    return <LoadingScreen message="Đang tải thông tin cấu hình khách sạn..." />;
   }
 
+  const currentTabObj = SETTING_TABS.find(t => t.id === activeTab) || SETTING_TABS[0];
+
   return (
-    <div className="bg-surface rounded-lg shadow-sm border border-border-grey overflow-hidden max-w-4xl mx-auto">
-      <div className="px-6 py-4 border-b border-border-grey flex items-center justify-between bg-surface-container-lowest">
-        <div className="flex items-center gap-2">
-          <IoBusinessOutline size={22} className="text-primary" />
-          <h2 className="font-title-lg text-on-surface font-bold text-lg">
-            Cấu hình Thông tin Khách sạn
-          </h2>
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Header */}
+      <PageHeader
+        icon={IoBusinessOutline}
+        title="Cài Đặt Khách Sạn"
+        subtitle="Quản lý thông tin thương hiệu, chính sách bảo mật phiên làm việc và quy chuẩn vận hành buồng phòng"
+      />
+
+      {/* Tabs Chuyên Mục Hiện Đại */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-bright p-2 rounded-2xl border border-border-grey shadow-2xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
+          {SETTING_TABS.map((tab) => {
+            const isTabActive = activeTab === tab.id;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                  isTabActive
+                    ? 'bg-surface-bright text-primary font-bold shadow-xs border border-border-grey/80'
+                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/50'
+                }`}
+              >
+                <TabIcon className={isTabActive ? 'text-primary' : 'text-on-surface-variant'} size={18} />
+                <span className="truncate">{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {message.text && (
-          <div className={`p-4 rounded-md flex items-center gap-2 text-sm ${
-            message.type === 'success' 
-              ? 'bg-green-50 text-green-700 border border-green-200' 
+      {/* Thông báo kết quả lưu */}
+      {message.text && (
+        <div
+          className={`p-4 rounded-xl flex items-center gap-2.5 text-sm animate-in fade-in duration-200 ${
+            message.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               : 'bg-red-50 text-error border border-red-200'
-          }`}>
-            {message.type === 'success' ? <IoCheckmarkCircleOutline size={18} /> : <IoAlertCircleOutline size={18} />}
-            <span>{message.text}</span>
+          }`}
+        >
+          {message.type === 'success' ? (
+            <IoCheckmarkCircleOutline size={20} className="text-emerald-600 shrink-0" />
+          ) : (
+            <IoAlertCircleOutline size={20} className="text-red-600 shrink-0" />
+          )}
+          <span className="font-medium">{message.text}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ========================================================================= */}
+        {/* TAB 1: THÔNG TIN CƠ SỞ & NHẬN DIỆN */}
+        {/* ========================================================================= */}
+        {activeTab === 'general' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Card 1: Thông tin liên hệ cơ bản */}
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-5">
+              <div className="flex items-center gap-2.5 border-b border-border-grey pb-3">
+                <IoBusinessOutline size={20} className="text-primary" />
+                <div>
+                  <h3 className="font-title-md text-on-surface font-bold">Thông tin Thương hiệu & Liên hệ</h3>
+                  <p className="text-xs text-on-surface-variant">Thông tin hiển thị trên website đặt phòng, phiếu xác nhận và hóa đơn</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Tên khách sạn / Cơ sở lưu trú *"
+                  name="propertyName"
+                  value={settings.propertyName}
+                  onChange={handleChange}
+                  error={errors.propertyName || undefined}
+                  icon={IoBusinessOutline}
+                  placeholder="Ví dụ: Khách sạn Stay Away Luxury"
+                  required
+                />
+
+                <Input
+                  label="Địa chỉ cơ sở *"
+                  name="address"
+                  value={settings.address}
+                  onChange={handleChange}
+                  error={errors.address || undefined}
+                  icon={IoLocationOutline}
+                  placeholder="Số nhà, tên đường, phường/xã, tỉnh/thành phố"
+                  required
+                />
+
+                <Input
+                  label="Số điện thoại liên hệ *"
+                  name="phone"
+                  value={settings.phone}
+                  onChange={handleChange}
+                  error={errors.phone || undefined}
+                  icon={IoCallOutline}
+                  placeholder="Ví dụ: 0365224245"
+                  required
+                />
+
+                <Input
+                  label="Email đại diện *"
+                  type="email"
+                  name="email"
+                  value={settings.email}
+                  onChange={handleChange}
+                  error={errors.email || undefined}
+                  icon={IoMailOutline}
+                  placeholder="Ví dụ: lienhe@stayaway.vn"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Card 2: Khung giờ nhận/trả phòng & Ảnh đại diện */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Giờ nhận/trả phòng */}
+              <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-4">
+                <div className="flex items-center gap-2.5 border-b border-border-grey pb-3">
+                  <IoTimeOutline size={20} className="text-primary" />
+                  <div>
+                    <h3 className="font-title-md text-on-surface font-bold">Khung Giờ Mặc Định</h3>
+                    <p className="text-xs text-on-surface-variant">Giờ nhận và trả phòng tiêu chuẩn cho khách đặt phòng</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <Input
+                    label="Giờ nhận phòng chuẩn *"
+                    type="time"
+                    name="defaultCheckinTime"
+                    value={settings.defaultCheckinTime || ''}
+                    onChange={handleChange}
+                    error={errors.defaultCheckinTime || undefined}
+                    icon={IoLogInOutline}
+                    helperText="Mặc định: 14:00"
+                    required
+                  />
+
+                  <Input
+                    label="Giờ trả phòng chuẩn *"
+                    type="time"
+                    name="defaultCheckoutTime"
+                    value={settings.defaultCheckoutTime || ''}
+                    onChange={handleChange}
+                    error={errors.defaultCheckoutTime || undefined}
+                    icon={IoLogOutOutline}
+                    helperText="Mặc định: 12:00"
+                    required
+                  />
+                </div>
+
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl text-xs text-on-surface-variant space-y-1">
+                  <div className="font-semibold text-primary flex items-center gap-1">
+                    <IoTimeOutline size={14} /> Quy tắc thời gian:
+                  </div>
+                  <div>• Khách nhận phòng trước giờ quy định hoặc trả phòng sau giờ quy định sẽ tự động áp dụng phụ thu theo bảng giá dịch vụ nếu có.</div>
+                </div>
+              </div>
+
+              {/* Ảnh đại diện cơ sở */}
+              <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-4">
+                <div className="flex items-center gap-2.5 border-b border-border-grey pb-3">
+                  <IoImageOutline size={20} className="text-primary" />
+                  <div>
+                    <h3 className="font-title-md text-on-surface font-bold">Ảnh Đại Diện Khách Sạn</h3>
+                    <p className="text-xs text-on-surface-variant">Hình ảnh hiển thị trên cổng đặt phòng và trang chủ</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-1">
+                  {settings.homeImage ? (
+                    <div className="relative w-28 h-28 rounded-2xl overflow-hidden border border-border-grey group shadow-xs">
+                      <img
+                        src={settings.homeImage}
+                        alt="Hotel preview"
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => setIsPreviewOpen(true)}
+                      />
+                      <div
+                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
+                        onClick={() => setIsPreviewOpen(true)}
+                        title="Xem ảnh phóng to"
+                      >
+                        <IoImageOutline size={24} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-28 h-28 rounded-2xl border border-dashed border-border-grey flex flex-col items-center justify-center text-on-surface-variant bg-surface-container-low">
+                      <IoImageOutline size={28} className="opacity-40 mb-1" />
+                      <span className="text-xs">Chưa có ảnh</span>
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-2">
+                    <label className="inline-flex items-center gap-2 px-4 py-2.5 border border-border-grey rounded-xl text-xs font-bold text-on-surface bg-white hover:bg-surface-container-low cursor-pointer transition-colors shadow-2xs">
+                      <IoCameraOutline size={18} className="text-primary" />
+                      <span>{isUploading ? 'Đang tải lên...' : 'Chọn ảnh mới'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
+                        disabled={isUploading}
+                      />
+                    </label>
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Định dạng hỗ trợ: JPG, PNG, WEBP. Kích thước khuyến nghị tối thiểu 800x600px, dung lượng tối đa 5MB.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <h3 className="font-title-md text-on-surface font-semibold border-b border-border-grey pb-2">
-              Thông tin Cơ bản
-            </h3>
-            
-            <Input
-              label="Tên khách sạn / cơ sở *"
-              name="propertyName"
-              value={settings.propertyName}
-              onChange={handleChange}
-              error={errors.propertyName || undefined}
-              icon={IoBusinessOutline}
-              required
-            />
+        {/* ========================================================================= */}
+        {/* TAB 2: BẢO MẬT & PHIÊN ĐĂNG NHẬP */}
+        {/* ========================================================================= */}
+        {activeTab === 'security' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Card 1: Chính sách Phiên đăng nhập & Bảo mật (ĐÃ THAY ĐỔI CONTROL THEO YÊU CẦU) */}
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-6">
+              <div className="flex items-center gap-2.5 border-b border-border-grey pb-3">
+                <IoKeyOutline size={20} className="text-primary" />
+                <div>
+                  <h3 className="font-title-md text-on-surface font-bold">Chính Sách Phiên Đăng Nhập & Kiểm Soát Thiết Bị</h3>
+                  <p className="text-xs text-on-surface-variant">
+                    Quản lý số lượng thiết bị đăng nhập đồng thời, thời gian khóa màn hình khi treo máy và thời hạn phiên
+                  </p>
+                </div>
+              </div>
 
-            <Input
-              label="Địa chỉ *"
-              name="address"
-              value={settings.address}
-              onChange={handleChange}
-              error={errors.address || undefined}
-              icon={IoLocationOutline}
-              required
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Số điện thoại *"
-                name="phone"
-                value={settings.phone}
-                onChange={handleChange}
-                error={errors.phone || undefined}
-                icon={IoCallOutline}
-                required
+              {/* Control số phiên đăng nhập đồng thời - DÙNG CARD SELECTOR THAY VÌ NHẬP 0 HOẶC 1 */}
+              <ConcurrentSessionControl
+                value={settings.maxConcurrentSessions ?? 0}
+                onChange={(val) => {
+                  setSettings(prev => ({ ...prev, maxConcurrentSessions: val }));
+                  if (errors.maxConcurrentSessions) {
+                    setErrors(prev => ({ ...prev, maxConcurrentSessions: null }));
+                  }
+                }}
+                error={errors.maxConcurrentSessions}
               />
 
-              <Input
-                label="Email liên hệ *"
-                type="email"
-                name="email"
-                value={settings.email}
-                onChange={handleChange}
-                error={errors.email || undefined}
-                icon={IoMailOutline}
-                required
-              />
-            </div>
-          </div>
+              {/* Thời gian chờ & Thời hạn tối đa */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border-grey/70">
+                <Input
+                  label="Thời gian chờ không thao tác (phút) *"
+                  type="number"
+                  name="sessionTimeoutMinutes"
+                  min={5}
+                  max={1440}
+                  value={settings.sessionTimeoutMinutes !== undefined ? String(settings.sessionTimeoutMinutes) : '120'}
+                  onChange={handleChange}
+                  error={errors.sessionTimeoutMinutes || undefined}
+                  icon={IoTimeOutline}
+                  helperText="Mặc định: 120 phút. Tự động kết thúc phiên khi không có thao tác chuột/bàn phím."
+                  required
+                />
 
-          <div className="space-y-4">
-            <h3 className="font-title-md text-on-surface font-semibold border-b border-border-grey pb-2">
-              Thời gian Mặc định
-            </h3>
+                <Input
+                  label="Thời hạn tối đa của phiên (giờ) *"
+                  type="number"
+                  name="maxSessionLifetimeHours"
+                  min={1}
+                  max={720}
+                  value={settings.maxSessionLifetimeHours !== undefined ? String(settings.maxSessionLifetimeHours) : '24'}
+                  onChange={handleChange}
+                  error={errors.maxSessionLifetimeHours || undefined}
+                  icon={IoTimeOutline}
+                  helperText="Mặc định: 24 giờ. Bắt buộc đăng nhập lại sau khoảng thời gian này."
+                  required
+                />
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Giờ nhận phòng chuẩn *"
-                type="time"
-                name="defaultCheckinTime"
-                value={settings.defaultCheckinTime || ''}
-                onChange={handleChange}
-                error={errors.defaultCheckinTime || undefined}
-                icon={IoLogInOutline}
-                required
-              />
-
-              <Input
-                label="Giờ trả phòng chuẩn *"
-                type="time"
-                name="defaultCheckoutTime"
-                value={settings.defaultCheckoutTime || ''}
-                onChange={handleChange}
-                error={errors.defaultCheckoutTime || undefined}
-                icon={IoLogOutOutline}
-                required
-              />
+              {/* Hướng dẫn cơ chế bảo mật */}
+              <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                  <IoShieldCheckmarkOutline size={16} className="text-primary" /> Cơ chế bảo mật phiên làm việc:
+                </div>
+                <div>• <strong>Chế độ 1 thiết bị duy nhất:</strong> Thích hợp nhất cho máy tính quầy lễ tân. Khi nhân viên đăng nhập tài khoản trên máy mới hoặc điện thoại, máy cũ sẽ bị đăng xuất ngay lập tức để tránh lộ mật khẩu hoặc làm việc hộ nhau.</div>
+                <div>• <strong>Thời gian chờ không thao tác (Timeout):</strong> Khi nhân viên rời quầy đi kiểm tra phòng quá số phút đã chọn, phiên làm việc sẽ tự động khóa để bảo vệ thông tin khách hàng.</div>
+              </div>
             </div>
 
-            <div className="pt-2">
-              <h3 className="font-title-md text-on-surface font-semibold border-b border-border-grey pb-2 mb-3">
-                Ảnh đại diện Khách sạn
-              </h3>
-              
-              <div className="flex items-center gap-4">
-                {settings.homeImage ? (
-                  <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-border-grey group">
-                    <img 
-                      src={settings.homeImage} 
-                      alt="Hotel preview" 
-                      className="w-full h-full object-cover cursor-pointer"
-                      onClick={() => setIsPreviewOpen(true)}
-                    />
-                    <div 
-                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
-                      onClick={() => setIsPreviewOpen(true)}
-                    >
-                      <IoImageOutline size={20} />
-                    </div>
+            {/* Card 2: Cấu hình Google AI API Keys */}
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-border-grey pb-3">
+                <div className="flex items-center gap-2.5">
+                  <IoSparklesOutline size={20} className="text-primary" />
+                  <div>
+                    <h3 className="font-title-md text-on-surface font-bold">Khóa Google AI API Keys</h3>
+                    <p className="text-xs text-on-surface-variant">Dùng cho các tính năng thông minh: Gợi ý điều chỉnh giá, trợ lý phòng & phân tích tự động</p>
                   </div>
-                ) : (
-                  <div className="w-24 h-24 rounded-lg border border-dashed border-border-grey flex flex-col items-center justify-center text-on-surface-variant bg-surface-container-low">
-                    <IoImageOutline size={24} />
-                    <span className="text-xs mt-1">Chưa có ảnh</span>
-                  </div>
+                </div>
+                {getKeyCount() > 0 && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">
+                    <IoKeyOutline size={13} />
+                    {getKeyCount()} key đang kích hoạt
+                  </span>
                 )}
+              </div>
 
-                <div className="flex-1">
-                  <label className="inline-flex items-center gap-2 px-3 py-2 border border-border-grey rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-low cursor-pointer transition-colors shadow-xs">
-                    <IoCameraOutline size={18} className="text-primary" />
-                    <span>{isUploading ? 'Đang tải lên...' : 'Chọn ảnh mới'}</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleImageUpload}
-                      disabled={isUploading}
-                    />
-                  </label>
-                  <p className="text-xs text-on-surface-variant mt-1">Hỗ trợ JPG, PNG, WEBP tối đa 5MB</p>
+              <div className="space-y-3">
+                <div className="relative">
+                  <textarea
+                    id="google-api-keys-textarea"
+                    value={showKeys ? googleApiKeys : googleApiKeys.replace(/[A-Za-z0-9_\-]{10,}/g, (m) => m.slice(0, 8) + '••••••••')}
+                    onChange={(e) => setGoogleApiKeys(e.target.value)}
+                    onFocus={() => setShowKeys(true)}
+                    onBlur={() => setShowKeys(false)}
+                    rows={Math.max(3, getKeyCount() + 1)}
+                    placeholder={"AIzaSy...key1\nAIzaSy...key2\nAIzaSy...key3"}
+                    spellCheck={false}
+                    className="w-full font-mono text-sm bg-surface-container-low border border-border-grey rounded-xl px-4 py-3 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKeys(v => !v)}
+                    className="absolute right-3.5 top-3.5 text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+                    title={showKeys ? 'Ẩn key' : 'Hiện key'}
+                  >
+                    {showKeys ? <IoEyeOffOutline size={18} /> : <IoEyeOutline size={18} />}
+                  </button>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Cấu hình tự động gửi email nhắc nhận phòng */}
-        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
-          <div className="flex items-center justify-between border-b border-border-grey pb-3">
-            <div className="flex items-center gap-2">
-              <IoMailOutline size={20} className="text-primary" />
-              <div>
-                <h3 className="font-title-md text-on-surface font-semibold">
-                  Tự động gửi Email nhắc nhận phòng (1 ngày trước)
-                </h3>
-                <p className="text-xs text-on-surface-variant">
-                  Gửi email thông báo lịch trình & lưu ý nhận phòng cho khách hàng trước ngày đến.
-                </p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={settings.reminderEmailEnabled ?? true} 
-                onChange={(e) => setSettings(prev => ({ ...prev, reminderEmailEnabled: e.target.checked }))}
-                className="sr-only peer" 
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </label>
-          </div>
-
-          {settings.reminderEmailEnabled && (
-            <div className="space-y-4 pt-1">
-              <Input
-                label="Giờ gửi nhắc buổi sáng *"
-                type="time"
-                name="reminderMorningTime"
-                value={settings.reminderMorningTime || '10:30'}
-                onChange={handleChange}
-                error={errors.reminderMorningTime || undefined}
-                icon={IoTimeOutline}
-                helperText="Hệ thống quét và gửi nhắc cho các khách check-in vào ngày hôm sau"
-                required
-              />
-
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-800 space-y-1">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <IoNotificationsOutline size={15} /> Cơ chế hoạt động:
-                </div>
-                <div>• Hệ thống tự động gửi email 1 lần/ngày vào buổi sáng theo khung giờ đã đặt ở trên.</div>
-                <div>• Chỉ gửi cho các đặt phòng có ngày nhận phòng là <strong>ngày mai</strong>.</div>
-                <div>• Mỗi đặt phòng chỉ nhận email <strong>1 lần duy nhất</strong>, các ngày lưu trú tiếp theo sẽ không gửi mail lặp lại.</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Cấu hình lịch dọn định kỳ cho phòng trống dài ngày */}
-        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
-          <div className="flex items-center justify-between border-b border-border-grey pb-3">
-            <div className="flex items-center gap-2">
-              <IoSparklesOutline size={20} className="text-primary" />
-              <div>
-                <h3 className="font-title-md text-on-surface font-semibold">
-                  Lịch dọn định kỳ cho phòng trống dài ngày
-                </h3>
-                <p className="text-xs text-on-surface-variant">
-                  Tự động chuyển phòng trống lâu ngày sang trạng thái Cần dọn (DIRTY) để tránh bụi bẩn khi bất ngờ có khách nhận phòng.
-                </p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={settings.periodicCleaningEnabled ?? true} 
-                onChange={(e) => setSettings(prev => ({ ...prev, periodicCleaningEnabled: e.target.checked }))}
-                className="sr-only peer" 
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </label>
-          </div>
-
-          {settings.periodicCleaningEnabled && (
-            <div className="space-y-4 pt-1">
-              <div>
-                <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider mb-1.5">
-                  Số ngày không có khách để chuyển sang Cần dọn <span className="text-error">*</span>
-                </label>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <div className="relative w-full sm:w-72">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <IoCalendarOutline size={18} strokeWidth={1.5} className="text-[#606D56]" />
-                    </div>
-                    <input
-                      type="number"
-                      name="periodicCleaningDays"
-                      min={1}
-                      max={90}
-                      value={settings.periodicCleaningDays !== undefined ? String(settings.periodicCleaningDays) : '5'}
-                      onChange={handleChange}
-                      className={`w-full h-[42px] py-2.5 pl-10 pr-4 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] placeholder:text-slate-400 transition-all ${
-                        errors.periodicCleaningDays ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-primary'
-                      }`}
-                      required
-                    />
-                  </div>
-
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <p className="text-xs text-on-surface-variant">
+                    {getKeyCount() > 0
+                      ? `Hệ thống có ${getKeyCount()} key và sẽ tự động xoay vòng round-robin khi gọi AI.`
+                      : 'Chưa cấu hình key nào. Các tính năng AI sẽ tạm dừng cho đến khi được nhập key.'}
+                  </p>
                   <Button
                     type="button"
-                    variant="outline"
-                    icon={IoRefreshOutline}
-                    onClick={handleScanPeriodicCleaning}
-                    isLoading={isScanning}
-                    className="h-[42px] px-4 text-xs font-bold rounded-xl shrink-0 inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-2xs hover:bg-slate-50"
+                    variant="primary"
+                    icon={IoSaveOutline}
+                    isLoading={isSavingKeys}
+                    onClick={handleSaveGoogleApiKeys}
+                    size="sm"
                   >
-                    Quét phòng trống ngay
+                    Lưu API Keys
                   </Button>
                 </div>
 
-                {errors.periodicCleaningDays ? (
-                  <p className="text-error text-xs mt-1.5 font-medium">{errors.periodicCleaningDays}</p>
-                ) : (
-                  <p className="text-[#606D56] text-xs mt-1.5">
-                    Sau số ngày này không có khách, phòng sẽ tự động chuyển sang Cần dọn
-                  </p>
-                )}
-              </div>
-
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 space-y-1">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <IoBrushOutline size={15} /> Cơ chế hoạt động:
+                <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <IoAlertCircleOutline size={15} /> Hướng dẫn bảo mật:
+                  </div>
+                  <div>• Mỗi khóa API nằm trên 1 dòng riêng biệt. Các dòng trống sẽ được bỏ qua tự động.</div>
+                  <div>• Lấy key miễn phí hoặc trả phí tại <strong>console.cloud.google.com</strong> → APIs &amp; Services → Credentials.</div>
                 </div>
-                <div>• Hệ thống tự động theo dõi số ngày phòng ở trạng thái <strong>Sẵn sàng (AVAILABLE)</strong> kể từ lần dọn sạch gần nhất.</div>
-                <div>• Nếu phòng để trống từ <strong>{settings.periodicCleaningDays || 5} ngày</strong> trở lên không có khách, hệ thống tự động đưa vào danh sách <strong>Cần dọn</strong> với nhãn <strong>Dọn định kỳ</strong>.</div>
-                <div>• Giúp cơ sở lưu trú luôn chủ động vệ sinh sạch bụi bẩn, ga gối thơm tho để đón khách bất ngờ hoặc khách đặt gấp trong ngày.</div>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Cấu hình chính sách phiên đăng nhập & thời gian chờ (NCL-10-CN-007) */}
-        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
-          <div className="flex items-center gap-2 border-b border-border-grey pb-3">
-            <IoKeyOutline size={20} className="text-primary" />
-            <div>
-              <h3 className="font-title-md text-on-surface font-semibold">
-                Chính sách Phiên đăng nhập & Bảo mật tài khoản
-              </h3>
-              <p className="text-xs text-on-surface-variant">
-                Cấu hình thời gian chờ không thao tác, giới hạn thiết bị đăng nhập đồng thời và thời hạn tối đa của phiên.
-              </p>
-            </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 items-stretch">
-            <Input
-              label="Thời gian chờ không thao tác (phút) *"
-              labelClassName="min-h-[32px] sm:min-h-[36px] flex items-start"
-              helperTextClassName="min-h-[32px] sm:min-h-[36px]"
-              containerClassName="flex flex-col justify-between h-full"
-              type="number"
-              name="sessionTimeoutMinutes"
-              min={5}
-              max={1440}
-              value={settings.sessionTimeoutMinutes !== undefined ? String(settings.sessionTimeoutMinutes) : '120'}
-              onChange={handleChange}
-              error={errors.sessionTimeoutMinutes || undefined}
-              icon={IoTimeOutline}
-              helperText="Mặc định: 120 phút. Tự động kết thúc khi treo máy."
-              required
-            />
-
-            <Input
-              label="Số phiên đồng thời tối đa *"
-              labelClassName="min-h-[32px] sm:min-h-[36px] flex items-start"
-              helperTextClassName="min-h-[32px] sm:min-h-[36px]"
-              containerClassName="flex flex-col justify-between h-full"
-              type="number"
-              name="maxConcurrentSessions"
-              min={0}
-              max={50}
-              value={settings.maxConcurrentSessions !== undefined ? String(settings.maxConcurrentSessions) : '0'}
-              onChange={handleChange}
-              error={errors.maxConcurrentSessions || undefined}
-              icon={IoKeyOutline}
-              helperText="0 = Không giới hạn. 1 = Chỉ 1 thiết bị (đăng nhập mới tự hủy phiên cũ)."
-              required
-            />
-
-            <Input
-              label="Thời hạn tối đa của phiên (giờ) *"
-              labelClassName="min-h-[32px] sm:min-h-[36px] flex items-start"
-              helperTextClassName="min-h-[32px] sm:min-h-[36px]"
-              containerClassName="flex flex-col justify-between h-full"
-              type="number"
-              name="maxSessionLifetimeHours"
-              min={1}
-              max={720}
-              value={settings.maxSessionLifetimeHours !== undefined ? String(settings.maxSessionLifetimeHours) : '24'}
-              onChange={handleChange}
-              error={errors.maxSessionLifetimeHours || undefined}
-              icon={IoTimeOutline}
-              helperText="Mặc định: 24 giờ. Hết hạn phiên tuyệt đối."
-              required
-            />
-          </div>
-
-          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-800 space-y-1.5">
-            <div className="font-semibold flex items-center gap-1.5">
-              <IoKeyOutline size={15} /> Cơ chế kiểm soát phiên:
-            </div>
-            <div>• <strong>Chế độ 1 phiên duy nhất (Giá trị = 1):</strong> Nếu bật tính năng này, khi nhân viên đăng nhập trên máy tính hoặc điện thoại mới, phiên cũ sẽ tự động bị thu hồi ngay lập tức kèm thông báo lý do rõ ràng.</div>
-            <div>• <strong>Thời gian chờ (Timeout):</strong> Nếu nhân viên rời khỏi quầy quá số phút quy định không có thao tác chuột/bàn phím, hệ thống tự động khóa phiên để ngăn chặn truy cập trái phép.</div>
-            <div>• <strong>Thời hạn tối đa:</strong> Bắt buộc làm mới xác thực sau khoảng thời gian này kể từ khi đăng nhập.</div>
-          </div>
-        </div>
-
-        {/* NCL-09-CN-008: Cấu hình Cổng tra cứu hóa đơn trực tuyến */}
-        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
-          <div className="flex items-center gap-2 border-b border-border-grey pb-3">
-            <IoSparklesOutline size={20} className="text-primary" />
-            <div>
-              <h3 className="font-title-md text-on-surface font-semibold">
-                Cổng Tra Cứu Hóa Đơn Trực Tuyến Cho Khách (NCL-09-CN-008)
-              </h3>
-              <p className="text-xs text-on-surface-variant">
-                Quyết định việc cho phép khách lưu trú tự xem và tải hóa đơn của mình qua liên kết hoặc mã đặt phòng.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-border-grey">
-            <div className="space-y-1">
-              <span className="text-sm font-bold text-on-surface">Cho phép khách xem & tải hóa đơn trực tuyến</span>
-              <p className="text-xs text-on-surface-variant max-w-xl">
-                Khi bật, khách có thể dùng mã đặt phòng và số điện thoại đã đăng ký để xem và tải bản in hóa đơn thanh toán trực tuyến. Khi tắt, chức năng này sẽ tạm khóa để bảo mật theo chính sách nội bộ.
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer ml-4">
-              <input
-                type="checkbox"
-                name="publicInvoiceLookupEnabled"
-                checked={settings.publicInvoiceLookupEnabled !== false}
-                onChange={(e) => setSettings(prev => ({ ...prev, publicInvoiceLookupEnabled: e.target.checked }))}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </label>
-          </div>
-        </div>
-
-        {/* === Cấu hình Google AI API Keys === */}
-        <div className="bg-surface-container-lowest p-5 rounded-lg border border-border-grey space-y-4">
-          <div className="flex items-center gap-2 border-b border-border-grey pb-3">
-            <IoSparklesOutline size={20} className="text-primary" />
-            <div className="flex-1">
-              <h3 className="font-title-md text-on-surface font-semibold">
-                Google AI API Keys
-              </h3>
-              <p className="text-xs text-on-surface-variant">
-                Nhập các Google API Key dùng cho tính năng AI. Mỗi key trên một dòng.
-              </p>
-            </div>
-            {getKeyCount() > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full">
-                <IoKeyOutline size={12} />
-                {getKeyCount()} key
-              </span>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <div className="relative">
-              <textarea
-                id="google-api-keys-textarea"
-                value={showKeys ? googleApiKeys : googleApiKeys.replace(/[A-Za-z0-9_\-]{10,}/g, (m) => m.slice(0, 8) + '••••••••')}
-                onChange={(e) => setGoogleApiKeys(e.target.value)}
-                onFocus={() => setShowKeys(true)}
-                onBlur={() => setShowKeys(false)}
-                rows={Math.max(3, getKeyCount() + 1)}
-                placeholder={"AIzaSy...key1\nAIzaSy...key2\nAIzaSy...key3"}
-                spellCheck={false}
-                className="w-full font-mono text-sm bg-surface-container-low border border-border-grey rounded-lg px-4 py-3 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary resize-none transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKeys(v => !v)}
-                className="absolute right-3 top-3 text-on-surface-variant hover:text-primary transition-colors"
-                title={showKeys ? 'Ẩn key' : 'Hiện key'}
-              >
-                {showKeys ? <IoEyeOffOutline size={18} /> : <IoEyeOutline size={18} />}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-on-surface-variant">
-                {getKeyCount() > 0
-                  ? `Hiện có ${getKeyCount()} key. Hệ thống sẽ xoay vòng key khi gọi AI.`
-                  : 'Chưa có key nào. Tính năng AI sẽ không hoạt động.'}
-              </p>
-              <Button
-                type="button"
-                variant="primary"
-                icon={IoSaveOutline}
-                isLoading={isSavingKeys}
-                onClick={handleSaveGoogleApiKeys}
-                size="sm"
-              >
-                Lưu API Keys
-              </Button>
-            </div>
-
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 space-y-1">
-              <div className="font-semibold flex items-center gap-1.5">
-                <IoAlertCircleOutline size={14} /> Lưu ý bảo mật:
+        {/* ========================================================================= */}
+        {/* TAB 3: VẬN HÀNH & DỊCH VỤ KHÁCH */}
+        {/* ========================================================================= */}
+        {activeTab === 'operations' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Card 1: Email nhắc nhận phòng */}
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-border-grey pb-3">
+                <div className="flex items-center gap-2.5">
+                  <IoMailOutline size={20} className="text-primary" />
+                  <div>
+                    <h3 className="font-title-md text-on-surface font-bold">
+                      Tự Động Gửi Email Nhắc Nhận Phòng (1 Ngày Trước)
+                    </h3>
+                    <p className="text-xs text-on-surface-variant">
+                      Gửi email thông báo giờ nhận phòng, địa chỉ chỉ đường và lưu ý cho khách trước ngày đến
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.reminderEmailEnabled ?? true}
+                    onChange={(e) => setSettings(prev => ({ ...prev, reminderEmailEnabled: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
-              <div>• Không chia sẻ API Key với người khác. Key được lưu mã hóa trong cơ sở dữ liệu.</div>
-              <div>• Mỗi key trên một dòng riêng. Dòng trống sẽ tự động bỏ qua khi lưu.</div>
-              <div>• Lấy key tại <strong>console.cloud.google.com</strong> → APIs &amp; Services → Credentials.</div>
+
+              {settings.reminderEmailEnabled && (
+                <div className="space-y-4 pt-1">
+                  <Input
+                    label="Giờ gửi email nhắc buổi sáng *"
+                    type="time"
+                    name="reminderMorningTime"
+                    value={settings.reminderMorningTime || '10:30'}
+                    onChange={handleChange}
+                    error={errors.reminderMorningTime || undefined}
+                    icon={IoTimeOutline}
+                    helperText="Hệ thống tự động quét và gửi email nhắc cho các khách sẽ nhận phòng vào ngày mai"
+                    required
+                  />
+
+                  <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+                    <div className="font-semibold flex items-center gap-1.5">
+                      <IoNotificationsOutline size={15} /> Cơ chế hoạt động:
+                    </div>
+                    <div>• Tự động quét và gửi mail 1 lần duy nhất mỗi ngày vào khung giờ đã chọn.</div>
+                    <div>• Chỉ gửi cho các đặt phòng có ngày nhận phòng là ngày mai và chưa từng gửi email nhắc.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: Lịch dọn định kỳ phòng trống */}
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-border-grey pb-3">
+                <div className="flex items-center gap-2.5">
+                  <IoSparklesOutline size={20} className="text-primary" />
+                  <div>
+                    <h3 className="font-title-md text-on-surface font-bold">
+                      Lịch Dọn Định Kỳ Cho Phòng Trống Dài Ngày
+                    </h3>
+                    <p className="text-xs text-on-surface-variant">
+                      Tự động chuyển phòng trống lâu ngày sang Cần dọn (DIRTY) để tránh bụi bẩn khi bất ngờ có khách
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.periodicCleaningEnabled ?? true}
+                    onChange={(e) => setSettings(prev => ({ ...prev, periodicCleaningEnabled: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              {settings.periodicCleaningEnabled && (
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+                      Số ngày phòng trống để chuyển sang Cần dọn <span className="text-error">*</span>
+                    </label>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                      <div className="relative w-full sm:w-72">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                          <IoCalendarOutline size={18} className="text-on-surface-variant" />
+                        </div>
+                        <input
+                          type="number"
+                          name="periodicCleaningDays"
+                          min={1}
+                          max={90}
+                          value={settings.periodicCleaningDays !== undefined ? String(settings.periodicCleaningDays) : '5'}
+                          onChange={handleChange}
+                          className={`w-full h-[42px] py-2.5 pl-10 pr-4 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm text-on-surface transition-all ${
+                            errors.periodicCleaningDays ? 'border-error focus:ring-error/20 focus:border-error' : 'hover:border-primary'
+                          }`}
+                          required
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        icon={IoRefreshOutline}
+                        onClick={handleScanPeriodicCleaning}
+                        isLoading={isScanning}
+                        className="h-[42px] px-4 text-xs font-bold rounded-xl shrink-0"
+                      >
+                        Quét phòng trống ngay
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-on-surface-variant mt-1.5">
+                      Sau {settings.periodicCleaningDays || 5} ngày phòng không có khách, hệ thống sẽ đánh dấu phòng cần dọn dẹp lại.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                    <div className="font-semibold flex items-center gap-1.5">
+                      <IoBrushOutline size={15} /> Quy chuẩn buồng phòng:
+                    </div>
+                    <div>• Theo dõi số ngày phòng ở trạng thái <strong>Sẵn sàng (AVAILABLE)</strong> kể từ lần dọn sạch gần nhất.</div>
+                    <div>• Đảm bảo ga gối, mùi hương và không gian phòng luôn sạch sẽ thơm tho sẵn sàng đón khách bất ngờ.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Card 3: Cổng tra cứu hóa đơn trực tuyến */}
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-border-grey pb-3">
+                <IoReceiptOutline size={20} className="text-primary" />
+                <div>
+                  <h3 className="font-title-md text-on-surface font-bold">Cổng Tra Cứu Hóa Đơn Trực Tuyến</h3>
+                  <p className="text-xs text-on-surface-variant">Cho phép khách lưu trú tra cứu và tải hóa đơn thanh toán trực tuyến</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-surface-container-low rounded-xl border border-border-grey">
+                <div className="space-y-1">
+                  <span className="text-sm font-bold text-on-surface">Cho phép khách xem & tải hóa đơn trực tuyến</span>
+                  <p className="text-xs text-on-surface-variant max-w-xl">
+                    Khách có thể nhập mã đặt phòng và số điện thoại để tra cứu và in hóa đơn VAT/hóa đơn dịch vụ bất kỳ lúc nào.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    name="publicInvoiceLookupEnabled"
+                    checked={settings.publicInvoiceLookupEnabled !== false}
+                    onChange={(e) => setSettings(prev => ({ ...prev, publicInvoiceLookupEnabled: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="pt-4 border-t border-border-grey flex justify-end">
-          <Button
-            type="submit"
-            variant="primary"
-            icon={IoSaveOutline}
-            isLoading={isSaving}
-          >
-            Lưu thay đổi
-          </Button>
+        {/* Thanh công cụ lưu cài đặt cố định */}
+        <div className="p-4 bg-surface-container-lowest border border-border-grey rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-on-surface-variant">
+            <span>Đang xem mục: <strong>{currentTabObj.label}</strong>. Các thay đổi sẽ được áp dụng ngay sau khi lưu.</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              type="submit"
+              variant="primary"
+              icon={IoSaveOutline}
+              isLoading={isSaving}
+              className="px-6 py-2.5 font-bold shadow-xs"
+            >
+              Lưu toàn bộ cài đặt
+            </Button>
+          </div>
         </div>
       </form>
 
@@ -701,11 +807,13 @@ const HotelSettings: React.FC = () => {
         maxWidth="max-w-2xl"
       >
         <div className="flex justify-center p-2">
-          <img 
-            src={settings.homeImage} 
-            alt="Hotel Full Preview" 
-            className="max-h-[70vh] object-contain rounded-lg shadow-sm"
-          />
+          {settings.homeImage && (
+            <img
+              src={settings.homeImage}
+              alt="Hotel Full Preview"
+              className="max-h-[70vh] object-contain rounded-xl shadow-sm"
+            />
+          )}
         </div>
       </Modal>
     </div>

@@ -226,7 +226,7 @@ const WeekendAndHolidayPricing: React.FC<WeekendAndHolidayPricingProps> = ({ roo
                 label="Mức giá mỗi đêm cuối tuần (VNĐ)"
                 type="number"
                 min="0"
-                step="1000"
+                step="any"
                 value={weekendPrice}
                 onChange={(e) => setWeekendPrice(e.target.value)}
               />
@@ -273,7 +273,7 @@ const WeekendAndHolidayPricing: React.FC<WeekendAndHolidayPricingProps> = ({ roo
                 label="Mức giá (VNĐ/đêm)"
                 type="number"
                 min="0"
-                step="1000"
+                step="any"
                 value={newHoliday.pricePerNight}
                 onChange={(e) => setNewHoliday({ ...newHoliday, pricePerNight: Number(e.target.value) })}
                 required

@@ -458,8 +458,8 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
                                     </label>
                                     <Input
                                       type="number"
-                                      min="1000"
-                                      step="1000"
+                                      min="0.01"
+                                      step="any"
                                       value={payAmount}
                                       onChange={(e) => setPayAmount(e.target.value)}
                                     />
