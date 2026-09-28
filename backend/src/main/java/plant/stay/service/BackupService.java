@@ -60,7 +60,7 @@ public interface BackupService {
     BackupConfigDto updateConfig(BackupConfigDto dto, User actor);
 
     /**
-     * Kiểm tra thử nghiệm kết nối và tải lên dịch vụ đám mây Catbox
+     * Kiểm tra thử nghiệm kết nối và tải lên dịch vụ đám mây Telegram Bot
      */
     String testCloudStorage();
 

@@ -1371,7 +1371,7 @@ const BackupDataPage: React.FC = () => {
                                 className="hover:underline flex items-center gap-1"
                                 title={item.cloudUrl.includes('telegram') || item.cloudUrl.includes('api.telegram.org') ? 'Tải tệp từ Telegram Bot Cloud' : 'Mở liên kết tệp sao lưu trên đám mây'}
                               >
-                                <span>{item.cloudUrl.includes('telegram') || item.cloudUrl.includes('api.telegram.org') ? 'Telegram Bot' : item.cloudUrl.includes('catbox') ? 'Catbox Cloud' : 'Đám mây'}</span>
+                                <span>{item.cloudUrl.includes('telegram') || item.cloudUrl.includes('api.telegram.org') ? 'Telegram Bot' : 'Đám mây'}</span>
                                 <IoOpenOutline size={10} />
                               </a>
                               <button
@@ -2082,22 +2082,22 @@ const BackupDataPage: React.FC = () => {
                   onChange={(e) => setSelectedBackupId(Number(e.target.value))}
                   options={backups.map((b) => ({
                     value: String(b.id),
-                    label: `${b.fileName} (${b.formattedSize}${b.cloudUrl ? ' • Catbox Cloud' : ''} - ${new Date(b.createdAt).toLocaleDateString('vi-VN')})`
+                    label: `${b.fileName} (${b.formattedSize}${b.cloudUrl ? (b.cloudUrl.includes('telegram') || b.cloudUrl.includes('api.telegram.org') ? ' • Telegram Bot' : ' • Đám mây') : ''} - ${new Date(b.createdAt).toLocaleDateString('vi-VN')})`
                   }))}
                 />
                 {selectedBackupId && (() => {
                   const b = backups.find(x => x.id === selectedBackupId);
                   if (b?.cloudUrl) {
                     return (
-                      <div className="mt-2.5 p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-start gap-2.5">
-                        <IoCloudDoneOutline className="text-indigo-600 shrink-0 mt-0.5" size={18} />
+                      <div className="mt-2.5 p-3 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-900 flex items-start gap-2.5">
+                        <IoCloudDoneOutline className="text-sky-600 shrink-0 mt-0.5" size={18} />
                         <div className="space-y-0.5">
                           <p className="font-bold flex items-center gap-1.5">
-                            <span>Lưu trữ trên Catbox.moe Cloud</span>
-                            <span className="text-[10px] font-normal text-indigo-700 bg-white px-1.5 py-0.2 rounded border border-indigo-200">Đám mây vĩnh viễn</span>
+                            <span>Lưu trữ trên Telegram Bot Cloud</span>
+                            <span className="text-[10px] font-normal text-sky-700 bg-white px-1.5 py-0.2 rounded border border-sky-200">Đám mây vĩnh viễn</span>
                           </p>
-                          <p className="text-[11px] text-indigo-800">
-                            Khi xác nhận khôi phục, máy chủ sẽ tự động tải file từ đám mây Catbox, giải nén và nạp toàn bộ cấu trúc &amp; dữ liệu CSDL.
+                          <p className="text-[11px] text-sky-800">
+                            Khi xác nhận khôi phục, máy chủ sẽ tự động tải file từ Telegram Bot Cloud, giải nén và nạp toàn bộ cấu trúc &amp; dữ liệu CSDL.
                           </p>
                         </div>
                       </div>
