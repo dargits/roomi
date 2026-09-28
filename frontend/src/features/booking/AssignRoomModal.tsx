@@ -406,7 +406,7 @@ const AssignRoomModal: React.FC<AssignRoomModalProps> = ({
         )}
 
         <div className="flex justify-end gap-2 pt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={onClose} disabled={processing} size="sm">
+          <Button variant="secondary" onClick={onClose} disabled={processing} size="sm">
             Hủy
           </Button>
           <Button 

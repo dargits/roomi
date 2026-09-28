@@ -96,7 +96,7 @@ const DebtAcknowledgementPrintTemplate: React.FC<DebtAcknowledgementPrintTemplat
         }
       `}</style>
       <div className="no-print mx-auto mb-4 flex max-w-3xl justify-end gap-2">
-        <Button variant="ghost" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
+        <Button variant="secondary" onClick={onClose} icon={IoCloseOutline}>Đóng</Button>
         <Button onClick={handlePrint} icon={IoPrintOutline}>In / Lưu PDF</Button>
       </div>
       <article id="debt-acknowledgement" className="mx-auto max-w-3xl bg-white p-8 text-sm text-slate-900 shadow-xl print:max-w-none print:shadow-none">

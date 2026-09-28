@@ -526,7 +526,7 @@ const StayingGuestsModal: React.FC<StayingGuestsModalProps> = ({ isOpen, onClose
         </form>
 
         <div className="flex justify-end pt-3 border-t border-border-grey">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Đóng
           </Button>
         </div>

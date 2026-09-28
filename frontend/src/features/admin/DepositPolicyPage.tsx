@@ -278,7 +278,7 @@ const DepositPolicyPage: React.FC = () => {
             Ví dụ: 30% → Đặt phòng 3.600.000đ sẽ thu cọc 1.080.000đ.
           </p>
           <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
-            <Button variant="ghost" icon={IoCloseOutline} onClick={() => setModalOpen(false)}>Hủy</Button>
+            <Button variant="secondary" icon={IoCloseOutline} onClick={() => setModalOpen(false)}>Hủy</Button>
             <Button variant="primary" icon={IoCheckmarkCircleOutline} onClick={handleSave} isLoading={saving}>
               {editingPolicy ? 'Cập nhật' : 'Tạo mới'}
             </Button>
@@ -300,7 +300,7 @@ const DepositPolicyPage: React.FC = () => {
             <strong className="text-on-surface">{deleteConfirm?.roomTypeName}</strong>?
           </p>
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" icon={IoCloseOutline} onClick={() => setDeleteConfirm(null)}>Hủy</Button>
+            <Button variant="secondary" icon={IoCloseOutline} onClick={() => setDeleteConfirm(null)}>Hủy</Button>
             <Button variant="danger" icon={IoTrashOutline} onClick={() => handleDelete(deleteConfirm.id)}>
               Xóa
             </Button>
