@@ -20,7 +20,8 @@ WORKDIR /app
 
 # Tạo user không đặc quyền và cấp quyền cho thư mục ứng dụng / thư mục sao lưu
 RUN addgroup -S spring && adduser -S spring -G spring \
-    && mkdir -p /app/backups \
+    && mkdir -p /app/backups /tmp/stayaway_backups \
+    && chmod -R 777 /app/backups /tmp/stayaway_backups \
     && chown -R spring:spring /app
 
 # Copy file jar từ giai đoạn build với quyền sở hữu spring:spring

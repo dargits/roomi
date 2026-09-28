@@ -215,6 +215,11 @@ jobs:
             docker compose pull || docker-compose pull
             echo "[OK] Images pulled successfully"
 
+            # 4.1 Cấp toàn quyền cho thư mục sao lưu trên VPS host để container user spring có quyền ghi
+            mkdir -p backups
+            chmod -R 777 backups 2>/dev/null || sudo chmod -R 777 backups 2>/dev/null || true
+            echo "[OK] Backups storage directory permissions verified"
+
             # 5. Recreate and start containers with zero-downtime
             docker compose up -d --remove-orphans || \
               docker-compose up -d --remove-orphans

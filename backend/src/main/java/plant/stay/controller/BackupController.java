@@ -53,8 +53,15 @@ public class BackupController {
     public ResponseEntity<BackupHistoryDto> createBackup(@RequestParam(defaultValue = "FULL_ZIP") String type,
                                                         HttpServletRequest request) {
         User actor = checkAdmin(request);
-        BackupHistoryDto history = backupService.createBackup(actor, type);
-        return ResponseEntity.ok(history);
+        try {
+            BackupHistoryDto history = backupService.createBackup(actor, type);
+            return ResponseEntity.ok(history);
+        } catch (plant.stay.exception.BusinessException be) {
+            throw be;
+        } catch (Exception e) {
+            log.error("Lỗi khi tạo bản sao lưu hệ thống: ", e);
+            throw new plant.stay.exception.BusinessException("Lỗi tạo bản sao lưu: " + (e.getMessage() != null ? e.getMessage() : "Đã xảy ra lỗi không xác định"));
+        }
     }
 
     /**
