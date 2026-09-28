@@ -39,4 +39,13 @@ public interface TelegramBackupService {
      * @return Thông báo kết quả gửi (số lượng gửi thành công / thất bại)
      */
     String testSendToAll(String customMessage);
+
+    /**
+     * Gửi tin nhắn kiểm tra thử nghiệm có thể ghi đè token và danh sách chat ID từ giao diện cài đặt
+     * @param overrideToken Bot token truyền từ client (nếu null/rỗng sẽ dùng cấu hình hệ thống)
+     * @param overrideChatIds Danh sách Chat ID truyền từ client (nếu null/rỗng sẽ dùng cấu hình hệ thống)
+     * @param customMessage Nội dung tin nhắn thử nghiệm
+     * @return Thông báo kết quả gửi
+     */
+    String testSendToAll(String overrideToken, String overrideChatIds, String customMessage);
 }

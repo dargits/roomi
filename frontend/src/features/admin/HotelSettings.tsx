@@ -112,13 +112,21 @@ const HotelSettings: React.FC = () => {
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
   const [showTelegramToken, setShowTelegramToken] = useState(false);
 
-  const { success: toastSuccess, error: toastError } = useToast();
+  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
 
   const handleTestTelegram = async () => {
     setIsTestingTelegram(true);
     try {
-      const res = await hotelSettingApi.testTelegram();
-      toastSuccess(res.message || 'Đã gửi thông báo thử nghiệm thành công tới Telegram!');
+      const res = await hotelSettingApi.testTelegram({
+        botToken: settings.telegramBotToken ? settings.telegramBotToken.trim() : undefined,
+        chatIds: settings.telegramChatIds ? settings.telegramChatIds.trim() : undefined,
+      });
+      const msg = res.message || 'Đã gửi thông báo thử nghiệm thành công tới Telegram!';
+      if (msg.includes('Thất bại:')) {
+        toastWarning(msg);
+      } else {
+        toastSuccess(msg);
+      }
     } catch (err: any) {
       toastError(err.response?.data?.message || 'Không thể gửi tin nhắn thử nghiệm tới Telegram.');
     } finally {
