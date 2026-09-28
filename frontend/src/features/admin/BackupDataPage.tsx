@@ -1358,25 +1358,29 @@ const BackupDataPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           {item.cloudUrl ? (
-                            <div className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                              <IoCloudDoneOutline size={13} className="text-indigo-600" />
+                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                              item.cloudUrl.includes('telegram') || item.cloudUrl.includes('api.telegram.org')
+                                ? 'bg-sky-50 border-sky-200 text-sky-700'
+                                : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                            }`}>
+                              <IoCloudDoneOutline size={13} className={item.cloudUrl.includes('telegram') || item.cloudUrl.includes('api.telegram.org') ? 'text-sky-600' : 'text-indigo-600'} />
                               <a
                                 href={item.cloudUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="hover:underline flex items-center gap-1"
-                                title="Mở liên kết tệp sao lưu trên Catbox.moe"
+                                title={item.cloudUrl.includes('telegram') || item.cloudUrl.includes('api.telegram.org') ? 'Tải tệp từ Telegram Bot Cloud' : 'Mở liên kết tệp sao lưu trên đám mây'}
                               >
-                                <span>Catbox.moe</span>
+                                <span>{item.cloudUrl.includes('telegram') || item.cloudUrl.includes('api.telegram.org') ? 'Telegram Bot' : item.cloudUrl.includes('catbox') ? 'Catbox Cloud' : 'Đám mây'}</span>
                                 <IoOpenOutline size={10} />
                               </a>
                               <button
                                 type="button"
                                 onClick={() => {
                                   navigator.clipboard.writeText(item.cloudUrl!);
-                                  toastSuccess('Đã sao chép liên kết Catbox vào clipboard');
+                                  toastSuccess('Đã sao chép liên kết đám mây vào clipboard');
                                 }}
-                                className="text-indigo-500 hover:text-indigo-800 cursor-pointer ml-0.5"
+                                className="text-zinc-500 hover:text-zinc-800 cursor-pointer ml-0.5"
                                 title="Sao chép link tải"
                               >
                                 <IoCopyOutline size={11} />

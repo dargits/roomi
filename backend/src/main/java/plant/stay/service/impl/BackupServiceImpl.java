@@ -48,6 +48,7 @@ public class BackupServiceImpl implements BackupService {
     private final HotelSettingRepository hotelSettingRepository;
     private final AuditLogService auditLogService;
     private final plant.stay.service.CatboxService catboxService;
+    private final plant.stay.service.TelegramBackupService telegramBackupService;
 
     private static final Path BACKUP_STORAGE_DIR = Paths.get("backups");
     private static final DateTimeFormatter FILE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss");
@@ -147,33 +148,78 @@ public class BackupServiceImpl implements BackupService {
             long fileSize = Files.size(targetFile);
             checksum = calculateSha256(targetFile);
 
-            // Tự động đẩy tệp sao lưu lên Catbox.moe Cloud Storage
+            // Tự động đẩy tệp sao lưu lên Đám mây (Ưu tiên Telegram Bot, dự phòng Catbox)
             String cloudUrl = null;
+            String cloudProvider = null;
             String uploadErrorMsg = null;
-            try {
-                log.info("Đang tự động tải tệp sao lưu [{}] ({} bytes) lên Catbox.moe Cloud Storage...", fileName, fileSize);
-                cloudUrl = catboxService.uploadFile(targetFile, fileName);
-                log.info("Đẩy tệp sao lưu lên Catbox.moe thành công: {}", cloudUrl);
-            } catch (Exception uploadEx) {
-                uploadErrorMsg = uploadEx.getMessage();
-                log.error("Cảnh báo: Không thể tải tệp lên Catbox.moe ({}), giữ lại bản sao lưu cục bộ", uploadEx.getMessage());
+
+            // 1. Thử gửi qua Telegram Bot trước (gửi kèm file đính kèm và caption chi tiết)
+            if (telegramBackupService.isConfigured()) {
+                try {
+                    String actorName = actor != null ? actor.getName() : "Hệ thống tự động";
+                    String shortHash = (checksum != null && checksum.length() > 16) ? checksum.substring(0, 16) + "..." : (checksum != null ? checksum : "N/A");
+                    String caption = String.format(
+                            "📦 <b>[StayAway PMS] Bản Sao Lưu Toàn Diện CSDL</b>\n" +
+                            "━━━━━━━━━━━━━━━━━━━━\n" +
+                            "📁 <b>Tệp tin:</b> <code>%s</code>\n" +
+                            "📊 <b>Cơ sở dữ liệu:</b> %d bảng (%d bản ghi)\n" +
+                            "💾 <b>Dung lượng:</b> %s\n" +
+                            "🛡️ <b>Mã băm SHA-256:</b> <code>%s</code>\n" +
+                            "👤 <b>Người khởi tạo:</b> %s\n" +
+                            "⏰ <b>Thời gian:</b> %s\n" +
+                            "━━━━━━━━━━━━━━━━━━━━\n" +
+                            "✅ <i>Tệp đính kèm đã sẵn sàng để lưu trữ và khôi phục khi cần thiết.</i>",
+                            fileName, tableCount, recordCount, formatBytes(fileSize),
+                            shortHash, actorName, LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+                    );
+                    log.info("Đang tự động gửi bản sao lưu [{}] ({} bytes) đến Telegram Bot...", fileName, fileSize);
+                    cloudUrl = telegramBackupService.sendBackupDocument(targetFile, fileName, caption);
+                    if (cloudUrl != null) {
+                        cloudProvider = "Telegram Bot";
+                        log.info("Đẩy bản sao lưu lên Telegram Bot thành công: {}", cloudUrl);
+                    }
+                } catch (Exception tgEx) {
+                    log.warn("Không thể gửi tệp qua Telegram Bot ({}). Tiếp tục thử nghiệm Catbox...", tgEx.getMessage());
+                    uploadErrorMsg = "Telegram: " + tgEx.getMessage();
+                }
             }
 
-            // Nếu upload lên Catbox thành công, giải phóng file cục bộ để tiết kiệm bộ nhớ máy chủ (chỉ lưu URL)
+            // 2. Nếu Telegram chưa cấu hình hoặc thất bại, thử Catbox
+            if (cloudUrl == null) {
+                try {
+                    log.info("Đang tải tệp sao lưu [{}] ({} bytes) lên Catbox.moe Cloud Storage...", fileName, fileSize);
+                    cloudUrl = catboxService.uploadFile(targetFile, fileName);
+                    if (cloudUrl != null) {
+                        cloudProvider = "Catbox Cloud";
+                        log.info("Đẩy tệp sao lưu lên Catbox.moe thành công: {}", cloudUrl);
+                    }
+                } catch (Exception cbEx) {
+                    log.warn("Không thể tải tệp lên Catbox.moe ({}), giữ lại bản sao lưu cục bộ", cbEx.getMessage());
+                    if (uploadErrorMsg == null) {
+                        uploadErrorMsg = "Catbox: " + cbEx.getMessage();
+                    } else {
+                        uploadErrorMsg += " | Catbox: " + cbEx.getMessage();
+                    }
+                }
+            }
+
+            // Nếu upload lên đám mây thành công, giải phóng file cục bộ để tiết kiệm bộ nhớ máy chủ (chỉ lưu URL)
             String effectiveFilePath = targetFile.toAbsolutePath().toString();
             if (cloudUrl != null && !cloudUrl.isBlank()) {
                 effectiveFilePath = cloudUrl;
                 try {
                     Files.deleteIfExists(targetFile);
-                    log.info("Đã giải phóng tệp tin cục bộ sau khi lưu trữ thành công trên Catbox Cloud: {}", cloudUrl);
+                    log.info("Đã giải phóng tệp tin cục bộ sau khi lưu trữ thành công trên {}: {}", cloudProvider, cloudUrl);
                 } catch (Exception ex) {
                     log.warn("Không thể xóa tệp tin cục bộ sau khi upload: {}", ex.getMessage());
                 }
             }
 
             String backupNote = actor != null ? "Sao lưu thủ công bởi " + actor.getName() : "Sao lưu định kỳ tự động hệ thống";
-            if (uploadErrorMsg != null) {
-                backupNote += " (Chưa đẩy Catbox: " + uploadErrorMsg + ")";
+            if (cloudProvider != null) {
+                backupNote += " [Đã lưu đám mây: " + cloudProvider + "]";
+            } else if (uploadErrorMsg != null) {
+                backupNote += " (Lưu trữ cục bộ, chưa đẩy Cloud: " + uploadErrorMsg + ")";
             }
 
             SystemBackup backup = SystemBackup.builder()
@@ -198,7 +244,7 @@ public class BackupServiceImpl implements BackupService {
             // Ghi nhận AuditLog
             String auditMsg = String.format("Tạo thành công bản sao lưu %s (%d bảng, %d bản ghi, dung lượng: %s)%s",
                     fileName, tableCount, recordCount, formatBytes(fileSize),
-                    cloudUrl != null ? " [Lưu trữ đám mây Catbox: " + cloudUrl + "]" : "");
+                    cloudUrl != null ? " [Lưu trữ đám mây: " + (cloudProvider != null ? cloudProvider : cloudUrl) + "]" : "");
             auditLogService.log("SystemBackup", backup.getId(), "CREATE_BACKUP", actor, auditMsg);
 
             log.info("Sao lưu hệ thống thành công: {} [{} bảng, {} bản ghi, {}, Cloud: {}]",
@@ -275,10 +321,10 @@ public class BackupServiceImpl implements BackupService {
             return new FileSystemResource(path);
         }
 
-        // Nếu file cục bộ đã giải phóng nhưng có URL Catbox.moe Cloud, tải trực tiếp dữ liệu từ Catbox
+        // Nếu file cục bộ đã giải phóng nhưng có URL Cloud (Telegram Bot hoặc Catbox), tải trực tiếp dữ liệu từ Đám mây
         if (backup.getCloudUrl() != null && !backup.getCloudUrl().isBlank()) {
-            log.info("Đang tải tệp sao lưu từ Catbox Cloud [{}] để cung cấp cho người dùng...", backup.getCloudUrl());
-            byte[] fileBytes = catboxService.downloadFileBytes(backup.getCloudUrl());
+            log.info("Đang tải tệp sao lưu từ Đám mây [{}] để cung cấp cho người dùng...", backup.getCloudUrl());
+            byte[] fileBytes = downloadBytesFromCloud(backup.getCloudUrl());
             return new org.springframework.core.io.ByteArrayResource(fileBytes) {
                 @Override
                 public String getFilename() {
@@ -288,6 +334,14 @@ public class BackupServiceImpl implements BackupService {
         }
 
         throw new ResourceNotFoundException("Tệp tin sao lưu không còn tồn tại trên máy chủ và không có URL đám mây: " + backup.getFileName());
+    }
+
+    private byte[] downloadBytesFromCloud(String cloudUrl) {
+        if (cloudUrl.contains("telegram") || cloudUrl.contains("api.telegram.org")) {
+            return telegramBackupService.downloadFileBytes(cloudUrl);
+        } else {
+            return catboxService.downloadFileBytes(cloudUrl);
+        }
     }
 
     @Override
@@ -323,18 +377,19 @@ public class BackupServiceImpl implements BackupService {
         SystemBackup backup = systemBackupRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản sao lưu với mã ID: " + id));
 
-        // Trường hợp 1: Có URL lưu trữ trên Catbox.moe Cloud
+        // Trường hợp 1: Có URL lưu trữ trên Đám mây (Telegram Bot hoặc Catbox)
         if (backup.getCloudUrl() != null && !backup.getCloudUrl().isBlank()) {
-            log.info("Bắt đầu tải bản sao lưu từ Catbox Cloud [{}] về máy chủ để khôi phục...", backup.getCloudUrl());
+            log.info("Bắt đầu tải bản sao lưu từ Đám mây [{}] về máy chủ để khôi phục...", backup.getCloudUrl());
             Path tempDownload = null;
             try {
                 String suffix = backup.getFileName().toLowerCase().endsWith(".zip") ? ".zip" : ".sql";
-                tempDownload = Files.createTempFile("catbox_restore_", suffix);
-                catboxService.downloadFile(backup.getCloudUrl(), tempDownload);
-                log.info("Tải tệp từ Catbox thành công ({} bytes). Tiến hành giải nén & khôi phục CSDL...", Files.size(tempDownload));
+                tempDownload = Files.createTempFile("cloud_restore_", suffix);
+                byte[] bytes = downloadBytesFromCloud(backup.getCloudUrl());
+                Files.write(tempDownload, bytes);
+                log.info("Tải tệp từ Đám mây thành công ({} bytes). Tiến hành giải nén & khôi phục CSDL...", bytes.length);
                 return executeRestoreFromPath(tempDownload, backup.getFileName(), actor);
             } catch (IOException e) {
-                throw new RuntimeException("Lỗi xử lý tệp tạm khi tải từ Catbox: " + e.getMessage(), e);
+                throw new RuntimeException("Lỗi xử lý tệp tạm khi tải từ Đám mây: " + e.getMessage(), e);
             } finally {
                 if (tempDownload != null) {
                     try {
