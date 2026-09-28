@@ -96,7 +96,7 @@ const PendingDepositList: React.FC = () => {
   const totalCollected = filteredDeposits.reduce((sum, d) => sum + Number(d.collectedAmount || 0), 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-lowest p-4 rounded-xl border border-border-grey shadow-xs">
         <div className="flex flex-wrap items-center gap-3 flex-1">
           <div className="relative min-w-[240px]">
