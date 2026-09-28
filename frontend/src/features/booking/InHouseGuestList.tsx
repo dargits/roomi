@@ -381,20 +381,20 @@ export const InHouseGuestList: React.FC = () => {
       </div>
 
       {/* 3. Security & Policy Information Banner */}
-      <div className="bg-surface-container-low border border-border-grey rounded-lg px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-on-surface-variant">
-        <div className="flex items-center gap-2">
+      <div className="bg-surface-container-low border border-border-grey rounded-lg px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-on-surface-variant">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <IoAlertCircleOutline size={16} className="text-primary shrink-0" />
-          <span>
+          <span className="leading-relaxed">
             <strong>Màn hình chỉ đọc:</strong> Danh sách chỉ hiển thị các đặt phòng đang có khách ở. Số giấy tờ tùy thân được ẩn nhằm bảo mật dữ liệu. Mọi thay đổi nghiệp vụ (ghi dịch vụ, thanh toán, trả phòng) được thực hiện trong hồ sơ đặt phòng.
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
           {isFiltering && (
             <span className="text-primary animate-pulse text-[11px] font-medium flex items-center gap-1">
               <IoRefreshOutline className="animate-spin" size={13} /> Đang lọc...
             </span>
           )}
-          <span className="shrink-0 font-semibold text-on-surface bg-white px-2.5 py-1 rounded border border-border-grey">
+          <span className="font-semibold text-on-surface bg-white px-2.5 py-1 rounded border border-border-grey whitespace-nowrap shadow-2xs">
             Hiển thị: <strong>{guests.length === 0 ? 0 : `${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, guests.length)}`}</strong> / {guests.length} kết quả ({summary.totalRooms} phòng)
           </span>
         </div>
