@@ -146,7 +146,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
                   <button
                     type="button"
                     onClick={() => setShowDatePicker(false)}
-                    className="px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold text-[#002146] bg-white border border-border-grey rounded-lg shadow-2xs hover:bg-[#F4F6F9] hover:border-slate-300 transition-colors cursor-pointer"
                   >
                     Đóng
                   </button>

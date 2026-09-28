@@ -275,7 +275,7 @@ const UserPermissionModal: React.FC<UserPermissionModalProps> = ({ isOpen, onClo
 
                   <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       onClick={() => setShowAddForm(false)}
                       disabled={actionLoading}
@@ -388,7 +388,7 @@ const UserPermissionModal: React.FC<UserPermissionModalProps> = ({ isOpen, onClo
                 <div className="flex justify-end gap-2">
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setRevokingPerm(null)}
                     disabled={actionLoading}
                   >
@@ -409,7 +409,7 @@ const UserPermissionModal: React.FC<UserPermissionModalProps> = ({ isOpen, onClo
         )}
 
         <div className="flex justify-end pt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Đóng
           </Button>
         </div>

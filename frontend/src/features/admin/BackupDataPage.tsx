@@ -1232,7 +1232,7 @@ const BackupDataPage: React.FC = () => {
                 <div className="md:col-span-3 flex justify-end gap-3 pt-4 border-t border-border-grey">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setShowConfigPanel(false)}
                     className="text-xs"
                   >
@@ -2136,7 +2136,7 @@ const BackupDataPage: React.FC = () => {
           {/* Modal Action Buttons */}
           <div className="pt-4 border-t border-border-grey flex justify-end gap-3">
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={() => setIsRestoreModalOpen(false)}
               disabled={restoring}
               className="text-xs"

@@ -282,7 +282,7 @@ const DiscountPanel: React.FC<DiscountPanelProps> = ({
             <Button size="sm" variant="danger" onClick={handleRejectSubmit} isLoading={isLoading}>
               Xác nhận từ chối
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setShowRejectInput(false); setRejectReason(''); }}>
+            <Button size="sm" variant="secondary" onClick={() => { setShowRejectInput(false); setRejectReason(''); }}>
               Hủy
             </Button>
           </div>

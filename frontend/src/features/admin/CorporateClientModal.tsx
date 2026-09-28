@@ -201,7 +201,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Hủy bỏ
           </Button>
           <Button type="submit" variant="primary" disabled={loading}>

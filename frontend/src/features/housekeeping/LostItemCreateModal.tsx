@@ -479,7 +479,7 @@ const LostItemCreateModal: React.FC<LostItemCreateModalProps> = ({
 
         {/* Buttons */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting || uploadingImage}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={submitting || uploadingImage}>
             Hủy
           </Button>
           <Button
