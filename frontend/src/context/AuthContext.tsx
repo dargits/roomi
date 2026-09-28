@@ -60,7 +60,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, message: 'Phản hồi không chứa token' };
       }
     } catch (error: any) {
-      // Fallback for dev / mock accounts when backend is unreachable
+      // Fallback for dev / mock accounts ONLY when backend is completely offline / unreachable (Network Error)
+      const isNetworkError = !error.response || error.code === 'ERR_NETWORK';
+
       const mockRoleMap: Record<string, { name: string; role: any }> = {
         chusohuu: { name: 'Alexander Wright', role: 'OWNER' },
         admin: { name: 'Quản trị viên', role: 'ADMIN' },
@@ -70,7 +72,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
 
       const accountKey = account.toLowerCase();
-      if (mockRoleMap[accountKey]) {
+      if (isNetworkError && mockRoleMap[accountKey]) {
         const mockUser: UserResponse = {
           id: 1,
           account,
