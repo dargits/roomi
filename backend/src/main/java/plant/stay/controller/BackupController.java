@@ -18,6 +18,7 @@ import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.Role;
 import plant.stay.model.User;
 import plant.stay.service.BackupService;
+import plant.stay.service.ReseedOtpService;
 import plant.stay.util.AuthUtil;
 
 import java.time.LocalDateTime;
@@ -33,6 +34,7 @@ public class BackupController {
 
     private final BackupService backupService;
     private final plant.stay.service.OperationalDataSeederService operationalDataSeederService;
+    private final ReseedOtpService reseedOtpService;
     private final AuthUtil authUtil;
 
     /**
@@ -55,12 +57,35 @@ public class BackupController {
     }
 
     /**
-     * Tái tạo toàn bộ bộ dữ liệu mẫu vận hành chuẩn chỉnh từ 01/01/2026 đến nay
-     * và tự động tạo bản sao lưu toàn diện (.ZIP)
+     * Bước 1: Yêu cầu gửi OTP xác thực tái tạo dữ liệu mẫu qua Telegram Bot.
+     * Admin nhấn nút → hệ thống gửi OTP 6 số đến Telegram, hiệu lực 5 phút.
+     */
+    @PostMapping("/reseed-otp/request")
+    public ResponseEntity<MessageResponse> requestReseedOtp(HttpServletRequest request) {
+        User actor = checkAdmin(request);
+        reseedOtpService.generateAndSendOtp(actor.getName() != null ? actor.getName() : actor.getAccount());
+        return ResponseEntity.ok(new MessageResponse(
+                "Mã OTP đã được gửi đến Telegram Bot. Vui lòng kiểm tra và nhập mã để tiếp tục (hiệu lực 5 phút)."));
+    }
+
+    /**
+     * Bước 2: Tái tạo toàn bộ dữ liệu mẫu vận hành từ 01/01/2026 đến nay.
+     * Yêu cầu nhập đúng OTP đã được gửi qua Telegram Bot ở Bước 1.
      */
     @PostMapping("/reseed-sample-data")
-    public ResponseEntity<java.util.Map<String, Object>> reseedSampleData(HttpServletRequest request) {
+    public ResponseEntity<java.util.Map<String, Object>> reseedSampleData(
+            @RequestParam(required = false) String otp,
+            HttpServletRequest request) {
         User actor = checkAdmin(request);
+
+        if (otp == null || otp.isBlank()) {
+            throw new UnauthorizedException("Vui lòng nhập mã OTP đã được gửi đến Telegram Bot để xác thực thao tác này");
+        }
+
+        if (!reseedOtpService.verifyOtp(otp.trim())) {
+            throw new UnauthorizedException("Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã mới.");
+        }
+
         java.util.Map<String, Object> result = operationalDataSeederService.reseedOperationalData(actor);
         return ResponseEntity.ok(result);
     }
