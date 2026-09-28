@@ -32,6 +32,8 @@ services:
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-bSZWJxnQvsTeDygipIyYzKYeZ_M}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backups:/app/backups
     networks:
       - stayaway_network
     logging:
