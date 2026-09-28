@@ -197,27 +197,8 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
 
     @Override
     public String testSendToAll(String customMessage) {
-        return testSendToAll(null, null, customMessage);
-    }
-
-    @Override
-    public String testSendToAll(String overrideToken, String overrideChatIds, String customMessage) {
-        String token = (overrideToken != null && !overrideToken.isBlank()) ? overrideToken.trim() : resolveBotToken();
-
-        List<String> chatIds = new ArrayList<>();
-        if (overrideChatIds != null && !overrideChatIds.isBlank()) {
-            String[] tokens = overrideChatIds.split("[\\r\\n,;]+");
-            for (String t : tokens) {
-                String clean = t.trim();
-                if (!clean.isEmpty()) {
-                    chatIds.add(clean);
-                }
-            }
-        }
-        if (chatIds.isEmpty()) {
-            chatIds = getAllowedChatIds();
-        }
-
+        String token = resolveBotToken();
+        List<String> chatIds = getAllowedChatIds();
         if (token.isBlank() || chatIds.isEmpty()) {
             throw new BusinessException("Chưa cấu hình Telegram Bot Token hoặc danh sách Chat ID.");
         }
