@@ -276,7 +276,7 @@ const SeasonalPricing: React.FC<SeasonalPricingProps> = ({ roomTypeId, basePrice
           )}
         </form>
         <div className="flex justify-end gap-3 pt-5 border-t border-border-grey mt-5">
-          <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+          <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>Hủy</Button>
           <Button type="submit" form="seasonalPriceForm" isLoading={processing}>Lưu</Button>
         </div>
       </Modal>
@@ -291,7 +291,7 @@ const SeasonalPricing: React.FC<SeasonalPricingProps> = ({ roomTypeId, basePrice
           <p className="font-body-md text-on-surface-variant">Thao tác này không thể hoàn tác.</p>
         </div>
         <div className="flex gap-3 pt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={() => setIsDeleteOpen(false)} className="flex-1">Hủy</Button>
+          <Button variant="secondary" onClick={() => setIsDeleteOpen(false)} className="flex-1">Hủy</Button>
           <Button variant="danger" onClick={handleDelete} isLoading={processing} className="flex-1">Xóa</Button>
         </div>
       </Modal>

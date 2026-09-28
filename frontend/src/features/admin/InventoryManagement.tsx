@@ -328,7 +328,7 @@ const InventoryManagement: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-2 justify-end pt-1">
-            <Button type="button" variant="ghost" size="sm" onClick={closeForm}>Hủy</Button>
+            <Button type="button" variant="secondary" size="sm" onClick={closeForm}>Hủy</Button>
             <Button type="submit" variant="primary" size="sm" icon={IoSaveOutline} isLoading={saving}>
               {editingItem ? "Lưu thay đổi" : "Thêm vào kho"}
             </Button>

@@ -570,13 +570,13 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
           </div>
 
           {recordError && (
-            <div className="p-2 bg-red-50 text-red-700 rounded text-xs">
+            <div className="p-2 bg-red-50 text-red-700 rounded-xl text-xs">
               {recordError}
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-            <Button variant="ghost" onClick={() => setShowRecordModal(false)}>Hủy</Button>
+            <Button variant="secondary" onClick={() => setShowRecordModal(false)}>Hủy</Button>
             <Button variant="primary" onClick={handleRecordDeposit} isLoading={recordLoading}>Ghi nhận cọc</Button>
           </div>
         </div>
@@ -592,12 +592,12 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
             placeholder="VD: Hủy phòng đúng hạn theo quy định..."
           />
           {refundError && (
-            <div className="p-2 bg-red-50 text-red-700 rounded text-xs">
+            <div className="p-2 bg-red-50 text-red-700 rounded-xl text-xs">
               {refundError}
             </div>
           )}
           <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-            <Button variant="ghost" onClick={() => setShowRefundModal(false)}>Hủy</Button>
+            <Button variant="secondary" onClick={() => setShowRefundModal(false)}>Hủy</Button>
             <Button variant="primary" onClick={handleRefund} isLoading={refundLoading}>Xác nhận hoàn</Button>
           </div>
         </div>
@@ -622,12 +622,12 @@ const DepositTab: React.FC<DepositTabProps> = ({ bookingId, booking, onRefresh }
             />
           )}
           {noShowError && (
-            <div className="p-2 bg-red-50 text-red-700 rounded text-xs">
+            <div className="p-2 bg-red-50 text-red-700 rounded-xl text-xs">
               {noShowError}
             </div>
           )}
           <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-            <Button variant="ghost" onClick={() => setShowNoShowModal(false)}>Hủy</Button>
+            <Button variant="secondary" onClick={() => setShowNoShowModal(false)}>Hủy</Button>
             <Button variant="danger" onClick={handleNoShow} isLoading={noShowLoading}>Tịch thu cọc</Button>
           </div>
         </div>

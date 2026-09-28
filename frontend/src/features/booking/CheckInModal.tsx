@@ -485,7 +485,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, booking, o
         )}
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={handleClose} disabled={processing} icon={IoCloseOutline}>
+          <Button variant="secondary" onClick={handleClose} disabled={processing} icon={IoCloseOutline}>
             Đóng
           </Button>
           <Button variant="primary" onClick={handleSubmit} disabled={processing} icon={IoCheckmarkCircleOutline}>

@@ -295,7 +295,7 @@ const DebtManagementModal: React.FC<DebtManagementModalProps> = ({ isOpen, onClo
           )}
 
           <div className="flex justify-end pt-3 border-t border-border-grey">
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Đóng
             </Button>
           </div>
@@ -317,11 +317,11 @@ const DebtManagementModal: React.FC<DebtManagementModalProps> = ({ isOpen, onClo
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="VD: Không áp dụng nợ với khách chưa có hợp đồng doanh nghiệp..."
-                className="w-full px-3 py-2 border border-border-grey rounded text-xs focus:ring-primary focus:border-primary"
+                className="w-full px-3 py-2 border border-border-grey rounded-xl text-xs focus:ring-primary focus:border-primary"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" size="sm" onClick={() => setRejectingItem(null)}>Hủy</Button>
+              <Button variant="secondary" size="sm" onClick={() => setRejectingItem(null)}>Hủy</Button>
               <Button variant="danger" size="sm" type="submit" isLoading={actionLoading}>Xác nhận từ chối</Button>
             </div>
           </form>
