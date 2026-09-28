@@ -85,6 +85,15 @@ public class HotelSettingServiceImpl implements HotelSettingService {
         if (request.getPriceSuggestionConfigured() != null) {
             setting.setPriceSuggestionConfigured(request.getPriceSuggestionConfigured());
         }
+        if (request.getTelegramBotToken() != null) {
+            setting.setTelegramBotToken(request.getTelegramBotToken().trim());
+        }
+        if (request.getTelegramChatIds() != null) {
+            setting.setTelegramChatIds(request.getTelegramChatIds().trim());
+        }
+        if (request.getTelegramBackupEnabled() != null) {
+            setting.setTelegramBackupEnabled(request.getTelegramBackupEnabled());
+        }
         setting.setUpdatedBy(updatedBy);
 
         // Với @Transactional và Managed Entity, save() sẽ hoạt động đúng và an toàn
@@ -144,6 +153,9 @@ public class HotelSettingServiceImpl implements HotelSettingService {
                 .priceSuggestionImminentDays(setting.getPriceSuggestionImminentDays() != null ? setting.getPriceSuggestionImminentDays() : 7)
                 .priceSuggestionConfigured(setting.getPriceSuggestionConfigured() != null ? setting.getPriceSuggestionConfigured() : true)
                 .googleApiKeys(setting.getGoogleApiKeys())
+                .telegramBotToken(setting.getTelegramBotToken())
+                .telegramChatIds(setting.getTelegramChatIds() != null && !setting.getTelegramChatIds().isBlank() ? setting.getTelegramChatIds() : "6865922651")
+                .telegramBackupEnabled(setting.getTelegramBackupEnabled() != null ? setting.getTelegramBackupEnabled() : true)
                 .build();
     }
 }

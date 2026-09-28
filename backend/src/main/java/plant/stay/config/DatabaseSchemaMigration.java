@@ -565,5 +565,16 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: Could not add 'cloud_url' to system_backups: {}", e.getMessage());
         }
+
+        // Đảm bảo các cột cấu hình Telegram Bot trong hotel_settings sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS telegram_bot_token VARCHAR(255)");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS telegram_chat_ids TEXT");
+            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS telegram_backup_enabled BOOLEAN DEFAULT TRUE");
+            jdbcTemplate.execute("UPDATE hotel_settings SET telegram_chat_ids = '6865922651' WHERE telegram_chat_ids IS NULL OR TRIM(telegram_chat_ids) = ''");
+            log.info("Schema Migration: Successfully ensured 'hotel_settings.telegram_*' columns exist.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add telegram columns to hotel_settings: {}", e.getMessage());
+        }
     }
 }

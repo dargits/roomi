@@ -23,7 +23,9 @@ import {
   IoEyeOutline,
   IoEyeOffOutline,
   IoShieldCheckmarkOutline,
-  IoReceiptOutline
+  IoReceiptOutline,
+  IoPaperPlaneOutline,
+  IoInformationCircleOutline
 } from 'react-icons/io5';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -34,7 +36,7 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import { HotelSettingRequest } from '../../types';
 import ConcurrentSessionControl from './ConcurrentSessionControl';
 
-type SettingTabType = 'general' | 'security' | 'operations';
+type SettingTabType = 'general' | 'security' | 'operations' | 'telegram';
 
 interface TabItem {
   id: SettingTabType;
@@ -61,6 +63,12 @@ const SETTING_TABS: TabItem[] = [
     label: 'Vận hành & Dịch vụ',
     icon: IoSparklesOutline,
     description: 'Lịch dọn định kỳ phòng trống, email nhắc nhận phòng & tra cứu hóa đơn'
+  },
+  {
+    id: 'telegram',
+    label: 'Telegram Bot & Sao lưu',
+    icon: IoPaperPlaneOutline,
+    description: 'Chỉ định tài khoản Telegram nhận bản sao lưu CSDL & thông báo hệ thống'
   }
 ];
 
@@ -81,7 +89,10 @@ const HotelSettings: React.FC = () => {
     sessionTimeoutMinutes: 120,
     maxConcurrentSessions: 0,
     maxSessionLifetimeHours: 24,
-    publicInvoiceLookupEnabled: true
+    publicInvoiceLookupEnabled: true,
+    telegramBotToken: '',
+    telegramChatIds: '6865922651',
+    telegramBackupEnabled: true
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -97,7 +108,28 @@ const HotelSettings: React.FC = () => {
   const [isSavingKeys, setIsSavingKeys] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
 
+  // === Telegram Bot state ===
+  const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  const [showTelegramToken, setShowTelegramToken] = useState(false);
+
   const { success: toastSuccess, error: toastError } = useToast();
+
+  const handleTestTelegram = async () => {
+    setIsTestingTelegram(true);
+    try {
+      const res = await hotelSettingApi.testTelegram();
+      toastSuccess(res.message || 'Đã gửi thông báo thử nghiệm thành công tới Telegram!');
+    } catch (err: any) {
+      toastError(err.response?.data?.message || 'Không thể gửi tin nhắn thử nghiệm tới Telegram.');
+    } finally {
+      setIsTestingTelegram(false);
+    }
+  };
+
+  const parsedChatIds = (settings.telegramChatIds || '')
+    .split(/[\r\n,;]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
 
   useEffect(() => {
     fetchSettings();
@@ -150,6 +182,9 @@ const HotelSettings: React.FC = () => {
         rest.maxConcurrentSessions = rest.maxConcurrentSessions !== undefined ? rest.maxConcurrentSessions : 0;
         rest.maxSessionLifetimeHours = rest.maxSessionLifetimeHours || 24;
         rest.publicInvoiceLookupEnabled = rest.publicInvoiceLookupEnabled !== false;
+        rest.telegramBotToken = rest.telegramBotToken || '';
+        rest.telegramChatIds = rest.telegramChatIds || '6865922651';
+        rest.telegramBackupEnabled = rest.telegramBackupEnabled !== false;
         setSettings(rest);
       }
     } catch (error) {
@@ -774,6 +809,196 @@ const HotelSettings: React.FC = () => {
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB 4: TELEGRAM BOT & SAO LƯU ================= */}
+        {activeTab === 'telegram' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Card 1: Cấu hình tích hợp bot */}
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-border-grey shadow-xs space-y-6">
+              <div className="flex items-center justify-between border-b border-border-grey pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-600">
+                    <IoPaperPlaneOutline size={22} />
+                  </div>
+                  <div>
+                    <h3 className="font-title-md text-on-surface font-bold">Tích hợp Telegram Bot Cloud &amp; Phân quyền</h3>
+                    <p className="text-xs text-on-surface-variant">
+                      Chỉ định các tài khoản Telegram được phép nhận tệp sao lưu CSDL toàn diện &amp; thông báo hệ thống
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {settings.telegramBackupEnabled !== false ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-full">
+                      <IoCheckmarkCircleOutline size={14} />
+                      Đang bật sao lưu
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-full">
+                      <IoAlertCircleOutline size={14} />
+                      Đang tắt sao lưu
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Bật/Tắt gửi Telegram */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-sky-50/50 rounded-xl border border-sky-100">
+                <div className="space-y-1">
+                  <span className="text-sm font-bold text-sky-950">Tự động gửi bản sao lưu CSDL đến Telegram Bot</span>
+                  <p className="text-xs text-sky-800/80 max-w-xl">
+                    Mỗi khi tạo bản sao lưu (thủ công hoặc chạy tự động lúc 02:00 sáng), hệ thống sẽ nén và gửi tệp tin trực tiếp tới danh sách các tài khoản được ủy quyền bên dưới.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    name="telegramBackupEnabled"
+                    checked={settings.telegramBackupEnabled !== false}
+                    onChange={(e) => setSettings(prev => ({ ...prev, telegramBackupEnabled: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+                </label>
+              </div>
+
+              {/* Bot Token */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-on-surface">
+                    Telegram Bot Token <span className="font-normal text-on-surface-variant">(Tùy chọn)</span>
+                  </label>
+                  <span className="text-[11px] text-sky-600 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 font-medium">
+                    Bot mặc định: @ohhwsbot
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showTelegramToken ? 'text' : 'password'}
+                    name="telegramBotToken"
+                    value={settings.telegramBotToken || ''}
+                    onChange={handleChange}
+                    placeholder="8227232435:AAHe99DiTOKHxGXsNvC_DJObIsvIHvgmzes (Để trống để dùng Bot mặc định)"
+                    className="w-full h-[42px] px-4 pr-12 text-sm bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none font-mono transition-all placeholder:text-on-surface-variant/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTelegramToken(v => !v)}
+                    className="absolute right-3.5 top-2.5 text-on-surface-variant hover:text-sky-600 transition-colors cursor-pointer"
+                    title={showTelegramToken ? 'Ẩn token' : 'Hiện token'}
+                  >
+                    {showTelegramToken ? <IoEyeOffOutline size={18} /> : <IoEyeOutline size={18} />}
+                  </button>
+                </div>
+                <p className="text-xs text-on-surface-variant">
+                  Nếu cơ sở muốn dùng Bot riêng do bạn tự tạo qua @BotFather, hãy dán API Token vào đây. Nếu để trống, hệ thống sẽ sử dụng Bot dùng chung của StayAway PMS.
+                </p>
+              </div>
+
+              {/* Danh sách Telegram Chat ID */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                    <span>Danh sách Telegram Chat ID được phép truy cập &amp; nhận sao lưu</span>
+                    <span className="text-error">*</span>
+                  </label>
+                  <span className="text-xs font-bold text-sky-600 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-200">
+                    {parsedChatIds.length} tài khoản được chỉ định
+                  </span>
+                </div>
+
+                <textarea
+                  name="telegramChatIds"
+                  rows={4}
+                  value={settings.telegramChatIds || ''}
+                  onChange={handleChange}
+                  placeholder={"6865922651\n123456789\n987654321"}
+                  className="w-full font-mono text-sm bg-surface-container-low border border-border-grey rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all placeholder:text-on-surface-variant/40"
+                />
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-xs text-on-surface-variant font-medium">Tài khoản nhận diện:</span>
+                  {parsedChatIds.length > 0 ? (
+                    parsedChatIds.map((id, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-sky-300 text-sky-800 text-xs font-mono font-bold rounded-lg shadow-2xs"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                        ID: {id}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-error font-medium">Chưa có ID nào. Vui lòng nhập ít nhất 1 Chat ID.</span>
+                  )}
+                </div>
+
+                <p className="text-xs text-on-surface-variant">
+                  Nhập số Chat ID của từng người dùng, mỗi tài khoản trên một dòng hoặc phân tách nhau bằng dấu phẩy.
+                </p>
+              </div>
+
+              {/* Thao tác Test Telegram */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border-grey/70">
+                <div className="text-xs text-on-surface-variant">
+                  Bấm nút bên cạnh để gửi ngay 1 tin nhắn test đến toàn bộ {parsedChatIds.length} tài khoản trên để kiểm tra kết nối.
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  icon={IoPaperPlaneOutline}
+                  isLoading={isTestingTelegram}
+                  onClick={handleTestTelegram}
+                  disabled={parsedChatIds.length === 0}
+                  className="shrink-0 text-sky-700 border-sky-300 hover:bg-sky-50"
+                  size="sm"
+                >
+                  Gửi thông báo thử nghiệm tới Telegram
+                </Button>
+              </div>
+            </div>
+
+            {/* Card 2: Hướng dẫn lấy Chat ID */}
+            <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-6 space-y-3.5 text-xs text-sky-950">
+              <div className="flex items-center gap-2 font-bold text-sm text-sky-900">
+                <IoInformationCircleOutline size={20} className="text-sky-600" />
+                Hướng dẫn người dùng kết nối &amp; lấy số Chat ID của Telegram:
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+                <div className="bg-white/80 border border-sky-100 p-3.5 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-sky-800 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-sky-600 text-white inline-flex items-center justify-center text-[10px]">1</span>
+                    Khởi động Bot
+                  </div>
+                  <p className="text-sky-900/80 leading-relaxed">
+                    Mở ứng dụng Telegram trên máy hoặc điện thoại, tìm kiếm <strong>@ohhwsbot</strong> rồi ấn nút <strong>START</strong> để kích hoạt cuộc trò chuyện.
+                  </p>
+                </div>
+
+                <div className="bg-white/80 border border-sky-100 p-3.5 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-sky-800 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-sky-600 text-white inline-flex items-center justify-center text-[10px]">2</span>
+                    Lấy số Chat ID
+                  </div>
+                  <p className="text-sky-900/80 leading-relaxed">
+                    Tìm kiếm bot <strong>@userinfobot</strong> trên Telegram và bấm Start, bot sẽ gửi lại thông tin chứa dòng <code>Id: 6865922651</code>.
+                  </p>
+                </div>
+
+                <div className="bg-white/80 border border-sky-100 p-3.5 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-sky-800 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-sky-600 text-white inline-flex items-center justify-center text-[10px]">3</span>
+                    Dán &amp; Xác nhận
+                  </div>
+                  <p className="text-sky-900/80 leading-relaxed">
+                    Dán dãy số ID vào ô bên trên, bấm <strong>Lưu toàn bộ cài đặt</strong>, sau đó bấm <strong>Gửi thông báo thử nghiệm</strong> để xác nhận.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

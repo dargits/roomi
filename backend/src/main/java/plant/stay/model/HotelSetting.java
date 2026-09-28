@@ -167,6 +167,23 @@ public class HotelSetting {
     @Column(name = "google_api_keys", columnDefinition = "TEXT")
     private String googleApiKeys;
 
+    /**
+     * Cấu hình Telegram Bot Cloud & Quản lý tài khoản truy cập:
+     * - telegramBotToken: Token của Bot (nếu để trống sẽ dùng Bot hệ thống mặc định @ohhwsbot)
+     * - telegramChatIds: Danh sách Chat ID tài khoản được phép truy cập & nhận sao lưu (phân tách bởi dấu phẩy hoặc xuống dòng)
+     * - telegramBackupEnabled: Bật/tắt tự động gửi bản sao lưu lên Telegram Bot
+     */
+    @Column(name = "telegram_bot_token")
+    private String telegramBotToken;
+
+    @Column(name = "telegram_chat_ids", columnDefinition = "TEXT")
+    @Builder.Default
+    private String telegramChatIds = "6865922651";
+
+    @Column(name = "telegram_backup_enabled")
+    @Builder.Default
+    private Boolean telegramBackupEnabled = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
