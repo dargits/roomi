@@ -213,8 +213,8 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
             Yêu cầu giữ phòng của bạn đã được chuyển tới bộ phận lễ tân.
           </p>
 
-          {/* Booking Summary Ticket - Vuông góc */}
-          <div className="mt-5 bg-gradient-to-b from-surface-container-lowest to-surface-container-low/50 border border-border-grey p-4 text-left shadow-xs relative overflow-hidden">
+          {/* Booking Summary Ticket */}
+          <div className="mt-5 bg-gradient-to-b from-surface-container-lowest to-surface-container-low/50 border border-border-grey rounded-xl p-4 text-left shadow-xs relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
             
             <div className="flex justify-between items-start border-b border-border-grey/70 pb-3 mb-3">
@@ -225,7 +225,7 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                   {roomType?.name}
                 </div>
               </div>
-              <span className="px-2.5 py-1 text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              <span className="px-2.5 py-1 text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300 rounded-lg">
                 Chờ xác nhận
               </span>
             </div>
@@ -256,8 +256,8 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
             </div>
           </div>
 
-          {/* Contact Commitment Box - Vuông góc */}
-          <div className="mt-4 p-3.5 bg-blue-50/70 border border-blue-200 text-left flex items-start gap-3">
+          {/* Contact Commitment Box */}
+          <div className="mt-4 p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl text-left flex items-start gap-3">
             <IoTimeOutline size={18} className="text-primary flex-shrink-0 mt-0.5" />
             <div className="text-xs text-blue-950 leading-relaxed">
               Lễ tân của <strong>StayGO</strong> sẽ gọi điện trực tiếp tới số <strong>{formData.phone}</strong> trong vòng <strong>15 - 30 phút</strong> để xác nhận chi tiết nhận phòng và chính sách ưu đãi.
@@ -270,11 +270,11 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
             <span>Hotline hỗ trợ 24/7: <strong className="text-on-surface">098.222.2222</strong></span>
           </div>
 
-          {/* Action Button - Vuông góc */}
+          {/* Action Button */}
           <div className="mt-6">
             <Button
               onClick={handleClose}
-              className="w-full justify-center py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all rounded-none"
+              className="w-full justify-center py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all"
             >
               HOÀN TẤT & VỀ TRANG CHỦ
             </Button>
@@ -312,8 +312,8 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         </div>
       )}
       
-      {/* Room Summary Header - Vuông góc */}
-      <div className="mb-6 p-4 bg-gradient-to-r from-surface-container-low to-surface-blue-light/30 border border-border-grey flex flex-col md:flex-row justify-between md:items-center gap-4">
+      {/* Room Summary Header */}
+      <div className="mb-6 p-4 bg-gradient-to-r from-surface-container-low to-surface-blue-light/30 border border-border-grey rounded-xl flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Thông tin lựa chọn</span>
           <div className="font-title-lg text-on-surface font-bold text-lg mt-0.5 flex items-center gap-2">
@@ -371,7 +371,7 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
 
       {/* Chi tiết giá từng đêm nếu có nhiều mức giá hoặc đặt nhiều đêm */}
       {breakdown?.nightlyDetails && breakdown.nightlyDetails.length > 1 && (
-        <div className="mb-4 p-3.5 bg-surface-container-low border border-border-grey rounded text-xs space-y-2">
+        <div className="mb-4 p-3.5 bg-surface-container-low border border-border-grey rounded-xl text-xs space-y-2">
           <div className="flex justify-between items-center font-bold text-on-surface border-b border-border-grey/70 pb-1.5">
             <span className="flex items-center gap-1.5">
               <IoCalendarOutline size={14} className="text-primary" />
@@ -443,7 +443,7 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
               onChange={handleInputChange}
               rows={2}
               placeholder="Ví dụ: Check-in muộn, phòng tầng cao, hỗ trợ đón sân bay..."
-              className="w-full px-3.5 py-2.5 border border-border-grey rounded-none focus:outline-none focus:ring-1 focus:ring-primary font-body-md text-xs sm:text-sm bg-white"
+              className="w-full px-3.5 py-2.5 border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary hover:border-slate-300 font-body-md text-xs sm:text-sm bg-white transition-all outline-none"
             />
           </div>
         </div>
@@ -476,14 +476,14 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
           />
         </div>
 
-        <div className="p-3 bg-surface-container-low border border-border-grey/70 flex items-center gap-2 text-xs text-on-surface-variant">
+        <div className="p-3 bg-surface-container-low border border-border-grey/70 rounded-xl flex items-center gap-2 text-xs text-on-surface-variant">
           <IoShieldCheckmarkOutline size={16} className="text-green-600 flex-shrink-0" />
           <span>Không cần thanh toán trước. Lễ tân sẽ gọi điện xác nhận và giữ phòng cho quý khách.</span>
         </div>
       </form>
       
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-5 border-t border-border-grey mt-6">
-        <Button variant="ghost" onClick={handleClose} disabled={loading} className="w-full sm:w-auto rounded-none justify-center">
+        <Button variant="secondary" onClick={handleClose} disabled={loading} className="w-full sm:w-auto justify-center">
           Hủy bỏ
         </Button>
         <Button 
@@ -491,7 +491,7 @@ const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
           form="publicBookingForm" 
           isLoading={loading} 
           disabled={!isVerified || loading}
-          className={`w-full sm:w-auto px-6 py-2.5 font-bold shadow-md rounded-none justify-center transition-all ${
+          className={`w-full sm:w-auto px-6 py-2.5 font-bold shadow-md justify-center transition-all ${
             !isVerified ? 'opacity-60 cursor-not-allowed' : ''
           }`}
         >

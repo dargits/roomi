@@ -208,7 +208,7 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
           </div>
 
           {/* Title & Celebration */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg mb-2">
             <IoSparklesOutline size={13} className="text-emerald-600" />
             GỬI YÊU CẦU THÀNH CÔNG
           </div>
@@ -219,8 +219,8 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
             Yêu cầu đặt phòng đoàn của bạn đã được chuyển tới bộ phận lễ tân.
           </p>
 
-          {/* Booking Summary Ticket - Vuông góc */}
-          <div className="mt-5 bg-gradient-to-b from-surface-container-lowest to-surface-container-low/50 border border-border-grey p-4 text-left shadow-xs relative overflow-hidden">
+          {/* Booking Summary Ticket */}
+          <div className="mt-5 bg-gradient-to-b from-surface-container-lowest to-surface-container-low/50 border border-border-grey rounded-xl p-4 text-left shadow-xs relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
             
             <div className="flex justify-between items-start border-b border-border-grey/70 pb-3 mb-3">
@@ -231,7 +231,7 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
                   {totalRooms} phòng ({formData.rooms.length} loại phòng)
                 </div>
               </div>
-              <span className="px-2.5 py-1 text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              <span className="px-2.5 py-1 text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300 rounded-lg">
                 Chờ xác nhận
               </span>
             </div>
@@ -256,8 +256,8 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
             </div>
           </div>
 
-          {/* Contact Commitment Box - Vuông góc */}
-          <div className="mt-4 p-3.5 bg-blue-50/70 border border-blue-200 text-left flex items-start gap-3">
+          {/* Contact Commitment Box */}
+          <div className="mt-4 p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl text-left flex items-start gap-3">
             <IoTimeOutline size={18} className="text-primary flex-shrink-0 mt-0.5" />
             <div className="text-xs text-blue-950 leading-relaxed">
               Quản lý đặt đoàn của <strong>StayGO</strong> sẽ gọi điện trực tiếp tới số <strong>{formData.phone}</strong> trong vòng <strong>15 - 30 phút</strong> để gửi báo giá ưu đãi và phương án sắp xếp phòng tối ưu nhất.
@@ -270,11 +270,11 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
             <span>Hotline hỗ trợ đoàn 24/7: <strong className="text-on-surface">098.222.2222</strong></span>
           </div>
 
-          {/* Action Button - Vuông góc */}
+          {/* Action Button */}
           <div className="mt-6">
             <Button
               onClick={handleClose}
-              className="w-full justify-center py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all rounded-none"
+              className="w-full justify-center py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all"
             >
               HOÀN TẤT & VỀ TRANG CHỦ
             </Button>
@@ -466,7 +466,7 @@ const PublicGroupBookingModal: React.FC<PublicGroupBookingModalProps> = ({
         </div>
       </form>
       <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-border-grey pt-5">
-        <Button variant="ghost" onClick={handleClose} disabled={loading} className="w-full sm:w-auto justify-center">Hủy bỏ</Button>
+        <Button variant="secondary" onClick={handleClose} disabled={loading} className="w-full sm:w-auto justify-center">Hủy bỏ</Button>
         <Button 
           type="submit" 
           form="publicGroupBookingForm" 
