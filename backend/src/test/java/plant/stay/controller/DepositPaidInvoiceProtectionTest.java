@@ -168,4 +168,27 @@ public class DepositPaidInvoiceProtectionTest {
         assertTrue(ex.getMessage().contains("đã được thanh toán hoàn tất (PAID)"));
         assertTrue(ex.getMessage().contains("Không thể xử lý cọc sau khi đã quyết toán"));
     }
+
+    @Test
+    @DisplayName("Chặn thu cọc: Khi đặt phòng đang ở (CHECKED_IN) trở đi -> Ném ngoại lệ và không cho phép thu cọc")
+    public void testRecordDeposit_WhenBookingIsCheckedInOrLater_ShouldThrowException() {
+        for (BookingStatus st : List.of(BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT, BookingStatus.CANCELLED, BookingStatus.NO_SHOW)) {
+            Booking booking = Booking.builder()
+                    .id(200L)
+                    .status(st)
+                    .expectedPrice(BigDecimal.valueOf(1000000))
+                    .build();
+            when(bookingRepo.findById(200L)).thenReturn(Optional.of(booking));
+
+            DepositRequest req = new DepositRequest();
+            req.setAmount(BigDecimal.valueOf(300000));
+            req.setPaymentMethod(PaymentMethod.CASH);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                    controller.recordDeposit(200L, req, request)
+            );
+            assertTrue(ex.getMessage().contains("Không thể thu cọc khi đặt phòng ở trạng thái"),
+                    "Lỗi không chứa thông báo mong muốn khi trạng thái là " + st);
+        }
+    }
 }
