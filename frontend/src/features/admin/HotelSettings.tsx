@@ -888,7 +888,7 @@ const HotelSettings: React.FC = () => {
                     name="telegramBotToken"
                     value={settings.telegramBotToken || ''}
                     onChange={handleChange}
-                    placeholder="8227232435:AAHe99DiTOKHxGXsNvC_DJObIsvIHvgmzes (Để trống để dùng Bot mặc định)"
+                    placeholder="8227232435:AAHJJz3XQzLAdrac-ZYyMw0cJbSAWPM4p8Y (Để trống để dùng Bot mặc định)"
                     className="w-full h-[42px] px-4 pr-12 text-sm bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none font-mono transition-all placeholder:text-on-surface-variant/40"
                   />
                   <button
