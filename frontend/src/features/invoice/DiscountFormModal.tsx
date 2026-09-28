@@ -368,7 +368,7 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({
           >
             Áp dụng giảm giá
           </Button>
-          <Button type="button" variant="ghost" onClick={handleClose} disabled={isLoading}>
+          <Button type="button" variant="secondary" onClick={handleClose} disabled={isLoading}>
             Hủy
           </Button>
         </div>

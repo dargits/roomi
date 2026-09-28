@@ -183,12 +183,12 @@ const RequestDebtCheckoutModal: React.FC<RequestDebtCheckoutModalProps> = ({ isO
             onChange={(e) => setReason(e.target.value)}
             disabled={isWalkInNoProfile || loading || loadingBalance}
             placeholder="Ví dụ: Khách công ty chuyển khoản chậm theo hợp đồng, Khách quen xin thanh toán sau 3 ngày..."
-            className="w-full px-3 py-2 border border-border-grey rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+            className="w-full px-3 py-2 border border-border-grey rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm"
           />
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             Đóng
           </Button>
           <Button

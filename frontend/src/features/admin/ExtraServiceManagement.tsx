@@ -702,7 +702,7 @@ const ExtraServiceManagement: React.FC = () => {
             <label htmlFor="active" className="text-sm font-medium text-on-surface">Đang cung cấp (Active)</label>
           </div>
           <div className="flex justify-end gap-2 pt-3 border-t border-border-grey">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Hủy
             </Button>
             <Button type="submit" variant="primary">
@@ -744,7 +744,7 @@ const ExtraServiceManagement: React.FC = () => {
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
                   <Button 
-                    variant="ghost" 
+                    variant="secondary" 
                     onClick={() => {
                       setIsDeleteModalOpen(false);
                       setItemToDelete(null);
@@ -790,7 +790,7 @@ const ExtraServiceManagement: React.FC = () => {
               </p>
               <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
                 <Button 
-                  variant="ghost" 
+                  variant="secondary" 
                   onClick={() => {
                     setIsDeleteModalOpen(false);
                     setItemToDelete(null);

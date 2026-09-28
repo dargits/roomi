@@ -620,7 +620,7 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-                <Button variant="ghost" onClick={handleClose} disabled={processing}>
+                <Button variant="secondary" onClick={handleClose} disabled={processing}>
                   Hủy
                 </Button>
                 <Button variant="primary" onClick={handleSubmit} isLoading={processing}>
@@ -640,7 +640,7 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
               Dán dữ liệu danh sách khách theo định dạng: <strong>Số phòng, Họ tên, CCCD, SĐT</strong> (mỗi khách 1 dòng).
             </p>
             {importError && (
-              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded text-xs whitespace-pre-line">
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs whitespace-pre-line">
                 {importError}
               </div>
             )}
@@ -649,10 +649,10 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
               value={importText} 
               onChange={e => setImportText(e.target.value)} 
               placeholder={`101, Nguyễn Văn A, 001200000001, 0901234567\n101, Trần Thị B, 001200000002\n102, Lê Văn C, 001200000003`} 
-              className="w-full p-2.5 bg-surface-container border border-border-grey rounded text-xs font-mono focus:ring-1 focus:ring-primary focus:border-primary"
+              className="w-full p-2.5 bg-surface-container border border-border-grey rounded-xl text-xs font-mono focus:ring-1 focus:ring-primary focus:border-primary"
             />
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowImportModal(false)}>Hủy</Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowImportModal(false)}>Hủy</Button>
               <Button size="sm" onClick={handleProcessImport}>Áp dụng vào danh sách</Button>
             </div>
           </div>

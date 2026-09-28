@@ -144,7 +144,7 @@ const EarlyCheckoutModal: React.FC<EarlyCheckoutModalProps> = ({ isOpen, onClose
         ) : null}
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={onClose} disabled={processing} icon={IoCloseOutline}>
+          <Button variant="secondary" onClick={onClose} disabled={processing} icon={IoCloseOutline}>
             Hủy
           </Button>
           <Button 

@@ -273,7 +273,7 @@ const GroupRoomAssignmentGrid: React.FC<GroupRoomAssignmentGridProps> = ({
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-        <Button variant="ghost" onClick={onClose} disabled={isSubmitting} icon={IoCloseOutline}>
+        <Button variant="secondary" onClick={onClose} disabled={isSubmitting} icon={IoCloseOutline}>
           Hủy
         </Button>
         <Button

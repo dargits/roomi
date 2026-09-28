@@ -312,7 +312,7 @@ const CashierShiftPage: React.FC = () => {
                     <Button variant="danger" onClick={reopenShift}>
                       Xác nhận mở lại
                     </Button>
-                    <Button variant="ghost" onClick={() => setSelectedShift(null)}>
+                    <Button variant="secondary" onClick={() => setSelectedShift(null)}>
                       Hủy
                     </Button>
                   </div>

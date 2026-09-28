@@ -1029,7 +1029,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
                     </div>
 
                     <div className="flex gap-2 pt-2 border-t border-border-grey">
-                      <Button variant="ghost" type="button" onClick={() => setShowPaymentForm(false)} className="flex-1">
+                      <Button variant="secondary" type="button" onClick={() => setShowPaymentForm(false)} className="flex-1">
                         Hủy
                       </Button>
                       <Button type="submit" isLoading={processing} className="flex-1">
@@ -1100,7 +1100,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-            <Button variant="ghost" type="button" onClick={() => setShowAdjustModal(false)}>
+            <Button variant="secondary" type="button" onClick={() => setShowAdjustModal(false)}>
               Hủy
             </Button>
             <Button type="submit" isLoading={processing}>

@@ -413,7 +413,7 @@ const GuestManagement: React.FC = () => {
           <Input label="Email" name="email" type="email" icon={IoMailOutline} value={formData.email} onChange={handleInputChange} />
         </form>
         <div className="flex justify-end gap-3 pt-6 border-t border-border-grey mt-6">
-          <Button variant="ghost" onClick={() => setIsFormModalOpen(false)}>Hủy</Button>
+          <Button variant="secondary" onClick={() => setIsFormModalOpen(false)}>Hủy</Button>
           <Button type="submit" form="guestForm">Lưu dữ liệu</Button>
         </div>
       </Modal>
@@ -477,7 +477,7 @@ const GuestManagement: React.FC = () => {
           </div>
         )}
         <div className="flex justify-end pt-4 mt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={() => setIsHistoryModalOpen(false)}>Đóng</Button>
+          <Button variant="secondary" onClick={() => setIsHistoryModalOpen(false)}>Đóng</Button>
         </div>
       </Modal>
 
@@ -498,7 +498,7 @@ const GuestManagement: React.FC = () => {
           <div className="p-8 text-center text-on-surface-variant">Không tìm thấy dữ liệu thành viên.</div>
         )}
         <div className="flex justify-end pt-4 mt-4 border-t border-border-grey">
-          <Button variant="ghost" onClick={() => setIsLoyaltyModalOpen(false)}>Đóng</Button>
+          <Button variant="secondary" onClick={() => setIsLoyaltyModalOpen(false)}>Đóng</Button>
         </div>
       </Modal>
 

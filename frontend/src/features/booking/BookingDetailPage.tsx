@@ -698,7 +698,7 @@ const formatCurrency = (val?: number) => {
           )}
           {!checkOutError && (
             <div className="flex justify-end gap-3 pt-2 border-t border-border-grey">
-              <Button variant="ghost" onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); }} disabled={checkOutProcessing} icon={IoCloseOutline}>Hủy</Button>
+              <Button variant="secondary" onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); }} disabled={checkOutProcessing} icon={IoCloseOutline}>Hủy</Button>
               <Button
                 variant="primary"
                 icon={IoLogOutOutline}
@@ -711,7 +711,7 @@ const formatCurrency = (val?: number) => {
           )}
           {checkOutError && checkOutError !== 'invoice_required' && (
             <div className="flex justify-end pt-2 border-t border-border-grey">
-              <Button variant="ghost" onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); }} icon={IoCloseOutline}>Đóng</Button>
+              <Button variant="secondary" onClick={() => { setCheckOutConfirm(false); setCheckOutError(''); }} icon={IoCloseOutline}>Đóng</Button>
             </div>
           )}
         </div>
@@ -806,7 +806,7 @@ const formatCurrency = (val?: number) => {
             )}
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
-              <Button variant="ghost" onClick={() => setShowChangeRoom(false)} icon={IoCloseOutline}>Hủy</Button>
+              <Button variant="secondary" onClick={() => setShowChangeRoom(false)} icon={IoCloseOutline}>Hủy</Button>
               <Button
                 variant="primary"
                 icon={IoSwapHorizontalOutline}
