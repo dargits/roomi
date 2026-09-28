@@ -1311,7 +1311,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setInterruptionRoom(null)}
                 disabled={processingId === interruptionRoom.id}
@@ -1392,7 +1392,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setRejectionRoom(null)}
                 disabled={processingId === rejectionRoom.id}

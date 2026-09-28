@@ -1115,7 +1115,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={closeActionModal}
               disabled={processing}
               icon={IoCloseOutline}

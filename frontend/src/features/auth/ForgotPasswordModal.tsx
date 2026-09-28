@@ -156,7 +156,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
-            <Button variant="ghost" onClick={handleClose} disabled={loading}>
+            <Button variant="secondary" onClick={handleClose} disabled={loading}>
               Hủy
             </Button>
             <Button type="submit" isLoading={loading} icon={IoKeyOutline}>

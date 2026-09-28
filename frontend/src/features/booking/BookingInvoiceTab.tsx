@@ -649,14 +649,14 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
               </Button>
               {canAdjust && isPaid && (
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   onClick={() => {
                     setAdjustData({ discountAmount: '', note: '' });
                     setAdjustError('');
                     setShowAdjustModal(true);
                   }}
                   icon={IoDocumentTextOutline}
-                  className="w-full border border-border-grey text-on-surface hover:bg-surface-container-low"
+                  className="w-full"
                 >
                   Điều chỉnh Hóa đơn
                 </Button>
@@ -1168,7 +1168,7 @@ const BookingInvoiceTab: React.FC<BookingInvoiceTabProps> = ({ bookingId, status
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-grey">
             <Button
-              variant="ghost"
+              variant="secondary"
               type="button"
               disabled={processing}
               onClick={() => {
