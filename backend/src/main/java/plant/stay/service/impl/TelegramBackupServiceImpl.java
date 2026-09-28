@@ -197,8 +197,27 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
 
     @Override
     public String testSendToAll(String customMessage) {
-        String token = resolveBotToken();
-        List<String> chatIds = getAllowedChatIds();
+        return testSendToAll(null, null, customMessage);
+    }
+
+    @Override
+    public String testSendToAll(String overrideToken, String overrideChatIds, String customMessage) {
+        String token = (overrideToken != null && !overrideToken.isBlank()) ? overrideToken.trim() : resolveBotToken();
+
+        List<String> chatIds = new ArrayList<>();
+        if (overrideChatIds != null && !overrideChatIds.isBlank()) {
+            String[] tokens = overrideChatIds.split("[\\r\\n,;]+");
+            for (String t : tokens) {
+                String clean = t.trim();
+                if (!clean.isEmpty()) {
+                    chatIds.add(clean);
+                }
+            }
+        }
+        if (chatIds.isEmpty()) {
+            chatIds = getAllowedChatIds();
+        }
+
         if (token.isBlank() || chatIds.isEmpty()) {
             throw new BusinessException("Chưa cấu hình Telegram Bot Token hoặc danh sách Chat ID.");
         }
@@ -234,6 +253,14 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
             } catch (Exception e) {
                 fails.add(cId + " (" + e.getMessage() + ")");
             }
+        }
+
+        if (success == 0) {
+            String errorMsg = String.format("Gửi tin nhắn Telegram thất bại tới 0/%d tài khoản.", chatIds.size());
+            if (!fails.isEmpty()) {
+                errorMsg += " Thất bại: " + String.join(", ", fails);
+            }
+            throw new BusinessException(errorMsg);
         }
 
         String summary = String.format("Đã gửi thông báo thử nghiệm thành công tới %d/%d tài khoản.", success, chatIds.size());
