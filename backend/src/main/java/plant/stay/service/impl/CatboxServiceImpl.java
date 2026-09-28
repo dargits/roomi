@@ -53,16 +53,20 @@ public class CatboxServiceImpl implements CatboxService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-            headers.set("User-Agent", "StayAway-PMS/1.0 (Hospitality Management System)");
+            headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            headers.set("Accept", "*/*");
+
+            byte[] fileBytes = Files.readAllBytes(filePath);
+            org.springframework.core.io.ByteArrayResource fileResource = new org.springframework.core.io.ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return fileName != null ? fileName : "stayaway_backup.zip";
+                }
+            };
 
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("reqtype", "fileupload");
-            body.add("fileToUpload", new FileSystemResource(filePath.toFile()) {
-                @Override
-                public String getFilename() {
-                    return fileName != null ? fileName : super.getFilename();
-                }
-            });
+            body.add("fileToUpload", fileResource);
 
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 

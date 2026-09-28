@@ -149,11 +149,13 @@ public class BackupServiceImpl implements BackupService {
 
             // Tự động đẩy tệp sao lưu lên Catbox.moe Cloud Storage
             String cloudUrl = null;
+            String uploadErrorMsg = null;
             try {
                 log.info("Đang tự động tải tệp sao lưu [{}] ({} bytes) lên Catbox.moe Cloud Storage...", fileName, fileSize);
                 cloudUrl = catboxService.uploadFile(targetFile, fileName);
                 log.info("Đẩy tệp sao lưu lên Catbox.moe thành công: {}", cloudUrl);
             } catch (Exception uploadEx) {
+                uploadErrorMsg = uploadEx.getMessage();
                 log.error("Cảnh báo: Không thể tải tệp lên Catbox.moe ({}), giữ lại bản sao lưu cục bộ", uploadEx.getMessage());
             }
 
@@ -169,6 +171,11 @@ public class BackupServiceImpl implements BackupService {
                 }
             }
 
+            String backupNote = actor != null ? "Sao lưu thủ công bởi " + actor.getName() : "Sao lưu định kỳ tự động hệ thống";
+            if (uploadErrorMsg != null) {
+                backupNote += " (Chưa đẩy Catbox: " + uploadErrorMsg + ")";
+            }
+
             SystemBackup backup = SystemBackup.builder()
                     .fileName(fileName)
                     .filePath(effectiveFilePath)
@@ -180,7 +187,7 @@ public class BackupServiceImpl implements BackupService {
                     .checksum(checksum)
                     .createdBy(actor)
                     .cloudUrl(cloudUrl)
-                    .note(actor != null ? "Sao lưu thủ công bởi " + actor.getName() : "Sao lưu định kỳ tự động hệ thống")
+                    .note(backupNote)
                     .build();
 
             backup = systemBackupRepository.save(backup);
@@ -449,6 +456,20 @@ public class BackupServiceImpl implements BackupService {
                         setting.getAutoBackupEnabled(), setting.getAutoBackupTime(), setting.getBackupRetentionDays()));
 
         return getConfig();
+    }
+
+    @Override
+    public String testCloudStorage() {
+        try {
+            Path testFile = Files.createTempFile("catbox_test_", ".txt");
+            Files.writeString(testFile, "StayAway Catbox Connection Test @ " + LocalDateTime.now());
+            String url = catboxService.uploadFile(testFile, "test_stayaway.txt");
+            Files.deleteIfExists(testFile);
+            return url;
+        } catch (Exception e) {
+            log.error("Kiểm tra tải lên Catbox thất bại: ", e);
+            throw new BusinessException("Lỗi thử nghiệm Catbox: " + e.getMessage());
+        }
     }
 
     @Override

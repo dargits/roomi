@@ -36,6 +36,25 @@ public class BackupController {
     private final AuthUtil authUtil;
 
     /**
+     * Endpoint kiểm tra kết nối và upload thử nghiệm lên Catbox.moe Cloud
+     */
+    @GetMapping("/test-catbox")
+    public ResponseEntity<java.util.Map<String, Object>> testCatbox(HttpServletRequest request) {
+        checkAdmin(request);
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        try {
+            String url = backupService.testCloudStorage();
+            result.put("success", true);
+            result.put("url", url);
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("errorMessage", e.getMessage());
+            result.put("errorClass", e.getClass().getName());
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /**
      * Tái tạo toàn bộ bộ dữ liệu mẫu vận hành chuẩn chỉnh từ 01/01/2026 đến nay
      * và tự động tạo bản sao lưu toàn diện (.ZIP)
      */

@@ -60,6 +60,11 @@ public interface BackupService {
     BackupConfigDto updateConfig(BackupConfigDto dto, User actor);
 
     /**
+     * Kiểm tra thử nghiệm kết nối và tải lên dịch vụ đám mây Catbox
+     */
+    String testCloudStorage();
+
+    /**
      * Tự động xóa các bản sao lưu đã hết hạn lưu trữ
      */
     int purgeExpiredBackups();
