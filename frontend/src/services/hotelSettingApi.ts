@@ -31,6 +31,12 @@ const hotelSettingApi = {
     const response = await api.put<{ message: string }>('/hotel-setting/google-api-keys', { googleApiKeys });
     return response.data;
   },
+
+  /** Kiểm tra gửi tin nhắn thử nghiệm tới toàn bộ Telegram Chat ID (chỉ OWNER) */
+  testTelegram: async (): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/hotel-setting/telegram/test');
+    return response.data;
+  },
 };
 
 export default hotelSettingApi;

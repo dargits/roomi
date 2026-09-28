@@ -35,4 +35,8 @@ public class HotelSettingResponse {
     private Boolean priceSuggestionConfigured;
     /** Danh sách Google API Key (mỗi key 1 dòng) */
     private String googleApiKeys;
+
+    private String telegramBotToken;
+    private String telegramChatIds;
+    private Boolean telegramBackupEnabled;
 }

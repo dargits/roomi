@@ -19,6 +19,9 @@ export interface HotelSettingResponse {
   maxConcurrentSessions?: number;
   maxSessionLifetimeHours?: number;
   publicInvoiceLookupEnabled?: boolean;
+  telegramBotToken?: string;
+  telegramChatIds?: string;
+  telegramBackupEnabled?: boolean;
 }
 
 export interface HotelSettingRequest {
@@ -41,6 +44,9 @@ export interface HotelSettingRequest {
   maxConcurrentSessions?: number;
   maxSessionLifetimeHours?: number;
   publicInvoiceLookupEnabled?: boolean;
+  telegramBotToken?: string;
+  telegramChatIds?: string;
+  telegramBackupEnabled?: boolean;
 }
 
 export interface InventoryItemResponse {

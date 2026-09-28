@@ -60,4 +60,8 @@ public class HotelSettingRequest {
     private Double priceSuggestionLowThreshold;
     private Integer priceSuggestionImminentDays;
     private Boolean priceSuggestionConfigured;
+
+    private String telegramBotToken;
+    private String telegramChatIds;
+    private Boolean telegramBackupEnabled;
 }

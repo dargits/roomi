@@ -27,4 +27,16 @@ public interface TelegramBackupService {
      * Kiểm tra bot đã được cấu hình token và chat ID hay chưa
      */
     boolean isConfigured();
+
+    /**
+     * Lấy danh sách các Telegram Chat ID được phép truy cập và nhận bản sao lưu
+     */
+    java.util.List<String> getAllowedChatIds();
+
+    /**
+     * Gửi tin nhắn kiểm tra thử nghiệm tới toàn bộ danh sách Chat ID đã cấu hình
+     * @param customMessage Nội dung tin nhắn thử nghiệm
+     * @return Thông báo kết quả gửi (số lượng gửi thành công / thất bại)
+     */
+    String testSendToAll(String customMessage);
 }

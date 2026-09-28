@@ -70,6 +70,19 @@ public class HotelSettingController {
         return ResponseEntity.ok(new MessageResponse("Cập nhật Google API Key thành công."));
     }
 
+    @Autowired
+    private plant.stay.service.TelegramBackupService telegramBackupService;
+
+    /**
+     * Gửi tin nhắn thử nghiệm tới danh sách các tài khoản Telegram Bot được chỉ định (chỉ OWNER).
+     */
+    @PostMapping("/telegram/test")
+    public ResponseEntity<MessageResponse> testTelegramConnection(HttpServletRequest request) {
+        checkOwner(request);
+        String result = telegramBackupService.testSendToAll(null);
+        return ResponseEntity.ok(new MessageResponse(result));
+    }
+
     private User checkOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || user.getRole() != Role.OWNER) {
