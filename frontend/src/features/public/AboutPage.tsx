@@ -13,7 +13,16 @@ import {
   IoBedOutline
 } from 'react-icons/io5';
 
+import useSEO from '../../hooks/useSEO';
+
 const AboutPage: React.FC = () => {
+  useSEO({
+    title: 'Về Chúng Tôi - Câu Chuyện Thương Hiệu',
+    description: 'Tìm hiểu về Stay Away - Sứ mệnh kiến tạo không gian lưu trú và nghỉ dưỡng đẳng cấp, dịch vụ tận tâm chuẩn quốc tế và cam kết mang lại sự hài lòng tối đa cho khách hàng.',
+    keywords: 'về stay away, câu chuyện thương hiệu, khách sạn nghỉ dưỡng uy tín, dịch vụ khách sạn',
+    canonical: 'https://stayaway.io.vn/about'
+  });
+
   const navigate = useNavigate();
   const { hotelSetting } = useAppConfig();
 

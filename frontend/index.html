@@ -1,14 +1,118 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" prefix="og: https://ogp.me/ns#">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stay Away</title>
+  
+  <!-- SEO Primary Meta Tags -->
+  <title>Stay Away - Hệ Thống Quản Lý Khách Sạn & Đặt Phòng Cao Cấp</title>
+  <meta name="title" content="Stay Away - Hệ Thống Quản Lý Khách Sạn & Đặt Phòng Cao Cấp" />
+  <meta name="description" content="Stay Away - Nền tảng quản lý khách sạn và đặt phòng trực tuyến thông minh. Trải nghiệm lưu trú cao cấp, phòng nghỉ tiện nghi, dịch vụ chu đáo với mức giá tốt nhất." />
+  <meta name="keywords" content="khách sạn, đặt phòng khách sạn, resort, quản lý khách sạn, stay away, hotel pms, room booking, lưu trú cao cấp, đặt phòng trực tuyến" />
+  <meta name="author" content="Stay Away Hospitality" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="google-site-verification" content="cArmODHHl-Z8-51-zRmwAIlnxtcnzKY-Bqj0300oOEU" />
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://stayaway.io.vn/" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://stayaway.io.vn/" />
+  <meta property="og:site_name" content="Stay Away Hospitality" />
+  <meta property="og:locale" content="vi_VN" />
+  <meta property="og:title" content="Stay Away - Hệ Thống Quản Lý Khách Sạn & Đặt Phòng Cao Cấp" />
+  <meta property="og:description" content="Trải nghiệm kỳ nghỉ hoàn hảo với hệ sinh thái dịch vụ lưu trú và đặt phòng đẳng cấp tại Stay Away." />
+  <meta property="og:image" content="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&auto=format&fit=crop&q=80" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Khách sạn Stay Away" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://stayaway.io.vn/" />
+  <meta name="twitter:title" content="Stay Away - Hệ Thống Quản Lý Khách Sạn & Đặt Phòng Cao Cấp" />
+  <meta name="twitter:description" content="Trải nghiệm kỳ nghỉ hoàn hảo với hệ sinh thái dịch vụ lưu trú và đặt phòng đẳng cấp tại Stay Away." />
+  <meta name="twitter:image" content="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&auto=format&fit=crop&q=80" />
+
+  <!-- Favicons & Icons -->
   <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+
+  <!-- Google Fonts Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Structured Data (JSON-LD) for Schema.org Hotel & LodgingBusiness -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Hotel",
+        "@id": "https://stayaway.io.vn/#hotel",
+        "name": "Stay Away Hotel & Resort",
+        "url": "https://stayaway.io.vn/",
+        "description": "Hệ thống khách sạn và khu nghỉ dưỡng cao cấp Stay Away cung cấp dịch vụ phòng tiêu chuẩn quốc tế, đặt phòng trực tuyến tức thì và tiện nghi chuẩn 5 sao.",
+        "image": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&auto=format&fit=crop&q=80",
+        "priceRange": "₫₫₫",
+        "starRating": {
+          "@type": "Rating",
+          "ratingValue": "4.8"
+        },
+        "telephone": "+84-981-111-111",
+        "email": "contact@stayaway.vn",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Hồ Chí Minh",
+          "addressCountry": "VN"
+        },
+        "checkinTime": "14:00",
+        "checkoutTime": "12:00",
+        "amenityFeature": [
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Wi-Fi tốc độ cao miễn phí",
+            "value": true
+          },
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Hồ bơi vô cực",
+            "value": true
+          },
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Nhà hàng buffet cao cấp",
+            "value": true
+          },
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Dịch vụ phòng 24/7",
+            "value": true
+          },
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Dịch vụ đưa đón sân bay",
+            "value": true
+          }
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://stayaway.io.vn/#website",
+        "url": "https://stayaway.io.vn/",
+        "name": "Stay Away",
+        "publisher": {
+          "@id": "https://stayaway.io.vn/#hotel"
+        },
+        "inLanguage": "vi-VN"
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body class="bg-surface text-on-surface">

@@ -26,6 +26,7 @@ import Input from '../../components/ui/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { UserSessionResponse, Role, HotelSettingResponse } from '../../types';
 import { ROLE_LABEL, ROLE_BADGE_STYLE } from '../../layouts/DashboardLayout';
+import ConcurrentSessionControl from './ConcurrentSessionControl';
 
 const formatTimeAgo = (dateStr?: string) => {
   if (!dateStr) return '—';
@@ -228,7 +229,7 @@ const SessionManagementPage: React.FC = () => {
       <PageHeader
         icon={IoKeyOutline}
         title="Theo dõi phiên đăng nhập"
-        subtitle="Giám sát các phiên đang kết nối vào hệ thống, phát hiện phiên bị bỏ quên ở máy quầy và buộc đăng xuất từ xa (NCL-10-CN-007)"
+        subtitle="Giám sát các phiên đang kết nối vào hệ thống, phát hiện phiên bị bỏ quên ở máy quầy và buộc đăng xuất từ xa"
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -585,16 +586,9 @@ const SessionManagementPage: React.FC = () => {
                 required
               />
 
-              <Input
-                label="Số phiên đăng nhập đồng thời tối đa trên 1 tài khoản *"
-                type="number"
-                min={0}
-                max={50}
-                value={String(configMaxConcurrent)}
-                onChange={(e) => setConfigMaxConcurrent(Number(e.target.value))}
-                icon={IoKeyOutline}
-                helperText="0 = Không giới hạn thiết bị. 1 = Chế độ phiên duy nhất (đăng nhập máy mới tự hủy phiên cũ)."
-                required
+              <ConcurrentSessionControl
+                value={configMaxConcurrent}
+                onChange={setConfigMaxConcurrent}
               />
 
               <Input

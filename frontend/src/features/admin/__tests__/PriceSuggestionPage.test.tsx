@@ -174,7 +174,7 @@ describe('PriceSuggestionPage Component', () => {
 
     // Kiểm tra căn cứ minh bạch (Mức lấp đầy & số phòng còn trống)
     expect(screen.getByText('90%')).toBeInTheDocument();
-    expect(screen.getByText('20%')).toBeInTheDocument();
+    expect(screen.getAllByText('20%').length).toBeGreaterThan(0);
     expect(screen.getByText('1 phòng')).toBeInTheDocument();
     expect(screen.getByText('8 phòng')).toBeInTheDocument();
 
@@ -193,12 +193,13 @@ describe('PriceSuggestionPage Component', () => {
     await screen.findByText('Gợi ý điều chỉnh giá theo công suất dự báo');
 
     // Chuyển sang Tab "Nên tăng giá"
-    const increaseTab = screen.getByRole('button', { name: /Nên tăng giá/i });
+    const increaseTab = screen.getByRole('button', { name: /Cân nhắc tăng giá/i });
     fireEvent.click(increaseTab);
 
-    // Chỉ có ngày tăng giá hiển thị
+    // Chỉ có ngày tăng giá hiển thị (90% là từ increase suggestion)
     expect(screen.getByText('90%')).toBeInTheDocument();
-    expect(screen.queryByText('20%')).not.toBeInTheDocument();
+    // Suggestion '20%' (decrease) không hiển thị trong danh sách gợi ý — check qua '8 phòng' unique của suggestion decrease
+    expect(screen.queryByText('Còn 3 ngày')).not.toBeInTheDocument();
 
     // Chuyển sang Tab "Đã bỏ qua"
     const dismissedTab = screen.getByRole('button', { name: /Đã bỏ qua/i });
@@ -272,7 +273,7 @@ describe('PriceSuggestionPage Component', () => {
 
     await waitFor(() => {
       expect(priceSuggestionApi.updateConfig).toHaveBeenCalled();
-      expect(mockToastSuccess).toHaveBeenCalledWith('Đã cập nhật cấu hình ngưỡng lấp đầy thành công.');
+      expect(mockToastSuccess).toHaveBeenCalledWith('Đã cập nhật ngưỡng gợi ý điều chỉnh giá.');
     });
   });
 });

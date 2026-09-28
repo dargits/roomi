@@ -10,8 +10,16 @@ import {
   IoCheckmarkCircleOutline,
   IoNavigateOutline
 } from 'react-icons/io5';
+import useSEO from '../../hooks/useSEO';
 
 const ContactPage: React.FC = () => {
+  useSEO({
+    title: 'Liên Hệ & Hỗ Trợ Đặt Chỗ',
+    description: 'Liên hệ đội ngũ chăm sóc khách hàng của Stay Away 24/7. Hỗ trợ giải đáp thông tin phòng nghỉ, đặt tiệc, hội nghị và dịch vụ xe đưa đón.',
+    keywords: 'liên hệ stay away, hotline đặt phòng, địa chỉ khách sạn, tư vấn đặt phòng',
+    canonical: 'https://stayaway.io.vn/contact'
+  });
+
   const { hotelSetting } = useAppConfig();
   const [formData, setFormData] = useState({
     name: '',

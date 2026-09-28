@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   IoBarChartOutline,
   IoCashOutline,
@@ -342,14 +342,19 @@ const AdrRevparReport: React.FC = () => {
 
     setFrom(f);
     setTo(t);
+    handleSearch(f, t, groupBy);
   };
 
-  const handleSearch = async () => {
-    if (!from || !to) {
+  const handleSearch = async (overrideFrom?: string, overrideTo?: string, overrideGroup?: string) => {
+    const qFrom = overrideFrom ?? from;
+    const qTo = overrideTo ?? to;
+    const qGroup = overrideGroup ?? groupBy;
+
+    if (!qFrom || !qTo) {
       setError('Vui lòng chọn đủ khoảng thời gian.');
       return;
     }
-    if (from > to) {
+    if (qFrom > qTo) {
       setError('Ngày bắt đầu phải trước ngày kết thúc.');
       return;
     }
@@ -357,7 +362,7 @@ const AdrRevparReport: React.FC = () => {
     setLoading(true);
     setSearched(true);
     try {
-      const result = await reportApi.getAdrRevparReport(from, to, groupBy);
+      const result = await reportApi.getAdrRevparReport(qFrom, qTo, qGroup);
       setData(result);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Không thể tải báo cáo. Vui lòng kiểm tra kết nối.');
@@ -366,6 +371,13 @@ const AdrRevparReport: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (hasAccess) {
+      handleSearch(firstDay, lastDay, 'day');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAccess]);
 
   // Export CSV
   const exportCSV = () => {
@@ -500,7 +512,7 @@ const AdrRevparReport: React.FC = () => {
             onChange={e => setGroupBy(e.target.value)}
           />
           <div className="flex flex-col gap-2">
-            <Button onClick={handleSearch} isLoading={loading} icon={IoSearchOutline}>
+            <Button onClick={() => handleSearch()} isLoading={loading} icon={IoSearchOutline}>
               Xem báo cáo
             </Button>
             {data && (

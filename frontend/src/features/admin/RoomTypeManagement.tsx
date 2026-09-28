@@ -406,7 +406,7 @@ const RoomTypeManagement: React.FC = () => {
                 name="extraPersonChargePerNight" 
                 required 
                 min="0" 
-                step="5000" 
+                step="any" 
                 value={String(formData.extraPersonChargePerNight)} 
                 onChange={handleInputChange} 
                 helperText="Tính cho mỗi người vượt sức chứa tiêu chuẩn"
@@ -428,7 +428,7 @@ const RoomTypeManagement: React.FC = () => {
             </div>
             
             <div className="col-span-1 md:col-span-2">
-              <Input label="Giá cơ bản (VNĐ/đêm)" type="number" name="basePrice" required min="0" step="1000" value={String(formData.basePrice)} onChange={handleInputChange} />
+              <Input label="Giá cơ bản (VNĐ/đêm)" type="number" name="basePrice" required min="0" step="any" value={String(formData.basePrice)} onChange={handleInputChange} />
             </div>
             
             <div className="col-span-1 md:col-span-2">

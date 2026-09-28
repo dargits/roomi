@@ -32,7 +32,19 @@ import java.util.List;
 public class BackupController {
 
     private final BackupService backupService;
+    private final plant.stay.service.OperationalDataSeederService operationalDataSeederService;
     private final AuthUtil authUtil;
+
+    /**
+     * Tái tạo toàn bộ bộ dữ liệu mẫu vận hành chuẩn chỉnh từ 01/01/2026 đến nay
+     * và tự động tạo bản sao lưu toàn diện (.ZIP)
+     */
+    @PostMapping("/reseed-sample-data")
+    public ResponseEntity<java.util.Map<String, Object>> reseedSampleData(HttpServletRequest request) {
+        User actor = checkAdmin(request);
+        java.util.Map<String, Object> result = operationalDataSeederService.reseedOperationalData(actor);
+        return ResponseEntity.ok(result);
+    }
 
     /**
      * Tạo bản sao lưu toàn bộ hệ thống ngay lập tức trên máy chủ

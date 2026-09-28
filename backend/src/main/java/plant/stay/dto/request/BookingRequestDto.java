@@ -36,4 +36,9 @@ public class BookingRequestDto {
     private LocalDate checkOutDate;
 
     private String note;
+    
+    // Anti-spam fields
+    private String websiteTrap; // Honeypot field (phải rỗng)
+    private Long submissionElapsedMs; // Thời gian thao tác của client (ms)
+    private String botVerificationToken; // Mã xác thực chống bot
 }

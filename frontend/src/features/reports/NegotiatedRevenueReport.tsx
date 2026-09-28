@@ -13,18 +13,23 @@ const fmtPercent = (val?: number) => (val != null ? val.toFixed(1) + '%' : '0%')
 const NegotiatedRevenueReport: React.FC = () => {
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const [from, setFrom] = useState(firstOfMonth.toISOString().split('T')[0]);
-  const [to, setTo] = useState(today.toISOString().split('T')[0]);
+  const defaultFrom = firstOfMonth.toISOString().split('T')[0];
+  const defaultTo = today.toISOString().split('T')[0];
+
+  const [from, setFrom] = useState(defaultFrom);
+  const [to, setTo] = useState(defaultTo);
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSearch = async () => {
-    if (!from || !to) return;
+  const handleSearch = async (overrideFrom?: string, overrideTo?: string) => {
+    const qFrom = overrideFrom ?? from;
+    const qTo = overrideTo ?? to;
+    if (!qFrom || !qTo) return;
     setLoading(true);
     setError('');
     try {
-      const result = await negotiatedPriceApi.getNegotiatedRevenueReport(from, to);
+      const result = await negotiatedPriceApi.getNegotiatedRevenueReport(qFrom, qTo);
       setData(result);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Lỗi tải dữ liệu báo cáo');
@@ -32,6 +37,11 @@ const NegotiatedRevenueReport: React.FC = () => {
       setLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    handleSearch(defaultFrom, defaultTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -50,7 +60,7 @@ const NegotiatedRevenueReport: React.FC = () => {
             value={to}
             onChange={(e) => setTo(e.target.value)}
           />
-          <Button onClick={handleSearch} isLoading={loading} className="flex items-center gap-2">
+          <Button onClick={() => handleSearch()} isLoading={loading} className="flex items-center gap-2">
             <IoSearchOutline className="w-4 h-4" />
             Xem báo cáo
           </Button>
