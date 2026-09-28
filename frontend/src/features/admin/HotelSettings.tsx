@@ -117,10 +117,7 @@ const HotelSettings: React.FC = () => {
   const handleTestTelegram = async () => {
     setIsTestingTelegram(true);
     try {
-      const res = await hotelSettingApi.testTelegram({
-        botToken: settings.telegramBotToken ? settings.telegramBotToken.trim() : undefined,
-        chatIds: settings.telegramChatIds ? settings.telegramChatIds.trim() : undefined,
-      });
+      const res = await hotelSettingApi.testTelegram();
       const msg = res.message || 'Đã gửi thông báo thử nghiệm thành công tới Telegram!';
       if (msg.includes('Thất bại:')) {
         toastWarning(msg);

@@ -33,8 +33,8 @@ const hotelSettingApi = {
   },
 
   /** Kiểm tra gửi tin nhắn thử nghiệm tới toàn bộ Telegram Chat ID (chỉ OWNER) */
-  testTelegram: async (payload?: { botToken?: string; chatIds?: string; message?: string }): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/hotel-setting/telegram/test', payload || {});
+  testTelegram: async (): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/hotel-setting/telegram/test');
     return response.data;
   },
 };
