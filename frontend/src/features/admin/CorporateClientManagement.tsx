@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { corporateClientApi, CorporateClient, CorporateClientRequest } from '../../services/corporateClientApi';
 import { CorporateClientModal } from './CorporateClientModal';
-import { IoAddOutline, IoBusinessOutline, IoPencilOutline, IoTrashOutline, IoSearchOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoPricetagOutline } from 'react-icons/io5';
+import { IoAddOutline, IoBusinessOutline, IoPencilOutline, IoTrashOutline, IoSearchOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import Pagination from '../../components/ui/Pagination';
 import { useToast } from '../../context/ToastContext';
-import { useNavigate } from 'react-router-dom';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -22,7 +21,6 @@ export const CorporateClientManagement: React.FC = () => {
   const [editingClient, setEditingClient] = useState<CorporateClient | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { success: toastSuccess, error: toastError, confirm } = useToast();
-  const navigate = useNavigate();
 
   const totalPages = Math.max(1, Math.ceil(clients.length / pageSize));
   const paginatedClients = useMemo(() => {
@@ -200,13 +198,6 @@ export const CorporateClientManagement: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => navigate(`/admin/negotiated-prices?clientId=${c.id}`)}
-                            title="Xem thỏa thuận giá"
-                            className="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                          >
-                            <IoPricetagOutline className="w-4 h-4" />
-                          </button>
                           <button
                             onClick={() => handleOpenEdit(c)}
                             title="Chỉnh sửa"
