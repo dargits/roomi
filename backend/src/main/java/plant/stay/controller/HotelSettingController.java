@@ -7,7 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.GoogleApiKeysRequest;
 import plant.stay.dto.request.HotelSettingRequest;
-import plant.stay.dto.request.TelegramTestRequest;
 import plant.stay.dto.response.HotelSettingResponse;
 import plant.stay.dto.response.MessageResponse;
 import plant.stay.exception.UnauthorizedException;
@@ -78,14 +77,9 @@ public class HotelSettingController {
      * Gửi tin nhắn thử nghiệm tới danh sách các tài khoản Telegram Bot được chỉ định (chỉ OWNER).
      */
     @PostMapping("/telegram/test")
-    public ResponseEntity<MessageResponse> testTelegramConnection(
-            @RequestBody(required = false) TelegramTestRequest testRequest,
-            HttpServletRequest request) {
+    public ResponseEntity<MessageResponse> testTelegramConnection(HttpServletRequest request) {
         checkOwner(request);
-        String token = testRequest != null ? testRequest.getBotToken() : null;
-        String chatIds = testRequest != null ? testRequest.getChatIds() : null;
-        String message = testRequest != null ? testRequest.getMessage() : null;
-        String result = telegramBackupService.testSendToAll(token, chatIds, message);
+        String result = telegramBackupService.testSendToAll(null);
         return ResponseEntity.ok(new MessageResponse(result));
     }
 
