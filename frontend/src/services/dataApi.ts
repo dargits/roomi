@@ -274,9 +274,19 @@ const dataApi = {
   },
 
   /**
-   * Tái tạo toàn bộ bộ dữ liệu mẫu vận hành chuẩn chỉnh từ tháng 1 đến nay (kèm tạo bản sao lưu .ZIP)
+   * Bước 1: Yêu cầu hệ thống gửi OTP xác thực qua Telegram Bot
+   * (OTP có hiệu lực 5 phút)
    */
-  reseedSampleData: async (): Promise<{
+  requestReseedOtp: async (): Promise<{ message: string }> => {
+    const response = await api.post('/backup/reseed-otp/request');
+    return response.data;
+  },
+
+  /**
+   * Bước 2: Tái tạo toàn bộ dữ liệu mẫu vận hành chuẩn chỉnh từ tháng 1 đến nay
+   * (kèm tạo bản sao lưu .ZIP). Yêu cầu OTP hợp lệ từ Telegram Bot.
+   */
+  reseedSampleData: async (otp: string): Promise<{
     status: string;
     message: string;
     bookingsCount: number;
@@ -293,6 +303,7 @@ const dataApi = {
     backupSize: string;
   }> => {
     const response = await api.post('/backup/reseed-sample-data', null, {
+      params: { otp },
       timeout: 300000
     });
     return response.data;

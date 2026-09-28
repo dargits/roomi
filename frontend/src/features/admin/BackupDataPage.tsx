@@ -228,6 +228,13 @@ const BackupDataPage: React.FC = () => {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // OTP Modal State (xác thực tái tạo dữ liệu mẫu)
+  const [showOtpModal, setShowOtpModal] = useState<boolean>(false);
+  const [otpSending, setOtpSending] = useState<boolean>(false);
+  const [otpSent, setOtpSent] = useState<boolean>(false);
+  const [otpValue, setOtpValue] = useState<string>('');
+  const [otpError, setOtpError] = useState<string>('');
+
   // Config Form State
   const [showConfigPanel, setShowConfigPanel] = useState<boolean>(false);
   const [autoEnabled, setAutoEnabled] = useState<boolean>(true);
@@ -360,17 +367,51 @@ const BackupDataPage: React.FC = () => {
     }
   };
 
+  // Mở OTP Modal (bước 1: gửi OTP)
+  const handleOpenReseedModal = () => {
+    setShowOtpModal(true);
+    setOtpSent(false);
+    setOtpValue('');
+    setOtpError('');
+  };
+
+  // Gửi OTP qua Telegram Bot
+  const handleSendReseedOtp = async () => {
+    setOtpSending(true);
+    setOtpError('');
+    try {
+      await dataApi.requestReseedOtp();
+      setOtpSent(true);
+      toastSuccess('Mã OTP đã được gửi đến Telegram Bot! Vui lòng kiểm tra và nhập mã (hiệu lực 5 phút).');
+    } catch (err: any) {
+      setOtpError(err.response?.data?.message || err.message || 'Không thể gửi OTP qua Telegram');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  // Bước 2: Xác nhận OTP và thực hiện tái tạo dữ liệu
   const handleReseedSampleData = async () => {
-    if (!window.confirm('Hành động này sẽ làm sạch các dữ liệu vận hành cũ và tái tạo lại toàn bộ dữ liệu mẫu chuẩn chỉ từ tháng 01/2026 đến nay (bao gồm Bookings, Hóa đơn, Thanh toán, Ca trực, Sổ cái, Dọn phòng, Sự cố, Đồ thất lạc) và tự động tạo bản sao lưu .ZIP mới. Bạn có chắc chắn muốn thực hiện?')) {
+    if (!otpValue || otpValue.trim().length !== 6) {
+      setOtpError('Vui lòng nhập đủ 6 chữ số OTP');
       return;
     }
     setReseedingData(true);
+    setOtpError('');
     try {
-      const res = await dataApi.reseedSampleData();
+      const res = await dataApi.reseedSampleData(otpValue.trim());
+      setShowOtpModal(false);
+      setOtpValue('');
       toastSuccess(`Tái tạo thành công: ${res.bookingsCount} lượt đặt phòng, ${res.invoicesCount} hóa đơn, ${res.cashierShiftsCount} ca trực, ${res.cleaningsCount} nhật ký dọn phòng. Đã tự động tạo bản backup: ${res.backupFile}`);
       fetchBackupsAndConfig();
     } catch (err: any) {
-      toastError('Lỗi tái tạo dữ liệu mẫu: ' + (err.response?.data?.message || err.message));
+      const msg = err.response?.data?.message || err.message;
+      if (msg && (msg.includes('OTP') || msg.includes('hết hạn') || msg.includes('không hợp lệ'))) {
+        setOtpError(msg);
+      } else {
+        setShowOtpModal(false);
+        toastError('Lỗi tái tạo dữ liệu mẫu: ' + msg);
+      }
     } finally {
       setReseedingData(false);
     }
@@ -1123,10 +1164,10 @@ const BackupDataPage: React.FC = () => {
                   <span>{creatingBackup ? 'Đang tạo...' : 'Tạo Bản Sao Lưu Server'}</span>
                 </button>
 
-                {/* Nút: Tái tạo dữ liệu mẫu chuẩn (từ 01/2026 đến nay) */}
+                {/* Nút: Tái tạo dữ liệu mẫu chuẩn (từ 01/2026 đến nay) - yêu cầu OTP Telegram */}
                 <button
                   type="button"
-                  onClick={handleReseedSampleData}
+                  onClick={handleOpenReseedModal}
                   disabled={reseedingData}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white font-semibold text-xs border border-purple-400/40 backdrop-blur-sm transition-all cursor-pointer shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   title="Tái tạo lại bộ dữ liệu vận hành chuẩn chỉ từ 01/2026 đến nay và tự động tạo bản sao lưu .ZIP mới"
@@ -2489,8 +2530,119 @@ const BackupDataPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ================================================================ */}
+      {/* MODAL XÁC THỰC OTP - Tái tạo dữ liệu mẫu                        */}
+      {/* ================================================================ */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 border border-zinc-200 dark:border-zinc-700">
+
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+                  <IoShieldCheckmarkOutline size={22} className="text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">Xác thực OTP Telegram</h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Tái tạo dữ liệu mẫu vận hành</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowOtpModal(false); setOtpValue(''); setOtpError(''); }}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <IoCloseOutline size={20} />
+              </button>
+            </div>
+
+            {/* Cảnh báo */}
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl p-3.5">
+              <div className="flex gap-2.5">
+                <IoWarningOutline size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  Thao tác này sẽ <strong>xóa toàn bộ dữ liệu vận hành cũ</strong> và tái tạo lại dữ liệu mẫu chuẩn từ 01/2026 đến nay. Không thể hoàn tác sau khi thực hiện.
+                </p>
+              </div>
+            </div>
+
+            {/* Bước 1: Gửi OTP */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                Bước 1: Nhận mã OTP qua Telegram Bot
+              </p>
+              <button
+                type="button"
+                onClick={handleSendReseedOtp}
+                disabled={otpSending}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <IoSyncOutline size={16} className={otpSending ? 'animate-spin' : ''} />
+                <span>{otpSending ? 'Đang gửi OTP...' : otpSent ? '✓ Gửi lại OTP' : 'Gửi OTP đến Telegram'}</span>
+              </button>
+              {otpSent && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <IoCheckmarkCircleOutline size={14} />
+                  OTP đã gửi! Kiểm tra Telegram Bot (hiệu lực 5 phút)
+                </p>
+              )}
+            </div>
+
+            {/* Bước 2: Nhập OTP */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                Bước 2: Nhập mã OTP 6 chữ số
+              </p>
+              <input
+                type="text"
+                value={otpValue}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setOtpValue(val);
+                  setOtpError('');
+                }}
+                placeholder="_ _ _ _ _ _"
+                maxLength={6}
+                className="w-full text-center text-2xl font-mono font-bold tracking-[0.4em] border-2 border-zinc-300 dark:border-zinc-600 rounded-xl px-4 py-3 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:border-purple-500 dark:focus:border-purple-400 transition-colors placeholder:text-zinc-300 placeholder:tracking-[0.4em] placeholder:text-lg"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleReseedSampleData(); }}
+              />
+              {otpError && (
+                <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1.5">
+                  <IoAlertCircleOutline size={14} />
+                  {otpError}
+                </p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => { setShowOtpModal(false); setOtpValue(''); setOtpError(''); }}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 font-semibold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleReseedSampleData}
+                disabled={reseedingData || !otpSent || otpValue.length !== 6}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+              >
+                <IoSparklesOutline size={16} className={reseedingData ? 'animate-spin' : ''} />
+                <span>{reseedingData ? 'Đang tái tạo...' : 'Xác nhận & Tái tạo'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 export default BackupDataPage;
