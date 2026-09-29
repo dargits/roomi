@@ -126,13 +126,17 @@ const AppRoutes: React.FC = () => {
                     <Route path="/manage/rooms" element={<RoomManagement />} />
                   </Route>
 
-                  {/* Cấu hình phòng, giá, dịch vụ, nhân sự & hệ thống — OWNER / ADMIN */}
+                  {/* Dịch vụ phụ thu & Khách thân thiết — OWNER / ADMIN / ACCOUNTANT */}
+                  <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ADMIN', 'ACCOUNTANT']} />}>
+                    <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
+                    <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
+                  </Route>
+
+                  {/* Cấu hình phòng, giá, nhân sự & hệ thống — OWNER / ADMIN */}
                   <Route element={<ProtectedRoute allowedRoles={['OWNER', 'ADMIN']} />}>
                     <Route path="/manage/channels" element={<ChannelCalendarPage />} />
                     <Route path="/manage/room-types" element={<RoomTypeManagement />} />
                     <Route path="/manage/price-suggestions" element={<PriceSuggestionPage />} />
-                    <Route path="/manage/extra-services" element={<ExtraServiceManagement />} />
-                    <Route path="/manage/loyalty" element={<LoyaltyTierManagement />} />
                     <Route path="/manage/staff" element={<StaffManagement />} />
                     <Route path="/manage/sessions" element={<SessionManagementPage />} />
                     <Route path="/manage/concurrency" element={<ConcurrencyLogPage />} />

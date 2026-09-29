@@ -5,6 +5,7 @@ import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 interface TierTheme {
   cardGradient: string;
@@ -80,6 +81,9 @@ const getTierTheme = (name: string, index: number): TierTheme => {
 const EMPTY_FORM = { name: "", minPoints: 0, discountPercent: 0, benefitDescription: "" };
 
 const LoyaltyTierManagement: React.FC = () => {
+  const { user } = useAuth();
+  const canManage = user?.role === 'OWNER' || user?.role === 'ADMIN';
+
   const [tiers, setTiers] = useState<any[]>([]);
   const [guestStats, setGuestStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,9 +211,11 @@ const LoyaltyTierManagement: React.FC = () => {
             Thiết lập danh mục cấp bậc khách hàng, ngưỡng điểm tích lũy và đặc quyền ưu đãi dành riêng.
           </p>
         </div>
-        <Button variant="primary" size="md" onClick={openCreate} className="shrink-0 shadow-xs">
-          Thêm hạng mới
-        </Button>
+        {canManage && (
+          <Button variant="primary" size="md" onClick={openCreate} className="shrink-0 shadow-xs">
+            Thêm hạng mới
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -375,22 +381,24 @@ const LoyaltyTierManagement: React.FC = () => {
                       <span>hội viên</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(tier)}
-                        className="px-3 py-1.5 text-xs font-bold rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(tier)}
-                        className="px-2.5 py-1.5 text-xs font-bold rounded-xl text-red-600 hover:bg-red-50 transition-all cursor-pointer"
-                      >
-                        Xóa
-                      </button>
-                    </div>
+                    {canManage && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(tier)}
+                          className="px-3 py-1.5 text-xs font-bold rounded-xl bg-[#F2F6ED] hover:bg-[#E5EFE0] text-[#1A2411] transition-all cursor-pointer border border-border-grey hover:border-[#CCD8C2]"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(tier)}
+                          className="px-2.5 py-1.5 text-xs font-bold rounded-xl text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -411,7 +419,7 @@ const LoyaltyTierManagement: React.FC = () => {
                   <th className="p-4">Chi Tiêu Tích Lũy</th>
                   <th className="p-4">Số Hội Viên</th>
                   <th className="p-4">Đặc Quyền & Ưu Đãi</th>
-                  <th className="p-4 text-right">Thao Tác</th>
+                  {canManage && <th className="p-4 text-right">Thao Tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-grey text-xs">
@@ -460,24 +468,26 @@ const LoyaltyTierManagement: React.FC = () => {
                           ))}
                         </div>
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(tier)}
-                            className="px-2.5 py-1 font-bold text-xs rounded-lg hover:bg-surface-container text-primary cursor-pointer transition-colors"
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(tier)}
-                            className="px-2.5 py-1 font-bold text-xs rounded-lg hover:bg-red-50 text-error cursor-pointer transition-colors"
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </td>
+                      {canManage && (
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(tier)}
+                              className="px-2.5 py-1 font-bold text-xs rounded-lg hover:bg-surface-container text-primary cursor-pointer transition-colors"
+                            >
+                              Sửa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(tier)}
+                              className="px-2.5 py-1 font-bold text-xs rounded-lg hover:bg-red-50 text-error cursor-pointer transition-colors"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
