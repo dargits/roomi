@@ -35,7 +35,8 @@ import {
   IoSyncOutline,
   IoTrendingUpOutline,
   IoNotificationsOutline,
-  IoWalletOutline
+  IoWalletOutline,
+  IoSpeedometerOutline
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
@@ -84,7 +85,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { path: '/manage/rooms',                      label: 'Sơ đồ phòng',           icon: IoLayersOutline,       allowedRoles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER'] },
       { path: '/manage/room-types',                 label: 'Loại phòng',            icon: IoBedOutline,          allowedRoles: ['OWNER'] },
       { path: '/manage/price-suggestions',          label: 'Gợi ý điều chỉnh giá',  icon: IoTrendingUpOutline,   allowedRoles: ['OWNER'] },
-      { path: '/manage/housekeeping-productivity',  label: 'Năng suất & định mức', icon: IoTrendingUpOutline,   allowedRoles: ['OWNER'] },
+      { path: '/manage/housekeeping-productivity',  label: 'Năng suất & định mức', icon: IoSpeedometerOutline,  allowedRoles: ['OWNER'] },
       { path: '/manage/housekeeping',               label: 'Buồng phòng',          icon: IoSparklesOutline,     allowedRoles: ['RECEPTIONIST', 'HOUSEKEEPER'] },
       { path: '/manage/lost-and-found',             label: 'Đồ khách để quên',     icon: IoCubeOutline,         allowedRoles: ['RECEPTIONIST', 'HOUSEKEEPER'] }
     ]
