@@ -24,6 +24,11 @@ const ACTION_CONFIG = {
     cls: 'bg-blue-100 text-blue-800',
     icon: IoDocumentTextOutline,
   },
+  EXPORT_STAY_HISTORY: {
+    label: 'Xuất lịch sử lưu trú',
+    cls: 'bg-blue-100 text-blue-800',
+    icon: IoDocumentTextOutline,
+  },
   DELETE_PERSONAL_DATA: {
     label: 'Xóa dữ liệu cá nhân',
     cls: 'bg-red-100 text-red-800',

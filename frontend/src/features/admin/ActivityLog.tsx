@@ -171,12 +171,53 @@ const ACTION_MAP: Record<string, { label: string; colorClass: string }> = {
 
   // Privacy & Declaration
   EXPORT_STAY_DECLARATION: { label: 'Xuất khai báo tạm trú', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  EXPORT_STAY_HISTORY: { label: 'Xuất lịch sử lưu trú', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
   DELETE_PERSONAL_DATA: { label: 'Xóa dữ liệu cá nhân', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
   VIEW_GUEST_DETAIL: { label: 'Xem chi tiết khách', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' },
   COMPLETE_DECLARATION: { label: 'Hoàn tất khai báo', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
 
   // B2B & Policies
   DEACTIVATE: { label: 'Ngừng kích hoạt', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' }
+};
+
+const WORD_MAP: Record<string, string> = {
+  EXPORT: 'Xuất',
+  IMPORT: 'Nhập',
+  CREATE: 'Tạo',
+  UPDATE: 'Cập nhật',
+  DELETE: 'Xóa',
+  VIEW: 'Xem',
+  SEND: 'Gửi',
+  PRINT: 'In',
+  APPLY: 'Áp dụng',
+  APPROVE: 'Duyệt',
+  REJECT: 'Từ chối',
+  OPEN: 'Mở',
+  CLOSE: 'Đóng',
+  START: 'Bắt đầu',
+  FINISH: 'Hoàn tất',
+  STAY: 'lưu trú',
+  HISTORY: 'lịch sử',
+  BOOKING: 'đặt phòng',
+  INVOICE: 'hóa đơn',
+  ROOM: 'phòng',
+  GUEST: 'khách',
+  USER: 'tài khoản',
+  SHIFT: 'ca làm việc',
+  CLEANING: 'dọn phòng',
+  INCIDENT: 'sự cố',
+  ITEM: 'đồ vật',
+  LOST: 'thất lạc',
+  BACKUP: 'sao lưu',
+  PASSWORD: 'mật khẩu',
+  DEBT: 'công nợ',
+  PAYMENT: 'thanh toán',
+  DISCOUNT: 'giảm giá',
+  DEPOSIT: 'tiền cọc',
+  DECLARATION: 'khai báo',
+  DATA: 'dữ liệu',
+  PERSONAL: 'cá nhân',
+  DETAIL: 'chi tiết'
 };
 
 const getActionDisplay = (action?: string): { label: string; colorClass: string } => {
@@ -186,43 +227,16 @@ const getActionDisplay = (action?: string): { label: string; colorClass: string 
     return ACTION_MAP[upper];
   }
 
-  // Thông minh chuyển đổi các cụm từ tiếng Anh còn sót lại
-  let label = upper;
-  label = label
-    .replace(/^CREATE_BOOKING$/, 'Tạo đặt phòng')
-    .replace(/^CREATE_INVOICE$/, 'Tạo hóa đơn')
-    .replace(/^OPEN_SHIFT$/, 'Mở ca làm việc')
-    .replace(/^CLOSE_SHIFT$/, 'Đóng ca làm việc')
-    .replace(/^CREATE_/, 'Tạo ')
-    .replace(/^UPDATE_/, 'Cập nhật ')
-    .replace(/^DELETE_/, 'Xóa ')
-    .replace(/^VIEW_/, 'Xem ')
-    .replace(/^SEND_/, 'Gửi ')
-    .replace(/^APPLY_/, 'Áp dụng ')
-    .replace(/^APPROVE_/, 'Duyệt ')
-    .replace(/^REJECT_/, 'Từ chối ')
-    .replace(/^START_/, 'Bắt đầu ')
-    .replace(/^FINISH_/, 'Hoàn thành ')
-    .replace(/_BOOKING/g, ' đặt phòng')
-    .replace(/_INVOICE/g, ' hóa đơn')
-    .replace(/_SHIFT/g, ' ca làm việc')
-    .replace(/_ROOM/g, ' phòng')
-    .replace(/_USER/g, ' tài khoản')
-    .replace(/_GUEST/g, ' khách')
-    .replace(/_SERVICE/g, ' dịch vụ')
-    .replace(/_BACKUP/g, ' sao lưu')
-    .replace(/_PASSWORD/g, ' mật khẩu')
-    .replace(/_CLEANING/g, ' dọn phòng')
-    .replace(/_/g, ' ')
-    .toLowerCase();
-
-  // Viết hoa chữ cái đầu
+  // Dịch từng từ khóa tiếng Anh nếu chưa có trong ACTION_MAP
+  const tokens = upper.split('_');
+  const translated = tokens.map(t => WORD_MAP[t] || t.toLowerCase());
+  let label = translated.join(' ');
   label = label.charAt(0).toUpperCase() + label.slice(1);
 
   let color = 'bg-slate-100 text-slate-700 border border-slate-300';
   if (upper.includes('CREATE') || upper.includes('ADD') || upper.includes('APPROVE') || upper.includes('OPEN') || upper.includes('SUCCESS')) {
     color = 'bg-emerald-50 text-emerald-800 border border-emerald-300';
-  } else if (upper.includes('UPDATE') || upper.includes('EDIT') || upper.includes('CHECK_IN')) {
+  } else if (upper.includes('UPDATE') || upper.includes('EDIT') || upper.includes('CHECK_IN') || upper.includes('EXPORT')) {
     color = 'bg-blue-50 text-blue-800 border border-blue-300';
   } else if (upper.includes('DELETE') || upper.includes('REJECT') || upper.includes('CANCEL') || upper.includes('CLOSE') || upper.includes('REVOKE')) {
     color = 'bg-rose-50 text-rose-800 border border-rose-300';
