@@ -43,4 +43,11 @@ public class RoomResponse {
     private Long activeCleaningRecordId;
     private Boolean isCleaningInProgress;
     private Integer standardCleaningMinutes;
+
+    // Yêu cầu dọn lại (Re-cleaning)
+    private String lastRejectionNote;
+    private Integer rejectionCount;
+    private String lastInspectedByName;
+    private LocalDateTime lastInspectedAt;
+    private Boolean isRecleaning;
 }

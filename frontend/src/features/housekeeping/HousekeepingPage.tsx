@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { IoBrushOutline, IoListOutline, IoWarningOutline, IoCubeOutline, IoTrendingUpOutline } from 'react-icons/io5';
+import { IoBrushOutline, IoListOutline, IoWarningOutline, IoCubeOutline, IoTrendingUpOutline, IoAlertCircleOutline } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/ui/PageHeader';
 import Tabs from '../../components/ui/Tabs/Tabs';
@@ -31,6 +31,7 @@ const HousekeepingPage: React.FC = () => {
 
   const availableTabs = [
     { id: 'tasks',          label: 'Phòng cần dọn',        icon: IoBrushOutline },
+    { id: 'reclean',        label: 'Yêu cầu dọn lại',      icon: IoAlertCircleOutline },
     { id: 'overview',       label: 'Tổng quan phòng',       icon: IoListOutline  },
     ...(canViewProductivity ? [{ id: 'productivity', label: 'Năng suất & Định mức', icon: IoTrendingUpOutline }] : []),
     { id: 'lost-and-found', label: 'Đồ khách để quên',     icon: IoCubeOutline },
@@ -51,6 +52,14 @@ const HousekeepingPage: React.FC = () => {
       {tab === 'tasks' && (
         <CleaningTaskList
           key={`tasks-${refreshKey}`}
+          initialSubTab="DIRTY"
+          onRoomCleaned={() => setRefreshKey(k => k + 1)}
+        />
+      )}
+      {tab === 'reclean' && (
+        <CleaningTaskList
+          key={`reclean-${refreshKey}`}
+          initialSubTab="RECLEAN"
           onRoomCleaned={() => setRefreshKey(k => k + 1)}
         />
       )}
