@@ -19,6 +19,7 @@ import plant.stay.service.RoomService;
 import org.springframework.context.ApplicationEventPublisher;
 import plant.stay.event.CalendarSyncEvent;
 
+import lombok.extern.slf4j.Slf4j;
 import plant.stay.repository.HotelSettingRepository;
 import plant.stay.repository.RoomCleaningRecordRepository;
 import java.time.LocalDate;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomServiceImpl implements RoomService {
@@ -117,6 +119,9 @@ public class RoomServiceImpl implements RoomService {
         if (room.getStatus() != RoomStatus.DIRTY && room.getStatus() != RoomStatus.INSPECTING) {
             throw new IllegalArgumentException("Chỉ có thể đánh dấu sạch khi phòng đang ở trạng thái DIRTY hoặc INSPECTING");
         }
+        if (actor != null && actor.getRole() == Role.RECEPTIONIST && room.getStatus() != RoomStatus.INSPECTING) {
+            throw new IllegalArgumentException("Lễ tân không được đánh dấu đã dọn xong khi phòng chưa ở trạng thái chờ nghiệm thu");
+        }
         room.setStatus(RoomStatus.AVAILABLE);
         room.setLastCleanedAt(LocalDateTime.now());
         room.setCleaningReason(null);
@@ -133,6 +138,10 @@ public class RoomServiceImpl implements RoomService {
         Room room = findById(id);
         room.setStatus(RoomStatus.DIRTY);
         room.setCleaningReason("MANUAL");
+        room.setLastRejectionNote(null);
+        room.setRejectionCount(0);
+        room.setLastInspectedBy(null);
+        room.setLastInspectedAt(null);
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "MARK_DIRTY", actor, "Đánh dấu phòng " + room.getRoomNumber() + " cần dọn dẹp");
 
@@ -344,6 +353,10 @@ public class RoomServiceImpl implements RoomService {
         room.setAssignedAt(null);
         room.setCleaningStartedAt(null);
         room.setActiveCleaningRecordId(null);
+        room.setLastRejectionNote(null);
+        room.setRejectionCount(0);
+        room.setLastInspectedBy(null);
+        room.setLastInspectedAt(null);
         room = roomRepository.save(room);
         auditLogService.log("Room", room.getId(), "APPROVE_CLEAN", actor,
                 "Phòng " + room.getRoomNumber() + " đã được duyệt sạch, sẵn sàng phục vụ");
@@ -373,7 +386,39 @@ public class RoomServiceImpl implements RoomService {
 
         room.setStatus(RoomStatus.DIRTY);
         room.setCleaningStartedAt(null);
+        room.setLastRejectionNote(reason != null && !reason.isBlank() ? reason : "Nghiệm thu chưa đạt yêu cầu");
+        room.setRejectionCount((room.getRejectionCount() != null ? room.getRejectionCount() : 0) + 1);
+        room.setLastInspectedBy(actor);
+        room.setLastInspectedAt(now);
         room = roomRepository.save(room);
+
+        // Gửi thông báo đến nhân viên buồng phòng phụ trách hoặc vai trò buồng phòng
+        try {
+            String notifTitle = "Yêu cầu dọn lại phòng " + room.getRoomNumber();
+            String notifBody = "Lễ tân " + actor.getName() + " yêu cầu dọn lại phòng " + room.getRoomNumber()
+                    + " (Lần " + room.getRejectionCount() + "). Vấn đề cần khắc phục: " + room.getLastRejectionNote();
+            if (room.getAssignedHousekeeper() != null) {
+                notificationService.createForUser(
+                        room.getAssignedHousekeeper().getId(),
+                        NotificationType.ROOM_DIRTY,
+                        notifTitle,
+                        notifBody,
+                        "ROOM",
+                        room.getId()
+                );
+            } else {
+                notificationService.createForRoles(
+                        NotificationType.ROOM_DIRTY,
+                        notifTitle,
+                        notifBody,
+                        "ROOM",
+                        room.getId()
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Không thể gửi thông báo yêu cầu dọn lại: {}", e.getMessage());
+        }
+
         auditLogService.log("Room", room.getId(), "REJECT_CLEAN", actor,
                 "Yêu cầu dọn lại phòng " + room.getRoomNumber() + (reason != null && !reason.isBlank() ? ": " + reason : ""));
         return toResponse(room);
@@ -564,6 +609,8 @@ public class RoomServiceImpl implements RoomService {
             }
         }
         boolean isCleaningInProgress = room.getStatus() == RoomStatus.DIRTY && room.getCleaningStartedAt() != null;
+        boolean isRecleaning = (room.getLastRejectionNote() != null && !room.getLastRejectionNote().isBlank())
+                || (room.getRejectionCount() != null && room.getRejectionCount() > 0);
 
         return RoomResponse.builder()
                 .id(room.getId())
@@ -590,6 +637,11 @@ public class RoomServiceImpl implements RoomService {
                 .activeCleaningRecordId(room.getActiveCleaningRecordId())
                 .isCleaningInProgress(isCleaningInProgress)
                 .standardCleaningMinutes(standardMin)
+                .lastRejectionNote(room.getLastRejectionNote())
+                .rejectionCount(room.getRejectionCount())
+                .lastInspectedByName(room.getLastInspectedBy() != null ? room.getLastInspectedBy().getName() : null)
+                .lastInspectedAt(room.getLastInspectedAt())
+                .isRecleaning(isRecleaning)
                 .build();
     }
 }

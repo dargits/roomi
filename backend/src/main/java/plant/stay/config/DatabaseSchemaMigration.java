@@ -576,5 +576,29 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: Could not add telegram columns to hotel_settings: {}", e.getMessage());
         }
+
+        // Đảm bảo cột confirmed_at trong bookings và các cột mở rộng cho cancellation_policies
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS confirmed_at DATETIME");
+            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS hours_after_confirmation INT DEFAULT 24");
+            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS updated_by BIGINT");
+            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS previous_percent DECIMAL(5, 2)");
+            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS updated_at DATETIME");
+            log.info("Schema Migration: Successfully ensured cancellation_policies and bookings.confirmed_at columns exist.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not alter cancellation_policies or bookings: {}", e.getMessage());
+        }
+
+        // Đảm bảo các cột theo dõi yêu cầu dọn lại trong bảng rooms sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_rejection_note VARCHAR(500)");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS rejection_count INT DEFAULT 0");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_inspected_by_id BIGINT");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_inspected_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'rooms.last_rejection_note' and related rejection columns exist.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add rejection columns to rooms: {}", e.getMessage());
+        }
     }
 }

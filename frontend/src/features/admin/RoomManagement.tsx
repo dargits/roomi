@@ -212,6 +212,10 @@ const RoomManagement: React.FC = () => {
   };
 
   const handleMarkClean = async (id: number) => {
+    if (user?.role === 'RECEPTIONIST') {
+      toastError('Lễ tân không được đánh dấu đã dọn xong khi phòng chưa ở trạng thái chờ nghiệm thu!');
+      return;
+    }
     try {
       await roomApi.markRoomClean(id);
       toastSuccess("Đã cập nhật phòng sang trạng thái Sạch sẽ!");

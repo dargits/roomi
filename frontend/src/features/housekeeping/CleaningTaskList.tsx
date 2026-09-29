@@ -34,9 +34,10 @@ import Button from '../../components/ui/Button';
 
 interface CleaningTaskListProps {
   onRoomCleaned?: () => void;
+  initialSubTab?: 'DIRTY' | 'RECLEAN' | 'INSPECTING';
 }
 
-const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) => {
+const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned, initialSubTab = 'DIRTY' }) => {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -68,12 +69,21 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
-  const [activeSubTab, setActiveSubTab] = useState<'DIRTY' | 'INSPECTING'>('DIRTY');
+  const [activeSubTab, setActiveSubTab] = useState<'DIRTY' | 'RECLEAN' | 'INSPECTING'>(initialSubTab);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
   const [selectedStaffFilter, setSelectedStaffFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('PRIORITY');
   const [housekeeperTaskFilter, setHousekeeperTaskFilter] = useState('ALL');
   const [quickFilter, setQuickFilter] = useState<'ALL' | 'URGENT' | 'UNASSIGNED' | 'PERIODIC'>('ALL');
 
+  const isOwnerOrAdmin = ['OWNER', 'ADMIN'].includes(user?.role || '');
+  const isReceptionist = user?.role === 'RECEPTIONIST';
   const isSupervisor = ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
   const isHousekeeper = user?.role === 'HOUSEKEEPER';
 
@@ -177,6 +187,10 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
   // Supervisor đánh dấu phòng đã sạch trực tiếp (DIRTY -> AVAILABLE)
   const handleMarkClean = async (room: any) => {
+    if (user?.role === 'RECEPTIONIST' && room.status !== 'INSPECTING') {
+      toast.warning('Lễ tân không được đánh dấu đã dọn xong khi phòng chưa ở trạng thái chờ nghiệm thu!');
+      return;
+    }
     const isConfirmed = await confirm({
       title: 'Đánh dấu phòng đã sạch',
       message: `Xác nhận phòng ${room.roomNumber} đã dọn dẹp xong và sẵn sàng đón khách?`,
@@ -309,8 +323,17 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
     }
   };
 
-  // Lấy danh sách thô theo tab hiện tại (DIRTY hoặc INSPECTING)
-  const rawList = activeSubTab === 'DIRTY' ? dirtyRooms : inspectingRooms;
+  // Danh sách các phòng bị yêu cầu dọn lại (có lastRejectionNote hoặc rejectionCount > 0 hoặc isRecleaning)
+  const recleanRooms = useMemo(() => {
+    return dirtyRooms.filter(r => Boolean(r.lastRejectionNote || (r.rejectionCount && r.rejectionCount > 0) || r.isRecleaning));
+  }, [dirtyRooms]);
+
+  // Lấy danh sách thô theo tab hiện tại (DIRTY, RECLEAN hoặc INSPECTING)
+  const rawList = useMemo(() => {
+    if (activeSubTab === 'RECLEAN') return recleanRooms;
+    if (activeSubTab === 'INSPECTING') return inspectingRooms;
+    return dirtyRooms;
+  }, [activeSubTab, recleanRooms, inspectingRooms, dirtyRooms]);
 
   // QTN-09: Phân quyền xem theo vai trò (Housekeeper chỉ thấy việc của mình & chưa ai nhận)
   const roleFilteredList = useMemo(() => {
@@ -322,9 +345,9 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
     });
   }, [rawList, isHousekeeper, user?.id]);
 
-  // Thống kê khối lượng công việc theo tab đang chọn (Cần dọn hoặc Chờ duyệt)
+  // Thống kê khối lượng công việc theo tab đang chọn (Cần dọn, Dọn lại hoặc Chờ duyệt)
   const workloadStats = useMemo(() => {
-    const currentTabRooms = activeSubTab === 'DIRTY' ? dirtyRooms : inspectingRooms;
+    const currentTabRooms = rawList;
     const unassignedCount = currentTabRooms.filter(r => !r.assignedHousekeeperId).length;
 
     const staffCounts = housekeepers.map(hk => {
@@ -346,7 +369,7 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
       totalCount: currentTabRooms.length,
       totalPendingAcrossTabs: dirtyRooms.length + inspectingRooms.length
     };
-  }, [dirtyRooms, inspectingRooms, housekeepers, activeSubTab]);
+  }, [rawList, dirtyRooms, inspectingRooms, housekeepers]);
 
   // Thông tin nhân viên đang được lọc
   const selectedStaffObj = useMemo(() => {
@@ -361,33 +384,40 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
   // Số lượng phòng động theo từng tab ứng với bộ lọc nhân viên đang chọn
   const tabCounts = useMemo(() => {
     let dirtyList = dirtyRooms;
+    let recleanList = recleanRooms;
     let inspectingList = inspectingRooms;
 
     if (isSupervisor) {
       if (selectedStaffFilter === 'UNASSIGNED') {
         dirtyList = dirtyRooms.filter(r => !r.assignedHousekeeperId);
+        recleanList = recleanRooms.filter(r => !r.assignedHousekeeperId);
         inspectingList = inspectingRooms.filter(r => !r.assignedHousekeeperId);
       } else if (selectedStaffFilter !== 'ALL') {
         dirtyList = dirtyRooms.filter(r => String(r.assignedHousekeeperId) === String(selectedStaffFilter));
+        recleanList = recleanRooms.filter(r => String(r.assignedHousekeeperId) === String(selectedStaffFilter));
         inspectingList = inspectingRooms.filter(r => String(r.assignedHousekeeperId) === String(selectedStaffFilter));
       }
     } else if (isHousekeeper) {
       if (housekeeperTaskFilter === 'MY_TASKS') {
         dirtyList = dirtyRooms.filter(r => Boolean(r.assignedHousekeeperId && user?.id && String(r.assignedHousekeeperId) === String(user.id)));
+        recleanList = recleanRooms.filter(r => Boolean(r.assignedHousekeeperId && user?.id && String(r.assignedHousekeeperId) === String(user.id)));
         inspectingList = inspectingRooms.filter(r => Boolean(r.assignedHousekeeperId && user?.id && String(r.assignedHousekeeperId) === String(user.id)));
       } else if (housekeeperTaskFilter === 'UNASSIGNED') {
         dirtyList = dirtyRooms.filter(r => !r.assignedHousekeeperId);
+        recleanList = recleanRooms.filter(r => !r.assignedHousekeeperId);
         inspectingList = inspectingRooms.filter(r => !r.assignedHousekeeperId);
       }
     }
 
     return {
       dirty: dirtyList.length,
+      reclean: recleanList.length,
       inspecting: inspectingList.length,
       totalDirty: dirtyRooms.length,
+      totalReclean: recleanRooms.length,
       totalInspecting: inspectingRooms.length
     };
-  }, [dirtyRooms, inspectingRooms, isSupervisor, selectedStaffFilter, isHousekeeper, housekeeperTaskFilter, user?.id]);
+  }, [dirtyRooms, recleanRooms, inspectingRooms, isSupervisor, selectedStaffFilter, isHousekeeper, housekeeperTaskFilter, user?.id]);
 
   // Danh sách các tầng
   const floors = useMemo(() => {
@@ -672,21 +702,31 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
         <div className="p-5 border-b border-border-grey flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#FBFDF9]">
           <div className="flex items-center gap-3">
             <div className={`w-11 h-11 rounded-xl flex items-center justify-center border shrink-0 ${
-              activeSubTab === 'DIRTY' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-purple-50 text-purple-600 border-purple-200'
+              activeSubTab === 'RECLEAN'
+                ? 'bg-rose-50 text-rose-600 border-rose-200'
+                : activeSubTab === 'DIRTY'
+                ? 'bg-orange-50 text-orange-600 border-orange-200'
+                : 'bg-purple-50 text-purple-600 border-purple-200'
             }`}>
-              {activeSubTab === 'DIRTY' ? <IoBrushOutline size={22} /> : <IoSparklesOutline size={22} />}
+              {activeSubTab === 'RECLEAN' ? <IoWarningOutline size={22} className="animate-pulse" /> : activeSubTab === 'DIRTY' ? <IoBrushOutline size={22} /> : <IoSparklesOutline size={22} />}
             </div>
             <div>
               <h2 className="font-title-lg text-on-surface font-bold text-base">
-                {activeSubTab === 'DIRTY' ? 'Danh sách phòng cần dọn dẹp' : 'Phòng chờ kiểm tra & duyệt sạch'}
+                {activeSubTab === 'RECLEAN'
+                  ? 'Phòng bị yêu cầu dọn lại (nghiệm thu chưa đạt)'
+                  : activeSubTab === 'DIRTY'
+                  ? 'Danh sách phòng cần dọn dẹp'
+                  : 'Phòng chờ kiểm tra & duyệt sạch'}
               </h2>
               <p className="text-on-surface-variant text-xs mt-0.5">
                 {selectedStaffLabel ? (
                   <span>
-                    Đang lọc: <strong className="text-on-surface">{selectedStaffLabel}</strong> — {filteredAndSortedRooms.length} phòng {activeSubTab === 'DIRTY' ? 'cần dọn' : 'chờ duyệt'}
+                    Đang lọc: <strong className="text-on-surface">{selectedStaffLabel}</strong> — {filteredAndSortedRooms.length} phòng {activeSubTab === 'RECLEAN' ? 'yêu cầu dọn lại' : activeSubTab === 'DIRTY' ? 'cần dọn' : 'chờ duyệt'}
                   </span>
                 ) : (
-                  activeSubTab === 'DIRTY' 
+                  activeSubTab === 'RECLEAN'
+                    ? `${tabCounts.totalReclean} phòng cần khắc phục theo yêu cầu của lễ tân/giám sát`
+                    : activeSubTab === 'DIRTY' 
                     ? `${dirtyRooms.length} phòng cần vệ sinh sạch sẽ`
                     : `${inspectingRooms.length} phòng đã dọn xong, chờ quản lý nghiệm thu`
                 )}
@@ -707,6 +747,21 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
               >
                 <IoBrushOutline size={14} /> Cần dọn ({tabCounts.dirty})
               </button>
+
+              <button
+                onClick={() => { setActiveSubTab('RECLEAN'); setSelectedFloor(''); }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  activeSubTab === 'RECLEAN'
+                    ? 'bg-rose-600 text-white font-bold border border-rose-600 shadow-xs'
+                    : tabCounts.reclean > 0
+                    ? 'bg-rose-50 text-rose-700 font-bold border border-rose-200 hover:bg-rose-100'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <IoWarningOutline size={14} className={tabCounts.reclean > 0 && activeSubTab !== 'RECLEAN' ? 'text-rose-600 animate-bounce' : ''} />
+                <span>Yêu cầu dọn lại ({tabCounts.reclean})</span>
+              </button>
+
               <button
                 onClick={() => { setActiveSubTab('INSPECTING'); setSelectedFloor(''); }}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
@@ -877,13 +932,15 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                 <IoCheckmarkCircleOutline size={30} />
               </div>
               <h3 className="font-title-lg text-on-surface font-bold text-base mb-1">
-                {activeSubTab === 'DIRTY'
+                {activeSubTab === 'RECLEAN'
+                  ? (tabCounts.totalReclean === 0 ? 'Tuyệt vời! Không có phòng nào bị yêu cầu dọn lại.' : 'Không tìm thấy phòng phù hợp với bộ lọc.')
+                  : activeSubTab === 'DIRTY'
                   ? (dirtyRooms.length === 0 ? 'Tuyệt vời! Không còn phòng cần dọn.' : 'Không tìm thấy phòng phù hợp.')
                   : (inspectingRooms.length === 0 ? 'Hiện không có phòng nào chờ kiểm tra duyệt sạch.' : 'Không tìm thấy phòng phù hợp.')}
               </h3>
               <p className="text-on-surface-variant text-xs max-w-sm mx-auto">
                 {roleFilteredList.length === 0 
-                  ? 'Tất cả các phòng đã sẵn sàng hoặc đang phục vụ khách lưu trú.'
+                  ? (activeSubTab === 'RECLEAN' ? 'Tất cả các phòng dọn dẹp đều đạt chuẩn nghiệm thu vệ sinh.' : 'Tất cả các phòng đã sẵn sàng hoặc đang phục vụ khách lưu trú.')
                   : 'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc nhân viên/tầng.'}
               </p>
             </div>
@@ -894,12 +951,15 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                 const isUrgent = room.priorityLevel === 'URGENT';
                 const isHigh = room.priorityLevel === 'HIGH';
                 const isAssigned = Boolean(room.assignedHousekeeperId);
+                const isRecleaning = Boolean(room.lastRejectionNote || (room.rejectionCount && room.rejectionCount > 0) || room.isRecleaning);
 
                 return (
                   <div
                     key={room.id}
                     className={`flex flex-col bg-white border rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-200 ${
-                      isUrgent
+                      isRecleaning
+                        ? 'border-rose-300 ring-2 ring-rose-400/30'
+                        : isUrgent
                         ? 'border-red-400 ring-1 ring-red-400/30'
                         : isDirty 
                         ? 'border-orange-200 hover:border-orange-300' 
@@ -908,7 +968,15 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                   >
                     {/* Top Accent Stripe based on Priority & Status */}
                     <div className={`h-1.5 w-full bg-gradient-to-r ${
-                      isUrgent ? 'from-red-500 to-rose-400' : isHigh ? 'from-amber-500 to-orange-400' : isDirty ? 'from-[#E28E3A] to-amber-400' : 'from-purple-600 to-indigo-500'
+                      isRecleaning
+                        ? 'from-rose-600 via-red-500 to-rose-400'
+                        : isUrgent
+                        ? 'from-red-500 to-rose-400'
+                        : isHigh
+                        ? 'from-amber-500 to-orange-400'
+                        : isDirty
+                        ? 'from-[#E28E3A] to-amber-400'
+                        : 'from-purple-600 to-indigo-500'
                     }`} />
 
                     {/* Room card top */}
@@ -934,12 +1002,16 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                             </span>
                           )}
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 shadow-2xs ${
-                            isDirty 
+                            isRecleaning
+                              ? 'bg-rose-50 text-rose-800 border-rose-300'
+                              : isDirty 
                               ? 'bg-orange-50 text-orange-800 border-orange-200' 
                               : 'bg-purple-50 text-purple-800 border-purple-200'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isDirty ? 'bg-orange-500' : 'bg-purple-500'}`} />
-                            {isDirty ? 'Cần dọn' : 'Chờ duyệt'}
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              isRecleaning ? 'bg-rose-600 animate-pulse' : isDirty ? 'bg-orange-500' : 'bg-purple-500'
+                            }`} />
+                            {isRecleaning ? 'Yêu cầu dọn lại' : isDirty ? 'Cần dọn' : 'Chờ duyệt'}
                           </span>
                         </div>
                         <span className="px-2 py-0.5 rounded-md text-[10px] bg-[#F4F6F0] text-on-surface-variant font-semibold border border-border-grey/60">
@@ -959,6 +1031,33 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                           <IoBrushOutline size={11} /> {room.cleaningReason === 'PERIODIC_VACANT' ? 'Dọn định kỳ' : 'Dọn sau trả phòng'}
                         </span>
                       </div>
+
+                      {/* Thông báo Lý do yêu cầu dọn lại từ Lễ tân / Giám sát */}
+                      {isRecleaning && room.lastRejectionNote && (
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-950 space-y-1.5 shadow-2xs">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-rose-700">
+                            <span className="flex items-center gap-1.5">
+                              <IoWarningOutline size={15} className="text-rose-600 shrink-0 animate-bounce" />
+                              Yêu cầu dọn lại {room.rejectionCount ? `(Lần ${room.rejectionCount})` : ''}
+                            </span>
+                            {room.lastInspectedByName && (
+                              <span className="text-[10px] font-semibold text-rose-800/90">
+                                Bởi: {room.lastInspectedByName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="bg-white/90 p-2.5 rounded-lg border border-rose-200 text-xs text-rose-900 leading-relaxed">
+                            <span className="font-bold text-rose-950">Vấn đề cần khắc phục: </span>
+                            <span>{room.lastRejectionNote}</span>
+                          </div>
+                          {room.lastInspectedAt && (
+                            <div className="text-[10px] text-rose-700/80 flex items-center gap-1 font-medium">
+                              <IoTimeOutline size={12} />
+                              {new Date(room.lastInspectedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {new Date(room.lastInspectedAt).toLocaleDateString('vi-VN')}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Live timer badge khi phòng đang trong phiên dọn */}
                       {isDirty && room.cleaningStartedAt && (
@@ -1098,14 +1197,18 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                               <button
                                 onClick={() => handleStartCleaning(room)}
                                 disabled={processingId === room.id}
-                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                                className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-white text-xs font-bold shadow-xs transition-colors cursor-pointer ${
+                                  isRecleaning
+                                    ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 disabled:bg-rose-400'
+                                    : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400'
+                                }`}
                               >
                                 {processingId === room.id ? (
                                   <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
                                 ) : (
                                   <IoTimeOutline size={15} />
                                 )}
-                                Bắt đầu dọn (Bấm giờ)
+                                {isRecleaning ? 'Bắt đầu dọn lại (Bấm giờ)' : 'Bắt đầu dọn (Bấm giờ)'}
                               </button>
                             ) : (
                               <div className="grid grid-cols-2 gap-2">
@@ -1122,21 +1225,42 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                                 <button
                                   onClick={() => handleSubmitInspection(room)}
                                   disabled={processingId === room.id}
-                                  className="flex items-center justify-center gap-1 px-2.5 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 active:bg-purple-900 disabled:bg-purple-400 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                                  className={`flex items-center justify-center gap-1 px-2.5 py-2.5 rounded-xl text-white text-xs font-bold shadow-xs transition-colors cursor-pointer ${
+                                    isRecleaning
+                                      ? 'bg-rose-700 hover:bg-rose-800 active:bg-rose-900 disabled:bg-rose-400'
+                                      : 'bg-purple-700 hover:bg-purple-800 active:bg-purple-900 disabled:bg-purple-400'
+                                  }`}
                                 >
                                   {processingId === room.id ? (
                                     <span className="inline-block animate-square-spin w-3.5 h-3.5 border-2 border-white border-t-transparent border-l-transparent" />
                                   ) : (
                                     <IoSendOutline size={14} />
                                   )}
-                                  <span>Báo dọn xong</span>
+                                  <span>{isRecleaning ? 'Đã sửa xong' : 'Báo dọn xong'}</span>
                                 </button>
                               </div>
                             )
                           )}
 
-                          {/* Supervisor: Lễ tân / Quản lý duyệt sạch ngay */}
-                          {isSupervisor && (
+                          {/* Lễ tân: Không được duyệt khi phòng chưa ở trạng thái chờ nghiệm thu */}
+                          {isReceptionist && (
+                            <div className="space-y-1.5">
+                              {!room.cleaningStartedAt ? (
+                                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold text-center flex items-center justify-center gap-1.5">
+                                  <IoTimeOutline size={14} className="text-amber-600 shrink-0" />
+                                  <span>Chờ buồng phòng dọn & gửi nghiệm thu</span>
+                                </div>
+                              ) : (
+                                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold text-center flex items-center justify-center gap-1.5">
+                                  <IoTimeOutline size={14} className="text-blue-600 shrink-0 animate-pulse" />
+                                  <span>Đang dọn dẹp — Chờ gửi nghiệm thu</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Chủ cơ sở / Quản trị viên (Owner/Admin): Có quyền duyệt sạch trực tiếp khi cần */}
+                          {isOwnerOrAdmin && (
                             <div className="space-y-1.5">
                               {!room.cleaningStartedAt && (
                                 <button

@@ -69,6 +69,7 @@ export interface BookingResponse {
 }
 
 export interface BookingRequest {
+  guestId?: number;
   guestName: string;
   guestPhone: string;
   guestEmail?: string;

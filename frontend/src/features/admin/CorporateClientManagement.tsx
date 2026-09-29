@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { corporateClientApi, CorporateClient, CorporateClientRequest } from '../../services/corporateClientApi';
 import { CorporateClientModal } from './CorporateClientModal';
-import { IoAddOutline, IoBusinessOutline, IoPencilOutline, IoTrashOutline, IoSearchOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline } from 'react-icons/io5';
+import { IoAddOutline, IoBusinessOutline, IoPencilOutline, IoTrashOutline, IoSearchOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoEyeOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import Pagination from '../../components/ui/Pagination';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 const ITEMS_PER_PAGE = 10;
 
 export const CorporateClientManagement: React.FC = () => {
+  const { user } = useAuth();
+  const canManage = ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
+
   const [clients, setClients] = useState<CorporateClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -107,10 +111,12 @@ export const CorporateClientManagement: React.FC = () => {
             Hồ sơ doanh nghiệp & đối tác liên kết để thiết lập giá thỏa thuận
           </p>
         </div>
-        <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
-          <IoAddOutline className="w-5 h-5" />
-          <span>Thêm khách công ty</span>
-        </Button>
+        {canManage && (
+          <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
+            <IoAddOutline className="w-5 h-5" />
+            <span>Thêm khách công ty</span>
+          </Button>
+        )}
       </div>
 
       {/* Filter & Search Bar */}
@@ -198,20 +204,33 @@ export const CorporateClientManagement: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleOpenEdit(c)}
-                            title="Chỉnh sửa"
-                            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                          >
-                            <IoPencilOutline className="w-4 h-4" />
-                          </button>
-                          {c.active && (
+                          {canManage ? (
+                            <>
+                              <button
+                                onClick={() => handleOpenEdit(c)}
+                                title="Chỉnh sửa"
+                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                              >
+                                <IoPencilOutline className="w-4 h-4" />
+                              </button>
+                              {c.active && (
+                                <button
+                                  onClick={() => handleDeactivate(c)}
+                                  title="Vô hiệu hóa"
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <IoTrashOutline className="w-4 h-4" />
+                                </button>
+                              )}
+                            </>
+                          ) : (
                             <button
-                              onClick={() => handleDeactivate(c)}
-                              title="Vô hiệu hóa"
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              onClick={() => handleOpenEdit(c)}
+                              title="Xem chi tiết"
+                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
                             >
-                              <IoTrashOutline className="w-4 h-4" />
+                              <IoEyeOutline className="w-4 h-4" />
+                              <span>Xem</span>
                             </button>
                           )}
                         </div>
@@ -249,6 +268,7 @@ export const CorporateClientManagement: React.FC = () => {
         onSubmit={handleSubmit}
         initialData={editingClient}
         loading={submitting}
+        readOnly={!canManage}
       />
     </div>
   );

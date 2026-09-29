@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { IoAddOutline, IoCheckmarkCircleOutline, IoDocumentOutline, IoLogInOutline, IoLogOutOutline, IoPersonOutline, IoSearchOutline } from 'react-icons/io5';
+import { 
+  IoAddOutline, 
+  IoCheckmarkCircleOutline, 
+  IoDocumentOutline, 
+  IoLogInOutline, 
+  IoLogOutOutline, 
+  IoPersonOutline, 
+  IoSearchOutline,
+  IoCallOutline,
+  IoMailOutline
+} from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -10,6 +20,7 @@ import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
 import { corporateClientApi, CorporateClient } from '../../services/corporateClientApi';
 import { negotiatedPriceApi, NegotiatedPricePreviewResponse } from '../../services/negotiatedPriceApi';
+import { validatePhone, validateEmail } from '../../utils/securitySanitizer';
 
 interface BookingFormProps {
   isOpen: boolean;
@@ -32,6 +43,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
   
   const [formData, setFormData] = useState<{
     guestId: string | number;
+    guestName: string;
+    guestPhone: string;
+    guestEmail: string;
     roomTypeId: string | number;
     roomId: number | null;
     checkInDate: string;
@@ -41,6 +55,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     source: string;
   }>({
     guestId: '',
+    guestName: '',
+    guestPhone: '',
+    guestEmail: '',
     roomTypeId: '',
     roomId: null,
     checkInDate: '',
@@ -56,6 +73,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       corporateClientApi.getAll(undefined, true).then(setCorporateClients).catch(console.error);
       setFormData({
         guestId: '',
+        guestName: '',
+        guestPhone: '',
+        guestEmail: '',
         roomTypeId: '',
         roomId: null,
         checkInDate: '',
@@ -116,7 +136,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     return () => clearTimeout(handler);
   }, [searchGuestTerm]);
 
-  const fetchGuests = async (keyword) => {
+  const fetchGuests = async (keyword: string) => {
     try {
       const data = await guestApi.searchGuests(keyword);
       setGuests(data);
@@ -140,9 +160,26 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
   };
 
   const selectGuest = (guest: any) => {
-    setFormData(prev => ({ ...prev, guestId: guest.id }));
-    setSearchGuestTerm(guest.name + ' - ' + guest.phone);
+    setFormData(prev => ({
+      ...prev,
+      guestId: guest.id,
+      guestName: guest.name || '',
+      guestPhone: guest.phone || '',
+      guestEmail: guest.email || ''
+    }));
+    setSearchGuestTerm('');
     setGuests([]); // close dropdown
+  };
+
+  const handleClearSelectedGuest = () => {
+    setFormData(prev => ({
+      ...prev,
+      guestId: '',
+      guestName: '',
+      guestPhone: '',
+      guestEmail: ''
+    }));
+    setSearchGuestTerm('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,19 +188,44 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
     setLoading(true);
     
     try {
-      // Validate
-      if (!formData.guestId) {
-        throw new Error("Vui lòng chọn hoặc tạo khách hàng");
+      // Validate customer information (giống cổng đặt phòng online)
+      if (!formData.guestName.trim()) {
+        throw new Error("Vui lòng nhập họ và tên khách hàng");
+      }
+      if (!formData.guestPhone.trim()) {
+        throw new Error("Vui lòng nhập số điện thoại khách hàng");
+      }
+      const phoneCheck = validatePhone(formData.guestPhone, true);
+      if (!phoneCheck.valid) {
+        throw new Error(phoneCheck.message || "Số điện thoại không hợp lệ");
+      }
+      if (formData.guestEmail && formData.guestEmail.trim()) {
+        const emailCheck = validateEmail(formData.guestEmail, false);
+        if (!emailCheck.valid) {
+          throw new Error(emailCheck.message || "Địa chỉ email không đúng định dạng");
+        }
+      }
+      if (!formData.roomTypeId) {
+        throw new Error("Vui lòng chọn loại phòng");
+      }
+      if (!formData.checkInDate || !formData.checkOutDate) {
+        throw new Error("Vui lòng chọn ngày nhận phòng và ngày trả phòng");
       }
       if (formData.checkInDate >= formData.checkOutDate) {
         throw new Error("Ngày trả phòng phải sau ngày nhận phòng");
       }
 
       await bookingApi.createBooking({
-        ...formData,
-        guestId: Number(formData.guestId),
+        guestId: formData.guestId ? Number(formData.guestId) : undefined,
+        guestName: formData.guestName.trim(),
+        guestPhone: formData.guestPhone.trim(),
+        guestEmail: formData.guestEmail.trim() || undefined,
         roomTypeId: Number(formData.roomTypeId),
+        roomId: formData.roomId ? Number(formData.roomId) : undefined,
+        checkInDate: formData.checkInDate,
+        checkOutDate: formData.checkOutDate,
         corporateClientId: formData.corporateClientId ? Number(formData.corporateClientId) : undefined,
+        note: formData.note.trim() || undefined,
         source: formData.source || 'WALKIN'
       });
       onSuccess?.();
@@ -198,49 +260,105 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       
       <form id="bookingForm" onSubmit={handleSubmit} className="space-y-5">
         
-        {/* Guest Selection */}
-        <div className="bg-[#FBFDF9] p-4 rounded-xl border border-border-grey space-y-2 relative">
-          <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider">
-            Khách hàng <span className="text-error">*</span>
-          </label>
+        {/* Customer Information (Giống cổng đặt phòng online & hỗ trợ tìm nhanh khách cũ) */}
+        <div className="bg-[#FBFDF9] p-4 rounded-xl border border-border-grey space-y-3 relative">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+            <label className="block text-xs font-bold text-[#586650] uppercase tracking-wider">
+              Thông tin khách hàng <span className="text-error">*</span>
+            </label>
+            {formData.guestId ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <IoCheckmarkCircleOutline className="w-3.5 h-3.5" />
+                  Khách hàng hồ sơ #{formData.guestId}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearSelectedGuest}
+                  className="text-[11px] text-slate-500 hover:text-red-600 underline transition-colors"
+                >
+                  (Nhập khách mới)
+                </button>
+              </div>
+            ) : (
+              <span className="text-[11px] text-slate-500 italic">
+                Nhập thông tin người đặt như cổng online
+              </span>
+            )}
+          </div>
           
+          {/* Quick search input */}
           <div className="relative">
-            <input 
-              type="text" 
-              placeholder="Nhập tên hoặc SĐT để tìm khách hàng..." 
-              value={searchGuestTerm}
-              onChange={(e) => {
-                setSearchGuestTerm(e.target.value);
-                if (!e.target.value) setFormData(prev => ({ ...prev, guestId: '' }));
-              }}
-              className="w-full px-3.5 py-2.5 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-sm text-[#002146] placeholder:text-slate-400 transition-all"
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Tìm nhanh khách cũ theo tên hoặc SĐT để tự động điền..." 
+                value={searchGuestTerm}
+                onChange={(e) => setSearchGuestTerm(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 bg-white border border-border-grey rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-primary outline-none text-xs text-[#002146] placeholder:text-slate-400 transition-all"
+              />
+              <IoSearchOutline className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
+            </div>
+
+            {/* Search Dropdown */}
+            {guests.length > 0 && (
+              <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-border-grey rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {guests.map(guest => (
+                  <div 
+                    key={guest.id} 
+                    onClick={() => selectGuest(guest)}
+                    className="p-2.5 hover:bg-slate-50 cursor-pointer border-b border-border-grey last:border-0 transition-colors flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-semibold text-sm text-[#002146]">{guest.name}</div>
+                      <div className="text-xs text-slate-500 flex gap-3 mt-0.5">
+                        <span>SĐT: {guest.phone || '—'}</span>
+                        <span>Email: {guest.email || '—'}</span>
+                        {guest.idNumber && <span>CCCD: {guest.idNumber}</span>}
+                      </div>
+                    </div>
+                    <span className="text-xs text-primary font-medium bg-blue-50 px-2 py-1 rounded-lg">
+                      Chọn khách này
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Form fields identical to online booking portal */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <Input 
+              label="Họ và tên người đặt *" 
+              name="guestName" 
+              icon={IoPersonOutline} 
+              value={formData.guestName} 
+              onChange={handleInputChange} 
+              required 
+              placeholder="Ví dụ: Nguyễn Văn A"
+            />
+            <Input 
+              label="Số điện thoại nhận xác nhận *" 
+              name="guestPhone" 
+              icon={IoCallOutline} 
+              value={formData.guestPhone} 
+              onChange={handleInputChange} 
+              required 
+              placeholder="Ví dụ: 0987654321"
             />
           </div>
 
-          {/* Search Dropdown */}
-          {guests.length > 0 && !formData.guestId && (
-            <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-border-grey rounded-xl shadow-lg max-h-48 overflow-y-auto">
-              {guests.map(guest => (
-                <div 
-                  key={guest.id} 
-                  onClick={() => selectGuest(guest)}
-                  className="p-3 hover:bg-slate-50 cursor-pointer border-b border-border-grey last:border-0 transition-colors"
-                >
-                  <div className="font-semibold text-sm text-[#002146]">{guest.name}</div>
-                  <div className="text-xs text-slate-500 flex gap-3 mt-1">
-                    <span>SĐT: {guest.phone || '—'}</span>
-                    <span>CCCD: {guest.idNumber || '—'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {!formData.guestId && searchGuestTerm.length >= 2 && guests.length === 0 && (
-             <div className="text-xs text-amber-800 mt-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
-               Không tìm thấy khách. Vui lòng tạo khách mới trước (trong menu Khách hàng).
-             </div>
-          )}
+          <div>
+            <Input 
+              label="Địa chỉ Email (để nhận hóa đơn & xác nhận điện tử)" 
+              name="guestEmail" 
+              type="email"
+              icon={IoMailOutline} 
+              value={formData.guestEmail} 
+              onChange={handleInputChange} 
+              placeholder="example@gmail.com"
+            />
+          </div>
         </div>
 
         {/* Corporate Client Selection (Negotiated Price) */}

@@ -238,6 +238,76 @@ public class BookingServiceImpl implements BookingService {
         return result;
     }
 
+    private Guest resolveGuest(BookingRequest request) {
+        if (request.getGuestId() != null) {
+            Guest guest = guestRepository.findById(request.getGuestId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng"));
+            boolean updated = false;
+            if (request.getGuestName() != null && !request.getGuestName().isBlank() && !request.getGuestName().trim().equals(guest.getName())) {
+                guest.setName(request.getGuestName().trim());
+                updated = true;
+            }
+            if (request.getGuestPhone() != null && !request.getGuestPhone().isBlank() && !request.getGuestPhone().trim().equals(guest.getPhone())) {
+                guest.setPhone(request.getGuestPhone().trim());
+                updated = true;
+            }
+            if (request.getGuestEmail() != null && !request.getGuestEmail().isBlank() && !request.getGuestEmail().trim().equals(guest.getEmail())) {
+                guest.setEmail(request.getGuestEmail().trim());
+                updated = true;
+            }
+            if (request.getGuestIdNumber() != null && !request.getGuestIdNumber().isBlank() && !request.getGuestIdNumber().trim().equals(guest.getIdNumber())) {
+                guest.setIdNumber(request.getGuestIdNumber().trim());
+                updated = true;
+            }
+            if (updated) {
+                guest = guestRepository.save(guest);
+            }
+            return guest;
+        }
+
+        String name = request.getGuestName() != null ? request.getGuestName().trim() : null;
+        String phone = request.getGuestPhone() != null ? request.getGuestPhone().trim() : null;
+        String email = request.getGuestEmail() != null ? request.getGuestEmail().trim() : null;
+        String idNumber = request.getGuestIdNumber() != null ? request.getGuestIdNumber().trim() : null;
+
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập họ và tên khách hàng");
+        }
+        if (phone == null || phone.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập số điện thoại khách hàng");
+        }
+
+        java.util.Optional<Guest> existing = guestRepository.findByPhone(phone);
+        if (existing.isPresent()) {
+            Guest guest = existing.get();
+            boolean updated = false;
+            if (!name.equals(guest.getName())) {
+                guest.setName(name);
+                updated = true;
+            }
+            if (email != null && !email.isBlank() && !email.equals(guest.getEmail())) {
+                guest.setEmail(email);
+                updated = true;
+            }
+            if (idNumber != null && !idNumber.isBlank() && !idNumber.equals(guest.getIdNumber())) {
+                guest.setIdNumber(idNumber);
+                updated = true;
+            }
+            if (updated) {
+                guest = guestRepository.save(guest);
+            }
+            return guest;
+        }
+
+        Guest newGuest = Guest.builder()
+                .name(name)
+                .phone(phone)
+                .email(email != null && !email.isBlank() ? email : null)
+                .idNumber(idNumber != null && !idNumber.isBlank() ? idNumber : null)
+                .build();
+        return guestRepository.save(newGuest);
+    }
+
     @Override
     @Transactional
     public BookingResponse create(BookingRequest request, User actor) {
@@ -245,8 +315,7 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Ngày trả phòng phải sau ngày nhận phòng");
         }
 
-        Guest guest = guestRepository.findById(request.getGuestId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng"));
+        Guest guest = resolveGuest(request);
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
 
@@ -370,6 +439,9 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setRoom(room);
         booking.setStatus(BookingStatus.CONFIRMED);
+        if (booking.getConfirmedAt() == null) {
+            booking.setConfirmedAt(LocalDateTime.now());
+        }
         booking = bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "ASSIGN_ROOM", actor,
                 "Gán phòng " + room.getRoomNumber());
@@ -401,19 +473,59 @@ public class BookingServiceImpl implements BookingService {
                         .findByRoomTypeIsNull()
                         .orElse(null);
             }
-            if (policy != null && booking.getExpectedPrice() != null) {
-                long hoursUntilCheckIn = ChronoUnit.HOURS.between(
-                        LocalDateTime.now(),
-                        booking.getCheckInDate().atTime(14, 0) // giờ nhận phòng mặc định 14:00
-                );
-                if (hoursUntilCheckIn < policy.getFreeCancelHours()) {
-                    BigDecimal penalty = booking.getExpectedPrice()
-                            .multiply(policy.getPenaltyPercent())
-                            .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-                    cancelNote += String.format(" | Phí hủy: %s%% = %,.0fđ",
-                            policy.getPenaltyPercent().stripTrailingZeros().toPlainString(),
-                            penalty.doubleValue());
-                    booking.setCancellationFee(penalty);
+            if (policy != null) {
+                // Phí hoàn hủy chỉ áp dụng với các booking có đặt cọc (vì không đặt cọc thì không có gì để trừ)
+                BigDecimal depositBase = BigDecimal.ZERO;
+                if (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    depositBase = booking.getDepositAmount();
+                } else {
+                    Deposit dep = depositRepository.findFirstByBookingIdOrderByCreatedAtDesc(booking.getId()).orElse(null);
+                    if (dep != null && dep.getCollectedAmount() != null && dep.getCollectedAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        depositBase = dep.getCollectedAmount();
+                    }
+                }
+
+                if (depositBase.compareTo(BigDecimal.ZERO) > 0) {
+                    boolean isLateCancellation = false;
+
+                    // 1. Kiểm tra thời gian sau khi lễ tân xác nhận
+                    if (policy.getHoursAfterConfirmation() != null && policy.getHoursAfterConfirmation() > 0) {
+                        LocalDateTime confirmTime = booking.getConfirmedAt() != null ? booking.getConfirmedAt() : booking.getCreatedAt();
+                        if (confirmTime != null) {
+                            long hoursSinceConfirm = ChronoUnit.HOURS.between(confirmTime, LocalDateTime.now());
+                            if (hoursSinceConfirm >= policy.getHoursAfterConfirmation()) {
+                                isLateCancellation = true;
+                            }
+                        }
+                    }
+
+                    // 2. Hoặc kiểm tra thời gian trước giờ check-in
+                    if (!isLateCancellation && policy.getFreeCancelHours() != null) {
+                        long hoursUntilCheckIn = ChronoUnit.HOURS.between(
+                                LocalDateTime.now(),
+                                booking.getCheckInDate().atTime(14, 0)
+                        );
+                        if (hoursUntilCheckIn < policy.getFreeCancelHours()) {
+                            isLateCancellation = true;
+                        }
+                    }
+
+                    if (isLateCancellation) {
+                        BigDecimal penalty = depositBase
+                                .multiply(policy.getPenaltyPercent())
+                                .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                        cancelNote += String.format(" | Phí phạt hủy: %s%% tiền cọc = %,.0fđ (Cọc: %,.0fđ)",
+                                policy.getPenaltyPercent().stripTrailingZeros().toPlainString(),
+                                penalty.doubleValue(),
+                                depositBase.doubleValue());
+                        booking.setCancellationFee(penalty);
+                    } else {
+                        cancelNote += " | Hủy trong thời hạn miễn phí (Hoàn cọc 100%)";
+                        booking.setCancellationFee(BigDecimal.ZERO);
+                    }
+                } else {
+                    cancelNote += " | Đặt phòng không có cọc (Miễn phí hủy)";
+                    booking.setCancellationFee(BigDecimal.ZERO);
                 }
             }
         } catch (Exception ignored) { /* Không để lỗi chặn hủy */ }
@@ -835,6 +947,10 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getRoom() != null) {
             booking.getRoom().setStatus(RoomStatus.DIRTY);
             booking.getRoom().setCleaningReason("CHECKOUT");
+            booking.getRoom().setLastRejectionNote(null);
+            booking.getRoom().setRejectionCount(0);
+            booking.getRoom().setLastInspectedBy(null);
+            booking.getRoom().setLastInspectedAt(null);
             roomRepository.save(booking.getRoom());
 
             // [Notification] Thông báo phòng cần dọn cho Housekeeper
@@ -1767,6 +1883,9 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CONFIRMED);
+        if (booking.getConfirmedAt() == null) {
+            booking.setConfirmedAt(LocalDateTime.now());
+        }
         booking = bookingRepository.save(booking);
 
         auditLogService.log("Booking", booking.getId(), "CONFIRM", actor,

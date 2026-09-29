@@ -60,6 +60,31 @@ public class Room {
     private String cleaningReason;
 
     /**
+     * Lý do yêu cầu dọn lại gần nhất (do Lễ tân hoặc Giám sát từ chối khi nghiệm thu).
+     */
+    @Column(name = "last_rejection_note", length = 500)
+    private String lastRejectionNote;
+
+    /**
+     * Số lần bị từ chối / yêu cầu dọn lại trong phiên vệ sinh hiện tại.
+     */
+    @Column(name = "rejection_count")
+    private Integer rejectionCount;
+
+    /**
+     * Người thực hiện kiểm tra và yêu cầu dọn lại gần nhất.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_inspected_by_id")
+    private User lastInspectedBy;
+
+    /**
+     * Thời điểm yêu cầu dọn lại gần nhất.
+     */
+    @Column(name = "last_inspected_at")
+    private LocalDateTime lastInspectedAt;
+
+    /**
      * Thời điểm nhân viên buồng phòng bấm bắt đầu dọn dẹp phiên hiện tại.
      */
     @Column(name = "cleaning_started_at")

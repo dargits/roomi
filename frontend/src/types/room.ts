@@ -40,6 +40,11 @@ export interface RoomResponse {
   activeCleaningRecordId?: number;
   isCleaningInProgress?: boolean;
   standardCleaningMinutes?: number;
+  lastRejectionNote?: string;
+  rejectionCount?: number;
+  lastInspectedByName?: string;
+  lastInspectedAt?: string;
+  isRecleaning?: boolean;
 }
 
 export interface RoomRequest {
