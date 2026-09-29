@@ -558,47 +558,106 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             log.warn("Schema Migration Notice: revenue data normalization: {}", e.getMessage(), e);
         }
 
-        // Đảm bảo cột cloud_url trong system_backups sẵn sàng cho Telegram Bot Cloud Backup
+        // Đảm bảo bảng deposit_policies và các cột sẵn sàng
         try {
-            jdbcTemplate.execute("ALTER TABLE system_backups ADD COLUMN IF NOT EXISTS cloud_url VARCHAR(500)");
-            log.info("Schema Migration: Successfully ensured 'system_backups.cloud_url' column exists.");
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS deposit_policies (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  room_type_id BIGINT NULL," +
+                "  deposit_percent DECIMAL(5, 2) NOT NULL DEFAULT 30.00," +
+                "  is_active BOOLEAN NOT NULL DEFAULT TRUE," +
+                "  updated_by BIGINT NULL," +
+                "  previous_percent DECIMAL(5, 2) NULL," +
+                "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                "  updated_at DATETIME NULL" +
+                ")"
+            );
+            addColumnIfNotExists("deposit_policies", "room_type_id", "BIGINT NULL");
+            addColumnIfNotExists("deposit_policies", "deposit_percent", "DECIMAL(5, 2) NOT NULL DEFAULT 30.00");
+            addColumnIfNotExists("deposit_policies", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE");
+            addColumnIfNotExists("deposit_policies", "updated_by", "BIGINT NULL");
+            addColumnIfNotExists("deposit_policies", "previous_percent", "DECIMAL(5, 2) NULL");
+            addColumnIfNotExists("deposit_policies", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
+            addColumnIfNotExists("deposit_policies", "updated_at", "DATETIME NULL");
+            jdbcTemplate.execute("UPDATE deposit_policies SET is_active = TRUE WHERE is_active IS NULL");
+            log.info("Schema Migration: Successfully ensured 'deposit_policies' table and columns.");
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not add 'cloud_url' to system_backups: {}", e.getMessage());
+            log.warn("Schema Migration: Could not ensure 'deposit_policies': {}", e.getMessage());
         }
 
-        // Đảm bảo các cột cấu hình Telegram Bot trong hotel_settings sẵn sàng
+        // Đảm bảo bảng cancellation_policies và các cột mở rộng sẵn sàng
         try {
-            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS telegram_bot_token VARCHAR(255)");
-            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS telegram_chat_ids TEXT");
-            jdbcTemplate.execute("ALTER TABLE hotel_settings ADD COLUMN IF NOT EXISTS telegram_backup_enabled BOOLEAN DEFAULT TRUE");
-            jdbcTemplate.execute("UPDATE hotel_settings SET telegram_chat_ids = '6865922651' WHERE telegram_chat_ids IS NULL OR TRIM(telegram_chat_ids) = ''");
-            log.info("Schema Migration: Successfully ensured 'hotel_settings.telegram_*' columns exist.");
+            jdbcTemplate.execute(
+                "CREATE TABLE IF NOT EXISTS cancellation_policies (" +
+                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "  room_type_id BIGINT NULL," +
+                "  free_cancel_hours INT NOT NULL DEFAULT 24," +
+                "  hours_after_confirmation INT NOT NULL DEFAULT 24," +
+                "  penalty_percent DECIMAL(5, 2) NOT NULL DEFAULT 50.00," +
+                "  updated_by BIGINT NULL," +
+                "  previous_percent DECIMAL(5, 2) NULL," +
+                "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                "  updated_at DATETIME NULL" +
+                ")"
+            );
+            addColumnIfNotExists("cancellation_policies", "room_type_id", "BIGINT NULL");
+            addColumnIfNotExists("cancellation_policies", "free_cancel_hours", "INT NOT NULL DEFAULT 24");
+            addColumnIfNotExists("cancellation_policies", "hours_after_confirmation", "INT NOT NULL DEFAULT 24");
+            addColumnIfNotExists("cancellation_policies", "penalty_percent", "DECIMAL(5, 2) NOT NULL DEFAULT 50.00");
+            addColumnIfNotExists("cancellation_policies", "updated_by", "BIGINT NULL");
+            addColumnIfNotExists("cancellation_policies", "previous_percent", "DECIMAL(5, 2) NULL");
+            addColumnIfNotExists("cancellation_policies", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
+            addColumnIfNotExists("cancellation_policies", "updated_at", "DATETIME NULL");
+            jdbcTemplate.execute("UPDATE cancellation_policies SET hours_after_confirmation = 24 WHERE hours_after_confirmation IS NULL");
+            jdbcTemplate.execute("UPDATE cancellation_policies SET free_cancel_hours = 24 WHERE free_cancel_hours IS NULL");
+            log.info("Schema Migration: Successfully ensured 'cancellation_policies' table and columns.");
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not add telegram columns to hotel_settings: {}", e.getMessage());
+            log.warn("Schema Migration: Could not ensure 'cancellation_policies': {}", e.getMessage());
         }
 
-        // Đảm bảo cột confirmed_at trong bookings và các cột mở rộng cho cancellation_policies
-        try {
-            jdbcTemplate.execute("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS confirmed_at DATETIME");
-            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS hours_after_confirmation INT DEFAULT 24");
-            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS updated_by BIGINT");
-            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS previous_percent DECIMAL(5, 2)");
-            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-            jdbcTemplate.execute("ALTER TABLE cancellation_policies ADD COLUMN IF NOT EXISTS updated_at DATETIME");
-            log.info("Schema Migration: Successfully ensured cancellation_policies and bookings.confirmed_at columns exist.");
-        } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not alter cancellation_policies or bookings: {}", e.getMessage());
-        }
+        // Đảm bảo cột confirmed_at trong bookings
+        addColumnIfNotExists("bookings", "confirmed_at", "DATETIME NULL");
 
         // Đảm bảo các cột theo dõi yêu cầu dọn lại trong bảng rooms sẵn sàng
+        addColumnIfNotExists("rooms", "last_rejection_note", "VARCHAR(500) NULL");
+        addColumnIfNotExists("rooms", "rejection_count", "INT DEFAULT 0");
+        addColumnIfNotExists("rooms", "last_inspected_by_id", "BIGINT NULL");
+        addColumnIfNotExists("rooms", "last_inspected_at", "DATETIME NULL");
+
+        // Đảm bảo các cột cấu hình Telegram Bot trong hotel_settings sẵn sàng
+        addColumnIfNotExists("hotel_settings", "telegram_bot_token", "VARCHAR(255) NULL");
+        addColumnIfNotExists("hotel_settings", "telegram_chat_ids", "TEXT NULL");
+        addColumnIfNotExists("hotel_settings", "telegram_backup_enabled", "BOOLEAN DEFAULT TRUE");
         try {
-            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_rejection_note VARCHAR(500)");
-            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS rejection_count INT DEFAULT 0");
-            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_inspected_by_id BIGINT");
-            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_inspected_at DATETIME");
-            log.info("Schema Migration: Successfully ensured 'rooms.last_rejection_note' and related rejection columns exist.");
+            jdbcTemplate.execute("UPDATE hotel_settings SET telegram_chat_ids = '6865922651' WHERE telegram_chat_ids IS NULL OR TRIM(telegram_chat_ids) = ''");
+        } catch (Exception ignored) {}
+
+        // Đảm bảo cột cloud_url trong system_backups
+        addColumnIfNotExists("system_backups", "cloud_url", "VARCHAR(500) NULL");
+    }
+
+    /**
+     * Helper kiểm tra và bổ sung cột an toàn tuyệt đối trên mọi phiên bản MySQL / MariaDB / H2
+     * Tránh lỗi cú pháp ERROR 1064 của 'ADD COLUMN IF NOT EXISTS' trên MySQL chuẩn.
+     */
+    private void addColumnIfNotExists(String tableName, String columnName, String columnDefinition) {
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS " +
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+                Integer.class, tableName, columnName
+            );
+            if (count == null || count == 0) {
+                jdbcTemplate.execute(String.format("ALTER TABLE `%s` ADD COLUMN `%s` %s", tableName, columnName, columnDefinition));
+                log.info("Schema Migration: Successfully added column '{}.{}'", tableName, columnName);
+            }
         } catch (Exception e) {
-            log.debug("Schema Migration Notice: Could not add rejection columns to rooms: {}", e.getMessage());
+            try {
+                jdbcTemplate.execute(String.format("ALTER TABLE `%s` ADD COLUMN `%s` %s", tableName, columnName, columnDefinition));
+                log.info("Schema Migration: Added column '{}.{}' via direct statement", tableName, columnName);
+            } catch (Exception ex) {
+                log.debug("Schema Migration Notice: Column '{}.{}' might already exist: {}", tableName, columnName, ex.getMessage());
+            }
         }
     }
 }

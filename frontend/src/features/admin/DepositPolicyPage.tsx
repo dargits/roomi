@@ -101,14 +101,31 @@ const DepositPolicyPage: React.FC = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [depData, cancelData, roomTypesData] = await Promise.all([
+      const [depResult, cancelResult, roomTypesResult] = await Promise.allSettled([
         depositApi.getAllPolicies(),
         cancellationPolicyApi.getAllPolicies(),
         roomTypeApi.getAllRoomTypes()
       ]);
-      setDepositPolicies(depData || []);
-      setCancellationPolicies(cancelData || []);
-      setRoomTypes(roomTypesData || []);
+
+      if (depResult.status === 'fulfilled' && Array.isArray(depResult.value)) {
+        setDepositPolicies(depResult.value);
+      } else {
+        setDepositPolicies([]);
+      }
+
+      if (cancelResult.status === 'fulfilled' && Array.isArray(cancelResult.value)) {
+        setCancellationPolicies(cancelResult.value);
+      } else {
+        setCancellationPolicies([]);
+      }
+
+      if (roomTypesResult.status === 'fulfilled' && Array.isArray(roomTypesResult.value)) {
+        setRoomTypes(roomTypesResult.value);
+      }
+
+      if (depResult.status === 'rejected' && cancelResult.status === 'rejected') {
+        setMessage({ type: 'error', text: 'Không thể tải dữ liệu chính sách. Vui lòng thử lại.' });
+      }
     } catch {
       setMessage({ type: 'error', text: 'Không thể tải dữ liệu chính sách. Vui lòng thử lại.' });
     } finally {

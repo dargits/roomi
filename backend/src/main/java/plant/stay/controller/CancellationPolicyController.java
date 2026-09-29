@@ -3,6 +3,7 @@ package plant.stay.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/cancellation-policies")
 @CrossOrigin("*")
 @RequiredArgsConstructor
+@Slf4j
 public class CancellationPolicyController {
 
     private final CancellationPolicyRepository policyRepository;
@@ -37,7 +39,12 @@ public class CancellationPolicyController {
     public ResponseEntity<?> getAll(HttpServletRequest request) {
         if (authUtil.getUserFromRequest(request) == null)
             throw new UnauthorizedException("Vui lòng đăng nhập");
-        return ResponseEntity.ok(policyRepository.findAll().stream().map(this::toMap).collect(Collectors.toList()));
+        try {
+            return ResponseEntity.ok(policyRepository.findAll().stream().map(this::toMap).collect(Collectors.toList()));
+        } catch (Exception e) {
+            log.error("Lỗi khi tải danh sách chính sách hủy: {}", e.getMessage(), e);
+            return ResponseEntity.ok(java.util.Collections.emptyList());
+        }
     }
 
     @PostMapping
@@ -118,14 +125,32 @@ public class CancellationPolicyController {
     private Map<String, Object> toMap(CancellationPolicy p) {
         java.util.Map<String, Object> map = new java.util.HashMap<>();
         map.put("id", p.getId());
-        map.put("roomTypeId", p.getRoomType() != null ? p.getRoomType().getId() : "");
-        map.put("roomTypeName", p.getRoomType() != null ? p.getRoomType().getName() : "Tất cả loại phòng");
+
+        Long roomTypeId = null;
+        String roomTypeName = "Tất cả loại phòng";
+        try {
+            if (p.getRoomType() != null) {
+                roomTypeId = p.getRoomType().getId();
+                roomTypeName = p.getRoomType().getName();
+            }
+        } catch (Exception ignored) {}
+        map.put("roomTypeId", roomTypeId != null ? roomTypeId : "");
+        map.put("roomTypeName", roomTypeName);
+
         map.put("freeCancelHours", p.getFreeCancelHours() != null ? p.getFreeCancelHours() : 24);
         map.put("hoursAfterConfirmation", p.getHoursAfterConfirmation() != null ? p.getHoursAfterConfirmation() : 24);
-        map.put("penaltyPercent", p.getPenaltyPercent());
+        map.put("penaltyPercent", p.getPenaltyPercent() != null ? p.getPenaltyPercent() : java.math.BigDecimal.ZERO);
         map.put("previousPercent", p.getPreviousPercent());
         map.put("updatedAt", p.getUpdatedAt() != null ? p.getUpdatedAt() : p.getCreatedAt());
-        map.put("updatedByName", p.getUpdatedBy() != null ? p.getUpdatedBy().getName() : null);
+
+        String updatedByName = null;
+        try {
+            if (p.getUpdatedBy() != null) {
+                updatedByName = p.getUpdatedBy().getName();
+            }
+        } catch (Exception ignored) {}
+        map.put("updatedByName", updatedByName);
+
         return map;
     }
 }

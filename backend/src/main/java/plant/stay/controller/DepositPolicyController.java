@@ -3,6 +3,7 @@ package plant.stay.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/deposit-policies")
 @CrossOrigin("*")
 @RequiredArgsConstructor
+@Slf4j
 public class DepositPolicyController {
 
     private final DepositPolicyRepository policyRepo;
@@ -46,9 +48,14 @@ public class DepositPolicyController {
     @GetMapping
     public ResponseEntity<List<DepositPolicyResponse>> getAll(HttpServletRequest request) {
         checkAuth(request);
-        List<DepositPolicyResponse> result = policyRepo.findByActiveTrueOrderByRoomTypeIdAsc()
-                .stream().map(this::toResponse).collect(Collectors.toList());
-        return ResponseEntity.ok(result);
+        try {
+            List<DepositPolicyResponse> result = policyRepo.findByActiveTrueOrderByRoomTypeIdAsc()
+                    .stream().map(this::toResponse).collect(Collectors.toList());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Lỗi khi tải danh sách chính sách cọc: {}", e.getMessage(), e);
+            return ResponseEntity.ok(java.util.Collections.emptyList());
+        }
     }
 
     @PostMapping
@@ -138,16 +145,32 @@ public class DepositPolicyController {
     }
 
     private DepositPolicyResponse toResponse(DepositPolicy p) {
+        Long roomTypeId = null;
+        String roomTypeName = "Tất cả loại phòng";
+        try {
+            if (p.getRoomType() != null) {
+                roomTypeId = p.getRoomType().getId();
+                roomTypeName = p.getRoomType().getName();
+            }
+        } catch (Exception ignored) {}
+
+        String updatedByName = null;
+        try {
+            if (p.getUpdatedBy() != null) {
+                updatedByName = p.getUpdatedBy().getName();
+            }
+        } catch (Exception ignored) {}
+
         return DepositPolicyResponse.builder()
                 .id(p.getId())
-                .roomTypeId(p.getRoomType() != null ? p.getRoomType().getId() : null)
-                .roomTypeName(p.getRoomType() != null ? p.getRoomType().getName() : "Tất cả loại phòng")
-                .depositPercent(p.getDepositPercent())
-                .active(p.getActive())
-                .updatedByName(p.getUpdatedBy() != null ? p.getUpdatedBy().getName() : null)
+                .roomTypeId(roomTypeId)
+                .roomTypeName(roomTypeName)
+                .depositPercent(p.getDepositPercent() != null ? p.getDepositPercent() : java.math.BigDecimal.ZERO)
+                .active(p.getActive() != null ? p.getActive() : true)
+                .updatedByName(updatedByName)
                 .previousPercent(p.getPreviousPercent())
                 .createdAt(p.getCreatedAt())
-                .updatedAt(p.getUpdatedAt())
+                .updatedAt(p.getUpdatedAt() != null ? p.getUpdatedAt() : p.getCreatedAt())
                 .build();
     }
 }
