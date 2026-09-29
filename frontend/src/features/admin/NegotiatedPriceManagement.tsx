@@ -2,15 +2,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { negotiatedPriceApi, NegotiatedPriceAgreement, NegotiatedPriceAgreementRequest } from '../../services/negotiatedPriceApi';
 import { NegotiatedPriceModal } from './NegotiatedPriceModal';
-import { IoAddOutline, IoPricetagOutline, IoPencilOutline, IoTrashOutline, IoBusinessOutline, IoPeopleOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoCalendarOutline } from 'react-icons/io5';
+import { IoAddOutline, IoPricetagOutline, IoPencilOutline, IoTrashOutline, IoBusinessOutline, IoPeopleOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoCalendarOutline, IoEyeOutline } from 'react-icons/io5';
 import Button from '../../components/ui/Button';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import Pagination from '../../components/ui/Pagination';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 const ITEMS_PER_PAGE = 10;
 
 export const NegotiatedPriceManagement: React.FC = () => {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
   const [searchParams] = useSearchParams();
   const initialClientId = searchParams.get('clientId') ? Number(searchParams.get('clientId')) : undefined;
 
@@ -21,6 +24,7 @@ export const NegotiatedPriceManagement: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<NegotiatedPriceAgreement | null>(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { success: toastSuccess, error: toastError, confirm } = useToast();
 
@@ -59,16 +63,30 @@ export const NegotiatedPriceManagement: React.FC = () => {
   }, [initialClientId]);
 
   const handleOpenAdd = () => {
+    if (!isOwner) return;
     setEditingAgreement(null);
+    setIsViewOnly(false);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (agreement: NegotiatedPriceAgreement) => {
+    if (!isOwner) return;
     setEditingAgreement(agreement);
+    setIsViewOnly(false);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenView = (agreement: NegotiatedPriceAgreement) => {
+    setEditingAgreement(agreement);
+    setIsViewOnly(true);
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (data: NegotiatedPriceAgreementRequest) => {
+    if (!isOwner) {
+      toastError('Chỉ chủ sở hữu mới có quyền tạo hoặc chỉnh sửa thỏa thuận giá');
+      return;
+    }
     setSubmitting(true);
     try {
       if (editingAgreement) {
@@ -85,6 +103,10 @@ export const NegotiatedPriceManagement: React.FC = () => {
   };
 
   const handleDeactivate = async (agreement: NegotiatedPriceAgreement) => {
+    if (!isOwner) {
+      toastError('Chỉ chủ sở hữu mới có quyền vô hiệu hóa thỏa thuận giá');
+      return;
+    }
     const isConfirmed = await confirm({
       title: 'Vô hiệu hóa thỏa thuận giá',
       message: `Bạn có chắc chắn muốn vô hiệu hóa thỏa thuận "${agreement.name}"?`,
@@ -121,10 +143,12 @@ export const NegotiatedPriceManagement: React.FC = () => {
             Thiết lập mức giá cam kết cho Khách hàng Công ty & Đoàn đặt phòng (Ưu tiên cao hơn bảng giá thông thường)
           </p>
         </div>
-        <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
-          <IoAddOutline className="w-5 h-5" />
-          <span>Tạo thỏa thuận giá</span>
-        </Button>
+        {isOwner && (
+          <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
+            <IoAddOutline className="w-5 h-5" />
+            <span>Tạo thỏa thuận giá</span>
+          </Button>
+        )}
       </div>
 
       {/* Filter Tabs */}
@@ -256,20 +280,33 @@ export const NegotiatedPriceManagement: React.FC = () => {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleOpenEdit(a)}
-                              title="Chỉnh sửa"
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <IoPencilOutline className="w-4 h-4" />
-                            </button>
-                            {a.active && (
+                            {isOwner ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenEdit(a)}
+                                  title="Chỉnh sửa"
+                                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                  <IoPencilOutline className="w-4 h-4" />
+                                </button>
+                                {a.active && (
+                                  <button
+                                    onClick={() => handleDeactivate(a)}
+                                    title="Vô hiệu hóa"
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  >
+                                    <IoTrashOutline className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </>
+                            ) : (
                               <button
-                                onClick={() => handleDeactivate(a)}
-                                title="Vô hiệu hóa"
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                onClick={() => handleOpenView(a)}
+                                title="Xem chi tiết"
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
                               >
-                                <IoTrashOutline className="w-4 h-4" />
+                                <IoEyeOutline className="w-4 h-4" />
+                                <span>Xem</span>
                               </button>
                             )}
                           </div>
@@ -309,6 +346,7 @@ export const NegotiatedPriceManagement: React.FC = () => {
         initialData={editingAgreement}
         defaultCorporateClientId={initialClientId}
         loading={submitting}
+        readOnly={isViewOnly || !isOwner}
       />
     </div>
   );

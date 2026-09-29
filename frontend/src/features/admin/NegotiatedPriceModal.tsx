@@ -16,6 +16,7 @@ interface NegotiatedPriceModalProps {
   defaultCorporateClientId?: number | null;
   defaultGroupBookingId?: number | null;
   loading?: boolean;
+  readOnly?: boolean;
 }
 
 export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
@@ -26,6 +27,7 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
   defaultCorporateClientId,
   defaultGroupBookingId,
   loading = false,
+  readOnly = false,
 }) => {
   const [targetType, setTargetType] = useState<'CORPORATE' | 'GROUP'>('CORPORATE');
   const [corporateClients, setCorporateClients] = useState<CorporateClient[]>([]);
@@ -204,13 +206,20 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? 'Chỉnh sửa thỏa thuận giá' : 'Tạo mới thỏa thuận giá (Giá thỏa thuận)'}
+      title={readOnly ? 'Chi tiết thỏa thuận giá' : (initialData ? 'Chỉnh sửa thỏa thuận giá' : 'Tạo mới thỏa thuận giá (Giá thỏa thuận)')}
       maxWidth="max-w-2xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={readOnly ? (e) => { e.preventDefault(); onClose(); } : handleSubmit} className="space-y-4">
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
             {error}
+          </div>
+        )}
+
+        {readOnly && (
+          <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg flex items-center gap-2">
+            <span>ℹ️</span>
+            <span>Bạn đang xem thông tin thỏa thuận giá ở chế độ chỉ đọc. Chỉ Chủ sở hữu mới có quyền tạo và chỉnh sửa thỏa thuận giá.</span>
           </div>
         )}
 
@@ -225,6 +234,7 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
             onChange={handleChange}
             placeholder="Ví dụ: Hợp đồng Saigontourist 2026 hoặc Giá thỏa thuận Đoàn FPT"
             required
+            disabled={readOnly}
           />
         </div>
 
@@ -236,23 +246,25 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
           <div className="flex gap-4 p-1 bg-gray-100 rounded-lg">
             <button
               type="button"
+              disabled={readOnly}
               onClick={() => handleTargetTypeChange('CORPORATE')}
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
                 targetType === 'CORPORATE'
                   ? 'bg-white text-primary-700 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+              } ${readOnly ? 'cursor-default' : ''}`}
             >
               Khách hàng công ty
             </button>
             <button
               type="button"
+              disabled={readOnly}
               onClick={() => handleTargetTypeChange('GROUP')}
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
                 targetType === 'GROUP'
                   ? 'bg-white text-primary-700 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+              } ${readOnly ? 'cursor-default' : ''}`}
             >
               Đoàn đặt phòng
             </button>
@@ -269,7 +281,8 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
               name="corporateClientId"
               value={formData.corporateClientId || ''}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              disabled={readOnly}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${readOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
               required
             >
               <option value="">-- Chọn khách hàng công ty --</option>
@@ -289,7 +302,8 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
               name="groupBookingId"
               value={formData.groupBookingId || ''}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              disabled={readOnly}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${readOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
               required
             >
               <option value="">-- Chọn đoàn đặt phòng --</option>
@@ -310,29 +324,33 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
                 Thỏa thuận giá theo từng loại phòng <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-gray-500">
-                Đặt giá riêng cho từng loại phòng. Loại phòng để trống sẽ áp dụng giá niêm yết thông thường.
+                {readOnly
+                  ? 'Mức giá cam kết cho từng loại phòng trong thỏa thuận này.'
+                  : 'Đặt giá riêng cho từng loại phòng. Loại phòng để trống sẽ áp dụng giá niêm yết thông thường.'}
               </p>
             </div>
 
             {/* Quick apply same price */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <input
-                type="number"
-                value={batchPrice}
-                onChange={(e) => setBatchPrice(e.target.value)}
-                placeholder="Nhập giá chung..."
-                className="w-32 px-2.5 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 text-right"
-                step="any"
-              />
-              <button
-                type="button"
-                onClick={handleApplyBatchPrice}
-                className="px-2.5 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
-                title="Áp dụng mức giá này cho tất cả loại phòng"
-              >
-                Áp dụng tất cả
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <input
+                  type="number"
+                  value={batchPrice}
+                  onChange={(e) => setBatchPrice(e.target.value)}
+                  placeholder="Nhập giá chung..."
+                  className="w-32 px-2.5 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 text-right"
+                  step="any"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyBatchPrice}
+                  className="px-2.5 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                  title="Áp dụng mức giá này cho tất cả loại phòng"
+                >
+                  Áp dụng tất cả
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white max-h-60 overflow-y-auto">
@@ -370,10 +388,15 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
                             type="number"
                             value={currentVal}
                             onChange={(e) => handleRoomPriceChange(rt.id, e.target.value)}
-                            placeholder="Chưa thỏa thuận"
+                            placeholder={readOnly ? 'Chưa áp dụng' : 'Chưa thỏa thuận'}
                             min="0"
                             step="any"
-                            className="w-full px-2.5 py-1.5 text-xs text-right font-medium text-emerald-800 bg-emerald-50/40 border border-emerald-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+                            disabled={readOnly}
+                            className={`w-full px-2.5 py-1.5 text-xs text-right font-medium rounded-lg ${
+                              readOnly
+                                ? 'text-gray-700 bg-gray-50 border border-gray-200 cursor-not-allowed'
+                                : 'text-emerald-800 bg-emerald-50/40 border border-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white'
+                            }`}
                           />
                         </td>
                       </tr>
@@ -396,6 +419,7 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
               name="startDate"
               value={formData.startDate}
               onChange={handleChange}
+              disabled={readOnly}
               required
             />
           </div>
@@ -408,6 +432,7 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
               name="endDate"
               value={formData.endDate}
               onChange={handleChange}
+              disabled={readOnly}
               required
             />
           </div>
@@ -423,8 +448,9 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
             rows={2}
             value={formData.note}
             onChange={handleChange}
+            disabled={readOnly}
             placeholder="Ghi chú chi tiết về cam kết, số lượng phòng tối thiểu..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${readOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
           />
         </div>
 
@@ -436,7 +462,8 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
             name="active"
             checked={formData.active}
             onChange={handleChange}
-            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            disabled={readOnly}
+            className={`h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 ${readOnly ? 'cursor-not-allowed' : ''}`}
           />
           <label htmlFor="agreement-active" className="text-sm font-medium text-gray-700 cursor-pointer">
             Kích hoạt thỏa thuận (Được tự động áp giá khi lễ tân đặt phòng)
@@ -445,12 +472,20 @@ export const NegotiatedPriceModal: React.FC<NegotiatedPriceModalProps> = ({
 
         {/* Buttons */}
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
-            Hủy bỏ
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Đang lưu...' : (initialData ? 'Lưu thay đổi' : 'Tạo thỏa thuận')}
-          </Button>
+          {readOnly ? (
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Đóng
+            </Button>
+          ) : (
+            <>
+              <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+                Hủy bỏ
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Đang lưu...' : (initialData ? 'Lưu thay đổi' : 'Tạo thỏa thuận')}
+              </Button>
+            </>
+          )}
         </div>
       </form>
     </Modal>
