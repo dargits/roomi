@@ -117,6 +117,9 @@ public class RoomServiceImpl implements RoomService {
         if (room.getStatus() != RoomStatus.DIRTY && room.getStatus() != RoomStatus.INSPECTING) {
             throw new IllegalArgumentException("Chỉ có thể đánh dấu sạch khi phòng đang ở trạng thái DIRTY hoặc INSPECTING");
         }
+        if (actor != null && actor.getRole() == Role.RECEPTIONIST && room.getStatus() != RoomStatus.INSPECTING) {
+            throw new IllegalArgumentException("Lễ tân không được đánh dấu đã dọn xong khi phòng chưa ở trạng thái chờ nghiệm thu");
+        }
         room.setStatus(RoomStatus.AVAILABLE);
         room.setLastCleanedAt(LocalDateTime.now());
         room.setCleaningReason(null);
