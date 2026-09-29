@@ -338,7 +338,13 @@ public class DepositController {
 
     private BigDecimal calculateCancellationFee(Booking booking) {
         Deposit deposit = depositRepo.findFirstByBookingIdOrderByCreatedAtDesc(booking.getId()).orElse(null);
-        if (deposit == null || deposit.getCollectedAmount() == null) return BigDecimal.ZERO;
+        BigDecimal collected = BigDecimal.ZERO;
+        if (deposit != null && deposit.getCollectedAmount() != null) {
+            collected = deposit.getCollectedAmount();
+        } else if (booking.getDepositAmount() != null) {
+            collected = booking.getDepositAmount();
+        }
+        if (collected.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
 
         // Tìm chính sách hủy (QTN-19)
         CancellationPolicy cancelPolicy = null;
@@ -350,14 +356,32 @@ public class DepositController {
         }
         if (cancelPolicy == null) return BigDecimal.ZERO;
 
-        long hoursUntilCheckIn = ChronoUnit.HOURS.between(LocalDateTime.now(),
-                booking.getCheckInDate().atTime(14, 0));
+        boolean isLateCancellation = false;
 
-        // Hủy trong thời hạn miễn phí → không mất phí (NCL-11-CN-003)
-        if (hoursUntilCheckIn >= cancelPolicy.getFreeCancelHours()) return BigDecimal.ZERO;
+        // 1. Kiểm tra thời gian sau khi lễ tân xác nhận
+        if (cancelPolicy.getHoursAfterConfirmation() != null && cancelPolicy.getHoursAfterConfirmation() > 0) {
+            LocalDateTime confirmTime = booking.getConfirmedAt() != null ? booking.getConfirmedAt() : booking.getCreatedAt();
+            if (confirmTime != null) {
+                long hoursSinceConfirm = ChronoUnit.HOURS.between(confirmTime, LocalDateTime.now());
+                if (hoursSinceConfirm >= cancelPolicy.getHoursAfterConfirmation()) {
+                    isLateCancellation = true;
+                }
+            }
+        }
 
-        // Hủy muộn → tính phí (NCL-11-CN-004)
-        return deposit.getCollectedAmount()
+        // 2. Hoặc kiểm tra thời gian trước giờ check-in
+        if (!isLateCancellation && cancelPolicy.getFreeCancelHours() != null) {
+            long hoursUntilCheckIn = ChronoUnit.HOURS.between(LocalDateTime.now(),
+                    booking.getCheckInDate().atTime(14, 0));
+            if (hoursUntilCheckIn < cancelPolicy.getFreeCancelHours()) {
+                isLateCancellation = true;
+            }
+        }
+
+        if (!isLateCancellation) return BigDecimal.ZERO;
+
+        // Hủy muộn → tính phí trên số tiền cọc
+        return collected
                 .multiply(cancelPolicy.getPenaltyPercent())
                 .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
     }

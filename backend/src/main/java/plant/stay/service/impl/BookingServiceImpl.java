@@ -439,6 +439,9 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setRoom(room);
         booking.setStatus(BookingStatus.CONFIRMED);
+        if (booking.getConfirmedAt() == null) {
+            booking.setConfirmedAt(LocalDateTime.now());
+        }
         booking = bookingRepository.save(booking);
         auditLogService.log("Booking", booking.getId(), "ASSIGN_ROOM", actor,
                 "Gán phòng " + room.getRoomNumber());
@@ -470,19 +473,59 @@ public class BookingServiceImpl implements BookingService {
                         .findByRoomTypeIsNull()
                         .orElse(null);
             }
-            if (policy != null && booking.getExpectedPrice() != null) {
-                long hoursUntilCheckIn = ChronoUnit.HOURS.between(
-                        LocalDateTime.now(),
-                        booking.getCheckInDate().atTime(14, 0) // giờ nhận phòng mặc định 14:00
-                );
-                if (hoursUntilCheckIn < policy.getFreeCancelHours()) {
-                    BigDecimal penalty = booking.getExpectedPrice()
-                            .multiply(policy.getPenaltyPercent())
-                            .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-                    cancelNote += String.format(" | Phí hủy: %s%% = %,.0fđ",
-                            policy.getPenaltyPercent().stripTrailingZeros().toPlainString(),
-                            penalty.doubleValue());
-                    booking.setCancellationFee(penalty);
+            if (policy != null) {
+                // Phí hoàn hủy chỉ áp dụng với các booking có đặt cọc (vì không đặt cọc thì không có gì để trừ)
+                BigDecimal depositBase = BigDecimal.ZERO;
+                if (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    depositBase = booking.getDepositAmount();
+                } else {
+                    Deposit dep = depositRepository.findFirstByBookingIdOrderByCreatedAtDesc(booking.getId()).orElse(null);
+                    if (dep != null && dep.getCollectedAmount() != null && dep.getCollectedAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        depositBase = dep.getCollectedAmount();
+                    }
+                }
+
+                if (depositBase.compareTo(BigDecimal.ZERO) > 0) {
+                    boolean isLateCancellation = false;
+
+                    // 1. Kiểm tra thời gian sau khi lễ tân xác nhận
+                    if (policy.getHoursAfterConfirmation() != null && policy.getHoursAfterConfirmation() > 0) {
+                        LocalDateTime confirmTime = booking.getConfirmedAt() != null ? booking.getConfirmedAt() : booking.getCreatedAt();
+                        if (confirmTime != null) {
+                            long hoursSinceConfirm = ChronoUnit.HOURS.between(confirmTime, LocalDateTime.now());
+                            if (hoursSinceConfirm >= policy.getHoursAfterConfirmation()) {
+                                isLateCancellation = true;
+                            }
+                        }
+                    }
+
+                    // 2. Hoặc kiểm tra thời gian trước giờ check-in
+                    if (!isLateCancellation && policy.getFreeCancelHours() != null) {
+                        long hoursUntilCheckIn = ChronoUnit.HOURS.between(
+                                LocalDateTime.now(),
+                                booking.getCheckInDate().atTime(14, 0)
+                        );
+                        if (hoursUntilCheckIn < policy.getFreeCancelHours()) {
+                            isLateCancellation = true;
+                        }
+                    }
+
+                    if (isLateCancellation) {
+                        BigDecimal penalty = depositBase
+                                .multiply(policy.getPenaltyPercent())
+                                .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                        cancelNote += String.format(" | Phí phạt hủy: %s%% tiền cọc = %,.0fđ (Cọc: %,.0fđ)",
+                                policy.getPenaltyPercent().stripTrailingZeros().toPlainString(),
+                                penalty.doubleValue(),
+                                depositBase.doubleValue());
+                        booking.setCancellationFee(penalty);
+                    } else {
+                        cancelNote += " | Hủy trong thời hạn miễn phí (Hoàn cọc 100%)";
+                        booking.setCancellationFee(BigDecimal.ZERO);
+                    }
+                } else {
+                    cancelNote += " | Đặt phòng không có cọc (Miễn phí hủy)";
+                    booking.setCancellationFee(BigDecimal.ZERO);
                 }
             }
         } catch (Exception ignored) { /* Không để lỗi chặn hủy */ }
@@ -1836,6 +1879,9 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CONFIRMED);
+        if (booking.getConfirmedAt() == null) {
+            booking.setConfirmedAt(LocalDateTime.now());
+        }
         booking = bookingRepository.save(booking);
 
         auditLogService.log("Booking", booking.getId(), "CONFIRM", actor,

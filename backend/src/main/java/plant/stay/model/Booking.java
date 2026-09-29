@@ -58,6 +58,9 @@ public class Booking {
     @Column(name = "checked_out_at")
     private LocalDateTime checkedOutAt;
 
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+
     @OneToOne(mappedBy = "booking", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private StayDeclaration stayDeclaration;
 
