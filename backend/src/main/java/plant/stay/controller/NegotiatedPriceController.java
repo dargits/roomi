@@ -33,13 +33,13 @@ public class NegotiatedPriceController {
             @RequestParam(required = false) Long corporateClientId,
             @RequestParam(required = false) Long groupBookingId,
             HttpServletRequest request) {
-        checkStaff(request);
+        checkCanView(request);
         return ResponseEntity.ok(negotiatedPriceService.getAll(corporateClientId, groupBookingId));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<NegotiatedPriceAgreementResponse> getById(@PathVariable Long id, HttpServletRequest request) {
-        checkStaff(request);
+        checkCanView(request);
         return ResponseEntity.ok(negotiatedPriceService.getById(id));
     }
 
@@ -47,7 +47,7 @@ public class NegotiatedPriceController {
     public ResponseEntity<NegotiatedPriceAgreementResponse> create(
             @Valid @RequestBody NegotiatedPriceAgreementRequest req,
             HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkOwner(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(negotiatedPriceService.create(req, actor));
     }
 
@@ -56,13 +56,13 @@ public class NegotiatedPriceController {
             @PathVariable Long id,
             @Valid @RequestBody NegotiatedPriceAgreementRequest req,
             HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkOwner(request);
         return ResponseEntity.ok(negotiatedPriceService.update(id, req, actor));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkOwner(request);
         negotiatedPriceService.delete(id, actor);
         return ResponseEntity.noContent().build();
     }
@@ -77,24 +77,24 @@ public class NegotiatedPriceController {
             @RequestParam(required = false) Integer guestCount,
             @RequestParam(required = false) Integer childCount,
             HttpServletRequest request) {
-        checkStaff(request);
+        checkCanView(request);
         return ResponseEntity.ok(negotiatedPriceService.preview(
                 corporateClientId, groupBookingId, roomTypeId, checkInDate, checkOutDate, guestCount, childCount
         ));
     }
 
-    private User checkStaff(HttpServletRequest request) {
+    private User checkCanView(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST)) {
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ACCOUNTANT)) {
             throw new UnauthorizedException("Không có quyền truy cập");
         }
         return user;
     }
 
-    private User checkOwnerOrAdmin(HttpServletRequest request) {
+    private User checkOwner(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN)) {
-            throw new UnauthorizedException("Chỉ Chủ cơ sở hoặc Quản trị viên mới có quyền thiết lập giá thỏa thuận");
+        if (user == null || user.getRole() != Role.OWNER) {
+            throw new UnauthorizedException("Chỉ chủ sở hữu mới có quyền tạo hoặc chỉnh sửa thỏa thuận giá");
         }
         return user;
     }
