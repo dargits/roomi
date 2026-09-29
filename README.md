@@ -220,7 +220,6 @@ roomi/
 ├── 📄 DEPLOYMENT.md             # Hướng dẫn chi tiết triển khai VPS & CI/CD
 ├── 📄 docker-compose.yml        # Điều phối môi trường đa container
 ├── 📂 .github/workflows/        # Pipeline CI/CD GitHub Actions (deploy.yml)
-├── 📂 docs/                     # Tài liệu đặc tả nghiệp vụ & E2E Test Cases
 ├── 📂 backend/                  # ☕ Backend Spring Boot 3
 │   ├── src/main/java/plant/stay/
 │   │   ├── config/              # Schedulers, CORS, Data Masking, DataSeeder
@@ -325,7 +324,6 @@ Hệ thống được khởi tạo sẵn các tài khoản mẫu thông qua `Dat
 ## 📚 Danh Mục Tài Liệu Chi Tiết
 
 * 📖 **[Hướng dẫn triển khai VPS & CI/CD (DEPLOYMENT.md)](./DEPLOYMENT.md)**
-* 📑 **[Tài liệu đặc tả nghiệp vụ & User Guide (docs/)](./docs/README.md)**
 * ☕ **[Tài liệu kiến trúc Backend (backend/)](./backend/README.md)**
 * ⚛️ **[Tài liệu kiến trúc Frontend (frontend/)](./frontend/README.md)**
 
