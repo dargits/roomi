@@ -30,13 +30,13 @@ public class CorporateClientController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean activeOnly,
             HttpServletRequest request) {
-        checkStaff(request);
+        checkCanView(request);
         return ResponseEntity.ok(corporateClientService.getAll(search, activeOnly));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<CorporateClientResponse> getById(@PathVariable Long id, HttpServletRequest request) {
-        checkStaff(request);
+        checkCanView(request);
         return ResponseEntity.ok(corporateClientService.getById(id));
     }
 
@@ -44,7 +44,7 @@ public class CorporateClientController {
     public ResponseEntity<CorporateClientResponse> create(
             @Valid @RequestBody CorporateClientRequest req,
             HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkCanManage(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(corporateClientService.create(req, actor));
     }
 
@@ -53,21 +53,30 @@ public class CorporateClientController {
             @PathVariable Long id,
             @Valid @RequestBody CorporateClientRequest req,
             HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkCanManage(request);
         return ResponseEntity.ok(corporateClientService.update(id, req, actor));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkCanManage(request);
         corporateClientService.delete(id, actor);
         return ResponseEntity.noContent().build();
     }
 
-    private User checkStaff(HttpServletRequest request) {
+    private User checkCanView(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN 
+                && user.getRole() != Role.RECEPTIONIST && user.getRole() != Role.ACCOUNTANT)) {
+            throw new UnauthorizedException("Không có quyền truy cập");
+        }
+        return user;
+    }
+
+    private User checkCanManage(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
         if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN && user.getRole() != Role.RECEPTIONIST)) {
-            throw new UnauthorizedException("Không có quyền truy cập");
+            throw new UnauthorizedException("Chỉ Quản lý hoặc Lễ tân mới có quyền thực hiện thao tác này");
         }
         return user;
     }

@@ -10,6 +10,7 @@ interface CorporateClientModalProps {
   onSubmit: (data: CorporateClientRequest) => Promise<void>;
   initialData?: CorporateClient | null;
   loading?: boolean;
+  readOnly?: boolean;
 }
 
 export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
@@ -18,6 +19,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
   onSubmit,
   initialData,
   loading = false,
+  readOnly = false,
 }) => {
   const [formData, setFormData] = useState<CorporateClientRequest>({
     companyName: '',
@@ -86,7 +88,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? 'Chỉnh sửa hồ sơ khách công ty' : 'Thêm mới khách hàng công ty'}
+      title={readOnly ? 'Chi tiết hồ sơ khách hàng công ty' : (initialData ? 'Chỉnh sửa hồ sơ khách công ty' : 'Thêm mới khách hàng công ty')}
       maxWidth="max-w-xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -98,14 +100,15 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tên công ty / Doanh nghiệp <span className="text-red-500">*</span>
+            Tên công ty / Doanh nghiệp {!readOnly && <span className="text-red-500">*</span>}
           </label>
           <Input
             name="companyName"
             value={formData.companyName}
             onChange={handleChange}
             placeholder="Ví dụ: Công ty TNHH Giải pháp FPT"
-            required
+            required={!readOnly}
+            disabled={readOnly}
           />
         </div>
 
@@ -119,6 +122,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
               value={formData.taxCode}
               onChange={handleChange}
               placeholder="Ví dụ: 0101234567"
+              disabled={readOnly}
             />
           </div>
           <div>
@@ -130,6 +134,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
               value={formData.contactPerson}
               onChange={handleChange}
               placeholder="Họ tên người phụ trách"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -144,6 +149,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
               value={formData.contactPhone}
               onChange={handleChange}
               placeholder="Số điện thoại liên lạc"
+              disabled={readOnly}
             />
           </div>
           <div>
@@ -156,6 +162,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
               value={formData.contactEmail}
               onChange={handleChange}
               placeholder="example@company.com"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -169,6 +176,7 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
             value={formData.address}
             onChange={handleChange}
             placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố"
+            disabled={readOnly}
           />
         </div>
 
@@ -182,7 +190,8 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
             value={formData.note}
             onChange={handleChange}
             placeholder="Ghi chú nội bộ về khách hàng doanh nghiệp..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            disabled={readOnly}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-600 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -193,7 +202,8 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
             name="active"
             checked={formData.active}
             onChange={handleChange}
-            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            disabled={readOnly}
+            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-60"
           />
           <label htmlFor="corp-active" className="text-sm font-medium text-gray-700 cursor-pointer">
             Đang hoạt động (Kích hoạt để cho phép tạo thỏa thuận giá)
@@ -201,12 +211,20 @@ export const CorporateClientModal: React.FC<CorporateClientModalProps> = ({
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
-            Hủy bỏ
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Đang lưu...' : (initialData ? 'Lưu thay đổi' : 'Tạo hồ sơ')}
-          </Button>
+          {readOnly ? (
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Đóng
+            </Button>
+          ) : (
+            <>
+              <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+                Hủy bỏ
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Đang lưu...' : (initialData ? 'Lưu thay đổi' : 'Tạo hồ sơ')}
+              </Button>
+            </>
+          )}
         </div>
       </form>
     </Modal>
