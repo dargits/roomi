@@ -11,7 +11,9 @@ import {
   IoCallOutline,
   IoSearchOutline,
   IoChevronForwardOutline,
-  IoCalendarOutline
+  IoCalendarOutline,
+  IoChevronDownOutline,
+  IoChevronUpOutline
 } from 'react-icons/io5';
 import { useAppConfig } from '../../context/AppConfigContext';
 import roomTypeApi from '../../services/roomTypeApi';
@@ -44,9 +46,7 @@ const DEFAULT_QUICK_REPLIES = [
   '🛏️ Gợi ý phòng nghỉ',
   '💰 Bảng giá hôm nay',
   '⏰ Giờ nhận & trả phòng',
-  '🍳 Dịch vụ & Phụ thu',
-  '🔍 Tra cứu mã đặt phòng',
-  '📞 Hotline Lễ tân 24/7'
+  '🍳 Dịch vụ & Phụ thu'
 ];
 
 export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) => {
@@ -64,6 +64,16 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to format date display DD/MM/YYYY
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    if (!y || !m || !d) return dateStr;
+    return `${d}/${m}/${y}`;
+  };
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   // Load public room types and extra services for knowledge base
   useEffect(() => {
@@ -100,7 +110,7 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
     return {
       id: 'welcome-msg',
       sender: 'bot',
-      text: `👋 **Xin chào Quý khách!** Em là **StayBot** - Trợ lý hỗ trợ đặt phòng trực tuyến của **${propName}**, được tích hợp công nghệ Gemini AI và kết nối trực tiếp với dữ liệu khách sạn.\n\nEm có thể giúp Quý khách tìm phòng ưng ý, xem bảng giá ưu đãi, kiểm tra phòng trống thực tế theo ngày, giải đáp quy định nhận/trả phòng hoặc tra cứu đặt phòng nhanh chóng. Quý khách cần hỗ trợ gì ạ? ✨`,
+      text: `👋 **Xin chào Quý khách!**\nEm là **StayBot** - Trợ lý hỗ trợ đặt phòng trực tuyến của **${propName}** ✨\n\nEm có thể hỗ trợ Quý khách tra cứu phòng trống theo ngày, xem bảng giá ưu đãi mới nhất và giải đáp thông tin đặt phòng 24/7.\n\nQuý khách muốn tìm hiểu thông tin nào hôm nay ạ?`,
       timestamp: getNowTime(),
       quickReplies: DEFAULT_QUICK_REPLIES
     };
@@ -635,34 +645,34 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
               setShowGreetingBubble(false);
               setIsOpen(true);
             }}
-            className="mb-3 mr-1 bg-surface-container-lowest text-on-surface p-3.5 rounded-2xl shadow-xl border border-border-grey max-w-[280px] sm:max-w-[320px] cursor-pointer animate-bounce-gentle transition-all hover:scale-102 hover:border-primary/40 relative group"
+            className="mb-3 mr-1 bg-white text-slate-800 p-3.5 rounded-2xl shadow-xl border border-slate-200/90 max-w-[280px] sm:max-w-[320px] cursor-pointer animate-bounce-gentle transition-all hover:scale-102 hover:border-primary/40 relative group"
           >
             {/* Close small cross */}
             <button
               type="button"
               onClick={handleDismissGreeting}
-              className="absolute -top-2 -right-2 w-5 h-5 bg-surface-container-high text-on-surface-variant hover:text-error hover:bg-red-50 rounded-full flex items-center justify-center text-xs shadow-xs transition-colors cursor-pointer"
+              className="absolute -top-2 -right-2 w-5 h-5 bg-slate-100 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-full flex items-center justify-center text-xs shadow-xs transition-colors cursor-pointer"
               title="Đóng lời chào"
             >
               <IoClose size={14} />
             </button>
 
             <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 border border-primary/20">
-                <IoSparkles className="animate-spin-reverse text-primary" size={16} />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#002B5B] to-primary text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                <IoSparkles size={16} className="text-amber-300" />
               </div>
               <div>
                 <p className="text-xs font-bold text-primary flex items-center gap-1 mb-0.5">
                   StayBot Trợ Lý
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
                 </p>
-                <p className="text-xs text-on-surface leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed">
                   Chào Quý khách! Quý khách cần xem bảng giá ưu đãi hay hỗ trợ chọn phòng hôm nay không ạ?
                 </p>
               </div>
             </div>
             {/* Pointer arrow */}
-            <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-surface-container-lowest border-r border-b border-border-grey rotate-45 transform"></div>
+            <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white border-r border-b border-slate-200/90 rotate-45 transform"></div>
           </div>
         )}
 
@@ -675,8 +685,8 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
           }}
           className={`relative flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all duration-300 cursor-pointer ${
             isOpen
-              ? 'bg-[#002146] text-white hover:bg-black rotate-90 scale-95'
-              : 'bg-primary text-white hover:bg-primary-hover hover:scale-108 active:scale-95 ring-4 ring-primary/20 shadow-primary/30'
+              ? 'bg-slate-800 text-white rotate-90 scale-95 shadow-slate-900/30'
+              : 'bg-gradient-to-tr from-[#002B5B] via-primary to-blue-600 hover:shadow-primary/40 text-white hover:scale-108 active:scale-95 ring-4 ring-primary/20 shadow-primary/30'
           }`}
           title={isOpen ? 'Thu nhỏ hộp chat' : 'Mở trợ lý tư vấn trực tuyến'}
         >
@@ -698,31 +708,31 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
       {/* Chatbot Popup Window */}
       {isOpen && (
         <div
-          className="fixed bottom-16 sm:bottom-24 left-3 right-3 sm:left-auto sm:right-6 z-50 w-auto sm:w-[410px] h-[calc(100dvh-80px)] sm:h-[580px] max-h-[620px] bg-surface-container-lowest rounded-3xl shadow-2xl border border-border-grey flex flex-col overflow-hidden animate-page-enter"
-          style={{ boxShadow: '0 20px 40px -15px rgba(0, 33, 70, 0.2)' }}
+          className="fixed bottom-16 sm:bottom-24 left-3 right-3 sm:left-auto sm:right-6 z-50 w-auto sm:w-[410px] h-[calc(100dvh-80px)] sm:h-[600px] max-h-[640px] bg-slate-50 rounded-3xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-page-enter"
+          style={{ boxShadow: '0 20px 50px -12px rgba(0, 33, 70, 0.25)' }}
         >
           {/* Header */}
-          <div className="bg-primary text-white px-4 py-3.5 flex items-center justify-between shadow-xs relative overflow-hidden shrink-0">
-            {/* Background subtle decoration */}
-            <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/5 rounded-full pointer-events-none"></div>
+          <div className="bg-gradient-to-r from-[#001833] via-[#002B5B] to-[#0052CC] text-white px-4 py-3.5 flex items-center justify-between shadow-xs relative overflow-hidden shrink-0">
+            {/* Ambient luxury light effect */}
+            <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
 
             <div className="flex items-center gap-3 relative z-10">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-xs flex items-center justify-center text-white border border-white/20 shadow-xs">
-                  <IoSparkles size={20} className="text-amber-300" />
+                <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-inner">
+                  <IoSparkles size={18} className="text-amber-300" />
                 </div>
-                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#00B63E] border-2 border-primary"></span>
+                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#00B63E] border-2 border-[#002B5B]"></span>
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-bold text-sm tracking-wide text-white">
                     StayBot Concierge
                   </h3>
-                  <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
-                    <IoSparkles size={10} className="text-amber-300" /> Gemini AI
+                  <span className="text-[10px] bg-white/15 text-white/95 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-white/10 backdrop-blur-xs">
+                    <IoSparkles size={10} className="text-amber-300" /> Trợ lý AI
                   </span>
                 </div>
-                <p className="text-[11px] text-white/80 flex items-center gap-1">
+                <p className="text-[11px] text-white/80 flex items-center gap-1 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00B63E] animate-pulse"></span>
                   Trực tuyến • {hotelSetting?.propertyName || 'Stay Away'}
                 </p>
@@ -733,34 +743,39 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
               <button
                 type="button"
                 onClick={handleResetConversation}
-                className="p-1.5 hover:bg-white/15 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-white/15 text-white/90 hover:text-white rounded-full transition-colors cursor-pointer"
                 title="Làm mới cuộc trò chuyện"
               >
-                <IoRefreshOutline size={19} />
+                <IoRefreshOutline size={18} />
               </button>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-white/15 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-white/15 text-white/90 hover:text-white rounded-full transition-colors cursor-pointer"
                 title="Thu nhỏ"
               >
-                <IoClose size={22} />
+                <IoClose size={20} />
               </button>
             </div>
           </div>
 
           {/* Quick Date Selector Bar for real-time room vacancy check */}
-          <div className="bg-surface-container-low px-4 py-2 border-b border-border-grey flex items-center justify-between text-xs shrink-0">
+          <div className="bg-white/90 backdrop-blur-xs px-3.5 py-2 border-b border-slate-200/80 flex items-center justify-between text-xs shrink-0 select-none">
             <button
               type="button"
               onClick={() => setShowDatePicker((v) => !v)}
-              className="flex items-center gap-1.5 text-on-surface-variant hover:text-primary font-medium transition-colors cursor-pointer"
+              className="flex items-center gap-2 text-slate-700 hover:text-primary font-medium transition-colors cursor-pointer group"
             >
-              <IoCalendarOutline size={14} className="text-primary" />
-              <span>
+              <div className="w-5 h-5 rounded-md bg-blue-100/70 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                <IoCalendarOutline size={12} />
+              </div>
+              <span className="text-xs">
                 {chatCheckIn && chatCheckOut
-                  ? `${chatCheckIn} → ${chatCheckOut}`
+                  ? `${formatDateDisplay(chatCheckIn)} → ${formatDateDisplay(chatCheckOut)}`
                   : 'Chọn ngày lưu trú để AI tra cứu phòng trống'}
+              </span>
+              <span className="text-[10px] text-slate-400 group-hover:text-primary transition-colors">
+                {showDatePicker ? <IoChevronUpOutline size={12} /> : <IoChevronDownOutline size={12} />}
               </span>
             </button>
             {chatCheckIn && (
@@ -770,203 +785,262 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
                   setChatCheckIn('');
                   setChatCheckOut('');
                 }}
-                className="text-[10px] text-error hover:underline cursor-pointer"
+                className="text-[10px] font-medium text-rose-500 hover:text-rose-700 hover:underline cursor-pointer"
               >
                 Xóa ngày
               </button>
             )}
           </div>
           {showDatePicker && (
-            <div className="bg-surface-container-lowest p-3 border-b border-border-grey grid grid-cols-2 gap-2 text-xs shrink-0 animate-page-enter">
-              <div>
-                <label className="block text-[10px] font-semibold text-on-surface-variant mb-1">Ngày nhận phòng</label>
-                <input
-                  type="date"
-                  value={chatCheckIn}
-                  onChange={(e) => setChatCheckIn(e.target.value)}
-                  className="w-full text-xs p-1.5 bg-surface-container-low border border-border-grey rounded-md"
-                />
+            <div className="bg-white p-3.5 border-b border-slate-200/80 shadow-inner shrink-0 animate-page-enter">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                  <IoCalendarOutline size={14} className="text-primary" /> Thời gian lưu trú
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(false)}
+                  className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
               </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-on-surface-variant mb-1">Ngày trả phòng</label>
-                <input
-                  type="date"
-                  value={chatCheckOut}
-                  onChange={(e) => setChatCheckOut(e.target.value)}
-                  min={chatCheckIn || undefined}
-                  className="w-full text-xs p-1.5 bg-surface-container-low border border-border-grey rounded-md"
-                />
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                    Ngày nhận phòng
+                  </label>
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={chatCheckIn}
+                    onChange={(e) => {
+                      setChatCheckIn(e.target.value);
+                      if (chatCheckOut && e.target.value > chatCheckOut) {
+                        setChatCheckOut('');
+                      }
+                    }}
+                    className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-primary focus:bg-white transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                    Ngày trả phòng
+                  </label>
+                  <input
+                    type="date"
+                    min={chatCheckIn || todayStr}
+                    value={chatCheckOut}
+                    onChange={(e) => setChatCheckOut(e.target.value)}
+                    className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-primary focus:bg-white transition-all"
+                  />
+                </div>
               </div>
+              {chatCheckIn && chatCheckOut && (
+                <div className="mt-2.5 flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span className="text-[11px] text-emerald-600 font-medium">
+                    ✓ {formatDateDisplay(chatCheckIn)} - {formatDateDisplay(chatCheckOut)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDatePicker(false);
+                      handleSendMessage(`Kiểm tra phòng trống từ ${formatDateDisplay(chatCheckIn)} đến ${formatDateDisplay(chatCheckOut)}`);
+                    }}
+                    className="px-2.5 py-1 bg-primary text-white rounded-md text-[11px] font-bold hover:bg-primary-hover transition-colors cursor-pointer shadow-2xs"
+                  >
+                    Kiểm tra phòng
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-surface/50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/60">
             {messages.map((msg) => {
               const isBot = msg.sender === 'bot';
               return (
                 <div
                   key={msg.id}
-                  className={`flex flex-col ${isBot ? 'items-start' : 'items-end'}`}
+                  className={`flex items-start gap-2.5 ${isBot ? 'justify-start' : 'justify-end'}`}
                 >
-                  <div
-                    className={`max-w-[88%] rounded-2xl p-3 text-xs leading-relaxed ${
-                      isBot
-                        ? 'bg-surface-container-lowest text-on-surface border border-border-grey shadow-xs rounded-tl-xs'
-                        : 'bg-primary text-white shadow-xs rounded-tr-xs'
-                    }`}
-                  >
-                    {/* Message Text with simple Markdown formatting */}
-                    <div className="whitespace-pre-line space-y-1">
-                      {msg.text.split('\n').map((line, idx) => {
-                        // Bold markdown render **text**
-                        const parts = line.split(/(\*\*.*?\*\*)/g);
-                        return (
-                          <div key={idx}>
-                            {parts.map((part, pIdx) => {
-                              if (part.startsWith('**') && part.endsWith('**')) {
-                                return (
-                                  <strong key={pIdx} className={isBot ? 'text-primary font-bold' : 'font-bold'}>
-                                    {part.slice(2, -2)}
-                                  </strong>
-                                );
-                              }
-                              return part;
-                            })}
-                          </div>
-                        );
-                      })}
+                  {isBot && (
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#002B5B] to-primary text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                      <IoSparkles size={12} className="text-amber-300" />
                     </div>
+                  )}
 
-                    {/* Room Recommendation Cards */}
-                    {isBot && msg.roomCards && msg.roomCards.length > 0 && (
-                      <div className="mt-3 space-y-2 pt-2 border-t border-border-grey/70">
-                        {msg.roomCards.map((room) => {
-                          const img = room.imageUrls?.[0] || 'https://i.ibb.co/1fxxj3ZK/images-3-jpg.jpg';
-                          const price = room.currentPrice || room.basePrice;
+                  <div className={`flex flex-col ${isBot ? 'items-start max-w-[85%]' : 'items-end max-w-[85%]'}`}>
+                    {isBot && (
+                      <span className="text-[10px] font-semibold text-slate-400 mb-1 ml-1 select-none">
+                        StayBot
+                      </span>
+                    )}
+
+                    <div
+                      className={`rounded-2xl p-3.5 text-xs leading-relaxed ${
+                        isBot
+                          ? 'bg-white text-slate-800 border border-slate-200/90 shadow-xs rounded-tl-xs'
+                          : 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-xs rounded-tr-xs'
+                      }`}
+                    >
+                      {/* Message Text with simple Markdown formatting */}
+                      <div className="whitespace-pre-line space-y-1">
+                        {msg.text.split('\n').map((line, idx) => {
+                          const parts = line.split(/(\*\*.*?\*\*)/g);
                           return (
-                            <div
-                              key={room.id}
-                              className="bg-surface-container-low rounded-xl p-2.5 border border-border-grey flex gap-2.5 items-center hover:border-primary/40 transition-colors"
-                            >
-                              <img
-                                src={img}
-                                alt={room.name}
-                                className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border-grey/50"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-[12px] text-on-surface truncate">
-                                  {room.name}
-                                </h4>
-                                <p className="text-[10px] text-on-surface-variant flex items-center gap-1 mt-0.5">
-                                  <IoBedOutline size={12} className="text-primary shrink-0" />
-                                  <span>Tối đa {room.maxCapacity} khách</span>
-                                </p>
-                                <p className="text-[11px] font-bold text-primary mt-1">
-                                  {formatCurrency(price)}
-                                  <span className="text-[9px] font-normal text-on-surface-variant">/đêm</span>
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsOpen(false);
-                                  navigate('/rooms');
-                                }}
-                                className="bg-primary hover:bg-primary-hover text-white text-[10px] font-bold px-2 py-1.5 rounded-lg shrink-0 transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                Đặt ngay
-                              </button>
+                            <div key={idx}>
+                              {parts.map((part, pIdx) => {
+                                if (part.startsWith('**') && part.endsWith('**')) {
+                                  return (
+                                    <strong key={pIdx} className={isBot ? 'text-primary font-bold' : 'font-bold'}>
+                                      {part.slice(2, -2)}
+                                    </strong>
+                                  );
+                                }
+                                return part;
+                              })}
                             </div>
                           );
                         })}
                       </div>
-                    )}
 
-                    {/* Extra Service Cards */}
-                    {isBot && msg.serviceCards && msg.serviceCards.length > 0 && (
-                      <div className="mt-3 space-y-1.5 pt-2 border-t border-border-grey/70">
-                        {msg.serviceCards.map((srv) => (
-                          <div
-                            key={srv.id}
-                            className="bg-surface-container-low rounded-lg p-2 border border-border-grey flex items-center justify-between text-[11px]"
+                      {/* Room Recommendation Cards */}
+                      {isBot && msg.roomCards && msg.roomCards.length > 0 && (
+                        <div className="mt-3 space-y-2 pt-2 border-t border-slate-100">
+                          {msg.roomCards.map((room) => {
+                            const img = room.imageUrls?.[0] || 'https://i.ibb.co/1fxxj3ZK/images-3-jpg.jpg';
+                            const price = room.currentPrice || room.basePrice;
+                            return (
+                              <div
+                                key={room.id}
+                                className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-200/80 flex gap-2.5 items-center hover:border-primary/40 hover:bg-white transition-all shadow-2xs"
+                              >
+                                <img
+                                  src={img}
+                                  alt={room.name}
+                                  className="w-16 h-16 rounded-lg object-cover shrink-0 border border-slate-200/60"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-bold text-[12px] text-slate-900 truncate">
+                                    {room.name}
+                                  </h4>
+                                  <p className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                    <IoBedOutline size={12} className="text-primary shrink-0" />
+                                    <span>Tối đa {room.maxCapacity} khách</span>
+                                  </p>
+                                  <p className="text-[11px] font-bold text-primary mt-1">
+                                    {formatCurrency(price)}
+                                    <span className="text-[9px] font-normal text-slate-500">/đêm</span>
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsOpen(false);
+                                    navigate('/rooms');
+                                  }}
+                                  className="bg-primary hover:bg-primary-hover text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
+                                >
+                                  Đặt ngay
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Extra Service Cards */}
+                      {isBot && msg.serviceCards && msg.serviceCards.length > 0 && (
+                        <div className="mt-3 space-y-1.5 pt-2 border-t border-slate-100">
+                          {msg.serviceCards.map((srv) => (
+                            <div
+                              key={srv.id}
+                              className="bg-slate-50 rounded-lg p-2 border border-slate-200/80 flex items-center justify-between text-[11px]"
+                            >
+                              <span className="font-semibold text-slate-800">{srv.name}</span>
+                              <span className="font-bold text-primary">
+                                {formatCurrency(srv.unitPrice)}
+                                <span className="text-[9px] text-slate-500 font-normal">/{srv.unit}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action Button */}
+                      {isBot && msg.action && (
+                        <div className="mt-2.5 pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => handleActionClick(msg.action!)}
+                            className="w-full flex items-center justify-center gap-1.5 bg-primary/10 hover:bg-primary hover:text-white text-primary text-xs font-bold py-2 px-3 rounded-xl border border-primary/20 transition-all cursor-pointer shadow-2xs"
                           >
-                            <span className="font-semibold text-on-surface">{srv.name}</span>
-                            <span className="font-bold text-primary">
-                              {formatCurrency(srv.unitPrice)}
-                              <span className="text-[9px] text-on-surface-variant font-normal">/{srv.unit}</span>
-                            </span>
-                          </div>
+                            {msg.action.label}
+                            <IoChevronForwardOutline size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Timestamp */}
+                    <span className="text-[9px] text-slate-400 mt-1 px-1">
+                      {msg.timestamp}
+                    </span>
+
+                    {/* Quick Replies below latest message */}
+                    {isBot && msg.quickReplies && (
+                      <div className="flex flex-wrap gap-1.5 mt-2.5 max-w-[100%]">
+                        {msg.quickReplies.map((reply, rIdx) => (
+                          <button
+                            key={rIdx}
+                            type="button"
+                            onClick={() => handleSendMessage(reply)}
+                            className="bg-white hover:bg-blue-50/90 hover:text-primary text-slate-700 border border-slate-200/90 hover:border-primary/40 rounded-full text-[11px] py-1 px-3 transition-all cursor-pointer font-medium shadow-2xs active:scale-95"
+                          >
+                            {reply}
+                          </button>
                         ))}
                       </div>
                     )}
-
-                    {/* Action Button */}
-                    {isBot && msg.action && (
-                      <div className="mt-2.5 pt-2 border-t border-border-grey/70">
-                        <button
-                          type="button"
-                          onClick={() => handleActionClick(msg.action!)}
-                          className="w-full flex items-center justify-center gap-1.5 bg-primary/10 hover:bg-primary hover:text-white text-primary text-xs font-bold py-2 px-3 rounded-xl border border-primary/20 transition-all cursor-pointer shadow-2xs"
-                        >
-                          {msg.action.label}
-                          <IoChevronForwardOutline size={14} />
-                        </button>
-                      </div>
-                    )}
                   </div>
-
-                  {/* Timestamp */}
-                  <span className="text-[9px] text-on-surface-variant/70 mt-1 px-1">
-                    {msg.timestamp}
-                  </span>
-
-                  {/* Quick Replies below latest message */}
-                  {isBot && msg.quickReplies && (
-                    <div className="flex flex-wrap gap-1.5 mt-2 max-w-[95%]">
-                      {msg.quickReplies.map((reply, rIdx) => (
-                        <button
-                          key={rIdx}
-                          type="button"
-                          onClick={() => handleSendMessage(reply)}
-                          className="bg-surface-container-lowest hover:bg-primary/10 text-on-surface hover:text-primary border border-border-grey hover:border-primary/40 rounded-full text-[11px] py-1 px-2.5 transition-all cursor-pointer font-medium shadow-2xs active:scale-95"
-                        >
-                          {reply}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               );
             })}
 
             {/* Typing Indicator */}
             {isTyping && (
-              <div className="flex items-center gap-1.5 bg-surface-container-lowest border border-border-grey rounded-2xl rounded-tl-xs px-3.5 py-2.5 w-fit shadow-xs animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]"></span>
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]"></span>
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]"></span>
-                <span className="text-[10px] text-on-surface-variant font-medium ml-1">
-                  StayBot đang soạn tin...
-                </span>
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#002B5B] to-primary text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                  <IoSparkles size={12} className="text-amber-300" />
+                </div>
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200/90 rounded-2xl rounded-tl-xs px-3.5 py-2.5 w-fit shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]"></span>
+                  <span className="text-[11px] text-slate-500 font-medium ml-1">
+                    StayBot đang soạn tin...
+                  </span>
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
           {/* Quick Action Navigation Bar */}
-          <div className="px-3 py-1.5 bg-surface border-t border-border-grey/70 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 text-[11px]">
+          <div className="px-3 py-2 bg-slate-50/80 border-t border-slate-200/70 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 text-xs select-none">
             <button
               type="button"
               onClick={() => handleSendMessage('🛏️ Gợi ý phòng nghỉ')}
-              className="flex items-center gap-1 py-1 px-2 rounded-lg bg-surface-container-lowest border border-border-grey text-on-surface-variant hover:text-primary hover:border-primary/40 whitespace-nowrap cursor-pointer transition-colors"
+              className="flex items-center gap-1 py-1.5 px-2.5 rounded-full bg-white border border-slate-200/80 text-slate-700 hover:text-primary hover:border-primary/40 whitespace-nowrap cursor-pointer transition-all shadow-2xs active:scale-95 text-[11px] font-medium"
             >
               <IoBedOutline size={13} className="text-primary" /> Phòng & Giá
             </button>
             <button
               type="button"
               onClick={() => handleSendMessage('⏰ Giờ nhận & trả phòng')}
-              className="flex items-center gap-1 py-1 px-2 rounded-lg bg-surface-container-lowest border border-border-grey text-on-surface-variant hover:text-primary hover:border-primary/40 whitespace-nowrap cursor-pointer transition-colors"
+              className="flex items-center gap-1 py-1.5 px-2.5 rounded-full bg-white border border-slate-200/80 text-slate-700 hover:text-primary hover:border-primary/40 whitespace-nowrap cursor-pointer transition-all shadow-2xs active:scale-95 text-[11px] font-medium"
             >
               <IoTimeOutline size={13} className="text-primary" /> Check-in/out
             </button>
@@ -979,20 +1053,20 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
                   handleSendMessage('🔍 Tra cứu mã đặt phòng');
                 }
               }}
-              className="flex items-center gap-1 py-1 px-2 rounded-lg bg-surface-container-lowest border border-border-grey text-on-surface-variant hover:text-primary hover:border-primary/40 whitespace-nowrap cursor-pointer transition-colors"
+              className="flex items-center gap-1 py-1.5 px-2.5 rounded-full bg-white border border-slate-200/80 text-slate-700 hover:text-primary hover:border-primary/40 whitespace-nowrap cursor-pointer transition-all shadow-2xs active:scale-95 text-[11px] font-medium"
             >
               <IoSearchOutline size={13} className="text-primary" /> Tra cứu đơn
             </button>
             <a
               href={`tel:${hotelSetting?.phone || '0365224245'}`}
-              className="flex items-center gap-1 py-1 px-2 rounded-lg bg-surface-container-lowest border border-border-grey text-on-surface-variant hover:text-primary hover:border-primary/40 whitespace-nowrap transition-colors"
+              className="flex items-center gap-1 py-1.5 px-2.5 rounded-full bg-white border border-slate-200/80 text-slate-700 hover:text-primary hover:border-primary/40 whitespace-nowrap transition-all shadow-2xs active:scale-95 text-[11px] font-medium"
             >
               <IoCallOutline size={13} className="text-primary" /> Hotline
             </a>
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-surface-container-lowest border-t border-border-grey flex items-center gap-2 shrink-0">
+          <div className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0">
             <input
               ref={inputRef}
               type="text"
@@ -1000,21 +1074,28 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Nhập câu hỏi (VD: phòng 2 người, ăn sáng...)"
-              className="flex-1 bg-surface-container-low border border-border-grey rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:bg-white transition-all placeholder:text-on-surface-variant/60"
+              className="flex-1 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/90 rounded-full px-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
             <button
               type="button"
               onClick={() => handleSendMessage()}
               disabled={!inputText.trim() || isTyping}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                 inputText.trim() && !isTyping
-                  ? 'bg-primary text-white hover:bg-primary-hover shadow-xs active:scale-95'
-                  : 'bg-surface-container-high text-on-surface-variant/40 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-primary to-blue-600 text-white hover:opacity-95 shadow-xs active:scale-95'
+                  : 'bg-slate-100 text-slate-300 cursor-not-allowed'
               }`}
               title="Gửi câu hỏi"
             >
               <IoSend size={15} />
             </button>
+          </div>
+
+          {/* Footer branding */}
+          <div className="py-1.5 bg-white text-center text-[10px] text-slate-400 select-none border-t border-slate-100 flex items-center justify-center gap-1">
+            <span>⚡ StayBot AI Concierge</span>
+            <span>•</span>
+            <span>Hỗ trợ trực tuyến 24/7</span>
           </div>
         </div>
       )}
