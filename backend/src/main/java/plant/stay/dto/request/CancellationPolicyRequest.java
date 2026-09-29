@@ -15,6 +15,9 @@ public class CancellationPolicyRequest {
     @Min(value = 0)
     private Integer freeCancelHours;
 
+    @Min(value = 0)
+    private Integer hoursAfterConfirmation; // Số giờ tính phí sau khi lễ tân xác nhận
+
     @NotNull(message = "% phạt không được để trống")
     @DecimalMin(value = "0")
     private BigDecimal penaltyPercent;
