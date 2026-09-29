@@ -324,8 +324,6 @@ Hệ thống được khởi tạo sẵn các tài khoản mẫu thông qua `Dat
 ## 📚 Danh Mục Tài Liệu Chi Tiết
 
 * 📖 **[Hướng dẫn triển khai VPS & CI/CD (DEPLOYMENT.md)](./DEPLOYMENT.md)**
-* ☕ **[Tài liệu kiến trúc Backend (backend/)](./backend/README.md)**
-* ⚛️ **[Tài liệu kiến trúc Frontend (frontend/)](./frontend/README.md)**
 
 ---
 
