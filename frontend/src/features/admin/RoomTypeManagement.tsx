@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { useAuth } from '../../context/AuthContext';
-import { IoAddOutline, IoBedOutline, IoCashOutline, IoChevronDownOutline, IoCloseOutline, IoCloudUploadOutline, IoPencilOutline, IoTrashOutline, IoWarningOutline } from 'react-icons/io5';
+import { IoAddOutline, IoBedOutline, IoCashOutline, IoChevronDownOutline, IoCloseOutline, IoCloudUploadOutline, IoPencilOutline, IoTrashOutline, IoWarningOutline, IoTimeOutline } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -20,6 +20,8 @@ interface RoomTypeFormData {
   maxChildAgeFree: number;
   basePrice: number;
   amenitiesDescription: string;
+  standardCheckoutCleaningMinutes: number;
+  standardPeriodicCleaningMinutes: number;
   imageUrls: string[];
   active: boolean;
 }
@@ -42,6 +44,8 @@ const RoomTypeManagement: React.FC = () => {
     maxChildAgeFree: 6,
     basePrice: 0,
     amenitiesDescription: '',
+    standardCheckoutCleaningMinutes: 45,
+    standardPeriodicCleaningMinutes: 20,
     imageUrls: [],
     active: true
   });
@@ -95,6 +99,8 @@ const RoomTypeManagement: React.FC = () => {
       maxChildAgeFree: 6,
       basePrice: 0,
       amenitiesDescription: '',
+      standardCheckoutCleaningMinutes: 45,
+      standardPeriodicCleaningMinutes: 20,
       imageUrls: [],
       active: true
     });
@@ -113,6 +119,8 @@ const RoomTypeManagement: React.FC = () => {
       maxChildAgeFree: room.maxChildAgeFree || 6,
       basePrice: room.basePrice,
       amenitiesDescription: room.amenitiesDescription || '',
+      standardCheckoutCleaningMinutes: (room as any).standardCheckoutCleaningMinutes || 45,
+      standardPeriodicCleaningMinutes: (room as any).standardPeriodicCleaningMinutes || 20,
       imageUrls: room.imageUrls || [],
       active: room.active
     });
@@ -141,7 +149,9 @@ const RoomTypeManagement: React.FC = () => {
         maxCapacity: Number(formData.maxCapacity),
         extraPersonChargePerNight: Number(formData.extraPersonChargePerNight),
         maxChildAgeFree: Number(formData.maxChildAgeFree),
-        basePrice: Number(formData.basePrice)
+        basePrice: Number(formData.basePrice),
+        standardCheckoutCleaningMinutes: Number(formData.standardCheckoutCleaningMinutes) || 45,
+        standardPeriodicCleaningMinutes: Number(formData.standardPeriodicCleaningMinutes) || 20
       };
       if (isEditing && formData.id) {
         await roomTypeApi.updateRoomType(formData.id, payload as any);
@@ -240,6 +250,11 @@ const RoomTypeManagement: React.FC = () => {
                       {room.maxChildAgeFree !== undefined && (
                         <div className="text-[11px] text-[#606D56] mt-0.5">Miễn phụ thu trẻ ≤ {room.maxChildAgeFree} tuổi</div>
                       )}
+                      <div className="text-[10px] text-on-surface-variant flex items-center gap-1.5 mt-0.5">
+                        <span className="text-emerald-700 font-semibold" title="Định mức dọn sau trả phòng">⏱️ Khách trả: {(room as any).standardCheckoutCleaningMinutes || 45}p</span>
+                        <span>•</span>
+                        <span className="text-blue-700 font-semibold" title="Định mức dọn định kỳ">Định kỳ: {(room as any).standardPeriodicCleaningMinutes || 20}p</span>
+                      </div>
                     </td>
                     <td className="p-4 text-center">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F2F6ED] border border-border-grey text-[#4F5E37] font-bold text-xs">
@@ -386,6 +401,35 @@ const RoomTypeManagement: React.FC = () => {
             
             <div className="col-span-1 md:col-span-2">
               <Input label="Giá cơ bản (VNĐ/đêm)" type="number" name="basePrice" required min="0" step="any" value={String(formData.basePrice)} onChange={handleInputChange} />
+            </div>
+
+            <div className="col-span-1 md:col-span-2 p-3 bg-surface-container-low rounded-xl border border-border-grey space-y-2">
+              <div className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
+                <IoTimeOutline size={15} className="text-primary" />
+                Định mức thời gian dọn buồng phòng
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input
+                  label="Dọn sau khi khách trả (phút)"
+                  type="number"
+                  name="standardCheckoutCleaningMinutes"
+                  min="5"
+                  max="180"
+                  value={String(formData.standardCheckoutCleaningMinutes || 45)}
+                  onChange={handleInputChange}
+                  helperText="Thay đồ vải, vệ sinh toàn diện & khử khuẩn (mặc định: 45p)"
+                />
+                <Input
+                  label="Dọn định kỳ phòng trống (phút)"
+                  type="number"
+                  name="standardPeriodicCleaningMinutes"
+                  min="5"
+                  max="180"
+                  value={String(formData.standardPeriodicCleaningMinutes || 20)}
+                  onChange={handleInputChange}
+                  helperText="Lau bụi, kiểm tra thiết bị định kỳ (mặc định: 20p)"
+                />
+              </div>
             </div>
             
             <div className="col-span-1 md:col-span-2">

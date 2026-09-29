@@ -42,4 +42,29 @@ public interface RoomCleaningRecordRepository extends JpaRepository<RoomCleaning
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+    @Query("SELECT r FROM RoomCleaningRecord r " +
+           "LEFT JOIN FETCH r.room " +
+           "LEFT JOIN FETCH r.roomType " +
+           "LEFT JOIN FETCH r.housekeeper " +
+           "WHERE (r.completedAt >= :startDate AND r.completedAt <= :endDate) " +
+           "   OR (r.completedAt IS NULL AND r.startedAt >= :startDate AND r.startedAt <= :endDate) " +
+           "ORDER BY COALESCE(r.completedAt, r.startedAt) DESC")
+    List<RoomCleaningRecord> findRecordsBetween(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("SELECT r FROM RoomCleaningRecord r " +
+           "LEFT JOIN FETCH r.room " +
+           "LEFT JOIN FETCH r.roomType " +
+           "LEFT JOIN FETCH r.housekeeper " +
+           "WHERE r.housekeeper.id = :housekeeperId " +
+           "  AND ((r.completedAt >= :startDate AND r.completedAt <= :endDate) " +
+           "   OR (r.completedAt IS NULL AND r.startedAt >= :startDate AND r.startedAt <= :endDate)) " +
+           "ORDER BY COALESCE(r.completedAt, r.startedAt) DESC")
+    List<RoomCleaningRecord> findRecordsByHousekeeperBetween(
+            @Param("housekeeperId") Long housekeeperId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }
