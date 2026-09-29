@@ -9,8 +9,19 @@ import java.time.LocalDate;
 
 @Data
 public class BookingRequest {
-    @NotNull(message = "Khách hàng không được để trống")
-    private Long guestId;
+    private Long guestId; // Tùy chọn nếu đã cung cấp guestName và guestPhone
+
+    @Size(max = 150, message = "Tên khách hàng không được vượt quá 150 ký tự")
+    private String guestName;
+
+    @Size(max = 20, message = "Số điện thoại không được vượt quá 20 ký tự")
+    private String guestPhone;
+
+    @Size(max = 150, message = "Email không được vượt quá 150 ký tự")
+    private String guestEmail;
+
+    @Size(max = 20, message = "Số CMND/CCCD không được vượt quá 20 ký tự")
+    private String guestIdNumber;
 
     @NotNull(message = "Loại phòng không được để trống")
     private Long roomTypeId;
