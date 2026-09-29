@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { passwordResetApi, VerifyResetTokenResponse } from '../../services/passwordResetApi';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useToast } from '../../context/ToastContext';
+import useSEO from '../../hooks/useSEO';
 import {
   IoLockClosedOutline,
   IoEyeOutline,
@@ -12,10 +13,18 @@ import {
   IoPersonOutline,
   IoArrowBackOutline,
   IoShieldCheckmarkOutline,
-  IoAlertCircleOutline
+  IoAlertCircleOutline,
+  IoKeyOutline
 } from 'react-icons/io5';
 
 const ResetPasswordPage: React.FC = () => {
+  useSEO({
+    title: 'Cập Nhật Mật Khẩu Mới',
+    description: 'Thiết lập mật khẩu mới an toàn cho tài khoản nhân viên hệ thống quản lý khách sạn StayAway PMS.',
+    keywords: 'đặt lại mật khẩu, reset password, stay away pms',
+    canonical: 'https://stayaway.io.vn/reset-password'
+  });
+
   const { token: routeToken } = useParams<{ token?: string }>();
   const [searchParams] = useSearchParams();
   const token = routeToken || searchParams.get('token') || '';
@@ -107,7 +116,7 @@ const ResetPasswordPage: React.FC = () => {
 
   // Password strength calculator
   const getPasswordStrength = (pwd: string) => {
-    if (!pwd) return { level: 0, text: '', color: 'bg-border-grey' };
+    if (!pwd) return { level: 0, text: '', color: 'bg-slate-200' };
     let score = 0;
     if (pwd.length >= 6) score++;
     if (pwd.length >= 8) score++;
@@ -115,9 +124,9 @@ const ResetPasswordPage: React.FC = () => {
     if (/[0-9]/.test(pwd)) score++;
     if (/[^A-Za-z0-9]/.test(pwd)) score++;
 
-    if (score <= 2) return { level: 1, text: 'Mật khẩu yếu', color: 'bg-[#E53935]' };
-    if (score <= 3) return { level: 2, text: 'Độ bảo mật trung bình', color: 'bg-[#FDD835]' };
-    return { level: 3, text: 'Mật khẩu mạnh & an toàn', color: 'bg-[#43A047]' };
+    if (score <= 2) return { level: 1, text: 'Mật khẩu yếu', color: 'bg-rose-500' };
+    if (score <= 3) return { level: 2, text: 'Độ bảo mật trung bình', color: 'bg-amber-500' };
+    return { level: 3, text: 'Mật khẩu mạnh & an toàn', color: 'bg-emerald-500' };
   };
 
   const strength = getPasswordStrength(newPassword);
@@ -163,260 +172,326 @@ const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center p-4 sm:p-6 lg:p-8 antialiased overflow-y-auto">
-      <div className="w-full max-w-lg bg-surface-container-lowest border border-border-grey shadow-sm p-6 sm:p-10 flex flex-col items-center my-auto">
-        {/* Logo with 5 animated color dots */}
+    <div className="bg-white text-on-surface min-h-screen md:h-screen w-full flex flex-col md:flex-row antialiased overflow-x-hidden relative">
+      {/* ── Left Side: Luxury Hotel Editorial Showcase (50% desktop, hidden mobile) ── */}
+      <div className="hidden md:flex md:w-1/2 relative bg-slate-900 h-full overflow-hidden shrink-0">
         <div
-          className="flex flex-col items-center cursor-pointer select-none mb-5"
-          onClick={() => navigate('/')}
+          className="absolute inset-0 bg-cover bg-center w-full h-full transform scale-105 transition-transform duration-1000"
+          style={{
+            backgroundImage: `url('${hotelSetting?.homeImage || 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=2000&q=85'}')`
+          }}
         >
-          <span className="font-logo font-medium text-[42px] tracking-wide text-[#4a4a4a] leading-none uppercase">
-            {hotelSetting?.propertyName || 'STAY AWAY'}
-          </span>
-          <div className="flex gap-2 mt-2">
-            <div className="w-3 h-3 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-3 h-3 rounded-full bg-[#FDD835] animate-bounce [animation-delay:150ms]" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-3 h-3 rounded-full bg-[#43A047] animate-bounce [animation-delay:300ms]" style={{ animationDelay: '300ms' }}></div>
-            <div className="w-3 h-3 rounded-full bg-[#8E24AA] animate-bounce [animation-delay:450ms]" style={{ animationDelay: '450ms' }}></div>
-            <div className="w-3 h-3 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]" style={{ animationDelay: '600ms' }}></div>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/35" />
         </div>
 
-        <h1 className="font-headline-md text-headline-md text-on-surface mb-1.5 text-center w-full">
-          Cập nhật mật khẩu mới
-        </h1>
-        <p className="font-body-md text-body-md text-on-surface-variant text-center mb-6">
-          Thiết lập mật khẩu mới an toàn cho tài khoản đăng nhập của bạn.
-        </p>
-
-        {/* 1. Loading State */}
-        {isVerifying && (
-          <div className="w-full py-12 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="inline-block w-8 h-8 border-3 border-agoda-blue border-t-transparent animate-spin rounded-full" />
-            <div className="font-title-lg text-sm text-on-surface font-semibold">
-              Đang kiểm tra tính hợp lệ của liên kết...
-            </div>
-            <p className="text-xs text-on-surface-variant">Hệ thống đang xác thực mã bảo mật, vui lòng đợi trong giây lát.</p>
+        {/* Content on Image Overlay */}
+        <div className="relative z-10 flex flex-col justify-between p-8 lg:p-12 h-full w-full">
+          {/* Top badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-semibold w-fit shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Cổng Xác Thực An Ninh Hệ Thống</span>
           </div>
-        )}
 
-        {/* 2. Error State (Invalid / Expired Token) */}
-        {!isVerifying && verifyError && (
-          <div className="w-full space-y-5 animate-fade-in">
-            <div className="p-4 bg-[#ffebee] border border-[#ffcdd2] text-[#c62828] text-sm flex items-start gap-3">
-              <IoAlertCircleOutline size={22} className="shrink-0 mt-0.5 text-[#E53935]" />
-              <div>
-                <div className="font-bold mb-0.5">Liên kết không hợp lệ hoặc đã hết hạn</div>
-                <div className="text-xs text-[#c62828]/90 leading-relaxed">{verifyError}</div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-surface-container-low border border-border-grey text-xs text-on-surface-variant space-y-2">
-              <div className="font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
-                <IoTimeOutline size={16} className="text-primary" /> Lưu ý về thời hạn liên kết:
-              </div>
-              <p className="leading-relaxed">
-                Vì lý do an ninh, mỗi liên kết đặt lại mật khẩu chỉ có hiệu lực trong vòng <strong>10 phút</strong>. Bạn có thể quay lại trang đăng nhập để gửi lại yêu cầu cấp liên kết mới bất kỳ lúc nào.
+          {/* Bottom text & Security highlights */}
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl lg:text-4xl text-white font-bold max-w-lg mb-3 leading-tight tracking-tight">
+                Bảo vệ tài khoản cùng {hotelSetting?.propertyName || 'Stay Away'}
+              </h1>
+              <p className="text-sm lg:text-base text-white/80 leading-relaxed max-w-md">
+                Thiết lập mật khẩu mới an toàn cho hệ thống quản lý và vận hành khách sạn chuyên nghiệp.
               </p>
             </div>
 
-            <div className="space-y-3 pt-2">
+            {/* 3 Security Pillars */}
+            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/15">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-white">
+                <IoShieldCheckmarkOutline size={20} className="text-emerald-400 mb-1.5" />
+                <div className="text-xs font-bold leading-tight">Mã Hóa 256-bit</div>
+                <div className="text-[10px] text-white/70 mt-0.5">Tiêu chuẩn quốc tế</div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-white">
+                <IoTimeOutline size={20} className="text-sky-400 mb-1.5" />
+                <div className="text-xs font-bold leading-tight">Thời Hạn 10 Phút</div>
+                <div className="text-[10px] text-white/70 mt-0.5">Tự động hủy mã</div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-white">
+                <IoKeyOutline size={20} className="text-amber-400 mb-1.5" />
+                <div className="text-xs font-bold leading-tight">Thu Hồi Phiên</div>
+                <div className="text-[10px] text-white/70 mt-0.5">Xóa phiên cũ</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right Side: Reset Password Form (50% desktop, full width on mobile) ── */}
+      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-8 lg:p-12 min-h-screen md:min-h-0 md:h-full bg-white overflow-y-auto">
+        <div className="w-full max-w-md flex flex-col items-center my-auto">
+          {/* Logo & Animated 5 Color Dots (Matching LoginPage) */}
+          <div
+            className="flex flex-col items-center cursor-pointer select-none mb-5"
+            onClick={() => navigate('/')}
+          >
+            <span className="font-logo font-medium text-3xl lg:text-4xl tracking-wide text-[#4a4a4a] leading-none uppercase">
+              {hotelSetting?.propertyName || 'STAY AWAY'}
+            </span>
+            <div className="flex gap-2 mt-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#E53935] animate-bounce [animation-delay:0ms]"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FDD835] animate-bounce [animation-delay:150ms]"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#43A047] animate-bounce [animation-delay:300ms]"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#8E24AA] animate-bounce [animation-delay:450ms]"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#1E88E5] animate-bounce [animation-delay:600ms]"></div>
+            </div>
+          </div>
+
+          <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight mb-1 text-center w-full">
+            Cập nhật mật khẩu mới
+          </h2>
+          <p className="text-xs md:text-sm text-slate-500 text-center mb-6 max-w-xs">
+            Thiết lập mật khẩu mới an toàn cho tài khoản đăng nhập của bạn.
+          </p>
+
+          {/* 1. Loading State */}
+          {isVerifying && (
+            <div className="w-full py-12 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-inner">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+              <div>
+                <div className="text-sm text-slate-800 font-bold">
+                  Đang kiểm tra tính hợp lệ của liên kết...
+                </div>
+                <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                  Hệ thống đang xác thực mã bảo mật, vui lòng đợi trong giây lát.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Error State (Invalid / Expired Token) */}
+          {!isVerifying && verifyError && (
+            <div className="w-full space-y-5 animate-fade-in">
+              <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 text-rose-900 flex items-start gap-3 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <IoAlertCircleOutline size={22} />
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-rose-900 mb-0.5">Liên kết không hợp lệ hoặc đã hết hạn</div>
+                  <div className="text-xs text-rose-700/90 leading-relaxed">{verifyError}</div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-2">
+                <div className="font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
+                  <IoTimeOutline size={15} className="text-primary" /> Lưu ý về thời hạn liên kết:
+                </div>
+                <p className="leading-relaxed">
+                  Vì lý do an ninh, mỗi liên kết đặt lại mật khẩu chỉ có hiệu lực trong vòng <strong>10 phút</strong>. Bạn có thể quay lại trang đăng nhập để gửi lại yêu cầu cấp liên kết mới bất kỳ lúc nào.
+                </p>
+              </div>
+
+              <div className="space-y-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="w-full bg-primary hover:bg-primary-hover text-white font-semibold text-xs md:text-sm py-3 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <IoArrowBackOutline size={18} />
+                  <span>QUAY LẠI TRANG ĐĂNG NHẬP</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 font-semibold text-xs md:text-sm py-3 rounded-xl transition-colors cursor-pointer"
+                >
+                  CỔNG ĐẶT PHÒNG
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Success State */}
+          {!isVerifying && isSuccess && (
+            <div className="w-full space-y-5 text-center animate-fade-in py-2">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto shadow-sm shadow-emerald-500/10">
+                <IoCheckmarkCircleOutline size={40} />
+              </div>
+
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-1.5">
+                  Đặt lại mật khẩu thành công!
+                </h3>
+                <p className="text-xs md:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  Mật khẩu cho tài khoản <strong>{tokenInfo?.account}</strong> đã được đổi thành công. Liên kết xác thực này hiện đã được vô hiệu hóa.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-xs text-emerald-900 text-left flex items-center gap-3">
+                <IoShieldCheckmarkOutline size={22} className="text-emerald-700 shrink-0" />
+                <span>Bây giờ bạn có thể đăng nhập bình thường bằng mật khẩu mới vừa thiết lập.</span>
+              </div>
+
               <button
                 type="button"
                 onClick={() => navigate('/login')}
-                className="w-full bg-agoda-blue hover:bg-primary-container text-on-primary font-title-lg text-title-lg py-2.5 rounded-DEFAULT shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
+                className="w-full bg-primary hover:bg-primary-hover text-white font-bold text-xs md:text-sm py-3.5 rounded-xl shadow-md shadow-primary/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
               >
-                <IoArrowBackOutline size={20} />
-                <span>QUAY LẠI TRANG ĐĂNG NHẬP</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="w-full border border-border-grey text-on-surface hover:bg-surface-container-low font-title-lg text-title-lg py-2.5 rounded-DEFAULT transition-colors"
-              >
-                CỔNG ĐẶT PHÒNG
+                <span>ĐĂNG NHẬP NGAY</span>
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* 3. Success State */}
-        {!isVerifying && isSuccess && (
-          <div className="w-full space-y-5 text-center animate-fade-in py-4">
-            <div className="w-16 h-16 bg-[#e8f5e9] text-[#2e7d32] border border-[#a5d6a7] flex items-center justify-center mx-auto">
-              <IoCheckmarkCircleOutline size={40} />
-            </div>
-
-            <div>
-              <h3 className="font-headline-md text-headline-md text-on-surface mb-2">
-                Đặt lại mật khẩu thành công!
-              </h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
-                Mật khẩu cho tài khoản <strong>{tokenInfo?.account}</strong> đã được đổi thành công. Liên kết xác thực này hiện đã được vô hiệu hóa.
-              </p>
-            </div>
-
-            <div className="p-4 bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 text-left flex items-center gap-2.5">
-              <IoShieldCheckmarkOutline size={20} className="text-emerald-700 shrink-0" />
-              <span>Bây giờ bạn có thể đăng nhập bình thường bằng mật khẩu mới vừa thiết lập.</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="w-full bg-agoda-blue hover:bg-primary-container text-on-primary font-title-lg text-title-lg py-3 rounded-DEFAULT shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
-            >
-              <span>ĐĂNG NHẬP NGAY</span>
-            </button>
-          </div>
-        )}
-
-        {/* 4. Active Reset Form */}
-        {!isVerifying && !verifyError && !isSuccess && tokenInfo && (
-          <form onSubmit={handleSubmit} className="w-full space-y-5 animate-fade-in">
-            {/* Account Card & Countdown Timer */}
-            <div className="p-3.5 bg-surface-container-low border border-border-grey flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-agoda-blue text-white flex items-center justify-center shrink-0">
-                  <IoPersonOutline size={20} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-on-surface">{tokenInfo.userName || tokenInfo.account}</div>
-                  <div className="text-xs text-on-surface-variant">
-                    Tài khoản: <span className="font-semibold text-primary">{tokenInfo.account}</span>
-                    {tokenInfo.userEmail && <span className="ml-1.5 opacity-80">({tokenInfo.userEmail})</span>}
+          {/* 4. Active Reset Form */}
+          {!isVerifying && !verifyError && !isSuccess && tokenInfo && (
+            <form onSubmit={handleSubmit} className="w-full space-y-4 animate-fade-in">
+              {/* Account Card & Countdown Timer */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                    {(tokenInfo.userName || tokenInfo.account)[0]?.toUpperCase() || <IoPersonOutline size={18} />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-slate-800 truncate">{tokenInfo.userName || tokenInfo.account}</div>
+                    <div className="text-xs text-slate-500 truncate mt-0.5">
+                      Tài khoản: <span className="font-semibold text-primary">{tokenInfo.account}</span>
+                      {tokenInfo.userEmail && <span className="ml-1 opacity-80">({tokenInfo.userEmail})</span>}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* 10-minute Countdown badge */}
-              <div
-                className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-bold shrink-0 ${
-                  remainingSeconds < 120
-                    ? 'bg-[#ffebee] text-[#c62828] border-[#ffcdd2] animate-pulse'
-                    : 'bg-[#eff6ff] text-[#1e40af] border-[#bfdbfe]'
-                }`}
-                title="Thời gian còn lại để cập nhật mật khẩu"
-              >
-                <IoTimeOutline size={16} />
-                <span>{formatTime(remainingSeconds)}</span>
-              </div>
-            </div>
-
-            {/* Input: New Password */}
-            <div className="relative">
-              <label className="block font-label-md text-label-md text-on-surface-variant mb-1">
-                Mật khẩu mới <span className="text-alert-red">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <IoLockClosedOutline className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
-                <input
-                  className="w-full pl-10 pr-10 py-2.5 border border-border-grey rounded-DEFAULT focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors"
-                  placeholder="Nhập tối thiểu 6 ký tự"
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  autoFocus
-                />
-                <button
-                  className="absolute right-3 text-outline hover:text-primary transition-colors focus:outline-none"
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
+                {/* 10-minute Countdown badge */}
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold shrink-0 transition-colors shadow-2xs ${
+                    remainingSeconds < 120
+                      ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
+                  }`}
+                  title="Thời gian còn lại để cập nhật mật khẩu"
                 >
-                  {showNewPassword ? <IoEyeOffOutline size={20} strokeWidth={1.5} /> : <IoEyeOutline size={20} strokeWidth={1.5} />}
-                </button>
-              </div>
-
-              {/* Password Strength Meter */}
-              {newPassword && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex gap-1 h-1.5 w-full bg-surface-container">
-                    <div className={`h-full flex-1 transition-all duration-300 ${strength.level >= 1 ? strength.color : 'bg-transparent'}`} />
-                    <div className={`h-full flex-1 transition-all duration-300 ${strength.level >= 2 ? strength.color : 'bg-transparent'}`} />
-                    <div className={`h-full flex-1 transition-all duration-300 ${strength.level >= 3 ? strength.color : 'bg-transparent'}`} />
-                  </div>
-                  <div className="flex justify-between items-center text-[11px] text-on-surface-variant">
-                    <span>Độ bảo mật: <strong className="font-semibold">{strength.text}</strong></span>
-                    <span className="opacity-75">{newPassword.length} ký tự</span>
-                  </div>
+                  <IoTimeOutline size={15} />
+                  <span className="font-mono tracking-tight">{formatTime(remainingSeconds)}</span>
                 </div>
-              )}
-            </div>
-
-            {/* Input: Confirm Password */}
-            <div className="relative">
-              <label className="block font-label-md text-label-md text-on-surface-variant mb-1">
-                Xác nhận mật khẩu mới <span className="text-alert-red">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <IoLockClosedOutline className="absolute left-3 text-outline" size={20} strokeWidth={1.5} />
-                <input
-                  className={`w-full pl-10 pr-10 py-2.5 border ${
-                    confirmPassword && !passwordsMatch
-                      ? 'border-alert-red focus:border-alert-red focus:ring-1 focus:ring-alert-red'
-                      : 'border-border-grey focus:border-primary focus:ring-1 focus:ring-primary'
-                  } rounded-DEFAULT focus:outline-none font-body-md text-body-md text-on-surface transition-colors`}
-                  placeholder="Nhập lại mật khẩu mới"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-                <button
-                  className="absolute right-3 text-outline hover:text-primary transition-colors focus:outline-none"
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <IoEyeOffOutline size={20} strokeWidth={1.5} /> : <IoEyeOutline size={20} strokeWidth={1.5} />}
-                </button>
               </div>
 
-              {/* Match Status */}
-              {confirmPassword && (
-                <div className="mt-1.5 text-xs font-medium">
-                  {passwordsMatch ? (
-                    <span className="text-[#2e7d32] flex items-center gap-1">
-                      <IoCheckmarkCircleOutline size={15} /> Mật khẩu xác nhận trùng khớp
-                    </span>
-                  ) : (
-                    <span className="text-[#c62828] flex items-center gap-1">
-                      <IoAlertCircleOutline size={15} /> Mật khẩu xác nhận chưa khớp
-                    </span>
+              {/* Input: New Password */}
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Mật khẩu mới <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative flex items-center">
+                  <IoLockClosedOutline className="absolute left-3.5 text-slate-400" size={18} strokeWidth={1.5} />
+                  <input
+                    className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm text-slate-800 placeholder-slate-400 transition-all"
+                    placeholder="Nhập tối thiểu 6 ký tự"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoFocus
+                  />
+                  <button
+                    className="absolute right-3.5 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none cursor-pointer"
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    {showNewPassword ? <IoEyeOffOutline size={18} strokeWidth={1.5} /> : <IoEyeOutline size={18} strokeWidth={1.5} />}
+                  </button>
+                </div>
+
+                {/* Password Strength Meter */}
+                {newPassword && (
+                  <div className="mt-2.5 space-y-1.5">
+                    <div className="flex gap-1.5 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full flex-1 rounded-full transition-all duration-300 ${strength.level >= 1 ? strength.color : 'bg-transparent'}`} />
+                      <div className={`h-full flex-1 rounded-full transition-all duration-300 ${strength.level >= 2 ? strength.color : 'bg-transparent'}`} />
+                      <div className={`h-full flex-1 rounded-full transition-all duration-300 ${strength.level >= 3 ? strength.color : 'bg-transparent'}`} />
+                    </div>
+                    <div className="flex justify-between items-center text-[11px] text-slate-500">
+                      <span>Độ bảo mật: <strong className="font-semibold text-slate-700">{strength.text}</strong></span>
+                      <span className="opacity-75">{newPassword.length} ký tự</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Input: Confirm Password */}
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Xác nhận mật khẩu mới <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative flex items-center">
+                  <IoLockClosedOutline className="absolute left-3.5 text-slate-400" size={18} strokeWidth={1.5} />
+                  <input
+                    className={`w-full pl-10 pr-10 py-2.5 bg-white border ${
+                      confirmPassword && !passwordsMatch
+                        ? 'border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
+                        : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'
+                    } rounded-xl focus:outline-none text-sm text-slate-800 placeholder-slate-400 transition-all`}
+                    placeholder="Nhập lại mật khẩu mới"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    className="absolute right-3.5 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none cursor-pointer"
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <IoEyeOffOutline size={18} strokeWidth={1.5} /> : <IoEyeOutline size={18} strokeWidth={1.5} />}
+                  </button>
+                </div>
+
+                {/* Match Status */}
+                {confirmPassword && (
+                  <div className="mt-1.5 text-xs font-medium">
+                    {passwordsMatch ? (
+                      <span className="text-emerald-600 flex items-center gap-1.5">
+                        <IoCheckmarkCircleOutline size={16} /> Mật khẩu xác nhận trùng khớp
+                      </span>
+                    ) : (
+                      <span className="text-rose-600 flex items-center gap-1.5">
+                        <IoAlertCircleOutline size={16} /> Mật khẩu xác nhận chưa khớp
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Submit & Secondary Buttons */}
+              <div className="space-y-2.5 pt-2">
+                <button
+                  className="w-full bg-primary hover:bg-primary-hover text-white font-bold text-xs md:text-sm py-3 rounded-xl shadow-md shadow-primary/20 hover:shadow-lg transition-all disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2 cursor-pointer disabled:cursor-not-allowed uppercase tracking-wider"
+                  type="submit"
+                  disabled={submitting || !passwordsMatch || remainingSeconds <= 0}
+                >
+                  {submitting && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   )}
-                </div>
-              )}
-            </div>
+                  <span>{submitting ? 'ĐANG CẬP NHẬT...' : 'XÁC NHẬN ĐỔI MẬT KHẨU'}</span>
+                </button>
 
-            {/* Submit Button */}
-            <button
-              className="w-full bg-agoda-blue hover:bg-primary-container text-on-primary font-title-lg text-title-lg py-2.5 rounded-DEFAULT shadow-sm hover:shadow-md transition-all disabled:opacity-70 flex justify-center items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-              type="submit"
-              disabled={submitting || !passwordsMatch || remainingSeconds <= 0}
-            >
-              {submitting && (
-                <span className="inline-block w-4.5 h-4.5 border-2 border-white border-t-transparent border-l-transparent animate-square-spin" />
-              )}
-              <span>{submitting ? 'ĐANG CẬP NHẬT...' : 'XÁC NHẬN ĐỔI MẬT KHẨU'}</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 font-semibold text-xs md:text-sm py-3 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <IoArrowBackOutline size={17} />
+                  <span>QUAY LẠI TRANG ĐĂNG NHẬP</span>
+                </button>
+              </div>
+            </form>
+          )}
 
-            {/* Secondary Button: Back to Login */}
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="w-full border border-agoda-blue text-agoda-blue hover:bg-surface-blue-light font-title-lg text-title-lg py-2.5 rounded-DEFAULT transition-colors flex items-center justify-center gap-2"
-            >
-              <IoArrowBackOutline size={18} />
-              <span>QUAY LẠI TRANG ĐĂNG NHẬP</span>
-            </button>
-          </form>
-        )}
-
-        {/* Footer copyright */}
-        <div className="mt-8 text-center text-xs text-outline select-none">
-          © {new Date().getFullYear()} {hotelSetting?.propertyName || 'Stay Away'}. Hệ thống quản lý vận hành chuyên nghiệp.
+          {/* Footer Copyright */}
+          <div className="mt-8 text-center text-xs text-slate-400 select-none">
+            © {new Date().getFullYear()} {hotelSetting?.propertyName || 'Stay Away'}. Hệ thống quản lý vận hành chuyên nghiệp.
+          </div>
         </div>
       </div>
     </div>
