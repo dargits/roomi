@@ -379,18 +379,26 @@ const RoomManagement: React.FC = () => {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          {canBook && (
-            <button
-              onClick={() => setIsBookingModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-[#FF8800] hover:bg-[#E67A00] text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <IoAddOutline size={16} />
-              <span>Tạo đặt phòng</span>
-            </button>
-          )}
           {canManageRooms && (
-            <Button variant="primary" onClick={openAddModal} icon={IoAddOutline} className="shrink-0">
-              Thêm Phòng
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openAddModal}
+              icon={IoAddOutline}
+              className="text-xs shrink-0"
+            >
+              Thêm phòng
+            </Button>
+          )}
+          {canBook && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsBookingModalOpen(true)}
+              icon={IoCalendarOutline}
+              className="text-xs font-semibold shadow-xs shrink-0"
+            >
+              Tạo đặt phòng
             </Button>
           )}
         </div>
