@@ -6,8 +6,7 @@ import { IoAddOutline, IoBedOutline, IoCashOutline, IoChevronDownOutline, IoClos
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import SeasonalPricing from '../rooms/SeasonalPricing';
-import WeekendAndHolidayPricing from '../rooms/WeekendAndHolidayPricing';
+import RoomTypePricingConfig from '../rooms/RoomTypePricingConfig';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { RoomTypeResponse } from '../../types';
@@ -50,7 +49,6 @@ const RoomTypeManagement: React.FC = () => {
   const [isUploadingImages, setIsUploadingImages] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [expandedRoomTypeId, setExpandedRoomTypeId] = useState<number | null>(null);
-  const [expandedPricingTab, setExpandedPricingTab] = useState<'weekend_holiday' | 'season'>('weekend_holiday');
 
   // Delete confirm state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
@@ -299,57 +297,16 @@ const RoomTypeManagement: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                  {/* Expandable row for Pricing Tabs */}
+                  {/* Expandable row for Unified Pricing Config */}
                   {expandedRoomTypeId === room.id && (
-                    <tr className="bg-surface-container-low/40 border-b border-border-grey">
-                      <td colSpan={9} className="px-6 pb-6 pt-3">
-                        <div className="bg-surface rounded-lg border border-border-grey p-4 shadow-sm">
-                          <div className="flex items-center gap-2 border-b border-border-grey pb-3 mb-4">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedPricingTab('weekend_holiday')}
-                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                                expandedPricingTab === 'weekend_holiday'
-                                  ? 'bg-primary text-on-primary shadow-sm'
-                                  : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
-                              }`}
-                            >
-                              ⭐ Giá Cuối tuần & Ngày lễ (Ưu tiên cao nhất)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setExpandedPricingTab('season')}
-                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                                expandedPricingTab === 'season'
-                                  ? 'bg-primary text-on-primary shadow-sm'
-                                  : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
-                              }`}
-                            >
-                              📅 Giá theo Mùa
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => navigate('/manage/price-suggestions')}
-                              className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors bg-surface-blue-light text-primary hover:bg-primary hover:text-on-primary ml-auto flex items-center gap-1.5"
-                            >
-                              📈 Xem gợi ý điều chỉnh giá theo công suất
-                            </button>
-                          </div>
-
-                          {expandedPricingTab === 'weekend_holiday' ? (
-                            <WeekendAndHolidayPricing
-                              roomTypeId={room.id}
-                              roomTypeName={room.name}
-                              basePrice={room.basePrice}
-                            />
-                          ) : (
-                            <SeasonalPricing
-                              roomTypeId={room.id}
-                              roomTypeName={room.name}
-                              basePrice={room.basePrice}
-                            />
-                          )}
-                        </div>
+                    <tr className="bg-surface-container-low/20 border-b border-border-grey">
+                      <td colSpan={9} className="px-6 pb-6 pt-2">
+                        <RoomTypePricingConfig
+                          roomTypeId={room.id}
+                          roomTypeName={room.name}
+                          basePrice={room.basePrice}
+                          onClose={() => setExpandedRoomTypeId(null)}
+                        />
                       </td>
                     </tr>
                   )}
