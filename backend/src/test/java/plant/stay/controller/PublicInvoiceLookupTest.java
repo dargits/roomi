@@ -169,6 +169,23 @@ public class PublicInvoiceLookupTest {
     }
 
     @Test
+    @DisplayName("Bảo mật: Thiếu số điện thoại tra cứu -> Báo lỗi 400 Bad Request yêu cầu số điện thoại")
+    public void testPhoneRequired_WhenPhoneMissing_ShouldReturnBadRequest() {
+        Guest guest = Guest.builder().id(10L).name("Lê Văn C").phone("0912345678").build();
+        Booking booking = Booking.builder().id(103L).guest(guest).build();
+        when(bookingRepository.findById(103L)).thenReturn(Optional.of(booking));
+
+        ResponseEntity<?> responseNull = controller.getPublicBookingInvoice(103L, null);
+        assertEquals(HttpStatus.BAD_REQUEST, responseNull.getStatusCode());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> bodyNull = (Map<String, Object>) responseNull.getBody();
+        assertTrue((Boolean) bodyNull.get("phoneRequired"));
+
+        ResponseEntity<?> responseEmpty = controller.getPublicBookingInvoice(103L, "   ");
+        assertEquals(HttpStatus.BAD_REQUEST, responseEmpty.getStatusCode());
+    }
+
+    @Test
     @DisplayName("Bảo mật: Nhập sai số điện thoại đăng ký -> Báo lỗi 400 Bad Request")
     public void testPhoneMismatch_ShouldReturnBadRequest() {
         Guest guest = Guest.builder().id(10L).name("Lê Văn C").phone("0912345678").build();
@@ -178,6 +195,31 @@ public class PublicInvoiceLookupTest {
         ResponseEntity<?> response = controller.getPublicBookingInvoice(103L, "0999999999");
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    @DisplayName("Chính sách thanh toán: Hóa đơn chưa thanh toán (PENDING_PAYMENT) -> Không hiển thị hóa đơn và trả về cảnh báo chưa thanh toán")
+    public void testPendingPaymentInvoice_ShouldReturnUnpaidNotice() {
+        Guest guest = Guest.builder().id(10L).name("Lê Văn C").phone("0912345678").build();
+        Booking booking = Booking.builder().id(103L).guest(guest).build();
+        when(bookingRepository.findById(103L)).thenReturn(Optional.of(booking));
+
+        Invoice pendingInvoice = Invoice.builder()
+                .id(507L)
+                .booking(booking)
+                .status(InvoiceStatus.PENDING_PAYMENT)
+                .totalAmount(new BigDecimal("1500000"))
+                .build();
+        when(invoiceRepository.findInvoicesCoveringBooking(103L)).thenReturn(List.of(pendingInvoice));
+
+        ResponseEntity<?> response = controller.getPublicBookingInvoice(103L, "0912345678");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertNull(body.get("invoice"));
+        assertTrue((Boolean) body.get("isUnpaid"));
+        assertTrue(body.get("message").toString().contains("chưa hoàn tất thanh toán"));
     }
 
     @Test
@@ -230,5 +272,18 @@ public class PublicInvoiceLookupTest {
         ResponseEntity<?> responseExport = controller.logPublicInvoiceAccess(506L, "EXPORT");
         assertEquals(HttpStatus.OK, responseExport.getStatusCode());
         verify(auditLogService).log(eq("Invoice"), eq(506L), eq("EXPORT_PUBLIC_INVOICE"), isNull(), anyString());
+    }
+
+    @Test
+    @DisplayName("NCL-09-CN-008: Ghi nhật ký in/tải hóa đơn chưa hoàn tất thanh toán -> Báo lỗi 400 Bad Request")
+    public void testLogPublicInvoiceAccess_WhenUnpaid_ShouldReturnBadRequest() {
+        Invoice pendingInvoice = Invoice.builder()
+                .id(508L)
+                .status(InvoiceStatus.PENDING_PAYMENT)
+                .build();
+        when(invoiceRepository.findById(508L)).thenReturn(Optional.of(pendingInvoice));
+
+        ResponseEntity<?> response = controller.logPublicInvoiceAccess(508L, "PRINT");
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 }

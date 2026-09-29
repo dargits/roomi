@@ -15,7 +15,8 @@ import {
   IoBedOutline,
   IoShieldCheckmarkOutline,
   IoWalletOutline,
-  IoReceiptOutline
+  IoReceiptOutline,
+  IoSearchOutline
 } from 'react-icons/io5';
 import PublicHeader from '../../components/layout/PublicHeader';
 import Footer from '../../components/layout/Footer';
@@ -54,12 +55,28 @@ const PublicBookingDetailPage: React.FC = () => {
     adjustmentInvoice?: any | null;
     payments: any[];
     message?: string;
+    isUnpaid?: boolean;
   }>({ invoice: null, payments: [] });
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceDisabledNotice, setInvoiceDisabledNotice] = useState<string | null>(null);
+  const [verifiedPhone, setVerifiedPhone] = useState<string>(() => {
+    return searchParams.get('phone') || '';
+  });
+  const [inputPhone, setInputPhone] = useState<string>('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [depositLoading, setDepositLoading] = useState(false);
   const [printingInvoice, setPrintingInvoice] = useState<any | null>(null);
+
+  const getEffectivePhone = () => {
+    if (verifiedPhone) return verifiedPhone;
+    const urlPhone = searchParams.get('phone');
+    if (urlPhone) return urlPhone;
+    if (booking?.guestPhone && !booking.guestPhone.includes('*')) {
+      return booking.guestPhone;
+    }
+    return '';
+  };
 
   useEffect(() => {
     if (bookingId) {
@@ -72,7 +89,10 @@ const PublicBookingDetailPage: React.FC = () => {
       if (activeTab === 'services') {
         fetchServices();
       } else if (activeTab === 'invoice') {
-        fetchInvoice();
+        const eff = getEffectivePhone();
+        if (eff) {
+          fetchInvoice(eff);
+        }
       } else if (activeTab === 'deposit') {
         fetchDeposits();
       }
@@ -85,6 +105,9 @@ const PublicBookingDetailPage: React.FC = () => {
     try {
       const data = await publicBookingApi.getPublicBookingById(bookingId);
       setBooking(data);
+      if (activeTab === 'invoice' && data?.guestPhone && !data.guestPhone.includes('*')) {
+        fetchInvoice(data.guestPhone);
+      }
     } catch (error) {
       console.error("Lỗi lấy thông tin đặt phòng công khai", error);
       toastError("Không tìm thấy thông tin đặt phòng hoặc liên kết không hợp lệ.");
@@ -106,26 +129,46 @@ const PublicBookingDetailPage: React.FC = () => {
     }
   };
 
-  const fetchInvoice = async () => {
+  const fetchInvoice = async (phoneToUse?: string) => {
     if (!bookingId) return;
+    const effectivePhone = phoneToUse || getEffectivePhone();
+    if (!effectivePhone) {
+      setInvoiceLoading(false);
+      return;
+    }
+
     setInvoiceLoading(true);
     setInvoiceDisabledNotice(null);
+    setPhoneError(null);
     try {
-      const phoneParam = searchParams.get('phone') || booking?.guestPhone;
-      const data = await publicBookingApi.getPublicBookingInvoice(bookingId, phoneParam);
+      const data = await publicBookingApi.getPublicBookingInvoice(bookingId, effectivePhone);
       setInvoiceData(data || { invoice: null, payments: [] });
+      setVerifiedPhone(effectivePhone);
     } catch (error: any) {
       console.error("Lỗi tải hóa đơn", error);
       if (error?.response?.status === 403 || error?.response?.data?.disabled) {
         setInvoiceDisabledNotice(error?.response?.data?.message || "Chức năng tra cứu hóa đơn trực tuyến hiện đang tạm tắt theo chính sách của cơ sở lưu trú.");
       } else if (error?.response?.status === 400) {
-        toastError(error?.response?.data?.message || "Số điện thoại không khớp với thông tin đặt phòng.");
+        const msg = error?.response?.data?.message || "Số điện thoại không khớp với thông tin đăng ký của đặt phòng này.";
+        setPhoneError(msg);
+        setVerifiedPhone('');
+        toastError(msg);
       } else {
         toastError("Không thể tải thông tin hóa đơn.");
       }
     } finally {
       setInvoiceLoading(false);
     }
+  };
+
+  const handleVerifyPhoneSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = inputPhone.trim();
+    if (!clean) {
+      setPhoneError('Vui lòng nhập số điện thoại đã đăng ký khi đặt phòng.');
+      return;
+    }
+    fetchInvoice(clean);
   };
 
   const handlePrintInvoice = (inv: any) => {
@@ -151,7 +194,10 @@ const PublicBookingDetailPage: React.FC = () => {
   };
 
   const copySpecificTabLink = (tabKey: string, tabLabel: string) => {
-    const url = `${window.location.origin}/booking-detail/${bookingId}?tab=${tabKey}`;
+    let url = `${window.location.origin}/booking-detail/${bookingId}?tab=${tabKey}`;
+    if (tabKey === 'invoice' && verifiedPhone) {
+      url += `&phone=${encodeURIComponent(verifiedPhone)}`;
+    }
     navigator.clipboard.writeText(url);
     toastSuccess(`Đã sao chép link phần "${tabLabel}"! Bạn có thể gửi cho bạn bè ngay.`);
   };
@@ -553,12 +599,76 @@ const PublicBookingDetailPage: React.FC = () => {
                       <p className="text-xs text-amber-700 mt-2">Vui lòng liên hệ trực tiếp lễ tân khách sạn để nhận bản in hoặc tệp hóa đơn thanh toán.</p>
                     </div>
                   </div>
+                ) : (!verifiedPhone && !getEffectivePhone()) || (phoneError && !invoice) ? (
+                  <div className="bg-surface-container-lowest p-6 sm:p-8 rounded-2xl border border-border-grey max-w-lg mx-auto text-center space-y-5 shadow-sm">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                      <IoShieldCheckmarkOutline size={30} />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-bold text-on-surface">Xác thực số điện thoại để xem hóa đơn</h4>
+                      <p className="text-xs sm:text-sm text-on-surface-variant mt-1.5 leading-relaxed">
+                        Chỉ cho phép xem hóa đơn đã hoàn tất thanh toán khi nhập đúng cả số điện thoại và mã đơn (#{bookingId}). Vui lòng nhập số điện thoại Quý khách đã đăng ký khi đặt phòng.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleVerifyPhoneSubmit} className="space-y-4 text-left">
+                      <div>
+                        <label className="block text-xs font-semibold text-on-surface mb-1.5">
+                          Số điện thoại đăng ký đặt phòng *
+                        </label>
+                        <div className="relative">
+                          <IoCallOutline className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" size={18} />
+                          <input
+                            type="tel"
+                            value={inputPhone}
+                            onChange={(e) => {
+                              setInputPhone(e.target.value);
+                              setPhoneError(null);
+                            }}
+                            placeholder="Ví dụ: 0912345678"
+                            className="w-full pl-10 pr-4 py-2.5 bg-surface-container-low border border-border-grey rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-on-surface"
+                            autoFocus
+                          />
+                        </div>
+                        {phoneError && (
+                          <p className="text-xs text-error font-medium mt-1.5 flex items-center gap-1">
+                            <IoAlertCircleOutline size={14} /> {phoneError}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={invoiceLoading || !inputPhone.trim()}
+                        className="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-white font-semibold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <IoSearchOutline size={16} /> Xác nhận & Xem hóa đơn
+                      </button>
+                    </form>
+                  </div>
+                ) : invoiceData.isUnpaid ? (
+                  <div className="bg-amber-50/90 border border-amber-300 p-6 sm:p-8 rounded-2xl text-amber-900 flex flex-col sm:flex-row items-start gap-4 shadow-xs">
+                    <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                      <IoAlertCircleOutline size={28} />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-base sm:text-lg text-amber-900">
+                        Hóa đơn đợt lưu trú chưa hoàn tất thanh toán
+                      </h4>
+                      <p className="text-sm text-amber-800 leading-relaxed">
+                        {invoiceData.message || "Hóa đơn đợt lưu trú này chưa hoàn tất thanh toán. Theo quy định, chỉ các hóa đơn đã hoàn tất thanh toán mới được phép tra cứu và xem trực tuyến."}
+                      </p>
+                      <div className="pt-2 text-xs text-amber-700 font-medium">
+                        💡 Quý khách vui lòng liên hệ quầy Lễ tân hoặc người đại diện cơ sở để hoàn tất thanh toán trước khi tra cứu hóa đơn trực tuyến.
+                      </div>
+                    </div>
+                  </div>
                 ) : (!invoice && (!invoiceData.invoices || invoiceData.invoices.length === 0)) ? (
                   <div className="bg-surface-container-low p-8 rounded-2xl border border-border-grey text-center space-y-2">
                     <IoDocumentOutline size={40} className="text-on-surface-variant/40 mx-auto" />
-                    <h4 className="font-semibold text-on-surface">Chưa có hóa đơn chính thức</h4>
+                    <h4 className="font-semibold text-on-surface">Chưa có hóa đơn hoàn tất thanh toán</h4>
                     <p className="text-xs text-on-surface-variant max-w-md mx-auto">
-                      Hóa đơn cho đợt lưu trú này hiện đang được xử lý hoặc chưa được phát hành chính thức. (Chỉ các hóa đơn đã lập chính thức hoặc đã thanh toán mới hiển thị trên cổng trực tuyến).
+                      {invoiceData.message || "Chưa có hóa đơn đã hoàn tất thanh toán cho đợt lưu trú này. (Chỉ các hóa đơn đã thanh toán mới hiển thị trên cổng trực tuyến)."}
                     </p>
                   </div>
                 ) : (

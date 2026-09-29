@@ -83,18 +83,49 @@ describe('PublicBookingDetailPage Component', () => {
     });
   });
 
-  it('renders invoice tab with payment status', async () => {
+  it('renders invoice tab with payment status when paid', async () => {
     vi.mocked(publicBookingApi.getPublicBookingById).mockResolvedValue(mockBooking as any);
     vi.mocked(publicBookingApi.getPublicBookingInvoice).mockResolvedValue({
       invoice: { id: 1, roomAmount: 1200000, serviceAmount: 30000, discountAmount: 0, totalAmount: 1230000, status: 'PAID' },
       payments: [{ id: 1, amount: 1230000, paymentMethod: 'TRANSFER', createdAt: '2026-08-15T14:00:00' }]
     } as any);
 
-    renderComponent('/booking-detail/101?tab=invoice');
+    renderComponent('/booking-detail/101?tab=invoice&phone=0901234567');
 
     await waitFor(() => {
       expect(screen.getAllByText(/1\.230\.000/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('ĐÃ HOÀN TẤT')).toBeInTheDocument();
+    });
+  });
+
+  it('renders phone verification prompt when phone is masked or missing', async () => {
+    const maskedBooking = { ...mockBooking, guestPhone: '090****567' };
+    vi.mocked(publicBookingApi.getPublicBookingById).mockResolvedValue(maskedBooking as any);
+
+    renderComponent('/booking-detail/101?tab=invoice');
+
+    await waitFor(() => {
+      expect(screen.getByText('Xác thực số điện thoại để xem hóa đơn')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Ví dụ: 0912345678')).toBeInTheDocument();
+      expect(screen.getByText('Xác nhận & Xem hóa đơn')).toBeInTheDocument();
+    });
+  });
+
+  it('renders unpaid invoice warning when invoice has not completed payment', async () => {
+    vi.mocked(publicBookingApi.getPublicBookingById).mockResolvedValue(mockBooking as any);
+    vi.mocked(publicBookingApi.getPublicBookingInvoice).mockResolvedValue({
+      invoice: null,
+      invoices: [],
+      payments: [],
+      isUnpaid: true,
+      message: 'Hóa đơn đợt lưu trú này chưa hoàn tất thanh toán. Theo quy định, chỉ các hóa đơn đã hoàn tất thanh toán mới được phép tra cứu trực tuyến.'
+    } as any);
+
+    renderComponent('/booking-detail/101?tab=invoice&phone=0901234567');
+
+    await waitFor(() => {
+      expect(screen.getByText('Hóa đơn đợt lưu trú chưa hoàn tất thanh toán')).toBeInTheDocument();
+      expect(screen.getByText(/chỉ các hóa đơn đã hoàn tất thanh toán/i)).toBeInTheDocument();
     });
   });
 });

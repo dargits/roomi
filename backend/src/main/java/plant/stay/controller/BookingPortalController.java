@@ -82,29 +82,50 @@ public class BookingPortalController {
             ));
         }
 
-        if (phone != null && !phone.trim().isEmpty()) {
-            String guestPhone = booking.getGuest() != null ? booking.getGuest().getPhone() : "";
-            if (!isPhoneMatch(guestPhone, phone.trim())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                        "message", "Số điện thoại không khớp với thông tin đăng ký của đặt phòng này."
-                ));
-            }
+        if (phone == null || phone.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "message", "Vui lòng nhập đúng số điện thoại và mã đơn để xem hóa đơn.",
+                    "phoneRequired", true
+            ));
+        }
+
+        String guestPhone = (booking.getGuest() != null) ? booking.getGuest().getPhone() : null;
+        String groupPhone = (booking.getGroupBooking() != null && booking.getGroupBooking().getRepresentativeGuest() != null)
+                ? booking.getGroupBooking().getRepresentativeGuest().getPhone() : null;
+
+        boolean phoneMatched = isPhoneMatch(guestPhone, phone.trim()) || isPhoneMatch(groupPhone, phone.trim());
+        if (!phoneMatched) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "message", "Số điện thoại không khớp với thông tin đăng ký của đặt phòng này."
+            ));
         }
 
         // Lấy tất cả hóa đơn liên quan đến booking này
         List<Invoice> allInvoices = invoiceRepository.findInvoicesCoveringBooking(id);
 
-        // NCL-09-CN-008-TC-02: Lọc bỏ hoàn toàn hóa đơn nháp (DRAFT) và đã hủy (CANCELLED)
+        // NCL-09-CN-008: Chỉ cho phép xem hóa đơn đã hoàn tất thanh toán (PAID hoặc ADJUSTED)
         List<Invoice> eligibleInvoices = allInvoices.stream()
-                .filter(inv -> inv.getStatus() != InvoiceStatus.DRAFT && inv.getStatus() != InvoiceStatus.CANCELLED)
+                .filter(inv -> inv.getStatus() == InvoiceStatus.PAID || inv.getStatus() == InvoiceStatus.ADJUSTED)
                 .collect(Collectors.toList());
 
         if (eligibleInvoices.isEmpty()) {
+            boolean hasUnpaid = allInvoices.stream().anyMatch(inv ->
+                    inv.getStatus() == InvoiceStatus.PENDING_PAYMENT ||
+                    inv.getStatus() == InvoiceStatus.PENDING ||
+                    inv.getStatus() == InvoiceStatus.PENDING_DISCOUNT_APPROVAL ||
+                    inv.getStatus() == InvoiceStatus.DRAFT
+            );
+
             Map<String, Object> emptyResp = new java.util.HashMap<>();
             emptyResp.put("invoice", null);
             emptyResp.put("invoices", List.of());
             emptyResp.put("payments", List.of());
-            emptyResp.put("message", "Chưa có hóa đơn chính thức cho đợt lưu trú này.");
+            emptyResp.put("isUnpaid", hasUnpaid);
+            if (hasUnpaid) {
+                emptyResp.put("message", "Hóa đơn đợt lưu trú này chưa hoàn tất thanh toán. Theo quy định, chỉ các hóa đơn đã hoàn tất thanh toán mới được phép tra cứu trực tuyến.");
+            } else {
+                emptyResp.put("message", "Chưa có hóa đơn đã hoàn tất thanh toán cho đợt lưu trú này.");
+            }
             return ResponseEntity.ok(emptyResp);
         }
 
@@ -181,8 +202,8 @@ public class BookingPortalController {
             @PathVariable Long invoiceId,
             @RequestParam(defaultValue = "PRINT") String actionType) {
         Invoice inv = invoiceRepository.findById(invoiceId).orElse(null);
-        if (inv == null || inv.getStatus() == InvoiceStatus.DRAFT || inv.getStatus() == InvoiceStatus.CANCELLED) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Hóa đơn không tồn tại hoặc không hợp lệ."));
+        if (inv == null || (inv.getStatus() != InvoiceStatus.PAID && inv.getStatus() != InvoiceStatus.ADJUSTED)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Hóa đơn không tồn tại hoặc chưa hoàn tất thanh toán."));
         }
         String act = "EXPORT".equalsIgnoreCase(actionType) ? "EXPORT_PUBLIC_INVOICE" : "PRINT_PUBLIC_INVOICE";
         String desc = "Khách thực hiện " + ("EXPORT".equalsIgnoreCase(actionType) ? "kết xuất/tải về" : "in") + " hóa đơn #" + invoiceId;
