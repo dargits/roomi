@@ -1,4 +1,4 @@
-# 🏨 Lưu Trú Số (Smart PMS) — Nền Tảng Quản Lý Cơ Sở Lưu Trú Toàn Diện
+# 🏨 Lưu Trú Số — Nền Tảng Quản Lý Cơ Sở Lưu Trú Thông Minh (Smart PMS)
 
 <p align="center">
   <img src="https://img.shields.io/badge/Production-stayaway.io.vn-6366F1?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Production Domain" />
@@ -13,126 +13,111 @@
 
 ---
 
-> **Lưu Trú Số** là hệ sinh thái quản lý khách sạn, resort và chuỗi căn hộ lưu trú (Property Management System - PMS) thế hệ mới chuẩn doanh nghiệp. Hệ thống số hóa trọn vẹn toàn bộ vòng đời vận hành: từ cổng đặt phòng trực tuyến, lễ tân nhận phòng bằng mã QR CCCD gắn chip, cấu hình giá linh hoạt theo mùa/lễ, buồng phòng nghiệm thu 2 bước đo năng suất, đồng bộ OTA 2 chiều (iCal), đến quản lý tài chính, hóa đơn điện tử, duyệt công nợ và báo cáo chỉ số tiêu chuẩn quốc tế (ADR, RevPAR, PoP, YoY).
+> **Lưu Trú Số** là giải pháp quản lý khách sạn, resort và căn hộ dịch vụ (Property Management System - PMS) toàn diện, chuẩn hóa theo quy trình vận hành thực tế tại Việt Nam. Hệ thống số hóa trọn vẹn vòng đời cơ sở lưu trú: từ cổng đặt phòng tự phục vụ, check-in quét QR thẻ CCCD gắn chip, định giá động linh hoạt, buồng phòng nghiệm thu 2 bước, đến đồng bộ kênh OTA hai chiều (iCal), thanh toán VietQR động, quản lý công nợ và báo cáo chỉ số quản trị quốc tế (ADR, RevPAR, PoP, YoY).
 
 ---
 
 ## 📑 Mục Lục
 
-1. [🌟 Tính Năng Trọng Tâm](#-tính-năng-trọng-tâm)
-2. [👥 Phân Quyền 5 Vai Trò Người Dùng](#-phân-quyền-5-vai-trò-người-dùng)
-3. [🏗️ Kiến Trúc Công Nghệ](#️-kiến-trúc-công-nghệ)
-4. [🔄 Luồng Vận Hành Hệ Thống](#-luồng-vận-hành-hệ-thống)
-5. [📁 Cấu Trúc Dự Án](#-cấu-trúc-dự-án)
-6. [🚀 Hướng Dẫn Cài Đặt & Khởi Chạy](#-hướng-dẫn-cài-đặt--khởi-chạy)
-7. [🧪 Kiểm Thử Tự Động (Testing)](#-kiểm-thử-tự-động-testing)
-8. [🐳 Hạ Tầng CI/CD & Vận Hành VPS](#-hạ-tầng-cicd--vận-hành-vps)
-9. [🔐 Tài Khoản Trải Nghiệm Mẫu](#-tài-khoản-trải-nghiệm-mẫu)
+- [🌟 Tính Năng Nổi Bật](#-tính-năng-nổi-bật)
+- [👥 Ma Trận Phân Quyền (RBAC)](#-ma-trận-phân-quyền-rbac)
+- [🏗️ Kiến Trúc Hệ Thống](#️-kiến-trúc-hệ-thống)
+- [🔄 Quy Trình Vận Hành Khép Kín](#-quy-trình-vận-hành-khép-kín)
+- [📁 Cấu Trúc Dự Án](#-cấu-trúc-dự-án)
+- [🚀 Hướng Dẫn Cài Đặt & Chạy Thử](#-hướng-dẫn-cài-đặt--chạy-thử)
+- [🧪 Kiểm Thử Tự Động (Testing)](#-kiểm-thử-tự-động-testing)
+- [🐳 CI/CD & Triển Khai Cloud VPS](#-cicd--triển-khai-cloud-vps)
+- [🔐 Tài Khoản Trải Nghiệm Mẫu](#-tài-khoản-trải-nghiệm-mẫu)
 
 ---
 
-## 🌟 Tính Năng Trọng Tâm
+## 🌟 Tính Năng Nổi Bật
 
-### 1. 🛎️ Nghiệp Vụ Đặt Phòng & Lưu Trú
-* **Đặt phòng đơn & Đặt phòng đoàn (Group Booking):** Thuật toán tự động xếp phòng và kiểm tra xung đột thời gian thực, ngăn chặn 100% tình trạng trùng phòng.
-* **Vòng đời khách lưu trú khép kín:** Đặt phòng $\rightarrow$ Đặt cọc $\rightarrow$ Check-in $\rightarrow$ Thêm dịch vụ/Đổi phòng/Gia hạn $\rightarrow$ Check-out $\rightarrow$ Thanh toán & Quyết toán hóa đơn.
-* **Tích hợp quét mã QR CCCD gắn chip:** Tự động giải mã chuỗi định danh trên thẻ căn cước công dân để điền hồ sơ khách và kết xuất danh sách khai báo tạm trú công an.
-* **Bảo mật dữ liệu cá nhân (Data Masking):** Tự động che mờ số CCCD và Số điện thoại đối với các vai trò nhân viên không đủ thẩm quyền.
-* **Import danh sách đặt phòng lịch sử:** Nhập dữ liệu đặt phòng từ file Excel/CSV với cơ chế **Preview Validation** và **Atomic Transaction**.
+### 1. 🛎️ Quản Lý Đặt Phòng & Lưu Trú
+- **Đặt phòng đơn & đoàn (Group Booking):** Kiểm tra xung đột phòng theo thời gian thực (Zero-Conflict Algorithm), tự động gán phòng tối ưu.
+- **Check-in quét mã QR CCCD gắn chip:** Tự động giải mã chuỗi thông tin định danh trên thẻ căn cước công dân để điền hồ sơ khách và trích xuất danh sách khai báo tạm trú.
+- **Bảo mật dữ liệu cá nhân (Data Masking):** Ẩn một phần số CCCD và số điện thoại đối với nhân viên không đủ quyền hạn.
+- **Import dữ liệu lịch sử:** Nhập danh sách đặt phòng cũ từ file Excel/CSV với cơ chế kiểm tra trước (Preview Validation) và giao dịch an toàn (Atomic Transaction).
 
-### 2. 🌐 Cổng Khách Hàng Tự Phục Vụ (Public Portal)
-* **Cổng xem & đặt phòng công khai:** Khách chủ động tra cứu phòng trống theo ngày, xem tiện ích, hình ảnh và gửi yêu cầu đặt phòng.
-* **Tra cứu & Tự hủy yêu cầu (`CLTSN3-439`):** Khách tra cứu tiến độ xử lý và chủ động hủy yêu cầu bằng Mã đặt phòng + Số điện thoại.
-* **Xem hóa đơn trực tuyến (`NCL-09-CN-008`):** Cung cấp đường dẫn tra cứu chi tiết hóa đơn thanh toán an toàn.
+### 2. 💵 Giá Phòng Đa Tầng & Chính Sách Linh Hoạt
+- **Bảng giá động (Smart Pricing):** Thiết lập giá theo mùa cao/thấp điểm, phụ thu cuối tuần và ngày lễ/tết Việt Nam.
+- **Chính sách cọc & Hoàn hủy:** Cấu hình tỷ lệ cọc theo loại phòng, thiết lập hạn nộp cọc và biểu phí phạt hủy lũy tiến.
+- **Hợp đồng giá đối tác (B2B):** Áp dụng bảng giá thỏa thuận ưu đãi cố định cho khách đoàn và đại lý lữ hành.
+- **Gợi ý giá thông minh:** Phân tích tỷ lệ lấp đầy lịch sử để đưa ra khuyến nghị điều chỉnh giá tối ưu doanh thu.
 
-### 3. 💵 Giá Phòng Thông Minh & Chính Sách Linh Hoạt
-* **Cấu hình giá đa tầng (Smart Pricing):** Thiết lập giá theo mùa vụ (cao điểm/thấp điểm), phụ thu cuối tuần (T6, T7, CN) và bảng giá ngày lễ tết Việt Nam.
-* **Chính sách đặt cọc theo loại phòng:** Tùy biến tỷ lệ cọc (%) mặc định hoặc riêng cho từng hạng phòng, tự động tính hạn thanh toán cọc.
-* **Chính sách hoàn hủy đa mốc:** Cấu hình thời gian hủy miễn phí, số giờ sau xác nhận bắt đầu tính phí và biểu phí phạt hủy theo tiền cọc.
-* **Thỏa thuận giá doanh nghiệp (B2B):** Thiết lập hợp đồng giá ưu đãi cố định cho khách hàng công ty và đối tác lữ hành.
-* **Gợi ý điều chỉnh giá AI:** Phân tích công suất phòng lịch sử để đưa ra đề xuất tăng/giảm giá bán tối ưu doanh thu.
+### 3. 🧹 Buồng Phòng & Đo Lường Năng Suất
+- **Sơ đồ ma trận phòng trực quan:** Trực quan hóa trạng thái: *Sạch / Đang ở / Chưa dọn / Chờ duyệt / Bảo trì*.
+- **Nghiệm thu 2 bước:** Nhân viên dọn xong gửi yêu cầu $\rightarrow$ Lễ tân/Quản lý kiểm tra đạt tiêu chuẩn mới mở bán phòng.
+- **Định mức thời gian & Năng suất:** Đo lường thời gian dọn thực tế so với định mức tiêu chuẩn của từng nhân viên buồng phòng.
+- **Quản lý đồ thất lạc (Lost & Found):** Tiếp nhận, lưu kho, bàn giao hoặc thanh lý đồ khách để quên có lưu vết.
 
-### 4. 🧹 Buồng Phòng Thông Minh & Quản Lý Năng Suất
-* **Sơ đồ ma trận phòng trực quan:** Trực quan hóa trạng thái: *Sạch / Có khách / Cần dọn / Chờ nghiệm thu / Bảo trì*.
-* **Quy trình nghiệm thu 2 bước:** Nhân viên dọn xong gửi duyệt $\rightarrow$ Quản lý/Lễ tân kiểm tra đạt chuẩn mới mở bán phòng.
-* **Quản lý yêu cầu dọn lại:** Theo dõi lý do từ chối nghiệm thu, đếm số lần dọn lại để đánh giá chất lượng.
-* **Định mức thời gian & Năng suất:** Cấu hình định mức thời gian dọn trả khách / dọn định kỳ, theo dõi thời lượng thực tế của từng nhân viên.
-* **Quản lý đồ khách để quên (Lost & Found):** Quy trình tiếp nhận, lưu kho, bàn giao hoặc xử lý thanh lý đồ thất lạc có lưu vết.
+### 4. 💳 Tài Chính, Thu Chi & Quản Lý Công Nợ
+- **Thanh toán đa kênh & VietQR động:** Sinh mã QR thanh toán chuẩn Napas247 chính xác số tiền cho từng hóa đơn.
+- **Quy trình duyệt nợ đa cấp:** Gửi yêu cầu ghi nợ khi check-out $\rightarrow$ Chủ cơ sở/Kế toán duyệt $\rightarrow$ Theo dõi thu hồi nợ từng kỳ.
+- **Chốt sổ quỹ theo ca (Daily Cash Ledger):** Đối soát doanh thu thực tế giữa Tiền mặt / Ngân hàng / QR, phát hiện chênh lệch và khóa sổ cuối ngày.
 
-### 5. 💳 Tài Chính, Thu Chi & Quản Lý Công Nợ
-* **Hóa đơn & Chiết khấu:** Tổng hợp tự động tiền phòng, phụ thu dịch vụ, minibar, giặt là, giảm giá voucher; phê duyệt chiết khấu vượt ngưỡng.
-* **Thanh toán đa kênh:** Tiền mặt, Chuyển khoản ngân hàng, sinh mã **VietQR động** chuẩn Napas chính xác đến từng đồng.
-* **Quản lý công nợ & Duyệt nợ:** Quy trình gửi yêu cầu ghi nợ khi check-out $\rightarrow$ Chủ sở hữu/Kế toán duyệt nợ $\rightarrow$ Nhật ký thu hồi nợ từng đợt.
-* **Chốt sổ quỹ theo ca/ngày (Daily Cash Ledger):** Đối soát doanh thu thực thu, tiền bàn giao đầu ca, chênh lệch quỹ và khóa sổ cuối ngày.
+### 5. 🔄 Đồng Bộ Kênh OTA (Channel Manager)
+- **Kết nối 2 chiều chuẩn iCal:** Tự động đồng bộ lịch phòng với Airbnb, Booking.com, Agoda... để chống trùng phòng (Overbooking).
+- **Cảnh báo xung đột tức thì:** Phát hiện và gửi thông báo khi có lịch đặt chồng chéo giữa kênh nội bộ và kênh ngoài.
 
-### 6. 🔄 Đồng Bộ Kênh OTA (Channel Manager)
-* **Kết nối 2 chiều qua chuẩn iCal:** Tự động lấy lịch bận từ Airbnb, Booking.com, Agoda,... để khóa phòng nội bộ và ngược lại.
-* **Cảnh báo xung đột (Overbooking):** Phát hiện tức thời khi phát sinh xung đột lịch giữa kênh trực tiếp và kênh OTA.
-* **Nhật ký đồng bộ tự động:** Lưu vết chi tiết thời điểm sync, trạng thái kết nối và số lần thử lại khi mất tín hiệu.
+### 6. 📊 Báo Cáo Quản Trị Khách Sạn
+- **Chỉ số kinh doanh quốc tế:** Tự động tính toán **ADR** (Giá bán bình quân), **RevPAR** (Doanh thu trên mỗi phòng sẵn có), **Occupancy** (Tỷ lệ lấp đầy).
+- **Phân tích so sánh đa kỳ:** So sánh tốc độ tăng trưởng **PoP** (Kỳ này so với kỳ trước) và **YoY** (Cùng kỳ năm trước) kèm biểu đồ và xuất CSV.
 
-### 7. 📊 Báo Cáo Quản Trị Chuyên Sâu
-* **Chỉ số kinh doanh khách sạn chuẩn quốc tế:** Tự động tính **ADR** (Giá bán bình quân), **RevPAR** (Doanh thu trên mỗi phòng sẵn có), **Occupancy Rate** (Tỷ lệ lấp đầy).
-* **Báo cáo so sánh đa kỳ (`CLTSN3-431`):** Phân tích tăng trưởng **PoP** (Kỳ này so với kỳ trước) và **YoY** (Cùng kỳ năm trước) kèm biểu đồ và xuất file CSV.
-* **Báo cáo dịch vụ bán chạy:** Xếp hạng các mặt hàng minibar, đồ uống, dịch vụ mang lại doanh thu cao nhất.
-
-### 8. 🛡️ Bảo Mật, Phiên Đăng Nhập & Sao Lưu Đám Mây
-* **Kiểm soát phiên đồng thời (Concurrent Sessions):** Giới hạn số thiết bị đăng nhập cùng lúc theo vai trò, thu hồi phiên từ xa khi nghi ngờ xâm nhập.
-* **Hệ thống cảnh báo (Notification Center):** Chuông thông báo thời gian thực về đơn đặt phòng mới, duyệt nợ, sự cố phòng.
-* **Email tự động chống Spam:** Gửi email xác nhận đặt phòng, mã QR check-in, khóa cooldown 60s và quota 5 lần/ngày/booking.
-* **Sao lưu dữ liệu tự động lên Telegram Bot:** Định kỳ đóng gói file ZIP nén toàn bộ cơ sở dữ liệu và gửi thông báo trực tiếp vào nhóm Telegram quản trị.
+### 7. 🌐 Cổng Khách Hàng Tự Phục Vụ (Public Portal)
+- **Trang xem & đặt phòng công khai:** Khách chủ động tra cứu phòng trống, xem tiện ích, bảng giá và đặt phòng trực tuyến.
+- **Tra cứu tiến độ & Tự hủy yêu cầu:** Tra cứu tình trạng đặt phòng và chủ động hủy yêu cầu bằng Mã đơn + Số điện thoại.
+- **Xem hóa đơn điện tử:** Đường dẫn bảo mật tra cứu chi tiết hóa đơn thanh toán trực tuyến.
 
 ---
 
-## 👥 Phân Quyền 5 Vai Trò Người Dùng
+## 👥 Ma Trận Phân Quyền (RBAC)
 
-Hệ thống thiết kế ma trận phân quyền chi tiết (Role-Based Access Control - RBAC) bảo đảm an toàn dữ liệu:
-
-| Nghiệp vụ & Chức năng | 👑 Chủ cơ sở (OWNER) | 🛠️ Quản trị viên (ADMIN) | 🛎️ Lễ tân (RECEPTIONIST) | 📊 Kế toán (ACCOUNTANT) | 🧹 Buồng phòng (HOUSEKEEPER) |
+| Chức năng chính | 👑 Chủ cơ sở (OWNER) | 🛠️ Quản trị viên (ADMIN) | 🛎️ Lễ tân (RECEPTIONIST) | 📊 Kế toán (ACCOUNTANT) | 🧹 Buồng phòng (HOUSEKEEPER) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Bảng điều khiển (Dashboard)** | Toàn diện doanh thu, lợi nhuận, ADR, RevPAR | Tình trạng phòng, tài khoản, hệ thống | Đơn đến hôm nay, check-in/out, sơ đồ phòng | Công nợ, doanh thu, chốt ca, hóa đơn | Danh sách phòng phân công, việc cần làm |
-| **Đặt phòng & Check-in/out** | Toàn quyền | Xem & Giám sát | Tạo, sửa, check-in, check-out, quét CCCD | Chỉ xem | Không |
-| **Chính sách cọc & Hoàn hủy** | Tạo, sửa, xóa | Chỉ xem | Chỉ xem | Chỉ xem | Không |
-| **Bảng giá, Mùa vụ & Ngày lễ** | Toàn quyền | Toàn quyền | Áp dụng giá | Chỉ xem | Không |
-| **Phê duyệt Công nợ & Chiết khấu**| Toàn quyền duyệt | Toàn quyền duyệt | Gửi yêu cầu duyệt | Toàn quyền duyệt | Không |
-| **Thu tiền & Chốt sổ quỹ** | Kiểm tra & Khóa sổ | Kiểm tra | Thu ngân theo ca | Đối soát dòng tiền | Không |
-| **Dọn dẹp & Nghiệm thu phòng** | Nghiệm thu phòng | Nghiệm thu phòng | Nghiệm thu phòng | Không | Cập nhật tiến độ dọn |
-| **Định mức & Năng suất buồng** | Toàn quyền | Toàn quyền | Chỉ xem | Không | Xem năng suất cá nhân |
-| **Báo cáo tài chính & Xuất file** | Toàn quyền | Toàn quyền | Báo cáo cơ bản | Toàn quyền chi tiết | Không |
-| **Quản lý nhân sự & Phân quyền** | Toàn quyền | Toàn quyền | Không | Không | Không |
-| **Sao lưu CSDL & Telegram Bot** | Toàn quyền | Toàn quyền | Không | Không | Không |
+| **Bảng điều khiển (Dashboard)** | Doanh thu, ADR, RevPAR | Hệ thống & Tài khoản | Sơ đồ phòng & Đơn hôm nay | Doanh thu, Sổ quỹ, Hóa đơn | Danh sách phòng phân công |
+| **Đặt phòng & Check-in/out** | Toàn quyền | Xem & Giám sát | Tạo, sửa, check-in/out, quét CCCD | Chỉ xem | Không |
+| **Bảng giá, Mùa vụ & Lễ tết** | Toàn quyền | Toàn quyền | Áp dụng giá | Chỉ xem | Không |
+| **Chính sách cọc & Hoàn hủy** | Cấu hình toàn diện | Chỉ xem | Chỉ xem | Chỉ xem | Không |
+| **Duyệt Công nợ & Chiết khấu**| Toàn quyền duyệt | Toàn quyền duyệt | Gửi yêu cầu duyệt | Toàn quyền duyệt | Không |
+| **Thu tiền & Chốt sổ ca** | Kiểm tra & Khóa sổ | Kiểm tra | Thu ngân theo ca | Đối soát dòng tiền | Không |
+| **Dọn phòng & Nghiệm thu** | Nghiệm thu | Nghiệm thu | Nghiệm thu | Không | Cập nhật tiến độ dọn |
+| **Năng suất buồng phòng** | Toàn quyền | Toàn quyền | Chỉ xem | Không | Xem năng suất cá nhân |
+| **Báo cáo kinh doanh & Xuất file**| Toàn diện | Toàn diện | Báo cáo cơ bản | Chi tiết tài chính | Không |
+| **Quản lý người dùng & Hệ thống**| Toàn quyền | Toàn quyền | Không | Không | Không |
 
 ---
 
-## 🏗️ Kiến Trúc Công Nghệ
+## 🏗️ Kiến Trúc Hệ Thống
 
 ```
-                                [ CLIENT / TRÌNH DUYỆT ]
-                                           │
-                                           ▼ HTTPS (Port 443)
-                             [ NGINX REVERSE PROXY ]
-                                           │
-                    ┌──────────────────────┴──────────────────────┐
-                    ▼ Request Web (/)                             ▼ Request API (/api/v1/)
-       ┌─────────────────────────┐                   ┌─────────────────────────┐
-       │   FRONTEND CONTAINER    │                   │    BACKEND CONTAINER    │
-       │   • React 18 + Vite 6   │                   │   • Spring Boot 3 (Java 17)
-       │   • TypeScript + Tailwind│                  │   • Spring Security + JWT   │
-       │   • React Router v6     │                   │   • Spring Data JPA + Batch │
-       │   • Axios Interceptor   │                   │   • 5 Tác vụ ngầm Scheduler │
-       └─────────────────────────┘                   └────────────┬────────────┘
+                                [ CLIENT / BROWSER ]
+                                          │
+                                          ▼ HTTPS (Port 443)
+                            [ NGINX REVERSE PROXY ]
+                                          │
+                   ┌──────────────────────┴──────────────────────┐
+                   ▼ Giao diện Web (/)                           ▼ REST API (/api/v1/)
+      ┌─────────────────────────┐                   ┌─────────────────────────┐
+      │   FRONTEND CONTAINER    │                   │    BACKEND CONTAINER    │
+      │   • React 18 + Vite 6   │                   │   • Spring Boot 3 (Java 17)
+      │   • TypeScript + Tailwind│                  │   • Spring Security + JWT   │
+      │   • React Router v6     │                   │   • Spring Data JPA + Batch │
+      │   • Axios Interceptors  │                   │   • Scheduled Background Job│
+      └─────────────────────────┘                   └────────────┬────────────┘
                                                                   │
                                                                   ▼
-                                                     ┌─────────────────────────┐
-                                                     │   DATABASE CONTAINER    │
-                                                     │   • MySQL 8.0 Engine    │
-                                                     │   • Container: roomi-db │
-                                                     │   • Auto Schema Migrate │
-                                                     └─────────────────────────┘
+                                                    ┌─────────────────────────┐
+                                                    │   DATABASE CONTAINER    │
+                                                    │   • MySQL 8.0 Engine    │
+                                                    │   • Container: roomi-db │
+                                                    │   • Auto Schema Migrate │
+                                                    └─────────────────────────┘
 ```
 
 ---
 
-## 🔄 Luồng Vận Hành Hệ Thống
+## 🔄 Quy Trình Vận Hành Khép Kín
 
 ```
 [Khách hàng / Kênh OTA]
@@ -140,16 +125,16 @@ Hệ thống thiết kế ma trận phân quyền chi tiết (Role-Based Access 
            ├── (1) Đặt phòng qua Portal / Kênh OTA ──► [Kiểm tra phòng trống & Khóa lịch]
            │                                                    │
            ▼                                                    ▼
-[Lễ tân nhận đơn] ──────────────────────────────► [Thu tiền cọc (Deposit) -> Booking: CONFIRMED]
+[Lễ tân nhận đơn] ──────────────────────────────► [Thu tiền cọc (Deposit) ──► Booking: CONFIRMED]
            │                                                    │
            ├── (2) Khách đến nhận phòng (Check-in)               │
            │   • Quét mã QR thẻ CCCD gắn chip                   │
-           │   • Gán số phòng thực tế (Room: OCCUPIED)          │
+           │   • Gán phòng thực tế (Room: OCCUPIED)             │
            │   • Tự động sinh Hóa đơn nháp (Invoice: DRAFT) ◄───┘
            │
            ├── (3) Quá trình lưu trú
-           │   • Khách gọi đồ ăn / giặt là / dịch vụ ──► [Cộng dồn vào Hóa đơn nháp]
-           │   • Đổi phòng / Gia hạn ngày ──────────────► [Tính chênh lệch tiền phòng]
+           │   • Gọi đồ ăn / giặt là / minibar ─────────► [Cộng dồn vào Hóa đơn nháp]
+           │   • Đổi phòng / Gia hạn ngày lưu trú ──────► [Tự tính chênh lệch giá phòng]
            │
            ├── (4) Khách trả phòng (Check-out)
            │   • Quyết toán tiền phòng + Dịch vụ - Tiền cọc - Giảm giá
@@ -160,16 +145,16 @@ Hệ thống thiết kế ma trận phân quyền chi tiết (Role-Based Access 
            ▼                                    ▼
 [Bộ phận Buồng phòng] ◄────────────────────────┘
            │
-           ├── Phân công dọn dẹp theo mức độ ưu tiên khách kế tiếp
-           ├── Nhân viên tiến hành dọn phòng (Room: IN_PROGRESS) -> Bấm giờ tính thời lượng
-           ├── Dọn xong bấm Gửi duyệt (Room: INSPECTING)
-           └── Quản lý nghiệm thu ĐẠT ──► [Room: CLEAN (Sẵn sàng bán phòng)]
+           ├── Phân công theo thứ tự ưu tiên khách nhận phòng tiếp theo
+           ├── Nhân viên tiến hành dọn phòng (Room: IN_PROGRESS) ──► Bấm giờ tính thời lượng
+           ├── Hoàn thành bấm Gửi duyệt (Room: INSPECTING)
+           └── Quản lý nghiệm thu ĐẠT ──► [Room: CLEAN (Sẵn sàng mở bán)]
            │
            ▼
 [Cuối ngày làm việc]
-           ├── Lễ tân / Thu ngân thực hiện "Chốt sổ quỹ ca/ngày" (Daily Cash Ledger)
-           ├── Đối soát dòng tiền Tiền mặt / Ngân hàng / QR
-           └── Quản lý khóa sổ quỹ ──► [Tự động đẩy vào Báo cáo doanh thu & ADR/RevPAR]
+           ├── Lễ tân / Thu ngân chốt sổ quỹ ca làm việc (Daily Cash Ledger)
+           ├── Đối soát số dư Tiền mặt / Ngân hàng / QR
+           └── Khóa sổ quỹ ──► [Tự động cập nhật Báo cáo doanh thu & ADR / RevPAR]
 ```
 
 ---
@@ -180,13 +165,13 @@ Hệ thống thiết kế ma trận phân quyền chi tiết (Role-Based Access 
 roomi/
 ├── 📄 README.md                 # Tài liệu tổng quan hệ thống Lưu Trú Số
 ├── 📄 DEPLOYMENT.md             # Hướng dẫn chi tiết vận hành VPS & CI/CD
-├── 📄 docker-compose.yml        # Cấu hình triển khai đa container
-├── 📂 .github/workflows/        # Workflow tự động hóa GitHub Actions (deploy.yml)
+├── 📄 docker-compose.yml        # Cấu hình khởi chạy Docker đa container
+├── 📂 .github/workflows/        # CI/CD tự động kiểm thử & deploy GitHub Actions
 ├── 📂 backend/                  # ☕ Backend Spring Boot 3 + Java 17
 │   ├── src/main/java/plant/stay/
-│   │   ├── config/              # Schedulers, CORS, Data Masking, DatabaseSchemaMigration
+│   │   ├── config/              # Schedulers, Security, CORS, SchemaMigration
 │   │   ├── controller/          # 27 REST Controllers chuẩn RESTful
-│   │   ├── dto/                 # Request & Response DTOs
+│   │   ├── dto/                 # Request & Response Data Transfer Objects
 │   │   ├── model/               # 39 JPA Entities & Enums
 │   │   ├── repository/          # Spring Data JPA Repositories
 │   │   ├── service/             # Business Logic & Service Implementations
@@ -194,9 +179,9 @@ roomi/
 │   └── src/test/                # 270+ JUnit 5 Unit & Integration Tests
 └── 📂 frontend/                 # ⚛️ Frontend React 18 + Vite 6 + TailwindCSS
     └── src/
-        ├── components/          # Thư viện UI dùng chung, Dialogs, Chatbot AI
+        ├── components/          # Thư viện UI dùng chung (Buttons, Modals, Forms)
         ├── context/             # AuthContext, ToastContext, AppConfigContext
-        ├── features/            # 10 phân hệ nghiệp vụ chính (booking, housekeeping, invoice...)
+        ├── features/            # 10 phân hệ nghiệp vụ chính (booking, housekeeping...)
         ├── layouts/             # DashboardLayout phân vai trò, PublicLayout
         ├── services/            # 43 Axios API Client modules
         └── types/               # TypeScript interfaces & types
@@ -204,35 +189,35 @@ roomi/
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
+## 🚀 Hướng Dẫn Cài Đặt & Chạy Thử
 
 ### Cách 1: Khởi chạy nhanh bằng Docker Compose (Khuyên Dùng)
 
-Chỉ cần cài đặt Docker & Docker Compose, chạy lệnh duy nhất tại thư mục gốc:
+Yêu cầu máy chủ đã cài đặt **Docker** và **Docker Compose**:
 
 ```bash
 docker compose up -d --build
 ```
 
-* **Frontend Web App:** `http://localhost:3000`
-* **Backend REST API:** `http://localhost:8080/api/v1`
+- **Giao diện Web:** `http://localhost:3000`
+- **Backend REST API:** `http://localhost:8080/api/v1`
 
 ---
 
-### Cách 2: Khởi chạy cục bộ từng phân hệ (Dành cho Lập trình viên)
+### Cách 2: Khởi chạy cục bộ từng phân hệ (Development)
 
 #### 1. Khởi chạy Backend (Spring Boot 3):
-* Yêu cầu: **JDK 17** và **MySQL 8.0** đang chạy với cơ sở dữ liệu `stay`.
-* Cấu hình kết nối tại `backend/src/main/resources/application.properties` hoặc file `.env`.
+- Yêu cầu: **JDK 17** và **MySQL 8.0** (Database: `stay`).
+- Cấu hình thông tin kết nối tại `backend/src/main/resources/application.properties`.
 
 ```bash
 cd backend
 ./mvnw spring-boot:run
 ```
-*API Backend sẽ sẵn sàng tại `http://localhost:8080`.*
+*API Backend sẵn sàng tại `http://localhost:8080`.*
 
 #### 2. Khởi chạy Frontend (React + Vite):
-* Yêu cầu: **Node.js 20 LTS** & **npm 10+**.
+- Yêu cầu: **Node.js 20 LTS** & **npm 10+**.
 
 ```bash
 cd frontend
@@ -245,50 +230,49 @@ npm run dev
 
 ## 🧪 Kiểm Thử Tự Động (Testing)
 
-Dự án duy trì bộ kiểm thử tự động toàn diện, được chạy tự động trong CI/CD trước mỗi lần triển khai:
+Dự án duy trì bộ kiểm thử tự động, tích hợp kiểm tra trước mỗi commit và trong pipeline CI/CD:
 
-* **Backend Tests (JUnit 5 + Mockito + H2 In-Memory DB):**
-  ```bash
-  cd backend && ./mvnw test
-  ```
-* **Frontend Tests (Vitest + React Testing Library):**
-  ```bash
-  cd frontend && npm test
-  ```
+```bash
+# Kiểm thử Backend (JUnit 5 + Mockito + In-Memory H2 DB)
+cd backend && ./mvnw test
+
+# Kiểm thử Frontend (Vitest + React Testing Library)
+cd frontend && npm test
+```
 
 ---
 
-## 🐳 Hạ Tầng CI/CD & Vận Hành VPS
+## 🐳 CI/CD & Triển Khai Cloud VPS
 
-Dự án thiết lập pipeline tự động hóa hoàn toàn qua **GitHub Actions** ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)):
+Dự án thiết lập quy trình CI/CD tự động hóa thông qua **GitHub Actions** ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)):
 
 ```
-[Git Push lên main] ──► [Chạy 273 Backend Tests] ──┐
-                    ──► [Chạy 162 Frontend Tests] ──┴──► [PASS 100% Tests?]
+[Git Push lên main] ──► [Chạy toàn bộ Backend Tests] ──┐
+                    ──► [Chạy toàn bộ Frontend Tests] ──┴──► [PASS 100% Tests?]
                                                                    │
                                                                    ▼
                                                    [Build Docker Images & Push GHCR]
                                                                    │
                                                                    ▼
-                                                   [SSH Deploy lên AWS VPS Ubuntu]
-                                                   • Pull Docker Images mới
+                                                   [SSH Triển khai lên VPS Ubuntu]
+                                                   • Pull Docker Images mới nhất
                                                    • Recreate Containers
                                                    • Auto Schema Migration
-                                                   • Health Check liên tục 60s
+                                                   • Health Check tự động
                                                    • Downtime hoàn tất < 45 giây
 ```
 
-Chi tiết các kịch bản vận hành máy chủ, giám sát Docker và khôi phục sự cố được mô tả đầy đủ trong [DEPLOYMENT.md](./DEPLOYMENT.md).
+Xem hướng dẫn chi tiết về cấu hình máy chủ, biến môi trường và xử lý sự cố tại [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ---
 
 ## 🔐 Tài Khoản Trải Nghiệm Mẫu
 
-Hệ thống được khởi tạo sẵn các tài khoản mẫu thông qua `DataSeeder` đại diện cho các vai trò vận hành:
+Dữ liệu mẫu (`DataSeeder`) được tích hợp sẵn các tài khoản đại diện cho các vai trò vận hành:
 
-| Tài khoản (Username) | Mật khẩu mặc định | Vai trò (Role) | Chức danh hiển thị |
+| Tài khoản (Username) | Mật khẩu mặc định | Vai trò (Role) | Chức danh mô tả |
 | :--- | :--- | :--- | :--- |
-| `owner` / `admin` | `admin123` | **OWNER** / **ADMIN** | Chủ cơ sở / Quản trị viên |
+| `owner` / `admin` | `admin123` | **OWNER** / **ADMIN** | Chủ cơ sở / Quản trị viên hệ thống |
 | `accountant` | `acc123` | **ACCOUNTANT** | Kế toán trưởng |
 | `receptionist` | `rec123` | **RECEPTIONIST** | Nhân viên lễ tân |
 | `housekeeper` | `hk123` | **HOUSEKEEPER** | Nhân viên buồng phòng |
@@ -296,5 +280,5 @@ Hệ thống được khởi tạo sẵn các tài khoản mẫu thông qua `Dat
 ---
 
 <p align="center">
-  <strong>Lưu Trú Số (Smart PMS Architecture)</strong> &nbsp;·&nbsp; Enterprise Engineering Standards &nbsp;·&nbsp; 2026
+  <strong>Lưu Trú Số</strong> &nbsp;·&nbsp; Nền Tảng Quản Lý Lưu Trú Thế Hệ Mới &nbsp;·&nbsp; 2026
 </p>
