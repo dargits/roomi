@@ -29,7 +29,7 @@ public class HotelSettingController {
 
     @GetMapping
     public ResponseEntity<HotelSettingResponse> getSetting(HttpServletRequest request) {
-        checkOwner(request);
+        checkOwnerOrAdmin(request);
         return ResponseEntity.ok(hotelSettingService.getSetting());
     }
 
@@ -42,30 +42,30 @@ public class HotelSettingController {
     public ResponseEntity<HotelSettingResponse> updateSetting(
             @Valid @RequestBody HotelSettingRequest requestDto, 
             HttpServletRequest request) {
-        User user = checkOwner(request);
+        User user = checkOwnerOrAdmin(request);
         return ResponseEntity.ok(hotelSettingService.updateSetting(requestDto, user));
     }
 
     /**
-     * Lấy danh sách Google API Key đã lưu (chỉ OWNER).
+     * Lấy danh sách Google API Key đã lưu (chỉ OWNER hoặc ADMIN).
      * Trả về chuỗi plain-text, mỗi key nằm trên một dòng.
      */
     @GetMapping("/google-api-keys")
     public ResponseEntity<Map<String, String>> getGoogleApiKeys(HttpServletRequest request) {
-        checkOwner(request);
+        checkOwnerOrAdmin(request);
         String keys = hotelSettingService.getGoogleApiKeys();
         return ResponseEntity.ok(Map.of("googleApiKeys", keys));
     }
 
     /**
-     * Lưu/cập nhật danh sách Google API Key (chỉ OWNER).
+     * Lưu/cập nhật danh sách Google API Key (chỉ OWNER hoặc ADMIN).
      * Body: { "googleApiKeys": "key1\nkey2\nkey3" }
      */
     @PutMapping("/google-api-keys")
     public ResponseEntity<MessageResponse> updateGoogleApiKeys(
             @RequestBody GoogleApiKeysRequest requestDto,
             HttpServletRequest request) {
-        checkOwner(request);
+        checkOwnerOrAdmin(request);
         hotelSettingService.updateGoogleApiKeys(requestDto);
         return ResponseEntity.ok(new MessageResponse("Cập nhật Google API Key thành công."));
     }
@@ -74,19 +74,23 @@ public class HotelSettingController {
     private plant.stay.service.TelegramBackupService telegramBackupService;
 
     /**
-     * Gửi tin nhắn thử nghiệm tới danh sách các tài khoản Telegram Bot được chỉ định (chỉ OWNER).
+     * Gửi tin nhắn thử nghiệm tới danh sách các tài khoản Telegram Bot được chỉ định (chỉ OWNER hoặc ADMIN).
      */
     @PostMapping("/telegram/test")
-    public ResponseEntity<MessageResponse> testTelegramConnection(HttpServletRequest request) {
-        checkOwner(request);
-        String result = telegramBackupService.testSendToAll(null);
+    public ResponseEntity<MessageResponse> testTelegramConnection(
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            HttpServletRequest request) {
+        checkOwnerOrAdmin(request);
+        String customToken = body != null ? body.get("token") : null;
+        String customChatIds = body != null ? body.get("chatIds") : null;
+        String result = telegramBackupService.testSendToAll(customToken, customChatIds, null);
         return ResponseEntity.ok(new MessageResponse(result));
     }
 
-    private User checkOwner(HttpServletRequest request) {
+    private User checkOwnerOrAdmin(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);
-        if (user == null || user.getRole() != Role.OWNER) {
-            throw new UnauthorizedException("Chỉ chủ sở hữu (OWNER) mới có quyền truy cập chức năng này.");
+        if (user == null || (user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN)) {
+            throw new UnauthorizedException("Chỉ Chủ cơ sở (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền truy cập chức năng này.");
         }
         return user;
     }

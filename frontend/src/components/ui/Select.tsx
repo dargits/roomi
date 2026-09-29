@@ -4,6 +4,7 @@ import { IoCheckmarkOutline, IoChevronDownOutline } from 'react-icons/io5';
 export interface SelectOption {
   value: any;
   label: string;
+  disabled?: boolean;
 }
 
 export interface SelectProps {
@@ -104,10 +105,17 @@ const Select: React.FC<SelectProps> = ({
                 <li
                   key={String(option.value)}
                   title={option.label}
-                  className={`px-3 py-2 rounded-lg cursor-pointer flex items-center justify-between hover:bg-slate-50 transition-colors text-xs ${
-                    option.value === value ? 'text-primary font-bold bg-[#EBF3FF]' : 'text-[#002146] font-medium'
+                  className={`px-3 py-2 rounded-lg flex items-center justify-between text-xs transition-colors ${
+                    option.disabled
+                      ? 'opacity-40 cursor-not-allowed bg-slate-50 text-slate-400'
+                      : option.value === value
+                      ? 'cursor-pointer text-primary font-bold bg-[#EBF3FF]'
+                      : 'cursor-pointer text-[#002146] font-medium hover:bg-slate-50'
                   }`}
-                  onClick={() => handleSelect(option.value)}
+                  onClick={() => {
+                    if (option.disabled) return;
+                    handleSelect(option.value);
+                  }}
                 >
                   <span className="truncate pr-2">{option.label}</span>
                   {option.value === value && (

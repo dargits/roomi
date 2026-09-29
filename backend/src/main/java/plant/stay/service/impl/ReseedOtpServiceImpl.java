@@ -46,6 +46,7 @@ public class ReseedOtpServiceImpl implements ReseedOtpService {
         String otp = generateOtpCode();
         LocalDateTime expiry = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
         currentOtp.set(new OtpEntry(otp, expiry));
+        log.info("🔐 [RESEED_OTP] Mã OTP xác thực tái tạo dữ liệu mẫu cho [{}]: {}", adminName, otp);
 
         String message = buildOtpMessage(adminName, otp);
 

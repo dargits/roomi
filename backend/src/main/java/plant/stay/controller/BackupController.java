@@ -75,19 +75,26 @@ public class BackupController {
     @PostMapping("/reseed-sample-data")
     public ResponseEntity<java.util.Map<String, Object>> reseedSampleData(
             @RequestParam(required = false) String otp,
+            @RequestBody(required = false) java.util.Map<String, String> body,
             HttpServletRequest request) {
         User actor = checkAdmin(request);
 
-        if (otp == null || otp.isBlank()) {
+        String finalOtp = (otp != null && !otp.isBlank()) ? otp : (body != null ? body.get("otp") : null);
+
+        if (finalOtp == null || finalOtp.isBlank()) {
             throw new UnauthorizedException("Vui lòng nhập mã OTP đã được gửi đến Telegram Bot để xác thực thao tác này");
         }
 
-        if (!reseedOtpService.verifyOtp(otp.trim())) {
+        if (!reseedOtpService.verifyOtp(finalOtp.trim())) {
             throw new UnauthorizedException("Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã mới.");
         }
 
         java.util.Map<String, Object> result = operationalDataSeederService.reseedOperationalData(actor);
         return ResponseEntity.ok(result);
+    }
+
+    public ResponseEntity<java.util.Map<String, Object>> reseedSampleData(String otp, HttpServletRequest request) {
+        return reseedSampleData(otp, null, request);
     }
 
     /**
