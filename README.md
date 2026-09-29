@@ -1,6 +1,7 @@
-# 🏨 Lưu Trú Số — Nền Tảng Quản Lý Cơ Sở Lưu Trú Thông Minh (Smart PMS)
+# 🏨 Lưu Trú Số — Nền Tảng Quản Lý Cơ Sở Lưu Trú Thông Minh
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Version-v1.0.4-indigo?style=for-the-badge&logo=git&logoColor=white" alt="Version v1.0.4" />
   <img src="https://img.shields.io/badge/Production-stayaway.io.vn-6366F1?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Production Domain" />
   <img src="https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white" alt="Spring Boot" />
   <img src="https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 17" />
@@ -13,7 +14,7 @@
 
 ---
 
-> **Lưu Trú Số** là giải pháp quản lý khách sạn, resort và căn hộ dịch vụ (Property Management System - PMS) toàn diện, chuẩn hóa theo quy trình vận hành thực tế tại Việt Nam. Hệ thống số hóa trọn vẹn vòng đời cơ sở lưu trú: từ cổng đặt phòng tự phục vụ, check-in quét QR thẻ CCCD gắn chip, định giá động linh hoạt, buồng phòng nghiệm thu 2 bước, đến đồng bộ kênh OTA hai chiều (iCal), thanh toán VietQR động, quản lý công nợ và báo cáo chỉ số quản trị quốc tế (ADR, RevPAR, PoP, YoY).
+> **Lưu Trú Số** là giải pháp quản lý khách sạn, resort và căn hộ dịch vụ toàn diện, chuẩn hóa theo quy trình vận hành thực tế tại Việt Nam. Hệ thống số hóa trọn vẹn vòng đời cơ sở lưu trú: từ cổng đặt phòng tự phục vụ, check-in quét QR thẻ CCCD gắn chip, định giá động linh hoạt, buồng phòng nghiệm thu 2 bước, đến đồng bộ kênh OTA hai chiều (iCal), thanh toán VietQR động, quản lý công nợ và báo cáo chỉ số quản trị quốc tế (ADR, RevPAR, PoP, YoY).
 
 ---
 
@@ -268,14 +269,15 @@ Xem hướng dẫn chi tiết về cấu hình máy chủ, biến môi trường
 
 ## 🔐 Tài Khoản Trải Nghiệm Mẫu
 
-Dữ liệu mẫu (`DataSeeder`) được tích hợp sẵn các tài khoản đại diện cho các vai trò vận hành:
+Dữ liệu mẫu (`DataSeeder`) được tích hợp sẵn các tài khoản đại diện cho các vai trò vận hành (mật khẩu mặc định: `pass@123`):
 
-| Tài khoản (Username) | Mật khẩu mặc định | Vai trò (Role) | Chức danh mô tả |
-| :--- | :--- | :--- | :--- |
-| `owner` / `admin` | `admin123` | **OWNER** / **ADMIN** | Chủ cơ sở / Quản trị viên hệ thống |
-| `accountant` | `acc123` | **ACCOUNTANT** | Kế toán trưởng |
-| `receptionist` | `rec123` | **RECEPTIONIST** | Nhân viên lễ tân |
-| `housekeeper` | `hk123` | **HOUSEKEEPER** | Nhân viên buồng phòng |
+| Mã vai trò | Chức danh | Tài khoản (Username) | Mật khẩu mặc định | Nhiệm vụ chính |
+| :---: | :--- | :--- | :--- | :--- |
+| **VT-01** | **Chủ sở hữu** | `chusohuu` | `pass@123` | Quản lý tổng thể khách sạn |
+| **VT-02** | **Lễ tân** | `letan` | `pass@123` | Thủ tục nhận/trả phòng, hỗ trợ khách |
+| **VT-03** | **Buồng phòng** | `buongphong` | `pass@123` | Kiểm tra phòng, điều phối dọn dẹp |
+| **VT-04** | **Kế toán** | `ketoan` | `pass@123` | Kiểm soát thu chi, báo cáo tài chính |
+| **VT-05** | **Quản trị viên** | `admin` | `pass@123` | Toàn quyền: quản lý hệ thống, nhân sự |
 
 ---
 

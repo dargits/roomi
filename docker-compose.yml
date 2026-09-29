@@ -5,6 +5,7 @@
 #  • Backend Image   : ghcr.io/dargits/roomi-backend:latest
 #  • Frontend Image  : ghcr.io/dargits/roomi-frontend:latest
 #  • Orchestration   : Managed automatically by .github/workflows/deploy.yml
+#  • Release Version : v1.0.4
 # ==============================================================================
 
 services:
