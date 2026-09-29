@@ -74,6 +74,8 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
   const [housekeeperTaskFilter, setHousekeeperTaskFilter] = useState('ALL');
   const [quickFilter, setQuickFilter] = useState<'ALL' | 'URGENT' | 'UNASSIGNED' | 'PERIODIC'>('ALL');
 
+  const isOwnerOrAdmin = ['OWNER', 'ADMIN'].includes(user?.role || '');
+  const isReceptionist = user?.role === 'RECEPTIONIST';
   const isSupervisor = ['OWNER', 'ADMIN', 'RECEPTIONIST'].includes(user?.role || '');
   const isHousekeeper = user?.role === 'HOUSEKEEPER';
 
@@ -177,6 +179,10 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
 
   // Supervisor đánh dấu phòng đã sạch trực tiếp (DIRTY -> AVAILABLE)
   const handleMarkClean = async (room: any) => {
+    if (user?.role === 'RECEPTIONIST' && room.status !== 'INSPECTING') {
+      toast.warning('Lễ tân không được đánh dấu đã dọn xong khi phòng chưa ở trạng thái chờ nghiệm thu!');
+      return;
+    }
     const isConfirmed = await confirm({
       title: 'Đánh dấu phòng đã sạch',
       message: `Xác nhận phòng ${room.roomNumber} đã dọn dẹp xong và sẵn sàng đón khách?`,
@@ -1135,8 +1141,25 @@ const CleaningTaskList: React.FC<CleaningTaskListProps> = ({ onRoomCleaned }) =>
                             )
                           )}
 
-                          {/* Supervisor: Lễ tân / Quản lý duyệt sạch ngay */}
-                          {isSupervisor && (
+                          {/* Lễ tân: Không được duyệt khi phòng chưa ở trạng thái chờ nghiệm thu */}
+                          {isReceptionist && (
+                            <div className="space-y-1.5">
+                              {!room.cleaningStartedAt ? (
+                                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold text-center flex items-center justify-center gap-1.5">
+                                  <IoTimeOutline size={14} className="text-amber-600 shrink-0" />
+                                  <span>Chờ buồng phòng dọn & gửi nghiệm thu</span>
+                                </div>
+                              ) : (
+                                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold text-center flex items-center justify-center gap-1.5">
+                                  <IoTimeOutline size={14} className="text-blue-600 shrink-0 animate-pulse" />
+                                  <span>Đang dọn dẹp — Chờ gửi nghiệm thu</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Chủ cơ sở / Quản trị viên (Owner/Admin): Có quyền duyệt sạch trực tiếp khi cần */}
+                          {isOwnerOrAdmin && (
                             <div className="space-y-1.5">
                               {!room.cleaningStartedAt && (
                                 <button
