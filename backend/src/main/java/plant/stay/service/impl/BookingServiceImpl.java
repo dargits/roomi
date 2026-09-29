@@ -238,6 +238,76 @@ public class BookingServiceImpl implements BookingService {
         return result;
     }
 
+    private Guest resolveGuest(BookingRequest request) {
+        if (request.getGuestId() != null) {
+            Guest guest = guestRepository.findById(request.getGuestId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng"));
+            boolean updated = false;
+            if (request.getGuestName() != null && !request.getGuestName().isBlank() && !request.getGuestName().trim().equals(guest.getName())) {
+                guest.setName(request.getGuestName().trim());
+                updated = true;
+            }
+            if (request.getGuestPhone() != null && !request.getGuestPhone().isBlank() && !request.getGuestPhone().trim().equals(guest.getPhone())) {
+                guest.setPhone(request.getGuestPhone().trim());
+                updated = true;
+            }
+            if (request.getGuestEmail() != null && !request.getGuestEmail().isBlank() && !request.getGuestEmail().trim().equals(guest.getEmail())) {
+                guest.setEmail(request.getGuestEmail().trim());
+                updated = true;
+            }
+            if (request.getGuestIdNumber() != null && !request.getGuestIdNumber().isBlank() && !request.getGuestIdNumber().trim().equals(guest.getIdNumber())) {
+                guest.setIdNumber(request.getGuestIdNumber().trim());
+                updated = true;
+            }
+            if (updated) {
+                guest = guestRepository.save(guest);
+            }
+            return guest;
+        }
+
+        String name = request.getGuestName() != null ? request.getGuestName().trim() : null;
+        String phone = request.getGuestPhone() != null ? request.getGuestPhone().trim() : null;
+        String email = request.getGuestEmail() != null ? request.getGuestEmail().trim() : null;
+        String idNumber = request.getGuestIdNumber() != null ? request.getGuestIdNumber().trim() : null;
+
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập họ và tên khách hàng");
+        }
+        if (phone == null || phone.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập số điện thoại khách hàng");
+        }
+
+        java.util.Optional<Guest> existing = guestRepository.findByPhone(phone);
+        if (existing.isPresent()) {
+            Guest guest = existing.get();
+            boolean updated = false;
+            if (!name.equals(guest.getName())) {
+                guest.setName(name);
+                updated = true;
+            }
+            if (email != null && !email.isBlank() && !email.equals(guest.getEmail())) {
+                guest.setEmail(email);
+                updated = true;
+            }
+            if (idNumber != null && !idNumber.isBlank() && !idNumber.equals(guest.getIdNumber())) {
+                guest.setIdNumber(idNumber);
+                updated = true;
+            }
+            if (updated) {
+                guest = guestRepository.save(guest);
+            }
+            return guest;
+        }
+
+        Guest newGuest = Guest.builder()
+                .name(name)
+                .phone(phone)
+                .email(email != null && !email.isBlank() ? email : null)
+                .idNumber(idNumber != null && !idNumber.isBlank() ? idNumber : null)
+                .build();
+        return guestRepository.save(newGuest);
+    }
+
     @Override
     @Transactional
     public BookingResponse create(BookingRequest request, User actor) {
@@ -245,8 +315,7 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Ngày trả phòng phải sau ngày nhận phòng");
         }
 
-        Guest guest = guestRepository.findById(request.getGuestId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng"));
+        Guest guest = resolveGuest(request);
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
 

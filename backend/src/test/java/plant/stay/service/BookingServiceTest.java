@@ -510,4 +510,23 @@ public class BookingServiceTest {
         BookingResponse checkedOut = bookingService.checkOut(checkedIn.getId(), testUser);
         assertEquals(BookingStatus.CHECKED_OUT, checkedOut.getStatus());
     }
+
+    @Test
+    @DisplayName("Cho phép tạo đặt phòng nhập trực tiếp thông tin khách hàng không cần guestId như cổng online")
+    void testCreateBookingWithDirectGuestInfoWithoutGuestId() {
+        BookingRequest request = new BookingRequest();
+        request.setGuestName("Khách Vãng Lai Online");
+        request.setGuestPhone("0988776655");
+        request.setGuestEmail("khach.online@example.com");
+        request.setRoomTypeId(testRoomType.getId());
+        request.setCheckInDate(LocalDate.now().plusDays(20));
+        request.setCheckOutDate(LocalDate.now().plusDays(22));
+
+        BookingResponse created = bookingService.create(request, testUser);
+
+        assertNotNull(created);
+        assertNotNull(created.getId());
+        assertEquals("Khách Vãng Lai Online", created.getGuestName());
+        assertEquals("0988776655", created.getGuestPhone());
+    }
 }
