@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "negotiated_price_agreements")
@@ -35,7 +37,7 @@ public class NegotiatedPriceAgreement {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "negotiated_price_items", joinColumns = @JoinColumn(name = "agreement_id"))
     @Builder.Default
-    private java.util.List<NegotiatedPriceItem> items = new java.util.ArrayList<>();
+    private List<NegotiatedPriceItem> items = new ArrayList<>();
 
     public BigDecimal getPriceForRoomType(Long roomTypeId) {
         if (items != null && !items.isEmpty()) {

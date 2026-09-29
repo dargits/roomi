@@ -1,18 +1,32 @@
 package plant.stay.service.impl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import plant.stay.dto.request.RoomTypeRequest;
 import plant.stay.dto.response.RoomTypeResponse;
 import plant.stay.exception.ResourceNotFoundException;
+import plant.stay.model.Booking;
+import plant.stay.model.Room;
+import plant.stay.model.RoomStatus;
 import plant.stay.model.RoomType;
+import plant.stay.repository.BookingRepository;
+import plant.stay.repository.RoomRepository;
 import plant.stay.repository.RoomTypeRepository;
+import plant.stay.service.PricingService;
 import plant.stay.service.RoomTypeService;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class RoomTypeServiceImpl implements RoomTypeService {
 
@@ -20,16 +34,16 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     private RoomTypeRepository roomTypeRepository;
 
     @Autowired
-    @org.springframework.context.annotation.Lazy
-    private plant.stay.repository.RoomRepository roomRepository;
+    @Lazy
+    private RoomRepository roomRepository;
 
     @Autowired
-    @org.springframework.context.annotation.Lazy
-    private plant.stay.repository.BookingRepository bookingRepository;
+    @Lazy
+    private BookingRepository bookingRepository;
 
     @Autowired
-    @org.springframework.context.annotation.Lazy
-    private plant.stay.service.PricingService pricingService;
+    @Lazy
+    private PricingService pricingService;
 
     @Override
     @Transactional(readOnly = true)
@@ -63,11 +77,11 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 .name(request.getName())
                 .standardCapacity(request.getStandardCapacity() != null ? request.getStandardCapacity() : 2)
                 .maxCapacity(request.getMaxCapacity())
-                .extraPersonChargePerNight(request.getExtraPersonChargePerNight() != null ? request.getExtraPersonChargePerNight() : java.math.BigDecimal.ZERO)
+                .extraPersonChargePerNight(request.getExtraPersonChargePerNight() != null ? request.getExtraPersonChargePerNight() : BigDecimal.ZERO)
                 .maxChildAgeFree(request.getMaxChildAgeFree() != null ? request.getMaxChildAgeFree() : 6)
                 .basePrice(request.getBasePrice())
                 .amenitiesDescription(request.getAmenitiesDescription())
-                .imageUrls(request.getImageUrls() != null ? request.getImageUrls() : new java.util.ArrayList<>())
+                .imageUrls(request.getImageUrls() != null ? request.getImageUrls() : new ArrayList<>())
                 .standardCheckoutCleaningMinutes(request.getStandardCheckoutCleaningMinutes() != null ? request.getStandardCheckoutCleaningMinutes() : 45)
                 .standardPeriodicCleaningMinutes(request.getStandardPeriodicCleaningMinutes() != null ? request.getStandardPeriodicCleaningMinutes() : 20)
                 .active(request.getActive() != null ? request.getActive() : true)
@@ -120,7 +134,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 throw new IllegalArgumentException("Sức chứa tối đa (" + request.getMaxCapacity() + ") không được nhỏ hơn sức chứa tiêu chuẩn (" + request.getStandardCapacity() + ")");
             }
         }
-        if (request.getExtraPersonChargePerNight() != null && request.getExtraPersonChargePerNight().compareTo(java.math.BigDecimal.ZERO) < 0) {
+        if (request.getExtraPersonChargePerNight() != null && request.getExtraPersonChargePerNight().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Mức phụ thu thêm người không được là số âm");
         }
         if (request.getMaxChildAgeFree() != null && request.getMaxChildAgeFree() < 0) {
@@ -138,19 +152,20 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     }
 
     private RoomTypeResponse mapToResponse(RoomType roomType) {
-        java.math.BigDecimal currentPrice = roomType.getBasePrice();
+        BigDecimal currentPrice = roomType.getBasePrice();
         String priceSource = "BASE";
         String priceSourceName = null;
 
         if (pricingService != null) {
             try {
-                var nightDetail = pricingService.calculateNightPrice(roomType, java.time.LocalDate.now());
+                var nightDetail = pricingService.calculateNightPrice(roomType, LocalDate.now());
                 if (nightDetail != null && nightDetail.getAppliedPrice() != null) {
                     currentPrice = nightDetail.getAppliedPrice();
                     priceSource = nightDetail.getPriceSource();
                     priceSourceName = nightDetail.getSourceName();
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("Không thể tính giá linh hoạt cho loại phòng {}: {}", roomType.getId(), e.getMessage());
             }
         }
 
@@ -160,14 +175,14 @@ public class RoomTypeServiceImpl implements RoomTypeService {
 
         if (roomRepository != null && bookingRepository != null) {
             try {
-                List<plant.stay.model.Room> allRooms = roomRepository.findByRoomTypeId(roomType.getId());
+                List<Room> allRooms = roomRepository.findByRoomTypeId(roomType.getId());
                 long totalPhysical = allRooms.size();
-                java.time.LocalDate today = java.time.LocalDate.now();
-                java.time.LocalDate tomorrow = today.plusDays(1);
-                List<plant.stay.model.Booking> activeToday = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
+                LocalDate today = LocalDate.now();
+                LocalDate tomorrow = today.plusDays(1);
+                List<Booking> activeToday = bookingRepository.findActiveOverlappingByRoomTypeAndRange(
                         roomType.getId(), today, tomorrow);
 
-                java.util.Set<Long> occupiedRoomIds = new java.util.HashSet<>();
+                Set<Long> occupiedRoomIds = new HashSet<>();
                 int unassignedBookingCount = 0;
                 for (var b : activeToday) {
                     if (b.getRoom() != null) {
@@ -177,9 +192,9 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                     }
                 }
                 for (var r : allRooms) {
-                    if (r.getStatus() == plant.stay.model.RoomStatus.MAINTENANCE 
-                            || r.getStatus() == plant.stay.model.RoomStatus.OCCUPIED
-                            || r.getStatus() == plant.stay.model.RoomStatus.DIRTY) {
+                    if (r.getStatus() == RoomStatus.MAINTENANCE 
+                            || r.getStatus() == RoomStatus.OCCUPIED
+                            || r.getStatus() == RoomStatus.DIRTY) {
                         occupiedRoomIds.add(r.getId());
                     }
                 }
@@ -189,7 +204,8 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 totalRooms = totalPhysical;
                 availableToday = avail;
                 isAvailableToday = totalPhysical > 0 && avail > 0;
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("Không thể tính phòng khả dụng cho loại phòng {}: {}", roomType.getId(), e.getMessage());
             }
         }
 

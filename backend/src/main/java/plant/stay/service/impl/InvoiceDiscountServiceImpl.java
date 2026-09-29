@@ -351,7 +351,7 @@ public class InvoiceDiscountServiceImpl implements InvoiceDiscountService {
             throw new BusinessException(
                 "[QTN-11] Không thể thay đổi giảm giá trên hóa đơn đã thanh toán (PAID). " +
                 "Hóa đơn #" + invoice.getId() + " có trạng thái: PAID.",
-                HttpStatus.UNPROCESSABLE_ENTITY
+                HttpStatus.UNPROCESSABLE_CONTENT
             );
         }
     }

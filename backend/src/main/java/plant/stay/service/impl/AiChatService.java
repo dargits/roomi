@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -297,7 +298,9 @@ public class AiChatService {
                     }
                     break;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.debug("Không thể phân tích mã đặt phòng từ tin nhắn: {}", e.getMessage());
+            }
         }
     }
 
@@ -314,6 +317,6 @@ public class AiChatService {
 
     private String formatCurrency(BigDecimal amount) {
         if (amount == null) return "Liên hệ";
-        return String.format(java.util.Locale.GERMANY, "%,.0f", amount.doubleValue());
+        return String.format(Locale.GERMANY, "%,.0f", amount.doubleValue());
     }
 }

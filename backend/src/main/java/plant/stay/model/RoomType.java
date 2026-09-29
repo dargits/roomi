@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -55,7 +56,7 @@ public class RoomType {
     @CollectionTable(name = "room_type_images", joinColumns = @JoinColumn(name = "room_type_id"))
     @Column(name = "image_url", length = 500)
     @Builder.Default
-    private List<String> imageUrls = new java.util.ArrayList<>(); // Danh sách ảnh của loại phòng
+    private List<String> imageUrls = new ArrayList<>(); // Danh sách ảnh của loại phòng
 
     @Builder.Default
     @Column(name = "active")

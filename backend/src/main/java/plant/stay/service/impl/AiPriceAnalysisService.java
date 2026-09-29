@@ -23,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -402,6 +403,6 @@ public class AiPriceAnalysisService {
 
     private String formatCurrency(BigDecimal amount) {
         if (amount == null) return "0";
-        return String.format(java.util.Locale.GERMANY, "%,.0f", amount.doubleValue());
+        return String.format(Locale.GERMANY, "%,.0f", amount.doubleValue());
     }
 }
