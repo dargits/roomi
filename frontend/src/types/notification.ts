@@ -6,6 +6,8 @@ export type NotificationType =
   | 'ROOM_INCIDENT_HEAVY'
   | 'STAY_MILESTONE'
   | 'INVOICE_DISCOUNT_APPROVAL'
+  | 'DEBT_REMINDER'
+  | 'CHANNEL_DISCONNECT_WARNING'
   | 'CHANNEL_OVERBOOKING_CONFLICT';
 
 export interface NotificationItem {
@@ -32,13 +34,15 @@ export interface NotificationPage {
   number: number;
 }
 
-export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
+export const NOTIFICATION_LABELS: Record<string, string> = {
   CHECKIN_TODAY: 'Check-in hôm nay',
   CHECKOUT_TODAY: 'Check-out hôm nay',
   ROOM_DIRTY: 'Phòng cần dọn',
   ROOM_INCIDENT_LIGHT: 'Sự cố phòng (nhẹ)',
-  ROOM_INCIDENT_HEAVY: 'Sự cố phòng (nặng)',
+  ROOM_INCIDENT_HEAVY: 'Sự cố phòng nghiêm trọng',
   STAY_MILESTONE: 'Nhắc lưu trú',
   INVOICE_DISCOUNT_APPROVAL: 'Hóa đơn chờ duyệt giảm giá',
+  DEBT_REMINDER: 'Nhắc hạn thu hồi công nợ',
+  CHANNEL_DISCONNECT_WARNING: 'Cảnh báo mất kết nối kênh OTA',
   CHANNEL_OVERBOOKING_CONFLICT: 'Cảnh báo trùng phòng kênh OTA',
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   IoNotificationsOutline, 
   IoCheckmarkDoneOutline, 
@@ -15,7 +15,8 @@ import {
   IoCashOutline,
   IoTimeOutline,
   IoCheckmarkOutline,
-  IoCloseOutline
+  IoCloseOutline,
+  IoShieldCheckmarkOutline
 } from 'react-icons/io5';
 import { notificationApi } from '../../services/notificationApi';
 import type { NotificationItem, NotificationPref, NotificationType } from '../../types/notification';
@@ -87,6 +88,22 @@ const TYPE_CONFIG: Record<NotificationType, {
     badgeColor: 'bg-red-100 text-red-800 border-red-200',
     borderColor: 'border-l-red-500'
   },
+  DEBT_REMINDER: {
+    label: 'Nhắc thu hồi công nợ',
+    icon: IoCashOutline,
+    bgColor: 'bg-amber-50 text-amber-600',
+    textColor: 'text-amber-700',
+    badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
+    borderColor: 'border-l-amber-500'
+  },
+  CHANNEL_DISCONNECT_WARNING: {
+    label: 'Cảnh báo mất kết nối kênh OTA',
+    icon: IoWarningOutline,
+    bgColor: 'bg-rose-50 text-rose-600',
+    textColor: 'text-rose-700',
+    badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
+    borderColor: 'border-l-rose-500'
+  },
   CHANNEL_OVERBOOKING_CONFLICT: {
     label: 'Trùng phòng kênh OTA',
     icon: IoAlertCircleOutline,
@@ -152,11 +169,10 @@ function getTargetRoute(item: NotificationItem): string | null {
   }
 }
 
-// ─── Modal Cấu Hình Nhận Thông Báo ──────────────────────────────────────────
-const PreferencesModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-}> = ({ isOpen, onClose }) => {
+// ─── Component Cài Đặt Nhận Tin (Preferences Panel) ─────────────────────────
+const NotificationPreferencesPanel: React.FC<{
+  onSwitchToList?: () => void;
+}> = ({ onSwitchToList }) => {
   const { toastSuccess, toastError } = useToast();
   const [prefs, setPrefs] = useState<NotificationPref[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -175,10 +191,8 @@ const PreferencesModal: React.FC<{
   }, [toastError]);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchPrefs();
-    }
-  }, [isOpen, fetchPrefs]);
+    fetchPrefs();
+  }, [fetchPrefs]);
 
   const handleToggle = async (type: NotificationType, currentEnabled: boolean, mandatory: boolean) => {
     if (mandatory) return;
@@ -195,40 +209,57 @@ const PreferencesModal: React.FC<{
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-      <div 
-        className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <IoSettingsOutline size={20} />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800">Cấu hình nhận thông báo</h2>
-              <p className="text-xs text-slate-500">Tùy chỉnh các loại thông báo gửi tới tài khoản của bạn</p>
-            </div>
+    <div className="space-y-6 animate-fade-in">
+      {/* ── Header Card ── */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200/70 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-md">
+            <IoSettingsOutline size={26} />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
-          >
-            <IoCloseOutline size={22} />
-          </button>
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+              Cài Đặt Nhận Thông Báo
+            </h2>
+            <p className="text-xs md:text-sm text-slate-500 mt-1 max-w-2xl">
+              Tự chọn loại thông báo cần hiển thị để không bỏ sót việc quan trọng mà không bị làm phiền bởi những thông báo không cần thiết.
+            </p>
+          </div>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-3 divide-y divide-slate-100">
+        {onSwitchToList && (
+          <button
+            type="button"
+            onClick={onSwitchToList}
+            className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-xs transition-colors cursor-pointer shrink-0 self-start md:self-auto"
+          >
+            <IoNotificationsOutline size={16} />
+            <span>Quay lại danh sách thông báo</span>
+          </button>
+        )}
+      </div>
+
+      {/* ── Preferences List Card ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+            Danh sách loại thông báo theo vai trò
+          </span>
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-200/60 text-slate-700">
+            {prefs.length} loại khả dụng
+          </span>
+        </div>
+
+        <div className="divide-y divide-slate-100 p-6 space-y-4">
           {loading ? (
-            <div className="py-12 text-center text-slate-400 text-sm">Đang tải cài đặt...</div>
+            <div className="py-12 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
+              <IoRefreshOutline size={18} className="animate-spin text-primary" />
+              <span>Đang tải cấu hình thông báo...</span>
+            </div>
           ) : prefs.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-sm">Không có thông báo nào có thể tùy chỉnh cho vai trò của bạn.</div>
+            <div className="py-8 text-center text-slate-400 text-sm">
+              Không có thông báo nào có thể cấu hình cho vai trò của bạn.
+            </div>
           ) : (
             prefs.map(pref => {
               const meta = TYPE_CONFIG[pref.type];
@@ -236,33 +267,41 @@ const PreferencesModal: React.FC<{
               const isBusy = updating === pref.type;
 
               return (
-                <div key={pref.type} className="pt-3 first:pt-0 flex items-center justify-between gap-4">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${meta?.bgColor || 'bg-slate-100 text-slate-600'}`}>
-                      <Icon size={16} />
+                <div key={pref.type} className="pt-4 first:pt-0 flex items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${meta?.bgColor || 'bg-slate-100 text-slate-600'}`}>
+                      <Icon size={20} />
                     </div>
-                    <div>
+
+                    <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-slate-800">
-                          {NOTIFICATION_LABELS[pref.type] || pref.type}
+                        <span className="text-sm font-bold text-slate-800">
+                          {NOTIFICATION_LABELS[pref.type] || meta?.label || pref.type}
                         </span>
-                        {pref.mandatory && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        {pref.mandatory ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                            <IoShieldCheckmarkOutline size={12} />
                             Bắt buộc
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-medium rounded-full bg-slate-100 text-slate-600 border border-slate-200/60">
+                            Tùy chọn
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
                         {pref.mandatory 
-                          ? 'Thông báo quan trọng theo vai trò, không thể tắt.' 
-                          : pref.enabled ? 'Đang nhận thông báo này.' : 'Đã tắt nhận thông báo này.'}
+                          ? 'Thông báo an toàn / phê duyệt bắt buộc của hệ thống. Bạn không thể tắt thông báo này.' 
+                          : pref.enabled 
+                          ? 'Đang bật: Bạn sẽ nhận được thông báo khi sự kiện này phát sinh.' 
+                          : 'Đã tắt: Bạn sẽ không nhận được thông báo loại này.'}
                       </p>
                     </div>
                   </div>
 
                   {/* Switch toggle */}
                   <div className="shrink-0 flex items-center">
-                    <label className={`relative inline-flex items-center ${pref.mandatory ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                    <label className={`relative inline-flex items-center ${pref.mandatory ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
                         checked={pref.enabled}
@@ -279,18 +318,9 @@ const PreferencesModal: React.FC<{
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-          <p className="text-[11px] text-slate-400">
-            * Thay đổi có hiệu lực ngay lập tức.
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-hover transition-colors shadow-xs cursor-pointer"
-          >
-            Đóng
-          </button>
+        {/* Footer info */}
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+          <span>* Các thay đổi được lưu tự động và có hiệu lực tức thì.</span>
         </div>
       </div>
     </div>
@@ -300,6 +330,8 @@ const PreferencesModal: React.FC<{
 // ─── Main Notification Center Component ──────────────────────────────────────
 const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'preferences' ? 'preferences' : 'list';
   const { toastSuccess, toastError } = useToast();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -313,9 +345,6 @@ const NotificationCenter: React.FC = () => {
 
   // Accordion state for notifications older than 30 days
   const [isOldExpanded, setIsOldExpanded] = useState<boolean>(false);
-
-  // Preferences Modal state
-  const [isPrefModalOpen, setIsPrefModalOpen] = useState<boolean>(false);
 
   // Fetch notifications list
   const loadNotifications = useCallback(async (isSilent = false) => {
@@ -342,8 +371,10 @@ const NotificationCenter: React.FC = () => {
   }, [selectedType, unreadOnly, page, toastError]);
 
   useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+    if (activeTab === 'list') {
+      loadNotifications();
+    }
+  }, [loadNotifications, activeTab]);
 
   // Mark single as read
   const handleMarkRead = async (item: NotificationItem, e?: React.MouseEvent) => {
@@ -388,63 +419,101 @@ const NotificationCenter: React.FC = () => {
     <div className="flex-1 overflow-y-auto bg-[#f8fafc] p-4 md:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
 
-        {/* ── Page Header ── */}
-        <div className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200/70 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-blue-600 text-white flex items-center justify-center shadow-md shadow-primary/20 shrink-0">
-              <IoNotificationsOutline size={26} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
-                  Trung Tâm Thông Báo
-                </h1>
-                {totalElements > 0 && (
-                  <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                    {totalElements} thông báo
-                  </span>
-                )}
-              </div>
-              <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-                Theo dõi toàn bộ cập nhật, sự cố và biến động hoạt động lưu trú theo vai trò
-              </p>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-            <button
-              type="button"
-              onClick={() => loadNotifications(true)}
-              disabled={refreshing}
-              className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-medium border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title="Làm mới danh sách"
-            >
-              <IoRefreshOutline size={16} className={refreshing ? 'animate-spin text-primary' : ''} />
-              <span className="hidden sm:inline">Làm mới</span>
-            </button>
-
+        {/* ── Top Level Navigation Tabs (Segmented Control) ── */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-2xl w-fit">
+          <button
+            type="button"
+            onClick={() => setSearchParams({ tab: 'list' })}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+              activeTab === 'list'
+                ? 'bg-white text-primary shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <IoNotificationsOutline size={17} />
+            <span>Trung Tâm Thông Báo</span>
             {unreadCountOnPage > 0 && (
-              <button
-                type="button"
-                onClick={handleMarkAllRead}
-                className="px-3.5 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <IoCheckmarkDoneOutline size={16} />
-                <span>Đọc tất cả</span>
-              </button>
+              <span className="px-2 py-0.2 text-[10px] font-bold rounded-full bg-red-500 text-white">
+                {unreadCountOnPage}
+              </span>
             )}
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setIsPrefModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-900 text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <IoSettingsOutline size={15} />
-              <span>Cài đặt nhận tin</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSearchParams({ tab: 'preferences' })}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+              activeTab === 'preferences'
+                ? 'bg-white text-primary shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <IoSettingsOutline size={17} />
+            <span>Cài Đặt Nhận Tin</span>
+          </button>
         </div>
+
+        {activeTab === 'preferences' ? (
+          <NotificationPreferencesPanel onSwitchToList={() => setSearchParams({ tab: 'list' })} />
+        ) : (
+          <>
+            {/* ── Page Header ── */}
+            <div className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200/70 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-blue-600 text-white flex items-center justify-center shadow-md shadow-primary/20 shrink-0">
+                  <IoNotificationsOutline size={26} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
+                      Trung Tâm Thông Báo
+                    </h1>
+                    {totalElements > 0 && (
+                      <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        {totalElements} thông báo
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+                    Theo dõi toàn bộ cập nhật, sự cố và biến động hoạt động lưu trú theo vai trò
+                  </p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => loadNotifications(true)}
+                  disabled={refreshing}
+                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-medium border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Làm mới danh sách"
+                >
+                  <IoRefreshOutline size={16} className={refreshing ? 'animate-spin text-primary' : ''} />
+                  <span className="hidden sm:inline">Làm mới</span>
+                </button>
+
+                {unreadCountOnPage > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="px-3.5 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <IoCheckmarkDoneOutline size={16} />
+                    <span>Đọc tất cả</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setSearchParams({ tab: 'preferences' })}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-900 text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <IoSettingsOutline size={15} />
+                  <span>Cài đặt nhận tin</span>
+                </button>
+              </div>
+            </div>
 
         {/* ── Filter & Search Toolbar ── */}
         <div className="bg-white rounded-2xl p-4 border border-slate-200/70 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -616,15 +685,11 @@ const NotificationCenter: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Preferences Modal */}
-      <PreferencesModal
-        isOpen={isPrefModalOpen}
-        onClose={() => setIsPrefModalOpen(false)}
-      />
-    </div>
-  );
+      </>
+    )}
+  </div>
+</div>
+);
 };
 
 // ─── Single Notification Row Component ───────────────────────────────────────

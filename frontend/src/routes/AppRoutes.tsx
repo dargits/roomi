@@ -192,13 +192,13 @@ const AppRoutes: React.FC = () => {
                   {/* Hồ sơ cá nhân & Thông báo — Dành cho mọi nhân viên đã đăng nhập */}
                   <Route path="/manage/profile" element={<ProfileSettings />} />
                   <Route path="/manage/notifications" element={<NotificationCenter />} />
-                  <Route path="/manage/notifications/preferences" element={<NotificationPreferences />} />
+                  <Route path="/manage/notifications/preferences" element={<Navigate to="/manage/notifications?tab=preferences" replace />} />
                 </Route>
               </Route>
 
               {/* Redirects for notifications */}
               <Route path="/notifications" element={<Navigate to="/manage/notifications" replace />} />
-              <Route path="/notifications/preferences" element={<Navigate to="/manage/notifications/preferences" replace />} />
+              <Route path="/notifications/preferences" element={<Navigate to="/manage/notifications?tab=preferences" replace />} />
 
               {/* Hỗ trợ mở trực tiếp dạng /:token (chuỗi ngẫu nhiên không thể brute force) */}
               <Route path="/:token" element={<ResetPasswordPage />} />

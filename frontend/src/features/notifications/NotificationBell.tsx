@@ -14,6 +14,8 @@ const TYPE_ICON: Record<NotificationType, { emoji: string; bg: string; text: str
   ROOM_INCIDENT_HEAVY:        { emoji: '🚨', bg: 'bg-red-100',     text: 'text-red-700'     },
   STAY_MILESTONE:             { emoji: '📅', bg: 'bg-purple-100',  text: 'text-purple-700'  },
   INVOICE_DISCOUNT_APPROVAL:  { emoji: '💰', bg: 'bg-rose-100',    text: 'text-rose-700'    },
+  DEBT_REMINDER:              { emoji: '💵', bg: 'bg-amber-100',   text: 'text-amber-700'   },
+  CHANNEL_DISCONNECT_WARNING: { emoji: '⚠️', bg: 'bg-rose-100',    text: 'text-rose-700'    },
   CHANNEL_OVERBOOKING_CONFLICT: { emoji: '🚨', bg: 'bg-red-100',     text: 'text-red-700'     },
 };
 

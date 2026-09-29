@@ -125,7 +125,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   icon: IoShieldCheckmarkOutline,  allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/backup',              label: 'Sao lưu & CSV',              icon: IoCloudDownloadOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/notifications/preferences', label: 'Cấu hình thông báo',   icon: IoNotificationsOutline,    allowedRoles: ['OWNER', 'ADMIN'] }
+      { path: '/manage/notifications?tab=preferences', label: 'Cấu hình thông báo', icon: IoNotificationsOutline, allowedRoles: ['OWNER', 'ADMIN'] }
     ]
   }
 ];
@@ -176,8 +176,20 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/backup': { title: 'Sao Lưu & Xuất Dữ Liệu', group: 'Hệ thống' },
   '/manage/settings': { title: 'Cài Đặt Khách Sạn', group: 'Hệ thống' },
   '/manage/notifications': { title: 'Trung Tâm Thông Báo', group: 'Hệ thống' },
+  '/manage/notifications?tab=preferences': { title: 'Cài Đặt Nhận Thông Báo', group: 'Hệ thống' },
   '/manage/notifications/preferences': { title: 'Cài Đặt Nhận Thông Báo', group: 'Hệ thống' },
   '/manage/profile': { title: 'Hồ Sơ Cá Nhân', group: 'Cá nhân' }
+};
+
+/**
+ * Kiểm tra xem một item navigation có đang active với URL hiện tại hay không.
+ * Hỗ trợ so khớp chính xác cả query params (ví dụ: ?tab=preferences).
+ */
+export const isNavItemActive = (itemPath: string, pathname: string, search: string = ''): boolean => {
+  if (itemPath.includes('?')) {
+    return (pathname + search) === itemPath;
+  }
+  return pathname === itemPath;
 };
 
 /**
@@ -188,9 +200,10 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
 const SubmenuNav: React.FC<{
   items: NavItem[];
   currentPath: string;
+  currentSearch?: string;
   pendingResetCount: number;
   variant?: 'accordion' | 'popover';
-}> = ({ items, currentPath, pendingResetCount, variant = 'accordion' }) => {
+}> = ({ items, currentPath, currentSearch = '', pendingResetCount, variant = 'accordion' }) => {
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<{ top: number; height: number; opacity: number }>({
@@ -203,7 +216,7 @@ const SubmenuNav: React.FC<{
 
   useEffect(() => {
     const updatePill = () => {
-      const activeItem = items.find((i) => i.path === currentPath);
+      const activeItem = items.find((i) => isNavItemActive(i.path, currentPath, currentSearch));
       if (!activeItem) {
         setPill((prev) => ({ ...prev, opacity: 0 }));
         return;
@@ -223,7 +236,7 @@ const SubmenuNav: React.FC<{
 
     const rafId = requestAnimationFrame(updatePill);
     return () => cancelAnimationFrame(rafId);
-  }, [currentPath, items]);
+  }, [currentPath, currentSearch, items]);
 
   const isPopover = variant === 'popover';
 
@@ -255,7 +268,7 @@ const SubmenuNav: React.FC<{
       )}
 
       {items.map((item) => {
-        const active = currentPath === item.path;
+        const active = isNavItemActive(item.path, currentPath, currentSearch);
         const ItemIcon = item.icon;
         const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
         const navLabel = (item.path === '/manage/reports' && user?.role === 'ACCOUNTANT')
@@ -336,7 +349,7 @@ const DashboardLayout: React.FC = () => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     NAV_GROUPS.forEach((g) => {
-      initial[g.id] = g.items.some((item) => item.path === location.pathname);
+      initial[g.id] = g.items.some((item) => isNavItemActive(item.path, location.pathname, location.search));
     });
     return initial;
   });
@@ -344,14 +357,14 @@ const DashboardLayout: React.FC = () => {
   // Auto-expand group containing the active path
   useEffect(() => {
     const activeGroup = NAV_GROUPS.find((g) =>
-      g.items.some((item) => item.path === location.pathname)
+      g.items.some((item) => isNavItemActive(item.path, location.pathname, location.search))
     );
     if (activeGroup) {
       setOpenGroups((prev) => ({ ...prev, [activeGroup.id]: true }));
     }
     // Close mobile drawer on route change
     setMobileOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups((prev) => ({
@@ -381,7 +394,7 @@ const DashboardLayout: React.FC = () => {
       if (!container) return;
 
       const currentGroup = NAV_GROUPS.find((g) =>
-        g.items.some((item) => item.path === location.pathname)
+        g.items.some((item) => isNavItemActive(item.path, location.pathname, location.search))
       );
 
       if (!currentGroup) {
@@ -428,7 +441,7 @@ const DashboardLayout: React.FC = () => {
         container.removeEventListener('scroll', updatePill);
       }
     };
-  }, [location.pathname, isCollapsed]);
+  }, [location.pathname, location.search, isCollapsed]);
 
   const handleLogout = async () => {
     await logout();
@@ -437,7 +450,8 @@ const DashboardLayout: React.FC = () => {
 
   const roleLabel = (user?.role && ROLE_LABEL[user.role]) || user?.role || 'Nhân viên';
   const roleBadgeStyle = (user?.role && ROLE_BADGE_STYLE[user.role]) || 'bg-neutral-100 text-neutral-700 border-neutral-300';
-  const rawRouteMeta = ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
+  const fullPathKey = location.pathname + (location.search || '');
+  const rawRouteMeta = ROUTE_META_MAP[fullPathKey] || ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
   const currentRouteMeta = {
     ...rawRouteMeta,
     title: (location.pathname === '/manage/reports' && user?.role === 'ACCOUNTANT')
@@ -563,7 +577,7 @@ const DashboardLayout: React.FC = () => {
 
               if (visibleItems.length === 0) return null;
 
-              const isGroupActive = visibleItems.some((item) => location.pathname === item.path);
+              const isGroupActive = visibleItems.some((item) => isNavItemActive(item.path, location.pathname, location.search));
               const isGroupOpen = !!openGroups[group.id];
               const GroupIcon = group.icon;
               const hasMultiple = visibleItems.length > 1;
@@ -571,7 +585,7 @@ const DashboardLayout: React.FC = () => {
               // Single item direct link (e.g. Dashboard)
               if (!hasMultiple) {
                 const singleItem = visibleItems[0];
-                const active = location.pathname === singleItem.path;
+                const active = isNavItemActive(singleItem.path, location.pathname, location.search);
                 const ItemIcon = singleItem.icon || GroupIcon;
 
                 return (
@@ -685,6 +699,7 @@ const DashboardLayout: React.FC = () => {
                     <SubmenuNav
                       items={visibleItems}
                       currentPath={location.pathname}
+                      currentSearch={location.search}
                       pendingResetCount={pendingResetCount}
                     />
                   )}
@@ -706,6 +721,7 @@ const DashboardLayout: React.FC = () => {
                       <SubmenuNav
                         items={visibleItems}
                         currentPath={location.pathname}
+                        currentSearch={location.search}
                         pendingResetCount={pendingResetCount}
                         variant="popover"
                       />
