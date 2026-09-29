@@ -115,17 +115,18 @@ public class DataSeeder implements CommandLineRunner {
         List<Guest> seededGuests = seedGuests(tierMap);
 
         // 12. Seed Full Operational Data (Bookings, Usages, Invoices, Payments, Shifts, Ledgers, Cleanings, Backup)
-        // Kích hoạt khi app.seed.operational-data.enabled=true
+        // Tự động nạp khi chưa có dữ liệu hoặc app.seed.operational-data.enabled=true
         boolean seedOperationalDataEnabled = false;
         if (environment != null) {
             seedOperationalDataEnabled = Boolean.parseBoolean(environment.getProperty("app.seed.operational-data.enabled", "false"));
         }
 
-        if (!isTest && seedOperationalDataEnabled) {
-            log.info("Bật nạp dữ liệu vận hành giả lập (app.seed.operational-data.enabled=true). Bắt đầu tái tạo dữ liệu hoạt động liền mạch & tạo backup...");
+        boolean hasOperationalData = bookingRepository.count() > 0;
+        if (!isTest && (seedOperationalDataEnabled || !hasOperationalData)) {
+            log.info("Bắt đầu nạp dữ liệu vận hành giả lập (enabled={}, bookingsHienTai={}). Tái tạo dữ liệu từ 01/01/2026 đến nay...", seedOperationalDataEnabled, bookingRepository.count());
             operationalDataSeederService.reseedOperationalData(adminUser);
         } else {
-            log.info("Đã bỏ qua phần nạp dữ liệu vận hành nặng (Bookings, Invoices, Shifts, Ledgers). Các dữ liệu cần thiết (Tài khoản, Phòng, Dịch vụ, Cấu hình) đã được bảo toàn.");
+            log.info("Đã có {} đặt phòng trong hệ thống. Bỏ qua nạp lại tự động để khởi động nhanh.", bookingRepository.count());
         }
 
         log.info("========== HOÀN TẤT THIẾT LẬP DỮ LIỆU HỆ THỐNG STAY AWAY ==========");

@@ -34,10 +34,11 @@ interface ReportCategory {
     id: string;
     label: string;
     icon: React.ComponentType<{ size?: number; className?: string }>;
+    allowedRoles?: string[];
   }>;
 }
 
-const REPORT_CATEGORIES: ReportCategory[] = [
+const REPORT_CATEGORIES_CONFIG: ReportCategory[] = [
   {
     id: 'finance',
     name: 'Tài chính & Doanh thu',
@@ -57,7 +58,7 @@ const REPORT_CATEGORIES: ReportCategory[] = [
     icon: IoSpeedometerOutline,
     description: 'Chỉ số công suất phòng, hiệu quả giá bán phòng và cơ cấu kênh',
     tabs: [
-      { id: 'occupancy',             label: 'Công suất phòng',             icon: IoPricetagOutline },
+      { id: 'occupancy',             label: 'Công suất phòng',             icon: IoPricetagOutline, allowedRoles: ['OWNER', 'ADMIN'] },
       { id: 'adr-revpar',            label: 'Giá bán & Doanh thu phòng',    icon: IoStatsChartOutline },
       { id: 'channel',               label: 'Cơ cấu theo kênh',           icon: IoGlobeOutline },
     ]
@@ -69,7 +70,10 @@ const ReportsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'revenue';
 
-  const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role || '');
+  const userRole = user?.role || '';
+  const isAccountant = userRole === 'ACCOUNTANT';
+
+  const hasAccess = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(userRole);
   if (!hasAccess) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 text-error rounded-xl text-sm">
@@ -78,13 +82,33 @@ const ReportsPage: React.FC = () => {
     );
   }
 
+  // Lọc các tabs mà role hiện tại được phép xem (ẩn công suất phòng khỏi Kế toán)
+  const reportCategories = React.useMemo(() => {
+    return REPORT_CATEGORIES_CONFIG.map((cat) => ({
+      ...cat,
+      description: isAccountant && cat.id === 'operations'
+        ? 'Hiệu quả giá bán phòng (ADR/RevPAR) và cơ cấu doanh thu theo kênh'
+        : cat.description,
+      tabs: cat.tabs.filter((t) => !t.allowedRoles || t.allowedRoles.includes(userRole))
+    })).filter((cat) => cat.tabs.length > 0);
+  }, [userRole, isAccountant]);
+
+  // Tự động chuyển hướng nếu Kế toán đang ở tab công suất phòng
+  React.useEffect(() => {
+    if (isAccountant && currentTab === 'occupancy') {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('tab', 'revenue');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [isAccountant, currentTab, searchParams, setSearchParams]);
+
   // Tự động xác định nhóm danh mục dựa trên tab đang kích hoạt trong URL
   const activeCategory =
-    REPORT_CATEGORIES.find((cat) => cat.tabs.some((t) => t.id === currentTab)) ||
-    REPORT_CATEGORIES[0];
+    reportCategories.find((cat) => cat.tabs.some((t) => t.id === currentTab)) ||
+    reportCategories[0];
 
   const handleCategoryChange = (categoryId: string) => {
-    const targetCat = REPORT_CATEGORIES.find((c) => c.id === categoryId);
+    const targetCat = reportCategories.find((c) => c.id === categoryId);
     if (targetCat && !targetCat.tabs.some((t) => t.id === currentTab)) {
       const newParams = new URLSearchParams(searchParams);
       newParams.set('tab', targetCat.tabs[0].id);
@@ -97,13 +121,17 @@ const ReportsPage: React.FC = () => {
       <PageHeader
         icon={IoBarChartOutline}
         title="Báo cáo & Phân tích"
-        subtitle="Phân tích doanh thu, so sánh chỉ số đa kỳ, tuổi nợ, công suất, hiệu quả giá bán và cơ cấu đặt phòng theo kênh"
+        subtitle={
+          isAccountant
+            ? "Phân tích doanh thu, so sánh chỉ số đa kỳ, tuổi nợ, hiệu quả giá bán phòng và cơ cấu đặt phòng theo kênh"
+            : "Phân tích doanh thu, so sánh chỉ số đa kỳ, tuổi nợ, công suất, hiệu quả giá bán và cơ cấu đặt phòng theo kênh"
+        }
       />
 
       {/* Bộ chuyển đổi nhóm danh mục Báo cáo (Category Switcher) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-bright p-2 rounded-2xl border border-border-grey shadow-2xs">
         <div className="inline-flex p-1 bg-surface-container-low rounded-xl border border-border-grey/70">
-          {REPORT_CATEGORIES.map((category) => {
+          {reportCategories.map((category) => {
             const isCategoryActive = activeCategory.id === category.id;
             const CatIcon = category.icon;
             return (
@@ -147,7 +175,7 @@ const ReportsPage: React.FC = () => {
       {currentTab === 'best-selling-services' && <BestSellingServicesReport />}
       {currentTab === 'period-comparison'     && <PeriodComparisonReport />}
       {currentTab === 'debt-aging'            && <DebtAgingReport />}
-      {currentTab === 'occupancy'             && <OccupancyReport />}
+      {currentTab === 'occupancy'             && !isAccountant && <OccupancyReport />}
       {currentTab === 'adr-revpar'            && <AdrRevparReport />}
       {currentTab === 'channel'               && <ChannelReport />}
       {currentTab === 'negotiated-revenue'    && <NegotiatedRevenueReport />}

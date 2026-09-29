@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.CancellationPolicyRequest;
 import plant.stay.dto.response.MessageResponse;
+import plant.stay.exception.BusinessException;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.CancellationPolicy;
@@ -47,6 +48,13 @@ public class CancellationPolicyController {
         if (req.getRoomTypeId() != null) {
             roomType = roomTypeRepository.findById(req.getRoomTypeId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
+            if (policyRepository.findFirstByRoomTypeId(req.getRoomTypeId()).isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách hủy cho loại phòng: " + roomType.getName() + ". Vui lòng chỉnh sửa chính sách hiện có.");
+            }
+        } else {
+            if (policyRepository.findByRoomTypeIsNull().isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách hủy mặc định (áp dụng tất cả loại phòng). Vui lòng chỉnh sửa chính sách hiện có.");
+            }
         }
         CancellationPolicy policy = CancellationPolicy.builder()
                 .roomType(roomType)
@@ -71,6 +79,13 @@ public class CancellationPolicyController {
         if (req.getRoomTypeId() != null) {
             roomType = roomTypeRepository.findById(req.getRoomTypeId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
+            if (policyRepository.findFirstByRoomTypeId(req.getRoomTypeId()).filter(p -> !p.getId().equals(id)).isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách hủy khác cho loại phòng: " + roomType.getName() + ".");
+            }
+        } else {
+            if (policyRepository.findByRoomTypeIsNull().filter(p -> !p.getId().equals(id)).isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách hủy mặc định khác (áp dụng tất cả loại phòng).");
+            }
         }
         policy.setPreviousPercent(policy.getPenaltyPercent());
         policy.setRoomType(roomType);

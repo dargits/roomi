@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import plant.stay.dto.request.DepositPolicyRequest;
 import plant.stay.dto.response.DepositPolicyResponse;
 import plant.stay.dto.response.MessageResponse;
+import plant.stay.exception.BusinessException;
 import plant.stay.exception.ResourceNotFoundException;
 import plant.stay.exception.UnauthorizedException;
 import plant.stay.model.DepositPolicy;
@@ -58,6 +59,13 @@ public class DepositPolicyController {
         if (req.getRoomTypeId() != null) {
             roomType = roomTypeRepo.findById(req.getRoomTypeId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
+            if (policyRepo.findFirstByRoomTypeIdAndActiveTrue(req.getRoomTypeId()).isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách đặt cọc cho loại phòng: " + roomType.getName() + ". Vui lòng chỉnh sửa chính sách hiện có.");
+            }
+        } else {
+            if (policyRepo.findFirstByRoomTypeIsNullAndActiveTrue().isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách đặt cọc mặc định (áp dụng tất cả loại phòng). Vui lòng chỉnh sửa chính sách hiện có.");
+            }
         }
         DepositPolicy policy = DepositPolicy.builder()
                 .roomType(roomType)
@@ -84,6 +92,13 @@ public class DepositPolicyController {
         if (req.getRoomTypeId() != null) {
             roomType = roomTypeRepo.findById(req.getRoomTypeId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
+            if (policyRepo.findFirstByRoomTypeIdAndActiveTrue(req.getRoomTypeId()).filter(p -> !p.getId().equals(id)).isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách đặt cọc khác cho loại phòng: " + roomType.getName() + ".");
+            }
+        } else {
+            if (policyRepo.findFirstByRoomTypeIsNullAndActiveTrue().filter(p -> !p.getId().equals(id)).isPresent()) {
+                throw new BusinessException("Đã tồn tại chính sách đặt cọc mặc định khác (áp dụng tất cả loại phòng).");
+            }
         }
         // Lưu giá trị cũ để audit — NCL-11-CN-001-TC-04
         policy.setPreviousPercent(policy.getDepositPercent());

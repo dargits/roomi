@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   IoAddCircleOutline, IoAlertCircleOutline, IoCheckmarkCircleOutline,
   IoCloseOutline, IoPencilOutline, IoTrashOutline, IoInformationCircleOutline,
-  IoCashOutline, IoCloseCircleOutline, IoTimeOutline, IoShieldCheckmarkOutline
+  IoCashOutline, IoCloseCircleOutline, IoTimeOutline, IoShieldCheckmarkOutline,
+  IoSparklesOutline
 } from 'react-icons/io5';
 import { depositApi } from '../../services/depositApi';
 import { cancellationPolicyApi, CancellationPolicyItem } from '../../services/cancellationPolicyApi';
@@ -15,6 +16,41 @@ import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { RoomTypeResponse } from '../../types';
+
+export const buildCancelPolicyDescription = (
+  penalty: string | number,
+  hoursAfterConf: string | number,
+  freeHours: string | number
+): string => {
+  const p = parseFloat(String(penalty));
+  const hConf = parseInt(String(hoursAfterConf), 10);
+  const hFree = parseInt(String(freeHours), 10);
+
+  if (isNaN(p) || p <= 0) {
+    return 'Miễn phí hủy phòng (hoàn 100% tiền cọc).';
+  }
+
+  const conditions: string[] = [];
+  if (!isNaN(hConf) && hConf > 0) {
+    conditions.push(`trong ${hConf}h sau khi xác nhận`);
+  }
+  if (!isNaN(hFree) && hFree > 0) {
+    conditions.push(`trước giờ nhận phòng ${hFree}h`);
+  }
+
+  let text = '';
+  if (conditions.length > 0) {
+    text += `Miễn phí hủy ${conditions.join(' hoặc ')}. `;
+  }
+
+  if (p >= 100) {
+    text += 'Sau thời gian trên, thu 100% tiền cọc (không hoàn cọc).';
+  } else {
+    text += `Sau thời gian trên, trừ ${p}% tiền cọc (hoàn lại ${100 - p}% cọc).`;
+  }
+
+  return text.trim();
+};
 
 /**
  * Quản lý Chính sách Cọc & Hoàn Hủy
@@ -47,6 +83,7 @@ const DepositPolicyPage: React.FC = () => {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [editingCancelPolicy, setEditingCancelPolicy] = useState<CancellationPolicyItem | null>(null);
   const [deleteCancelConfirm, setDeleteCancelConfirm] = useState<CancellationPolicyItem | null>(null);
+  const [isDescriptionCustomized, setIsDescriptionCustomized] = useState(false);
   const [cancelForm, setCancelForm] = useState({
     roomTypeId: '',
     penaltyPercent: '50',
@@ -103,11 +140,27 @@ const DepositPolicyPage: React.FC = () => {
       setDepositFormError('Tỷ lệ cọc phải từ 0 đến 100%');
       return;
     }
+
+    const targetRoomTypeId = depositForm.roomTypeId === '' ? null : Number(depositForm.roomTypeId);
+    const isDuplicate = depositPolicies.some((p: any) => {
+      if (editingDepositPolicy && p.id === editingDepositPolicy.id) return false;
+      const existingRoomTypeId = p.roomTypeId !== null && p.roomTypeId !== undefined && p.roomTypeId !== '' ? Number(p.roomTypeId) : null;
+      return existingRoomTypeId === targetRoomTypeId;
+    });
+
+    if (isDuplicate) {
+      const typeName = targetRoomTypeId
+        ? roomTypes.find(rt => rt.id === targetRoomTypeId)?.name || `mã #${targetRoomTypeId}`
+        : 'tất cả loại phòng (mặc định)';
+      setDepositFormError(`Đã tồn tại chính sách đặt cọc cho ${typeName}. Không thể tạo 2 chính sách chồng lên nhau, vui lòng chỉnh sửa chính sách đã có.`);
+      return;
+    }
+
     setDepositSaving(true);
     setDepositFormError('');
     try {
       const payload = {
-        roomTypeId: depositForm.roomTypeId === '' ? null : Number(depositForm.roomTypeId),
+        roomTypeId: targetRoomTypeId,
         depositPercent: pct
       };
       if (editingDepositPolicy) {
@@ -138,14 +191,32 @@ const DepositPolicyPage: React.FC = () => {
   };
 
   // --- Handlers: Chính sách hoàn hủy ---
+  const handleCancelFieldChange = (field: 'penaltyPercent' | 'hoursAfterConfirmation' | 'freeCancelHours', value: string) => {
+    setCancelForm(prev => {
+      const next = { ...prev, [field]: value };
+      if (!isDescriptionCustomized) {
+        next.description = buildCancelPolicyDescription(
+          field === 'penaltyPercent' ? value : prev.penaltyPercent,
+          field === 'hoursAfterConfirmation' ? value : prev.hoursAfterConfirmation,
+          field === 'freeCancelHours' ? value : prev.freeCancelHours
+        );
+      }
+      return next;
+    });
+  };
+
   const openCreateCancel = () => {
     setEditingCancelPolicy(null);
+    setIsDescriptionCustomized(false);
+    const initialPenalty = '50';
+    const initialHoursConf = '24';
+    const initialFreeHours = '48';
     setCancelForm({
       roomTypeId: '',
-      penaltyPercent: '50',
-      hoursAfterConfirmation: '24',
-      freeCancelHours: '48',
-      description: ''
+      penaltyPercent: initialPenalty,
+      hoursAfterConfirmation: initialHoursConf,
+      freeCancelHours: initialFreeHours,
+      description: buildCancelPolicyDescription(initialPenalty, initialHoursConf, initialFreeHours)
     });
     setCancelFormError('');
     setCancelModalOpen(true);
@@ -153,12 +224,17 @@ const DepositPolicyPage: React.FC = () => {
 
   const openEditCancel = (policy: CancellationPolicyItem) => {
     setEditingCancelPolicy(policy);
+    const hasCustomDesc = !!(policy.description && policy.description.trim());
+    setIsDescriptionCustomized(hasCustomDesc);
+    const pPct = policy.penaltyPercent?.toString() ?? '50';
+    const hConf = (policy.hoursAfterConfirmation ?? 24).toString();
+    const hFree = (policy.freeCancelHours ?? 48).toString();
     setCancelForm({
       roomTypeId: policy.roomTypeId?.toString() ?? '',
-      penaltyPercent: policy.penaltyPercent?.toString() ?? '50',
-      hoursAfterConfirmation: (policy.hoursAfterConfirmation ?? 24).toString(),
-      freeCancelHours: (policy.freeCancelHours ?? 48).toString(),
-      description: policy.description || ''
+      penaltyPercent: pPct,
+      hoursAfterConfirmation: hConf,
+      freeCancelHours: hFree,
+      description: hasCustomDesc ? policy.description! : buildCancelPolicyDescription(pPct, hConf, hFree)
     });
     setCancelFormError('');
     setCancelModalOpen(true);
@@ -182,15 +258,31 @@ const DepositPolicyPage: React.FC = () => {
       return;
     }
 
+    const targetRoomTypeId = cancelForm.roomTypeId === '' ? null : Number(cancelForm.roomTypeId);
+    const isDuplicate = cancellationPolicies.some((p: any) => {
+      if (editingCancelPolicy && p.id === editingCancelPolicy.id) return false;
+      const existingRoomTypeId = p.roomTypeId !== null && p.roomTypeId !== undefined && p.roomTypeId !== '' ? Number(p.roomTypeId) : null;
+      return existingRoomTypeId === targetRoomTypeId;
+    });
+
+    if (isDuplicate) {
+      const typeName = targetRoomTypeId
+        ? roomTypes.find(rt => rt.id === targetRoomTypeId)?.name || `mã #${targetRoomTypeId}`
+        : 'tất cả loại phòng (mặc định)';
+      setCancelFormError(`Đã tồn tại chính sách hoàn hủy cho ${typeName}. Không thể tạo 2 chính sách chồng lên nhau, vui lòng chỉnh sửa chính sách đã có.`);
+      return;
+    }
+
     setCancelSaving(true);
     setCancelFormError('');
     try {
+      const finalDescription = cancelForm.description.trim() || buildCancelPolicyDescription(penaltyPct, hoursAfterConf, freeHours);
       const payload = {
-        roomTypeId: cancelForm.roomTypeId === '' ? null : Number(cancelForm.roomTypeId),
+        roomTypeId: targetRoomTypeId,
         penaltyPercent: penaltyPct,
         hoursAfterConfirmation: hoursAfterConf,
         freeCancelHours: freeHours,
-        description: cancelForm.description.trim() || undefined
+        description: finalDescription
       };
 
       if (editingCancelPolicy) {
@@ -220,9 +312,40 @@ const DepositPolicyPage: React.FC = () => {
     }
   };
 
-  const roomTypeOptions = [
-    { value: '', label: 'Tất cả loại phòng (chính sách mặc định)' },
-    ...roomTypes.map(rt => ({ value: String(rt.id), label: rt.name }))
+  const depositRoomTypeOptions = [
+    {
+      value: '',
+      label: depositPolicies.some((p: any) => (!editingDepositPolicy || p.id !== editingDepositPolicy.id) && (p.roomTypeId === null || p.roomTypeId === undefined || p.roomTypeId === ''))
+        ? 'Tất cả loại phòng (Đã có chính sách)'
+        : 'Tất cả loại phòng (chính sách mặc định)',
+      disabled: depositPolicies.some((p: any) => (!editingDepositPolicy || p.id !== editingDepositPolicy.id) && (p.roomTypeId === null || p.roomTypeId === undefined || p.roomTypeId === ''))
+    },
+    ...roomTypes.map(rt => {
+      const isTaken = depositPolicies.some((p: any) => (!editingDepositPolicy || p.id !== editingDepositPolicy.id) && Number(p.roomTypeId) === rt.id);
+      return {
+        value: String(rt.id),
+        label: isTaken ? `${rt.name} (Đã có chính sách)` : rt.name,
+        disabled: isTaken
+      };
+    })
+  ];
+
+  const cancelRoomTypeOptions = [
+    {
+      value: '',
+      label: cancellationPolicies.some((p: any) => (!editingCancelPolicy || p.id !== editingCancelPolicy.id) && (p.roomTypeId === null || p.roomTypeId === undefined || p.roomTypeId === ''))
+        ? 'Tất cả loại phòng (Đã có chính sách)'
+        : 'Tất cả loại phòng (chính sách mặc định)',
+      disabled: cancellationPolicies.some((p: any) => (!editingCancelPolicy || p.id !== editingCancelPolicy.id) && (p.roomTypeId === null || p.roomTypeId === undefined || p.roomTypeId === ''))
+    },
+    ...roomTypes.map(rt => {
+      const isTaken = cancellationPolicies.some((p: any) => (!editingCancelPolicy || p.id !== editingCancelPolicy.id) && Number(p.roomTypeId) === rt.id);
+      return {
+        value: String(rt.id),
+        label: isTaken ? `${rt.name} (Đã có chính sách)` : rt.name,
+        disabled: isTaken
+      };
+    })
   ];
 
   // Helper preview calculation
@@ -546,7 +669,7 @@ const DepositPolicyPage: React.FC = () => {
             label="Loại phòng áp dụng"
             value={depositForm.roomTypeId}
             onChange={e => setDepositForm(p => ({ ...p, roomTypeId: e.target.value }))}
-            options={roomTypeOptions}
+            options={depositRoomTypeOptions}
           />
           <Input
             label="Tỷ lệ cọc (%)"
@@ -610,7 +733,7 @@ const DepositPolicyPage: React.FC = () => {
             label="Loại phòng áp dụng"
             value={cancelForm.roomTypeId}
             onChange={e => setCancelForm(p => ({ ...p, roomTypeId: e.target.value }))}
-            options={roomTypeOptions}
+            options={cancelRoomTypeOptions}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -621,7 +744,7 @@ const DepositPolicyPage: React.FC = () => {
               max="100"
               step="1"
               value={cancelForm.penaltyPercent}
-              onChange={e => setCancelForm(p => ({ ...p, penaltyPercent: e.target.value }))}
+              onChange={e => handleCancelFieldChange('penaltyPercent', e.target.value)}
               placeholder="VD: 50 hoặc 100"
             />
             <Input
@@ -630,7 +753,7 @@ const DepositPolicyPage: React.FC = () => {
               min="0"
               step="1"
               value={cancelForm.hoursAfterConfirmation}
-              onChange={e => setCancelForm(p => ({ ...p, hoursAfterConfirmation: e.target.value }))}
+              onChange={e => handleCancelFieldChange('hoursAfterConfirmation', e.target.value)}
               placeholder="VD: 24"
             />
           </div>
@@ -641,21 +764,44 @@ const DepositPolicyPage: React.FC = () => {
             min="0"
             step="1"
             value={cancelForm.freeCancelHours}
-            onChange={e => setCancelForm(p => ({ ...p, freeCancelHours: e.target.value }))}
+            onChange={e => handleCancelFieldChange('freeCancelHours', e.target.value)}
             placeholder="VD: 48 (hủy trước 48h miễn phí)"
           />
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant mb-1">
-              Ghi chú / Điều khoản hiển thị
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-on-surface-variant">
+                Ghi chú / Điều khoản hiển thị
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDescriptionCustomized(false);
+                  setCancelForm(p => ({
+                    ...p,
+                    description: buildCancelPolicyDescription(p.penaltyPercent, p.hoursAfterConfirmation, p.freeCancelHours)
+                  }));
+                }}
+                className="text-xs text-primary hover:text-primary-hover hover:underline flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                title="Tự động tạo điều khoản hiển thị từ các thông số bên trên"
+              >
+                <IoSparklesOutline size={13} />
+                Tự động điền theo cấu hình
+              </button>
+            </div>
             <textarea
-              className="w-full text-sm border border-border-grey rounded p-2 focus:ring-1 focus:ring-primary focus:outline-none bg-surface"
+              className="w-full text-sm border border-border-grey rounded p-2 focus:ring-1 focus:ring-primary focus:outline-none bg-surface transition-colors"
               rows={2}
               value={cancelForm.description}
-              onChange={e => setCancelForm(p => ({ ...p, description: e.target.value }))}
+              onChange={e => {
+                setIsDescriptionCustomized(true);
+                setCancelForm(p => ({ ...p, description: e.target.value }));
+              }}
               placeholder="VD: Miễn phí hủy trong 24h sau khi xác nhận. Sau 24h trừ 50% tiền cọc."
             />
+            <p className="text-[11px] text-on-surface-variant mt-1">
+              * Tự động đồng bộ theo thông số bên trên hoặc có thể chỉnh sửa thủ công nếu muốn diễn đạt riêng.
+            </p>
           </div>
 
           {/* Minh họa tính toán trực quan */}
