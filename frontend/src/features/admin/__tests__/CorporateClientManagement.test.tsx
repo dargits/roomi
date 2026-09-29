@@ -21,6 +21,13 @@ vi.mock('../../../context/ToastContext', () => ({
   })
 }));
 
+vi.mock('../../../context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 1, name: 'Quản trị viên', role: 'ADMIN' },
+    isAuthenticated: true
+  })
+}));
+
 describe('CorporateClientManagement component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
