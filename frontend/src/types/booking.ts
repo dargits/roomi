@@ -173,15 +173,35 @@ export interface UpgradeRoomRequest {
 
 export interface GroupBookingResponse {
   id: number;
-  groupName: string;
-  contactName: string;
-  contactPhone: string;
+  groupName?: string;
+  contactName?: string;
+  contactPhone?: string;
   contactEmail?: string;
+  representativeGuestId?: number;
+  representativeName?: string;
+  representativePhone?: string;
+  representativeEmail?: string;
+  corporateClientId?: number;
+  corporateClientName?: string;
   checkInDate: string;
   checkOutDate: string;
-  totalRooms: number;
-  totalExpectedAmount: number;
+  note?: string;
   status: string;
+  totalRooms: number;
+  assignedRooms?: number;
+  totalExpectedAmount?: number;
+  expectedTotal?: number;
+  depositPaid?: boolean;
+  depositAmount?: number;
+  requiredDepositAmount?: number;
+  depositRequired?: boolean;
+  globalThreshold?: number;
+  hasInvoice?: boolean;
+  invoiceStatus?: string;
+  invoiceTotalAmount?: number;
+  invoicePaidAmount?: number;
+  invoiceOutstandingAmount?: number;
+  bookings?: any[];
   createdAt?: string;
 }
 

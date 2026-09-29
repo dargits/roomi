@@ -16,9 +16,12 @@ public class DepositPolicyResponse {
     private Long roomTypeId;
     private String roomTypeName;
     private BigDecimal depositPercent;
+    /** Ngưỡng tiền phòng dự kiến (đ) để bắt cọc. null/0 = luôn bắt cọc. */
+    private BigDecimal minimumAmountThreshold;
     private Boolean active;
     private String updatedByName;
     private BigDecimal previousPercent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
+

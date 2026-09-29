@@ -14,7 +14,7 @@
 
 ---
 
-> **Lưu Trú Số** là giải pháp quản lý khách sạn, resort và căn hộ dịch vụ toàn diện, chuẩn hóa theo quy trình vận hành thực tế tại Việt Nam. Hệ thống số hóa trọn vẹn vòng đời cơ sở lưu trú: từ cổng đặt phòng tự phục vụ, check-in quét QR thẻ CCCD gắn chip, định giá động linh hoạt, buồng phòng nghiệm thu 2 bước, đến đồng bộ kênh OTA hai chiều (iCal), thanh toán VietQR động, quản lý công nợ và báo cáo chỉ số quản trị quốc tế (ADR, RevPAR, PoP, YoY).
+> **Lưu Trú Số** là giải pháp quản lý khách sạn, resort và căn hộ dịch vụ (Stay Away PMS) toàn diện, chuẩn hóa theo quy trình vận hành thực tế tại Việt Nam. Hệ thống số hóa trọn vẹn vòng đời cơ sở lưu trú: từ cổng đặt phòng tự phục vụ, check-in quét QR thẻ CCCD gắn chip, định giá động linh hoạt, buồng phòng nghiệm thu 2 bước, đến đồng bộ kênh OTA hai chiều (iCal), thanh toán VietQR động, quản lý công nợ và báo cáo chỉ số quản trị quốc tế (ADR, RevPAR, PoP, YoY).
 
 ---
 

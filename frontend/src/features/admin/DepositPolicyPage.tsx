@@ -77,6 +77,9 @@ const DepositPolicyPage: React.FC = () => {
   const [depositForm, setDepositForm] = useState({ roomTypeId: '', depositPercent: '' });
   const [depositFormError, setDepositFormError] = useState('');
   const [depositSaving, setDepositSaving] = useState(false);
+  const [globalThreshold, setGlobalThreshold] = useState<number | null>(null);
+  const [globalThresholdInput, setGlobalThresholdInput] = useState<string>('');
+  const [savingThreshold, setSavingThreshold] = useState<boolean>(false);
 
   // === State cho Chính sách hoàn hủy ===
   const [cancellationPolicies, setCancellationPolicies] = useState<CancellationPolicyItem[]>([]);
@@ -101,10 +104,11 @@ const DepositPolicyPage: React.FC = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [depResult, cancelResult, roomTypesResult] = await Promise.allSettled([
+      const [depResult, cancelResult, roomTypesResult, thresholdResult] = await Promise.allSettled([
         depositApi.getAllPolicies(),
         cancellationPolicyApi.getAllPolicies(),
-        roomTypeApi.getAllRoomTypes()
+        roomTypeApi.getAllRoomTypes(),
+        depositApi.getGlobalThreshold()
       ]);
 
       if (depResult.status === 'fulfilled' && Array.isArray(depResult.value)) {
@@ -123,6 +127,12 @@ const DepositPolicyPage: React.FC = () => {
         setRoomTypes(roomTypesResult.value);
       }
 
+      if (thresholdResult.status === 'fulfilled' && thresholdResult.value?.threshold !== undefined) {
+        const val = thresholdResult.value.threshold;
+        setGlobalThreshold(val);
+        setGlobalThresholdInput(val ? String(val) : '');
+      }
+
       if (depResult.status === 'rejected' && cancelResult.status === 'rejected') {
         setMessage({ type: 'error', text: 'Không thể tải dữ liệu chính sách. Vui lòng thử lại.' });
       }
@@ -130,6 +140,27 @@ const DepositPolicyPage: React.FC = () => {
       setMessage({ type: 'error', text: 'Không thể tải dữ liệu chính sách. Vui lòng thử lại.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveGlobalThreshold = async () => {
+    setSavingThreshold(true);
+    try {
+      const val = globalThresholdInput.trim() ? parseFloat(globalThresholdInput) : null;
+      if (val !== null && (isNaN(val) || val < 0)) {
+        setMessage({ type: 'error', text: 'Ngưỡng tiền cọc không hợp lệ' });
+        return;
+      }
+      const res = await depositApi.updateGlobalThreshold(val);
+      const updatedVal = res.threshold;
+      setGlobalThreshold(updatedVal);
+      setGlobalThresholdInput(updatedVal ? String(updatedVal) : '');
+      setMessage({ type: 'success', text: 'Đã cập nhật ngưỡng đặt cọc chung toàn cơ sở.' });
+      fetchAll();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Không thể lưu ngưỡng đặt cọc' });
+    } finally {
+      setSavingThreshold(false);
     }
   };
 
@@ -145,7 +176,7 @@ const DepositPolicyPage: React.FC = () => {
     setEditingDepositPolicy(policy);
     setDepositForm({
       roomTypeId: policy.roomTypeId?.toString() ?? '',
-      depositPercent: policy.depositPercent?.toString() ?? ''
+      depositPercent: policy.depositPercent?.toString() ?? '',
     });
     setDepositFormError('');
     setDepositModalOpen(true);
@@ -178,7 +209,7 @@ const DepositPolicyPage: React.FC = () => {
     try {
       const payload = {
         roomTypeId: targetRoomTypeId,
-        depositPercent: pct
+        depositPercent: pct,
       };
       if (editingDepositPolicy) {
         await depositApi.updatePolicy(editingDepositPolicy.id, payload);
@@ -454,6 +485,61 @@ const DepositPolicyPage: React.FC = () => {
       ) : activeTab === 'deposit' ? (
         /* ================= TAB 1: CHÍNH SÁCH ĐẶT CỌC ================= */
         <div className="space-y-6">
+          {/* Cấu hình ngưỡng đặt cọc chung toàn cơ sở */}
+          <div className="bg-surface-container-lowest p-5 rounded-2xl border border-border-grey shadow-2xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <span className="p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 mt-0.5">
+                  <IoCashOutline size={22} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-on-surface">Ngưỡng hóa đơn bắt buộc thu cọc (Áp dụng chung toàn cơ sở)</h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    Khi tổng tiền phòng dự kiến của đơn đặt phòng (hoặc toàn đoàn) đạt từ mức này trở lên, hệ thống bắt buộc thu cọc trước khi xếp phòng.
+                  </p>
+                </div>
+              </div>
+              {isOwner && (
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="500000"
+                      value={globalThresholdInput}
+                      onChange={(e) => setGlobalThresholdInput(e.target.value)}
+                      placeholder="0 = Luôn bắt cọc"
+                      className="w-44 px-3 py-1.5 text-sm font-semibold rounded-lg border border-border-grey focus:outline-none focus:border-primary pr-8"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-on-surface-variant font-medium">đ</span>
+                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={handleSaveGlobalThreshold}
+                    isLoading={savingThreshold}
+                    className="text-xs py-1.5 whitespace-nowrap"
+                  >
+                    Lưu ngưỡng
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs bg-amber-50/80 border border-amber-200/80 rounded-xl p-3 text-amber-900">
+              <IoInformationCircleOutline size={18} className="flex-shrink-0 text-amber-700" />
+              <span>
+                {globalThreshold && Number(globalThreshold) > 0 ? (
+                  <>
+                    Mức ngưỡng hiện tại: <strong className="text-amber-800 font-bold">{new Intl.NumberFormat('vi-VN').format(Number(globalThreshold))} đ</strong>. Đơn đặt phòng có tổng tiền phòng dự kiến từ mức này trở lên sẽ bắt buộc đặt cọc theo tỷ lệ % từng loại phòng bên dưới. Dưới mức này cho phép xếp phòng ngay.
+                  </>
+                ) : (
+                  <>
+                    <strong className="text-amber-800 font-bold">Luôn bắt buộc đặt cọc:</strong> Hiện chưa thiết lập ngưỡng tối thiểu, mọi đơn đặt phòng đều cần đặt cọc theo tỷ lệ phòng bên dưới.
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+
           <div className="bg-surface-container-lowest rounded border border-border-grey overflow-hidden">
             {depositPolicies.length === 0 ? (
               <div className="text-center py-16 text-on-surface-variant">
@@ -705,7 +791,8 @@ const DepositPolicyPage: React.FC = () => {
             </div>
           )}
           <p className="text-xs text-on-surface-variant">
-            Ví dụ: 30% → Đặt phòng 3.600.000đ sẽ thu cọc 1.080.000đ.
+            <strong>Tỷ lệ cọc:</strong> % tính trên tổng tiền phòng dự kiến của loại phòng này.<br />
+            Ngưỡng hóa đơn bắt cọc được áp dụng chung toàn cơ sở theo cấu hình bên ngoài bảng.
           </p>
           <div className="flex justify-end gap-2 pt-2 border-t border-border-grey">
             <Button variant="secondary" icon={IoCloseOutline} onClick={() => setDepositModalOpen(false)}>Hủy</Button>

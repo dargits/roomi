@@ -235,9 +235,16 @@ public class NegotiatedPriceServiceImpl implements NegotiatedPriceService {
 
         // 2. Ưu tiên thỏa thuận khách công ty
         if (corporateClientId != null) {
-            List<NegotiatedPriceAgreement> corpAgreements = agreementRepository.findActiveByCorporateClientIdAndDate(corporateClientId, date);
-            if (!corpAgreements.isEmpty()) {
-                return corpAgreements.get(0);
+            if (date != null) {
+                List<NegotiatedPriceAgreement> corpAgreements = agreementRepository.findActiveByCorporateClientIdAndDate(corporateClientId, date);
+                if (!corpAgreements.isEmpty()) {
+                    return corpAgreements.get(0);
+                }
+            } else {
+                List<NegotiatedPriceAgreement> anyCorpAgreements = agreementRepository.findActiveByCorporateClientId(corporateClientId);
+                if (!anyCorpAgreements.isEmpty()) {
+                    return anyCorpAgreements.get(0);
+                }
             }
         }
 

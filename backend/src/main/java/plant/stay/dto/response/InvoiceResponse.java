@@ -19,6 +19,8 @@ public class InvoiceResponse {
     private BigDecimal serviceAmount;
     private BigDecimal discountAmount;
     private BigDecimal totalAmount;
+    private BigDecimal paidAmount;
+    private BigDecimal outstandingAmount;
     private InvoiceStatus status;
     private Long adjustmentOfId;
     private String note;

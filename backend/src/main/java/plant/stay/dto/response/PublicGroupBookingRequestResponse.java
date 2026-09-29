@@ -21,6 +21,8 @@ public class PublicGroupBookingRequestResponse {
     private String rejectReason;
     private Long convertedGroupBookingId;
     private boolean isDepositPaid;
+    private java.math.BigDecimal expectedTotal;
+    private java.math.BigDecimal requiredDepositAmount;
     private List<RoomRequest> rooms;
     private LocalDateTime createdAt;
 

@@ -21,7 +21,9 @@ public enum NotificationType {
     /** Cảnh báo kênh phân phối OTA bị mất kết nối hoặc ngừng cập nhật */
     CHANNEL_DISCONNECT_WARNING(true, Set.of(Role.OWNER, Role.ADMIN)),
     /** Cảnh báo trùng phòng phát hiện khi đồng bộ lịch kênh OTA với đặt phòng hiện có */
-    CHANNEL_OVERBOOKING_CONFLICT(true, Set.of(Role.RECEPTIONIST, Role.OWNER, Role.ADMIN));
+    CHANNEL_OVERBOOKING_CONFLICT(true, Set.of(Role.RECEPTIONIST, Role.OWNER, Role.ADMIN)),
+    /** Thông báo đặt cọc bắt buộc cho hồ sơ đoàn hoặc khách công ty gửi tới Chủ cơ sở */
+    GROUP_DEPOSIT_REQUIRED(false, Set.of(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST));
 
 
     private final boolean mandatory;

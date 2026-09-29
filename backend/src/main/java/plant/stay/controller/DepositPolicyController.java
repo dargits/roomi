@@ -33,6 +33,8 @@ import java.util.stream.Collectors;
  * - PUT  /api/v1/deposit-policies/{id}  — sửa (chỉ OWNER)
  * - DELETE /api/v1/deposit-policies/{id} — xóa (chỉ OWNER)
  */
+import plant.stay.repository.HotelSettingRepository;
+
 @RestController
 @RequestMapping("/api/v1/deposit-policies")
 @CrossOrigin("*")
@@ -42,6 +44,7 @@ public class DepositPolicyController {
 
     private final DepositPolicyRepository policyRepo;
     private final RoomTypeRepository roomTypeRepo;
+    private final HotelSettingRepository hotelSettingRepo;
     private final AuditLogService auditLogService;
     private final AuthUtil authUtil;
 
@@ -77,6 +80,7 @@ public class DepositPolicyController {
         DepositPolicy policy = DepositPolicy.builder()
                 .roomType(roomType)
                 .depositPercent(req.getDepositPercent())
+                .minimumAmountThreshold(req.getMinimumAmountThreshold())
                 .active(true)
                 .updatedBy(owner)
                 .updatedAt(LocalDateTime.now())
@@ -84,7 +88,9 @@ public class DepositPolicyController {
         policy = policyRepo.save(policy);
         auditLogService.log("DepositPolicy", policy.getId(), "CREATE", owner,
                 "Tạo chính sách cọc " + req.getDepositPercent() + "% cho " +
-                (roomType != null ? roomType.getName() : "tất cả loại phòng"));
+                (roomType != null ? roomType.getName() : "tất cả loại phòng") +
+                (req.getMinimumAmountThreshold() != null && req.getMinimumAmountThreshold().compareTo(java.math.BigDecimal.ZERO) > 0
+                    ? ", ngưỡng đặt cọc >= " + req.getMinimumAmountThreshold().toBigInteger() + " đ" : ""));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(policy));
     }
 
@@ -111,12 +117,70 @@ public class DepositPolicyController {
         policy.setPreviousPercent(policy.getDepositPercent());
         policy.setRoomType(roomType);
         policy.setDepositPercent(req.getDepositPercent());
+        policy.setMinimumAmountThreshold(req.getMinimumAmountThreshold());
         policy.setUpdatedBy(owner);
         policy.setUpdatedAt(LocalDateTime.now());
         policy = policyRepo.save(policy);
         auditLogService.log("DepositPolicy", policy.getId(), "UPDATE", owner,
-                "Sửa tỷ lệ cọc từ " + policy.getPreviousPercent() + "% → " + req.getDepositPercent() + "%");
+                "Sửa tỷ lệ cọc từ " + policy.getPreviousPercent() + "% → " + req.getDepositPercent() + "%"
+                + (req.getMinimumAmountThreshold() != null && req.getMinimumAmountThreshold().compareTo(java.math.BigDecimal.ZERO) > 0
+                    ? ", ngưỡng: " + req.getMinimumAmountThreshold().toBigInteger() + " đ" : ""));
         return ResponseEntity.ok(toResponse(policy));
+    }
+
+    @GetMapping("/threshold")
+    public ResponseEntity<java.util.Map<String, Object>> getGlobalThreshold(HttpServletRequest request) {
+        checkAuth(request);
+        java.math.BigDecimal threshold = resolveGlobalDepositThreshold();
+        return ResponseEntity.ok(java.util.Map.of("threshold", threshold != null ? threshold : java.math.BigDecimal.ZERO));
+    }
+
+    @PutMapping("/threshold")
+    public ResponseEntity<java.util.Map<String, Object>> updateGlobalThreshold(@RequestBody java.util.Map<String, Object> body, HttpServletRequest request) {
+        User owner = checkOwner(request);
+        java.math.BigDecimal newThreshold = null;
+        if (body.get("threshold") != null && !body.get("threshold").toString().trim().isEmpty()) {
+            newThreshold = new java.math.BigDecimal(body.get("threshold").toString().trim());
+            if (newThreshold.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                throw new BusinessException("Ngưỡng tiền cọc không được là số âm");
+            }
+        }
+        saveGlobalDepositThreshold(newThreshold, owner);
+        auditLogService.log("DepositPolicy", 0L, "UPDATE_THRESHOLD", owner,
+                "Cập nhật ngưỡng cọc chung: " + (newThreshold != null && newThreshold.compareTo(java.math.BigDecimal.ZERO) > 0
+                        ? newThreshold.toBigInteger() + " đ" : "Luôn bắt cọc"));
+        return ResponseEntity.ok(java.util.Map.of("threshold", newThreshold != null ? newThreshold : java.math.BigDecimal.ZERO));
+    }
+
+    private java.math.BigDecimal resolveGlobalDepositThreshold() {
+        if (hotelSettingRepo != null) {
+            plant.stay.model.HotelSetting setting = hotelSettingRepo.findById(1L).orElse(null);
+            if (setting != null && setting.getDepositRequiredThreshold() != null) {
+                return setting.getDepositRequiredThreshold();
+            }
+        }
+        return policyRepo.findByActiveTrueOrderByRoomTypeIdAsc().stream()
+                .map(DepositPolicy::getMinimumAmountThreshold)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(java.math.BigDecimal.ZERO);
+    }
+
+    private void saveGlobalDepositThreshold(java.math.BigDecimal newThreshold, User owner) {
+        if (hotelSettingRepo != null) {
+            plant.stay.model.HotelSetting setting = hotelSettingRepo.findById(1L).orElseGet(plant.stay.model.HotelSetting::new);
+            setting.setDepositRequiredThreshold(newThreshold);
+            hotelSettingRepo.save(setting);
+        }
+
+        // Cập nhật trường minimumAmountThreshold của tất cả các policy hiện có để đồng bộ
+        List<DepositPolicy> policies = policyRepo.findAll();
+        for (DepositPolicy p : policies) {
+            p.setMinimumAmountThreshold(newThreshold);
+            p.setUpdatedAt(LocalDateTime.now());
+            p.setUpdatedBy(owner);
+        }
+        policyRepo.saveAll(policies);
     }
 
     @DeleteMapping("/{id}")
@@ -166,6 +230,7 @@ public class DepositPolicyController {
                 .roomTypeId(roomTypeId)
                 .roomTypeName(roomTypeName)
                 .depositPercent(p.getDepositPercent() != null ? p.getDepositPercent() : java.math.BigDecimal.ZERO)
+                .minimumAmountThreshold(resolveGlobalDepositThreshold())
                 .active(p.getActive() != null ? p.getActive() : true)
                 .updatedByName(updatedByName)
                 .previousPercent(p.getPreviousPercent())

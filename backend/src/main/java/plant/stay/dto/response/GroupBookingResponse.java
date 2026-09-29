@@ -28,6 +28,8 @@ public class GroupBookingResponse {
     private boolean depositPaid;
     private BigDecimal depositAmount;
     private BigDecimal requiredDepositAmount;
+    private boolean depositRequired;
+    private BigDecimal globalThreshold;
     private boolean hasInvoice;
     private String invoiceStatus;
     private BigDecimal invoiceTotalAmount;

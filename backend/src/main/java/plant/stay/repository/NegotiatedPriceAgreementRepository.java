@@ -29,12 +29,21 @@ public interface NegotiatedPriceAgreementRepository extends JpaRepository<Negoti
 
     @Query("SELECT a FROM NegotiatedPriceAgreement a WHERE " +
            "a.corporateClient.id = :corporateClientId AND " +
-           "a.corporateClient.active = true AND " +
+           "(a.corporateClient.active = true OR a.corporateClient.active IS NULL) AND " +
            "a.active = true AND " +
-           ":date >= a.startDate AND :date <= a.endDate " +
+           "((a.startDate IS NULL OR :date >= a.startDate) AND (a.endDate IS NULL OR :date <= a.endDate)) " +
            "ORDER BY a.id DESC")
     List<NegotiatedPriceAgreement> findActiveByCorporateClientIdAndDate(
             @Param("corporateClientId") Long corporateClientId,
             @Param("date") LocalDate date
+    );
+
+    @Query("SELECT a FROM NegotiatedPriceAgreement a WHERE " +
+           "a.corporateClient.id = :corporateClientId AND " +
+           "(a.corporateClient.active = true OR a.corporateClient.active IS NULL) AND " +
+           "a.active = true " +
+           "ORDER BY a.id DESC")
+    List<NegotiatedPriceAgreement> findActiveByCorporateClientId(
+            @Param("corporateClientId") Long corporateClientId
     );
 }

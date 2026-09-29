@@ -17,6 +17,12 @@ const groupBookingApi = {
     return response.data;
   },
 
+  /** Preview dự kiến tiền phòng và số tiền cọc bắt buộc theo DepositPolicy (không lưu DB) */
+  preview: async (data: any): Promise<any> => {
+    const response = await api.post<any>('/group-bookings/preview', data);
+    return response.data;
+  },
+
   getAssignmentSuggestion: async (id: number | string): Promise<any> => {
     const response = await api.get(`/group-bookings/${id}/assignment-suggestion`);
     return response.data;

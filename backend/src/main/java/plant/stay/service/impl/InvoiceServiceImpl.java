@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -45,6 +46,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final HotelSettingRepository hotelSettingRepository;
     private final plant.stay.service.RoomStayGuestService roomStayGuestService;
     private final plant.stay.repository.InvoiceDiscountRepository invoiceDiscountRepository;
+    private final DepositPolicyRepository depositPolicyRepository;
 
     @Override
     @Transactional
@@ -134,6 +136,25 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
         }
 
+        // Nếu là booking thuộc đoàn và chưa có cọc riêng: Trừ tiền cọc theo % cọc của phòng đó từ cọc đoàn
+        if (deposits.isEmpty() && booking.getGroupBooking() != null) {
+            BigDecimal depositPercent = getDepositPercentForBooking(booking);
+            BigDecimal expectedDeposit = roomAmount.multiply(depositPercent).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+            BigDecimal remainingGroupDeposit = getRemainingGroupDeposit(booking.getGroupBooking().getId(), invoice.getId());
+            BigDecimal allocatedDeposit = expectedDeposit.min(remainingGroupDeposit);
+            if (allocatedDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                Payment depositPayment = Payment.builder()
+                        .invoice(invoice)
+                        .amount(allocatedDeposit)
+                        .method(PaymentMethod.CASH)
+                        .paidAt(LocalDateTime.now())
+                        .collectedBy(actor)
+                        .note("Trừ tiền đặt cọc phòng theo chính sách (" + depositPercent.stripTrailingZeros().toPlainString() + "% tiền phòng)")
+                        .build();
+                paymentRepository.save(depositPayment);
+            }
+        }
+
         // Kiểm tra nếu tổng thanh toán (bao gồm cọc) đã đủ thì chuyển sang PAID
         BigDecimal totalPaid = paymentRepository.findByInvoiceId(invoice.getId()).stream()
                 .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -168,8 +189,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         if (bookings.isEmpty()) {
             throw new IllegalArgumentException("Hồ sơ đoàn chưa có phòng để lập hóa đơn");
         }
-        if (bookings.stream().anyMatch(booking -> booking.getStatus() != BookingStatus.CHECKED_IN)) {
-            throw new IllegalArgumentException("Chỉ có thể lập hóa đơn đoàn khi tất cả phòng đều đã nhận phòng (đang ở)");
+
+        boolean allCheckedIn = bookings.stream()
+                .allMatch(b -> b.getStatus() == BookingStatus.CHECKED_IN || b.getStatus() == BookingStatus.CHECKED_OUT);
+        if (!allCheckedIn) {
+            throw new IllegalArgumentException("Chỉ có thể lập hóa đơn khi tất cả phòng đều đã nhận phòng (đang ở). Khi chưa nhận phòng đầy đủ, vui lòng sử dụng tính năng Đặt cọc.");
         }
 
 
@@ -421,23 +445,14 @@ public class InvoiceServiceImpl implements InvoiceService {
                                     .build());
                         }
                     } else {
-                        // Tách: phân bổ cọc đoàn cho invoice này theo tỷ lệ tiền phòng
-                        // Lấy tổng tiền phòng của tất cả active bookings trong đoàn
-                        List<Booking> allActiveBookings = bookingRepository.findByGroupBookingId(invoice.getGroupBooking().getId())
-                                .stream()
-                                .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
-                                .collect(Collectors.toList());
-                        BigDecimal totalActiveRoomAmount = allActiveBookings.stream()
-                                .map(this::roomAmountFor)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                        // Tỷ lệ cọc cho invoice này dựa trên tiền phòng của booking đại diện
-                        BigDecimal invoiceRoomAmount = invoice.getRoomAmount();
-                        BigDecimal allocatedDeposit = BigDecimal.ZERO;
-                        if (totalActiveRoomAmount.compareTo(BigDecimal.ZERO) > 0) {
-                            allocatedDeposit = totalGroupDeposit
-                                    .multiply(invoiceRoomAmount)
-                                    .divide(totalActiveRoomAmount, 0, java.math.RoundingMode.HALF_UP);
-                        }
+                        // Tách: trừ tiền cọc theo % cọc phòng đó, không trừ toàn bộ cọc vào tất cả hóa đơn
+                        Booking booking = (bookings != null && !bookings.isEmpty()) ? bookings.get(0) : invoice.getBooking();
+                        BigDecimal depositPercent = booking != null ? getDepositPercentForBooking(booking) : BigDecimal.valueOf(20);
+                        BigDecimal invoiceRoomAmount = invoice.getRoomAmount() != null ? invoice.getRoomAmount() : BigDecimal.ZERO;
+                        BigDecimal expectedDeposit = invoiceRoomAmount.multiply(depositPercent).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                        BigDecimal remainingGroupDeposit = getRemainingGroupDeposit(invoice.getGroupBooking().getId(), invoice.getId());
+                        BigDecimal allocatedDeposit = expectedDeposit.min(remainingGroupDeposit);
+
                         if (allocatedDeposit.compareTo(BigDecimal.ZERO) > 0) {
                             paymentRepository.save(Payment.builder()
                                     .invoice(invoice)
@@ -445,14 +460,56 @@ public class InvoiceServiceImpl implements InvoiceService {
                                     .method(PaymentMethod.CASH)
                                     .paidAt(LocalDateTime.now())
                                     .collectedBy(actor)
-                                    .note("Phân bổ cọc đoàn #" + invoice.getGroupBooking().getId()
-                                            + " theo tỷ lệ phòng (" + invoiceRoomAmount + "/" + totalActiveRoomAmount + ")")
+                                    .note("Trừ tiền đặt cọc phòng theo chính sách (" + depositPercent.stripTrailingZeros().toPlainString() + "% tiền phòng)")
                                     .build());
                         }
                     }
                 }
             }
         }
+    }
+
+    private BigDecimal getDepositPercentForBooking(Booking booking) {
+        Long roomTypeId = booking.getRoomType() != null ? booking.getRoomType().getId() : null;
+        if (roomTypeId != null) {
+            Optional<DepositPolicy> policy = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(roomTypeId);
+            if (policy.isPresent() && policy.get().getDepositPercent() != null) {
+                return policy.get().getDepositPercent();
+            }
+        }
+        return depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue()
+                .map(DepositPolicy::getDepositPercent)
+                .orElse(BigDecimal.valueOf(20));
+    }
+
+    private BigDecimal getRemainingGroupDeposit(Long groupBookingId, Long currentInvoiceId) {
+        List<Deposit> groupDeposits = depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(groupBookingId);
+        BigDecimal totalGroupDeposit = groupDeposits.stream()
+                .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
+                .map(d -> {
+                    BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                    if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                    if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                    return eff.max(BigDecimal.ZERO);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<Invoice> activeInvoices = invoiceRepository.findByGroupBookingIdOrderByIdAsc(groupBookingId).stream()
+                .filter(inv -> inv.getStatus() != InvoiceStatus.CANCELLED && inv.getStatus() != InvoiceStatus.ADJUSTED)
+                .filter(inv -> currentInvoiceId == null || !inv.getId().equals(currentInvoiceId))
+                .collect(Collectors.toList());
+
+        BigDecimal alreadyDeducted = BigDecimal.ZERO;
+        for (Invoice inv : activeInvoices) {
+            alreadyDeducted = alreadyDeducted.add(
+                    paymentRepository.findByInvoiceId(inv.getId()).stream()
+                            .filter(p -> p.getNote() != null && (p.getNote().contains("cọc") || p.getNote().contains("Deposit") || p.getNote().contains("Mã cọc")))
+                            .map(Payment::getAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add)
+            );
+        }
+
+        return totalGroupDeposit.subtract(alreadyDeducted).max(BigDecimal.ZERO);
     }
 
     private GroupBooking findGroupBooking(Long groupBookingId) {
@@ -507,11 +564,21 @@ public class InvoiceServiceImpl implements InvoiceService {
                         List<Invoice> prevInvoices = invoiceRepository.findByGroupBookingIdOrderByIdAsc(prev.getId());
                         if (!prevInvoices.isEmpty() && prevInvoices.get(0).getStatus() != InvoiceStatus.ADJUSTED) {
                             suggestedMode = prevInvoices.get(0).getMode();
-                            break;
                         }
                     }
                 }
             }
+        }
+
+        // Khi chưa lập hóa đơn, lấy số liệu dự kiến từ các phòng trong đoàn và tiền cọc đã thu
+        if (activeInvoices.isEmpty()) {
+            List<Booking> bookings = bookingRepository.findByGroupBookingId(groupBookingId).stream()
+                    .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
+                    .collect(Collectors.toList());
+            roomAmount = bookings.stream().map(this::roomAmountFor).reduce(BigDecimal.ZERO, BigDecimal::add);
+            serviceAmount = bookings.stream().map(this::serviceAmountFor).reduce(BigDecimal.ZERO, BigDecimal::add);
+            totalAmount = roomAmount.add(serviceAmount);
+            paidAmount = totalGroupDeposit;
         }
 
         return GroupInvoiceResponse.builder()
@@ -664,6 +731,12 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private InvoiceResponse toResponse(Invoice inv) {
+        BigDecimal paid = paymentRepository.findByInvoiceId(inv.getId()).stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = inv.getTotalAmount() != null ? inv.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal outstanding = total.subtract(paid).max(BigDecimal.ZERO);
+
         return InvoiceResponse.builder()
                 .id(inv.getId())
                 .bookingId(inv.getBooking() != null ? inv.getBooking().getId() : null)
@@ -673,6 +746,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .serviceAmount(inv.getServiceAmount())
                 .discountAmount(inv.getDiscountAmount())
                 .totalAmount(inv.getTotalAmount())
+                .paidAmount(paid)
+                .outstandingAmount(outstanding)
                 .status(inv.getStatus())
                 .adjustmentOfId(inv.getAdjustmentOf() != null ? inv.getAdjustmentOf().getId() : null)
                 .note(inv.getNote())
