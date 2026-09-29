@@ -20,4 +20,12 @@ public class DepositPolicyRequest {
     @DecimalMin(value = "0", message = "Tỷ lệ cọc không được âm")
     @DecimalMax(value = "100", message = "Tỷ lệ cọc không được vượt quá 100%")
     private BigDecimal depositPercent;
+
+    /**
+     * Ngưỡng tiền phòng dự kiến (đ) — chỉ bắt cọc khi tổng tiền phòng >= ngưỡng.
+     * null hoặc 0 = luôn bắt cọc (không có ngưỡng).
+     */
+    @DecimalMin(value = "0", message = "Ngưỡng tiền không được âm")
+    private BigDecimal minimumAmountThreshold;
 }
+

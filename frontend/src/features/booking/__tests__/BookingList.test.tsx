@@ -10,6 +10,7 @@ import { AuthProvider } from '../../../context/AuthContext';
 vi.mock('../../../services/bookingApi', () => ({
   default: {
     getAllBookings: vi.fn(),
+    searchBookings: vi.fn(),
     checkIn: vi.fn(),
     checkOut: vi.fn(),
     cancelBooking: vi.fn(),
@@ -45,9 +46,12 @@ const mockBookings = [
 describe('BookingList Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(bookingApi.searchBookings).mockResolvedValue(mockBookings as any);
+    vi.mocked(bookingApi.getAllBookings).mockResolvedValue(mockBookings as any);
   });
 
   it('renders loading state initially', () => {
+    vi.mocked(bookingApi.searchBookings).mockReturnValue(new Promise(() => {}));
     vi.mocked(bookingApi.getAllBookings).mockReturnValue(new Promise(() => {}));
 
     render(

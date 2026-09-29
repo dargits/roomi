@@ -55,10 +55,12 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
 
   // Bộ lọc
   const [searchText, setSearchText] = useState('');
-  const [activeFilter, setActiveFilter] = useState('ALL'); // ALL | TODAY_CHECKIN | TODAY_CHECKOUT | CHECKED_IN | UNASSIGNED | GROUP
-  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | NEW | CONFIRMED | CHECKED_IN | CHECKED_OUT | CANCELLED | NO_SHOW
+  const [activeFilter, setActiveFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Mặc định chỉ tải booking trong tháng hiện tại
+  const [loadAll, setLoadAll] = useState(false);
 
   // Phân trang
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,7 +107,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+  }, [loadAll]);
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -173,15 +175,35 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
     return (b.id || 0) - (a.id || 0);
   };
 
+  // Khoảng tháng hiện tại dùng để filter mặc định
+  const currentMonthRange = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth(); // 0-indexed
+    // Mở rộng: từ đầu tháng trước đến hết tháng sau để lấy cả booking sắp đến gần
+    const from = new Date(y, m - 1, 1).toISOString().slice(0, 10); // đầu tháng trước
+    const to   = new Date(y, m + 2, 0).toISOString().slice(0, 10); // hết tháng sau
+    return { from, to, label: `${String(m + 1).padStart(2, '0')}/${y}` };
+  }, []);
+
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const data = await bookingApi.getAllBookings();
+      let data: any[];
+      if (loadAll) {
+        data = await bookingApi.getAllBookings();
+      } else {
+        // Chỉ tải booking trong khoảng 3 tháng (trước, hiện tại, sau)
+        data = await bookingApi.searchBookings({
+          from: currentMonthRange.from,
+          to:   currentMonthRange.to,
+        });
+      }
       const sorted = (data || []).sort((a: any, b: any) => compareBookingsByImportance(a, b, todayStr));
       setBookings(sorted);
     } catch (error) {
-      console.error("Failed to fetch bookings", error);
-      toastError?.("Không thể tải danh sách đặt phòng.");
+      console.error('Failed to fetch bookings', error);
+      toastError?.('Không thể tải danh sách đặt phòng.');
     } finally {
       setLoading(false);
     }
@@ -660,6 +682,41 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
             </button>
           ))}
         </div>
+
+        {/* === Banner thông báo phạm vi dữ liệu đang tải === */}
+        <div className={`flex items-center justify-between gap-3 px-1 pt-2 pb-0.5 text-xs ${
+          loadAll ? 'text-red-600' : 'text-on-surface-variant'
+        }`}>
+          <span className="flex items-center gap-1.5">
+            {loadAll ? (
+              <>
+                <span className="inline-block w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                Đang tải <strong>toàn bộ</strong> lịch sử — có thể chậm hơn
+              </>
+            ) : (
+              <>
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
+                Hiển booking từ <strong>{currentMonthRange.from}</strong> đến <strong>{currentMonthRange.to}</strong>
+                <span className="ml-1 text-on-surface-variant/60">(3 tháng gần nhất)</span>
+              </>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setLoadAll(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+              loadAll
+                ? 'border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
+            }`}
+          >
+            {loadAll ? (
+              <>↩ Quay về 3 tháng gần nhất</>
+            ) : (
+              <>↓ Tải toàn bộ lịch sử</>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ─── 3. Bảng Dữ Liệu Đặt Phòng ─── */}
@@ -689,9 +746,20 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                       <IoSearchOutline size={22} />
                     </div>
                     <p className="text-sm font-semibold text-on-surface">Không tìm thấy đặt phòng phù hợp</p>
-                    <p className="text-xs text-on-surface-variant mt-1">
-                      Thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh khoảng thời gian lọc.
+                    <p className="text-xs text-on-surface-variant mt-1 text-center">
+                      {!loadAll
+                        ? 'Không có booking trong khoảng thời gian này. '
+                        : 'Thử thay đổi từ khóa hoặc điều chỉnh bộ lọc. '}
                     </p>
+                    {!loadAll && (
+                      <button
+                        type="button"
+                        onClick={() => setLoadAll(true)}
+                        className="mt-3 px-4 py-1.5 text-xs font-semibold bg-primary text-white rounded-lg hover:opacity-90 cursor-pointer transition-opacity"
+                      >
+                        Tải toàn bộ lịch sử
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1034,6 +1102,12 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
           onAssigned={() => {
             fetchBookings();
             setAssigningBooking(null);
+          }}
+          onDepositRequired={(bookingId) => {
+            setAssigningBooking(null);
+            navigate(`/manage/bookings/${bookingId}?tab=deposit`, {
+              state: { from: '/manage/bookings/list' }
+            });
           }}
         />
       )}

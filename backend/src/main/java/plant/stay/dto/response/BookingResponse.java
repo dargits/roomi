@@ -52,4 +52,8 @@ public class BookingResponse {
     private Long loyaltyTierId;
     private String loyaltyTierName;
     private Double loyaltyDiscountPercent;
+    private BigDecimal requiredDepositAmount;
+    private BigDecimal depositAmount;
+    private boolean depositPaid;
+    private boolean depositRequired;
 }

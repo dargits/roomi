@@ -10,6 +10,7 @@ import plant.stay.dto.request.GroupBookingRequest;
 import plant.stay.dto.request.GroupInvoiceCreateRequest;
 import plant.stay.dto.request.GroupRoomAssignmentRequest;
 import plant.stay.dto.request.PartialCancelRequest;
+import plant.stay.dto.response.GroupBookingPreviewResponse;
 import plant.stay.dto.response.GroupBookingResponse;
 import plant.stay.dto.response.GroupInvoiceResponse;
 import plant.stay.dto.response.GroupRoomAssignmentSuggestionResponse;
@@ -50,6 +51,18 @@ public class GroupBookingController {
                                                         HttpServletRequest httpRequest) {
         User actor = checkWriteAccess(httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(groupBookingService.create(request, actor));
+    }
+
+    /**
+     * Preview dự kiến tiền phòng và số tiền cọc bắt buộc theo DepositPolicy trước khi tạo hồ sơ đoàn.
+     * Không lưu vào CSDL — chỉ tính toán.
+     */
+    @PostMapping("/preview")
+    public ResponseEntity<GroupBookingPreviewResponse> previewBooking(
+            @Valid @RequestBody GroupBookingRequest request,
+            HttpServletRequest httpRequest) {
+        checkReadAccess(httpRequest);
+        return ResponseEntity.ok(groupBookingService.preview(request));
     }
 
     @GetMapping("/{id}/assignment-suggestion")

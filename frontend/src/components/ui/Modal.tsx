@@ -62,7 +62,7 @@ const Modal: React.FC<ModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#002146]/50 backdrop-blur-xs animate-backdrop-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#002146]/60 animate-backdrop-in"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >

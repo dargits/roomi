@@ -10,7 +10,6 @@ import {
   IoQrCodeOutline,
   IoCopyOutline,
   IoCheckmarkOutline,
-  IoTicketOutline,
   IoGitBranchOutline,
   IoLayersOutline
 } from 'react-icons/io5';
@@ -18,8 +17,6 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { SquareSpinner } from '../../components/common/LoadingScreen';
-import InvoiceDiscountSection from '../invoice/InvoiceDiscountSection';
-import DiscountFormModal from '../invoice/DiscountFormModal';
 import InvoicePrintTemplate from './InvoicePrintTemplate';
 import groupBookingApi from '../../services/groupBookingApi';
 import invoiceApi from '../../services/invoiceApi';
@@ -52,9 +49,6 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
   // Modal print
   const [printInvoice, setPrintInvoice] = useState<any>(null);
 
-  // Discount modal state
-  const [showDiscountModal, setShowDiscountModal] = useState(false);
-
   // Payment states
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
   const [payAmount, setPayAmount] = useState('');
@@ -64,7 +58,7 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
   const [payError, setPayError] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const canManageFinance = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role || '');
+  const canManageFinance = !user?.role || ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT', 'ADMIN', 'STAFF'].includes(String(user?.role || '').toUpperCase());
 
   const copyToClipboard = (text: string, field: string) => {
     if (!text) return;
@@ -125,33 +119,6 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
     }
   };
 
-  const handleCreateWithDiscount = async (discountPayload: any) => {
-    if (!group?.id) return { success: false };
-    setSubmitting(true);
-    setError('');
-    try {
-      const res = await groupBookingApi.createInvoices(group.id, { mode: 'COMBINED' });
-      const combinedInvId = res?.invoices?.[0]?.id;
-      if (combinedInvId && discountPayload && discountPayload.discountValue > 0) {
-        try {
-          const discRes = await invoiceApi.applyDiscount(combinedInvId, discountPayload);
-          toastSuccess(discRes.statusMessage || 'Đã áp dụng giảm giá cho hóa đơn đoàn!');
-        } catch (discErr: any) {
-          toastError(discErr.response?.data?.message || 'Lỗi áp dụng giảm giá cho hóa đơn đoàn');
-        }
-      }
-      setShowDiscountModal(false);
-      await loadInvoices();
-      if (onSuccess) onSuccess();
-      return { success: true };
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Không thể lập hóa đơn đoàn kèm giảm giá.');
-      return { success: false };
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handlePayInvoice = async (invoiceId: number) => {
     const numAmount = Number(payAmount);
     if (!numAmount || numAmount <= 0) {
@@ -205,32 +172,44 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
             )}
 
             {/* Thẻ tóm tắt tài chính tổng đoàn */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-surface-container-low p-4 rounded-2xl border border-border-grey">
-              <div>
-                <span className="text-on-surface-variant block mb-1">Tiền phòng & Dịch vụ:</span>
-                <strong className="text-on-surface font-bold text-sm">
-                  {((Number(data?.roomAmount || 0)) + (Number(data?.serviceAmount || 0))).toLocaleString('vi-VN')} đ
-                </strong>
-              </div>
-              <div>
-                <span className="text-emerald-700 block mb-1">Đã cọc & Thanh toán:</span>
-                <strong className="text-emerald-800 font-bold text-sm">
-                  {Number(data?.paidAmount || 0).toLocaleString('vi-VN')} đ
-                </strong>
-              </div>
-              <div>
-                <span className="text-on-surface-variant block mb-1">Giảm giá đoàn:</span>
-                <strong className="text-on-surface font-bold text-sm">
-                  {Number(data?.discountAmount || 0) > 0 ? `-${Number(data?.discountAmount).toLocaleString('vi-VN')} đ` : '0 đ'}
-                </strong>
-              </div>
-              <div className={`p-2.5 rounded-xl border ${Number(data?.outstandingAmount || 0) > 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-800'}`}>
-                <span className="block mb-0.5 font-semibold">Còn lại cần thu:</span>
-                <strong className="font-bold text-sm">
-                  {Number(data?.outstandingAmount || 0).toLocaleString('vi-VN')} đ
-                </strong>
-              </div>
-            </div>
+            {(() => {
+              const roomAmount = Number(data?.roomAmount || 0) > 0 ? Number(data?.roomAmount) : Number(group?.expectedTotal || 0);
+              const serviceAmount = Number(data?.serviceAmount || 0);
+              const paidAmount = Number(data?.paidAmount || 0) > 0 ? Number(data?.paidAmount) : Number(group?.depositAmount || 0);
+              const totalAmount = roomAmount + serviceAmount;
+              const outstandingAmount = data?.outstandingAmount != null && Number(data?.outstandingAmount) >= 0
+                ? Number(data.outstandingAmount)
+                : Math.max(0, totalAmount - paidAmount);
+
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-surface-container-low p-4 rounded-2xl border border-border-grey">
+                  <div>
+                    <span className="text-on-surface-variant block mb-1">Tiền phòng ({group?.bookings?.length || 0} phòng):</span>
+                    <strong className="text-on-surface font-bold text-sm">
+                      {roomAmount.toLocaleString('vi-VN')} đ
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-on-surface-variant block mb-1">Dịch vụ phụ thu:</span>
+                    <strong className="text-on-surface font-bold text-sm">
+                      {serviceAmount.toLocaleString('vi-VN')} đ
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700 block mb-1">Đã cọc &amp; Thanh toán:</span>
+                    <strong className="text-emerald-800 font-bold text-sm">
+                      {paidAmount.toLocaleString('vi-VN')} đ
+                    </strong>
+                  </div>
+                  <div className={`p-2.5 rounded-xl border ${outstandingAmount > 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-800'}`}>
+                    <span className="block mb-0.5 font-semibold">Còn lại cần thu:</span>
+                    <strong className="font-bold text-sm">
+                      {outstandingAmount.toLocaleString('vi-VN')} đ
+                    </strong>
+                  </div>
+                </div>
+              );
+            })()}
 
             {!hasInvoices ? (
               /* Chưa lập hóa đơn: Cho phép chọn Tách hoặc Gộp */
@@ -256,12 +235,12 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
                       </p>
                       <ul className="text-[11px] text-on-surface space-y-1 mb-4">
                         <li>✓ Tự động cấn trừ toàn bộ tiền cọc đoàn ({Number(group?.depositAmount || 0).toLocaleString('vi-VN')} đ)</li>
-                        <li>✓ Cho phép áp dụng giảm giá / chiết khấu toàn đoàn</li>
+                        <li>✓ Hiển thị tổng số tiền cần thanh toán cho toàn bộ đoàn</li>
                         <li>✓ Thuận tiện xuất 1 hóa đơn VAT / thanh toán công ty</li>
                       </ul>
                     </div>
 
-                    <div className="space-y-2 pt-2 border-t border-primary/20">
+                    <div className="pt-2 border-t border-primary/20">
                       <Button
                         variant="primary"
                         icon={IoLayersOutline}
@@ -271,16 +250,6 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
                         onClick={() => handleCreateInvoices('COMBINED')}
                       >
                         Tạo hóa đơn gộp đoàn
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={IoTicketOutline}
-                        className="w-full text-primary border-primary hover:bg-primary/10"
-                        disabled={submitting || !canManageFinance}
-                        onClick={() => setShowDiscountModal(true)}
-                      >
-                        Tạo gộp kèm Giảm giá đoàn
                       </Button>
                     </div>
                   </div>
@@ -356,23 +325,12 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
 
                 {activeTab === 'invoices' ? (
                   <div className="space-y-4">
-                    {/* Discount section nếu là COMBINED */}
-                    {data.mode === 'COMBINED' && data.invoices[0] && (
-                      <div className="bg-surface p-4 rounded-xl border border-border-grey">
-                        <InvoiceDiscountSection
-                          invoice={data.invoices[0]}
-                          userRole={user?.role}
-                          onInvoiceChange={loadInvoices}
-                          remainingAmount={Number(data.outstandingAmount || 0)}
-                        />
-                      </div>
-                    )}
-
                     {/* Danh sách các hóa đơn */}
                     <div className="space-y-3">
                       {data.invoices.map((inv, idx) => {
                         const isSelected = inv.id === selectedInvoiceId;
-                        const invOutstanding = Number(inv.remainingAmount ?? inv.outstandingAmount ?? 0);
+                        const invOutstanding = Number(inv.outstandingAmount ?? Math.max(0, Number(inv.totalAmount || 0) - Number(inv.paidAmount || 0)));
+                        const isPaid = inv.status === 'PAID' || invOutstanding <= 0;
                         return (
                           <div
                             key={inv.id}
@@ -387,12 +345,9 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
                                     Hóa đơn #{inv.id} {data.mode === 'COMBINED' ? '(Gộp toàn đoàn)' : `(Phòng ${inv.bookingId || idx + 1})`}
                                   </span>
                                   <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                                    inv.status === 'PAID' ? 'bg-green-100 text-green-800' :
-                                    inv.status === 'PENDING_DISCOUNT_APPROVAL' ? 'bg-amber-100 text-amber-800' :
-                                    'bg-amber-100 text-amber-800'
+                                    isPaid ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
                                   }`}>
-                                    {inv.status === 'PAID' ? '✓ Đã thanh toán' :
-                                     inv.status === 'PENDING_DISCOUNT_APPROVAL' ? 'Chờ duyệt giảm giá' : 'Chờ thanh toán'}
+                                    {isPaid ? '✓ Đã thanh toán' : 'Chờ thanh toán'}
                                   </span>
                                 </div>
                                 <div className="text-xs text-on-surface-variant mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
@@ -400,20 +355,20 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
                                   {Number(inv.serviceAmount || 0) > 0 && (
                                     <span>• Dịch vụ: <strong>{Number(inv.serviceAmount).toLocaleString('vi-VN')} đ</strong></span>
                                   )}
-                                  {Number(inv.discountAmount || 0) > 0 && (
-                                    <span className="text-green-700 font-semibold">• Giảm giá: -{Number(inv.discountAmount).toLocaleString('vi-VN')} đ</span>
-                                  )}
                                   {Number(inv.paidAmount || 0) > 0 && (
-                                    <span className="text-emerald-700 font-semibold">• Đã thanh toán: {Number(inv.paidAmount).toLocaleString('vi-VN')} đ</span>
+                                    <span className="text-emerald-700 font-semibold">• Đã trừ cọc / thanh toán: {Number(inv.paidAmount).toLocaleString('vi-VN')} đ</span>
                                   )}
                                 </div>
                               </div>
 
                               <div className="flex items-center gap-2 self-end sm:self-auto">
                                 <div className="text-right mr-2">
-                                  <div className="text-xs text-on-surface-variant">Tổng cần thu</div>
-                                  <div className="font-bold text-primary text-base">
-                                    {Number(inv.totalAmount || 0).toLocaleString('vi-VN')} đ
+                                  <div className="text-xs text-on-surface-variant font-medium">Còn lại cần thu</div>
+                                  <div className={`font-bold text-base ${isPaid ? 'text-green-700' : 'text-primary'}`}>
+                                    {invOutstanding.toLocaleString('vi-VN')} đ
+                                  </div>
+                                  <div className="text-[11px] text-on-surface-variant">
+                                    Tổng HĐ: {Number(inv.totalAmount || 0).toLocaleString('vi-VN')} đ
                                   </div>
                                 </div>
                                 <Button
@@ -622,21 +577,6 @@ const GroupInvoicePanel: React.FC<GroupInvoicePanelProps> = ({
           invoice={printInvoice}
           group={group}
           onClose={() => setPrintInvoice(null)}
-        />
-      )}
-
-      {/* Modal giảm giá đoàn */}
-      {showDiscountModal && (
-        <DiscountFormModal
-          isOpen={showDiscountModal}
-          isLoading={submitting}
-          onClose={() => setShowDiscountModal(false)}
-          remainingAmount={Math.max(
-            0,
-            (group?.totalRoomCharge || group?.bookings?.reduce((sum: number, b: any) => sum + (Number(b.expectedPrice) || 0), 0) || 0) -
-            Number(group?.depositAmount || 0)
-          )}
-          onSubmit={handleCreateWithDiscount}
         />
       )}
     </>

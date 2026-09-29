@@ -133,8 +133,7 @@ public class PricingServiceImpl implements PricingService {
         String dayName = formatDayOfWeek(night.getDayOfWeek());
 
         // 0. Ưu tiên cao nhất: Giá thỏa thuận (cho đoàn hoặc khách công ty)
-        if (agreement != null && Boolean.TRUE.equals(agreement.getActive())
-                && !night.isBefore(agreement.getStartDate()) && !night.isAfter(agreement.getEndDate())) {
+        if (agreement != null && !Boolean.FALSE.equals(agreement.getActive())) {
             BigDecimal agreedPrice = agreement.getPriceForRoomType(roomType != null ? roomType.getId() : null);
             if (agreedPrice != null) {
                 String sourceName = agreement.getGroupBooking() != null

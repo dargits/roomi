@@ -8,7 +8,9 @@ import {
   IoSearchOutline,
   IoCloseOutline,
   IoChevronBackOutline,
-  IoChevronForwardOutline
+  IoChevronForwardOutline,
+  IoCashOutline,
+  IoArrowForwardOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -29,6 +31,8 @@ interface AssignRoomModalProps {
   checkOutDate?: string;
   onAssigned?: () => void;
   onSuccess?: () => void;
+  /** Gọi khi lỗi thiếu cọc — parent navigate tới tab đặt cọc */
+  onDepositRequired?: (bookingId: number) => void;
 }
 
 const AssignRoomModal: React.FC<AssignRoomModalProps> = ({
@@ -40,7 +44,8 @@ const AssignRoomModal: React.FC<AssignRoomModalProps> = ({
   checkInDate: propCheckInDate,
   checkOutDate: propCheckOutDate,
   onAssigned,
-  onSuccess
+  onSuccess,
+  onDepositRequired,
 }) => {
   const { toastSuccess, toastError } = useToast();
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
@@ -49,6 +54,7 @@ const AssignRoomModal: React.FC<AssignRoomModalProps> = ({
   const [processing, setProcessing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [depositError, setDepositError] = useState<string | null>(null);
 
   const effectiveBookingId = propBookingId || booking?.id || booking?.bookingId;
   const effectiveRoomTypeId = propRoomTypeId || booking?.roomTypeId || booking?.roomType?.id;
@@ -99,6 +105,7 @@ const AssignRoomModal: React.FC<AssignRoomModalProps> = ({
   const handleAssign = async () => {
     if (!selectedRoomId || !effectiveBookingId) return;
     setProcessing(true);
+    setDepositError(null);
     try {
       await bookingApi.assignRoom(effectiveBookingId, selectedRoomId);
       toastSuccess(isChangingRoom ? "Đổi phòng thành công!" : "Xếp phòng thành công!");
@@ -106,7 +113,9 @@ const AssignRoomModal: React.FC<AssignRoomModalProps> = ({
       if (onSuccess) onSuccess();
       onClose();
     } catch (error: any) {
-      toastError(error.response?.data?.message || "Lỗi xếp phòng");
+      const msg: string = error.response?.data?.message || 'Lỗi xếp phòng';
+      // Hiện lỗi trong modal thay vì toast bị mờ sau backdrop
+      setDepositError(msg);
     } finally {
       setProcessing(false);
     }
@@ -401,6 +410,35 @@ const AssignRoomModal: React.FC<AssignRoomModalProps> = ({
                   </div>
                 )}
               </>
+            )}
+          </div>
+        )}
+
+        {/* === Banner lỗi đặt cọc — hiện trong modal, không bị mờ === */}
+        {depositError && (
+          <div className="mt-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-4">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
+                <IoCashOutline size={20} className="text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-amber-800 text-sm mb-1">⚠️ Chưa thu đủ tiền đặt cọc</p>
+                <p className="text-amber-700 text-xs leading-relaxed">{depositError}</p>
+              </div>
+            </div>
+            {onDepositRequired && effectiveBookingId && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onDepositRequired(Number(effectiveBookingId));
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                <IoCashOutline size={16} />
+                Thu cọc ngay
+                <IoArrowForwardOutline size={15} />
+              </button>
             )}
           </div>
         )}

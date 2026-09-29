@@ -52,6 +52,14 @@ public class HotelSetting {
     @Column(name = "discount_approval_threshold", precision = 12, scale = 2)
     private BigDecimal discountApprovalThreshold;
 
+    /**
+     * Ngưỡng tiền phòng dự kiến của đơn đặt phòng / đoàn để bắt buộc đặt cọc (toàn cơ sở).
+     * Nếu tổng hóa đơn dự kiến >= ngưỡng này → bắt buộc cọc trước khi xếp phòng.
+     * Nếu null hoặc <= 0 → luôn bắt cọc theo tỷ lệ của loại phòng.
+     */
+    @Column(name = "deposit_required_threshold", precision = 12, scale = 2)
+    private BigDecimal depositRequiredThreshold;
+
     @Column(name = "reminder_email_enabled")
     @Builder.Default
     private Boolean reminderEmailEnabled = true;

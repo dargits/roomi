@@ -5,7 +5,7 @@
 # API Endpoint  : https://stayaway.io.vn/api/v1
 # Registry      : GitHub Container Registry (ghcr.io)
 # Target Server : AWS EC2 Ubuntu Server (Docker & Nginx Reverse Proxy)
-# Release       : v1.0.4
+# Release       : v1.0.4 (Update)
 # ==============================================================================
 
 name: CI/CD - StayAway Production Pipeline

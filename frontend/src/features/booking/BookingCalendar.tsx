@@ -571,6 +571,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onOpenDetail }) => {
             loadData();
             setAssigningBooking(null);
           }}
+          onDepositRequired={(bookingId) => {
+            setAssigningBooking(null);
+            navigate(`/manage/bookings/${bookingId}?tab=deposit`, {
+              state: { from: '/manage/bookings/calendar' }
+            });
+          }}
         />
       )}
 
