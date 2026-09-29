@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
  * Chính sách tỷ lệ đặt cọc — NCL-11-CN-001 (QTN-18)
  * Cấu hình tỷ lệ % tiền cọc trên tổng tiền phòng dự kiến theo loại phòng.
  * null roomType = áp dụng cho tất cả loại phòng (chính sách mặc định).
+ * minimumAmountThreshold: ngưỡng tiền phòng dự kiến để bắt buộc đặt cọc.
+ *   - null hoặc 0 → luôn yêu cầu cọc (không có ngưỡng)
+ *   - > 0 → chỉ yêu cầu cọc khi tổng tiền phòng >= ngưỡng
  */
 @Entity
 @Table(name = "deposit_policies")
@@ -29,6 +32,14 @@ public class DepositPolicy {
     // Tỷ lệ phần trăm cọc (0–100)
     @Column(name = "deposit_percent", nullable = false, precision = 5, scale = 2)
     private BigDecimal depositPercent;
+
+    /**
+     * Ngưỡng tiền phòng dự kiến để bắt buộc đặt cọc (đơn vị: đồng VNĐ).
+     * null hoặc 0 = không có ngưỡng → luôn yêu cầu cọc nếu depositPercent > 0.
+     * Ví dụ: 2_000_000 → chỉ yêu cầu cọc khi tổng tiền phòng >= 2.000.000 đ.
+     */
+    @Column(name = "minimum_amount_threshold", precision = 18, scale = 0)
+    private BigDecimal minimumAmountThreshold;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

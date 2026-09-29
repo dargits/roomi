@@ -104,9 +104,7 @@ describe('LoginPage Component', () => {
     });
   });
 
-  it('automatically logs in when clicking a mock demo account', async () => {
-    mockLogin.mockResolvedValueOnce({ success: true });
-
+  it('does not render demo accounts dropdown', async () => {
     await act(async () => {
       render(
         <MemoryRouter>
@@ -115,20 +113,6 @@ describe('LoginPage Component', () => {
       );
     });
 
-    // Open demo dropdown
-    const demoToggleBtn = screen.getByText(/Tài khoản Demo/i);
-    await act(async () => {
-      fireEvent.click(demoToggleBtn);
-    });
-
-    // Click on a role item (e.g. Quản trị viên)
-    const adminRoleItem = screen.getByText('Quản trị viên');
-    await act(async () => {
-      fireEvent.click(adminRoleItem);
-    });
-
-    await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('admin', 'pass@123', false);
-    });
+    expect(screen.queryByText(/Tài khoản Demo/i)).not.toBeInTheDocument();
   });
 });

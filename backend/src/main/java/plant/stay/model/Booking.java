@@ -95,6 +95,10 @@ public class Booking {
     @JoinColumn(name = "negotiated_price_agreement_id")
     private NegotiatedPriceAgreement appliedAgreement;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "corporate_client_id")
+    private CorporateClient corporateClient;
+
     @Column(name = "price_source", length = 20)
     @Builder.Default
     private String priceSource = "STANDARD"; // STANDARD, NEGOTIATED

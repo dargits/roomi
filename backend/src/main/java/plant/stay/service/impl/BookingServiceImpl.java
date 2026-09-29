@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -99,8 +100,13 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public List<BookingResponse> search(String query, BookingStatus status, LocalDate fromDate, LocalDate toDate) {
-        Page<BookingResponse> paged = searchPaged(query, status, fromDate, toDate, org.springframework.data.domain.PageRequest.of(0, 100));
-        return paged.getContent();
+        String q = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
+        if (q != null && q.startsWith("#")) {
+            q = q.substring(1).trim();
+            if (q.isEmpty()) q = null;
+        }
+        List<Booking> bookings = bookingRepository.searchAll(q, status, fromDate, toDate);
+        return toResponseList(bookings);
     }
 
     private int getBookingPriorityRank(Booking b, LocalDate today) {
@@ -394,39 +400,110 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Chỉ có thể gán phòng cho đặt phòng ở trạng thái NEW hoặc CONFIRMED");
         }
 
-        // Nếu booking thuộc hồ sơ đoàn, bắt buộc đoàn phải hoàn thành tiền đặt cọc tối thiểu trước khi xếp phòng
-        // Ngoại lệ: Đoàn thuộc Khách hàng Doanh nghiệp (Corporate Client) có hợp đồng thỏa thuận công nợ/trả sau (B2B)
+        // === [ĐOÀN] Bắt buộc đặt cọc khi tiền phòng dự kiến theo loại phòng đạt ngưỡng ===
         if (booking.getGroupBooking() != null) {
             Long groupBookingId = booking.getGroupBooking().getId();
-            boolean isCorporateGroup = (booking.getGroupBooking().getCorporateClient() != null)
-                    || (booking.getAppliedAgreement() != null && booking.getAppliedAgreement().getCorporateClient() != null);
+            List<Booking> groupBookings = bookingRepository.findByGroupBookingId(groupBookingId);
+            List<Deposit> groupDeposits = new ArrayList<>(depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(groupBookingId));
+            for (Booking gb : groupBookings) {
+                groupDeposits.addAll(depositRepository.findByBookingIdOrderByCreatedAtDesc(gb.getId()));
+            }
 
-            if (!isCorporateGroup) {
-                List<Booking> groupBookings = bookingRepository.findByGroupBookingId(groupBookingId);
-                List<Deposit> groupDeposits = depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(groupBookingId);
+            Set<Long> countedDepositIds = new HashSet<>();
+            BigDecimal totalCollectedDeposit = BigDecimal.ZERO;
+            for (Deposit d : groupDeposits) {
+                if (d.getId() != null && countedDepositIds.add(d.getId())) {
+                    if (d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID) {
+                        BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                        if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                        if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                        if (eff.compareTo(BigDecimal.ZERO) > 0) {
+                            totalCollectedDeposit = totalCollectedDeposit.add(eff);
+                        }
+                    }
+                }
+            }
 
-                BigDecimal totalCollectedDeposit = groupDeposits.stream()
-                        .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
-                        .map(d -> {
-                            BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
-                            if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
-                            if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
-                            return eff.max(BigDecimal.ZERO);
-                        })
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal overallGroupTotal = BigDecimal.ZERO;
+            for (Booking b : groupBookings) {
+                if (b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW) {
+                    BigDecimal p = b.getActualPrice() != null ? b.getActualPrice() : (b.getExpectedPrice() != null ? b.getExpectedPrice() : BigDecimal.ZERO);
+                    overallGroupTotal = overallGroupTotal.add(p);
+                }
+            }
 
-                BigDecimal expectedTotal = groupBookings.stream()
-                        .filter(b -> b.getStatus() != BookingStatus.CANCELLED && b.getStatus() != BookingStatus.NO_SHOW)
-                        .map(Booking::getExpectedPrice)
-                        .filter(java.util.Objects::nonNull)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal globalThreshold = getGlobalDepositThreshold();
+            boolean depositRequired = globalThreshold != null && globalThreshold.compareTo(BigDecimal.ZERO) > 0
+                    && overallGroupTotal.compareTo(globalThreshold) >= 0;
 
-                BigDecimal requiredDeposit = expectedTotal.multiply(BigDecimal.valueOf(0.3)).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal requiredDeposit = calculateRequiredDepositForGroup(groupBookings);
 
-                if (totalCollectedDeposit.compareTo(BigDecimal.ZERO) <= 0 || (requiredDeposit.compareTo(BigDecimal.ZERO) > 0 && totalCollectedDeposit.compareTo(requiredDeposit) < 0)) {
-                    throw new IllegalArgumentException("Booking #" + bookingId + " thuộc hồ sơ đoàn #" + groupBookingId
-                            + " chưa hoàn thành tiền đặt cọc (yêu cầu tối thiểu " + requiredDeposit.toBigInteger()
-                            + " đ, đã thu " + totalCollectedDeposit.toBigInteger() + " đ). Vui lòng thu tiền đặt cọc cho đoàn trước khi xếp phòng.");
+            if (depositRequired && requiredDeposit.compareTo(BigDecimal.ZERO) > 0
+                    && totalCollectedDeposit.compareTo(requiredDeposit) < 0) {
+                throw new IllegalArgumentException("Hồ sơ đoàn #" + groupBookingId
+                        + " có tiền phòng dự kiến đạt ngưỡng yêu cầu đặt cọc (yêu cầu tối thiểu " + requiredDeposit.toBigInteger()
+                        + " đ, đã thu " + totalCollectedDeposit.toBigInteger() + " đ). Vui lòng thu tiền đặt cọc cho đoàn trước khi xếp phòng.");
+            }
+        }
+
+        // === [BOOKING LẺ] Bắt buộc đặt cọc khi tổng tiền phòng dự kiến đạt ngưỡng chung ===
+        else {
+            BigDecimal expectedPrice = booking.getActualPrice() != null
+                    ? booking.getActualPrice()
+                    : (booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+
+            if (expectedPrice.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal threshold = getGlobalDepositThreshold();
+                boolean aboveThreshold = threshold != null && threshold.compareTo(BigDecimal.ZERO) > 0
+                        && expectedPrice.compareTo(threshold) >= 0;
+
+                if (aboveThreshold) {
+                    Long roomTypeId = booking.getRoomType() != null ? booking.getRoomType().getId() : null;
+                    DepositPolicy policy = null;
+                    if (roomTypeId != null) {
+                        policy = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(roomTypeId).orElse(null);
+                    }
+                    if (policy == null) {
+                        policy = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue().orElse(null);
+                    }
+
+                    if (policy != null && policy.getDepositPercent() != null
+                            && policy.getDepositPercent().compareTo(BigDecimal.ZERO) > 0) {
+
+                        BigDecimal requiredDeposit = expectedPrice.multiply(policy.getDepositPercent())
+                                .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+
+                        // Lấy tổng tiền cọc đã thu cho booking này
+                        BigDecimal collectedDeposit = depositRepository
+                                .findByBookingIdOrderByCreatedAtDesc(bookingId)
+                                .stream()
+                                .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
+                                .map(d -> {
+                                    BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                                    if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                                    if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                                    return eff.max(BigDecimal.ZERO);
+                                })
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                        // Fallback: nếu không có bản ghi Deposit riêng, kiểm tra field depositAmount trên Booking
+                        if (collectedDeposit.compareTo(BigDecimal.ZERO) <= 0
+                                && booking.getDepositAmount() != null
+                                && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0) {
+                            collectedDeposit = booking.getDepositAmount();
+                        }
+
+                        if (requiredDeposit.compareTo(BigDecimal.ZERO) > 0
+                                && collectedDeposit.compareTo(requiredDeposit) < 0) {
+                            throw new IllegalArgumentException(
+                                    "Đặt phòng #" + bookingId + " chưa thu đủ tiền đặt cọc. "
+                                    + "Tiền phòng dự kiến: " + expectedPrice.toBigInteger() + " đ "
+                                    + "(ngưỡng bắt cọc: " + (threshold != null && threshold.compareTo(BigDecimal.ZERO) > 0 ? threshold.toBigInteger() + " đ" : "luôn bắt cọc") + "). "
+                                    + "Cọc yêu cầu: " + requiredDeposit.toBigInteger() + " đ, "
+                                    + "đã thu: " + collectedDeposit.toBigInteger() + " đ. "
+                                    + "Vui lòng thu tiền đặt cọc trước khi xếp phòng.");
+                        }
+                    }
                 }
             }
         }
@@ -1614,6 +1691,70 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đặt phòng với id: " + id));
     }
 
+    private BigDecimal getGlobalDepositThreshold() {
+        if (hotelSettingRepository != null) {
+            HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
+            if (setting != null && setting.getDepositRequiredThreshold() != null) {
+                return setting.getDepositRequiredThreshold();
+            }
+        }
+        return depositPolicyRepository.findByActiveTrueOrderByRoomTypeIdAsc().stream()
+                .map(DepositPolicy::getMinimumAmountThreshold)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
+    }
+
+    /**
+     * Tính tổng tiền cọc bắt buộc cho danh sách booking theo DepositPolicy.
+     * Logic: Tính tổng tiền phòng dự kiến của cả đoàn (hóa đơn đoàn).
+     * Nếu tổng tiền cả đoàn >= ngưỡng chung của cơ sở → tính cọc theo % của từng loại phòng.
+     * Nếu tổng tiền cả đoàn < ngưỡng chung → cọc = 0 (không bắt cọc).
+     */
+    private BigDecimal calculateRequiredDepositForGroup(List<Booking> bookings) {
+        BigDecimal totalRequired = BigDecimal.ZERO;
+        for (Booking booking : bookings) {
+            if (booking.getStatus() == BookingStatus.CANCELLED || booking.getStatus() == BookingStatus.NO_SHOW) {
+                continue;
+            }
+            BigDecimal roomPrice = booking.getActualPrice() != null
+                    ? booking.getActualPrice()
+                    : (booking.getExpectedPrice() != null ? booking.getExpectedPrice() : BigDecimal.ZERO);
+            if (roomPrice.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            Long roomTypeId = booking.getRoomType() != null ? booking.getRoomType().getId() : null;
+            DepositPolicy policy = null;
+            if (roomTypeId != null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(roomTypeId).orElse(null);
+            }
+            if (policy == null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue().orElse(null);
+            }
+
+            if (policy != null && policy.getDepositPercent() != null && policy.getDepositPercent().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal deposit = roomPrice.multiply(policy.getDepositPercent())
+                        .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                totalRequired = totalRequired.add(deposit);
+            }
+        }
+
+        return totalRequired;
+    }
+
+    private BigDecimal getDepositPercentForRoomType(Long roomTypeId) {
+        DepositPolicy policy = null;
+        if (roomTypeId != null) {
+            policy = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(roomTypeId).orElse(null);
+        }
+        if (policy == null) {
+            policy = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue().orElse(null);
+        }
+        if (policy != null && policy.getDepositPercent() != null) {
+            return policy.getDepositPercent();
+        }
+        return BigDecimal.valueOf(20);
+    }
+
     public BookingResponse toResponse(Booking b) {
         String paymentStatus = "UNPAID";
         boolean payLaterCheckout = false;
@@ -1637,16 +1778,20 @@ public class BookingServiceImpl implements BookingService {
 
         Map<Long, String> paymentStatusMap = new HashMap<>();
         try {
-            List<Invoice> invoices = invoiceRepository.findInvoicesCoveringBookingIds(bookingIds);
-            for (Invoice inv : invoices) {
-                if (inv.getStatus() != null) {
-                    if (inv.getBooking() != null) {
-                        paymentStatusMap.putIfAbsent(inv.getBooking().getId(), inv.getStatus().name());
-                    }
-                    if (inv.getGroupBooking() != null) {
-                        for (Booking b : bookings) {
-                            if (b.getGroupBooking() != null && b.getGroupBooking().getId().equals(inv.getGroupBooking().getId())) {
-                                paymentStatusMap.putIfAbsent(b.getId(), inv.getStatus().name());
+            int chunkSize = 500;
+            for (int i = 0; i < bookingIds.size(); i += chunkSize) {
+                List<Long> chunk = bookingIds.subList(i, Math.min(i + chunkSize, bookingIds.size()));
+                List<Invoice> invoices = invoiceRepository.findInvoicesCoveringBookingIds(chunk);
+                for (Invoice inv : invoices) {
+                    if (inv.getStatus() != null) {
+                        if (inv.getBooking() != null) {
+                            paymentStatusMap.putIfAbsent(inv.getBooking().getId(), inv.getStatus().name());
+                        }
+                        if (inv.getGroupBooking() != null) {
+                            for (Booking b : bookings) {
+                                if (b.getGroupBooking() != null && b.getGroupBooking().getId().equals(inv.getGroupBooking().getId())) {
+                                    paymentStatusMap.putIfAbsent(b.getId(), inv.getStatus().name());
+                                }
                             }
                         }
                     }
@@ -1663,7 +1808,11 @@ public class BookingServiceImpl implements BookingService {
         Set<Long> approvedDebtBookingIds = new HashSet<>();
         if (!checkedOutIds.isEmpty()) {
             try {
-                approvedDebtBookingIds.addAll(debtApprovalRepository.findApprovedBookingIdsIn(checkedOutIds));
+                int chunkSize = 500;
+                for (int i = 0; i < checkedOutIds.size(); i += chunkSize) {
+                    List<Long> chunk = checkedOutIds.subList(i, Math.min(i + chunkSize, checkedOutIds.size()));
+                    approvedDebtBookingIds.addAll(debtApprovalRepository.findApprovedBookingIdsIn(chunk));
+                }
             } catch (Exception ex) {
                 log.warn("Không thể batch fetch trạng thái công nợ: {}", ex.getMessage());
             }
@@ -1693,6 +1842,69 @@ public class BookingServiceImpl implements BookingService {
                             .build())
                     .collect(Collectors.toList());
         }
+
+        // === Tính toán thông tin đặt cọc theo DepositPolicy (QTN-18) ===
+        BigDecimal requiredDepositAmount = BigDecimal.ZERO;
+        BigDecimal collectedDepositAmount = BigDecimal.ZERO;
+        boolean depositRequired = false;
+        try {
+            DepositPolicy policy = null;
+            if (b.getRoomType() != null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIdAndActiveTrue(b.getRoomType().getId()).orElse(null);
+            }
+            if (policy == null) {
+                policy = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue().orElse(null);
+            }
+
+            BigDecimal basePrice = b.getActualPrice() != null ? b.getActualPrice() : (b.getExpectedPrice() != null ? b.getExpectedPrice() : BigDecimal.ZERO);
+            BigDecimal percent = policy != null ? policy.getDepositPercent() : null;
+            BigDecimal threshold = getGlobalDepositThreshold();
+
+            boolean aboveThreshold = threshold != null && threshold.compareTo(BigDecimal.ZERO) > 0
+                    && basePrice.compareTo(threshold) >= 0;
+
+            if (percent != null && percent.compareTo(BigDecimal.ZERO) > 0 && basePrice.compareTo(BigDecimal.ZERO) > 0 && aboveThreshold) {
+                requiredDepositAmount = basePrice.multiply(percent)
+                        .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                depositRequired = true;
+            }
+
+            // Tổng tiền cọc đã thu cho booking này
+            collectedDepositAmount = depositRepository.findByBookingIdOrderByCreatedAtDesc(b.getId()).stream()
+                    .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
+                    .map(d -> {
+                        BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                        if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                        if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                        return eff.max(BigDecimal.ZERO);
+                    })
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (collectedDepositAmount.compareTo(BigDecimal.ZERO) <= 0 && b.getDepositAmount() != null) {
+                collectedDepositAmount = b.getDepositAmount();
+            }
+
+            if (b.getGroupBooking() != null && collectedDepositAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                BigDecimal groupDeposit = depositRepository.findByGroupBookingIdOrderByCreatedAtDesc(b.getGroupBooking().getId()).stream()
+                        .filter(d -> d.getStatus() == DepositStatus.COLLECTED || d.getStatus() == DepositStatus.SHORT_PAID)
+                        .map(d -> {
+                            BigDecimal eff = d.getCollectedAmount() != null ? d.getCollectedAmount() : BigDecimal.ZERO;
+                            if (d.getRefundedAmount() != null) eff = eff.subtract(d.getRefundedAmount());
+                            if (d.getPenaltyAmount() != null) eff = eff.subtract(d.getPenaltyAmount());
+                            return eff.max(BigDecimal.ZERO);
+                        })
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (groupDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal roomExpected = b.getActualPrice() != null ? b.getActualPrice() : (b.getExpectedPrice() != null ? b.getExpectedPrice() : BigDecimal.ZERO);
+                    BigDecimal depositPercent = getDepositPercentForRoomType(b.getRoomType() != null ? b.getRoomType().getId() : null);
+                    BigDecimal roomExpectedDeposit = roomExpected.multiply(depositPercent).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                    collectedDepositAmount = roomExpectedDeposit.min(groupDeposit);
+                }
+            }
+        } catch (Exception ignored) {}
+        boolean depositPaid = !depositRequired
+                || (requiredDepositAmount.compareTo(BigDecimal.ZERO) <= 0)
+                || (collectedDepositAmount.compareTo(requiredDepositAmount) >= 0);
 
         return BookingResponse.builder()
                 .id(b.getId())
@@ -1735,6 +1947,10 @@ public class BookingServiceImpl implements BookingService {
                 .loyaltyTierId(b.getGuest() != null && b.getGuest().getLoyaltyTier() != null ? b.getGuest().getLoyaltyTier().getId() : null)
                 .loyaltyTierName(b.getGuest() != null && b.getGuest().getLoyaltyTier() != null ? b.getGuest().getLoyaltyTier().getName() : null)
                 .loyaltyDiscountPercent(b.getGuest() != null && b.getGuest().getLoyaltyTier() != null ? b.getGuest().getLoyaltyTier().getDiscountPercent() : null)
+                .requiredDepositAmount(requiredDepositAmount)
+                .depositAmount(collectedDepositAmount)
+                .depositPaid(depositPaid)
+                .depositRequired(depositRequired)
                 .build();
     }
 

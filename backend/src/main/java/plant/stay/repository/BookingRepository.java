@@ -57,7 +57,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "       OR LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
            "  AND (:status IS NULL OR b.status = :status) " +
-           "  AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
+           // Overlap: booking nằm trong khoảng [fromDate, toDate] nếu checkIn <= toDate VÀ checkOut >= fromDate
+           // Giúp lấy cả booking CHECKED_IN (checkIn tháng trước, checkout tháng này)
+           "  AND (:fromDate IS NULL OR b.checkOutDate >= :fromDate) " +
            "  AND (:toDate IS NULL OR b.checkInDate <= :toDate) " +
            "ORDER BY " +
            "  CASE " +
@@ -77,13 +79,39 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
            "       OR LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
            "  AND (:status IS NULL OR b.status = :status) " +
-           "  AND (:fromDate IS NULL OR b.checkInDate >= :fromDate) " +
+           "  AND (:fromDate IS NULL OR b.checkOutDate >= :fromDate) " +
            "  AND (:toDate IS NULL OR b.checkInDate <= :toDate)")
     Page<Booking> searchPaged(@Param("query") String query,
                               @Param("status") BookingStatus status,
                               @Param("fromDate") LocalDate fromDate,
                               @Param("toDate") LocalDate toDate,
                               Pageable pageable);
+
+    @Query(value = "SELECT b FROM Booking b LEFT JOIN FETCH b.guest g LEFT JOIN FETCH b.roomType LEFT JOIN FETCH b.room r " +
+           "WHERE (:query IS NULL OR CAST(b.id AS string) LIKE CONCAT('%', :query, '%') " +
+           "       OR (r IS NOT NULL AND r.roomNumber LIKE CONCAT('%', :query, '%')) " +
+           "       OR LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "       OR g.phone LIKE CONCAT('%', :query, '%')) " +
+           "  AND (:status IS NULL OR b.status = :status) " +
+           "  AND (:fromDate IS NULL OR b.checkOutDate >= :fromDate) " +
+           "  AND (:toDate IS NULL OR b.checkInDate <= :toDate) " +
+           "ORDER BY " +
+           "  CASE " +
+           "    WHEN (b.status = 'CONFIRMED' OR b.status = 'NEW') AND b.checkInDate <= CURRENT_DATE THEN 1 " +
+           "    WHEN b.status = 'CHECKED_IN' AND b.checkOutDate <= CURRENT_DATE THEN 2 " +
+           "    WHEN b.status = 'NEW' THEN 3 " +
+           "    WHEN b.status = 'CHECKED_IN' THEN 4 " +
+           "    WHEN b.status = 'CONFIRMED' THEN 5 " +
+           "    WHEN b.status = 'CHECKED_OUT' THEN 6 " +
+           "    WHEN b.status = 'NO_SHOW' THEN 7 " +
+           "    WHEN b.status = 'CANCELLED' THEN 8 " +
+           "    ELSE 9 " +
+           "  END ASC, b.checkInDate ASC, b.id DESC")
+    List<Booking> searchAll(@Param("query") String query,
+                            @Param("status") BookingStatus status,
+                            @Param("fromDate") LocalDate fromDate,
+                            @Param("toDate") LocalDate toDate);
+
 
     @Query("SELECT b FROM Booking b JOIN FETCH b.roomType WHERE b.groupBooking.id = :groupBookingId " +
            "AND b.room IS NULL AND b.status IN ('NEW', 'CONFIRMED') ORDER BY b.id")

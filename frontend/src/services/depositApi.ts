@@ -11,6 +11,16 @@ export const depositApi = {
     return res.data;
   },
 
+  getGlobalThreshold: async (): Promise<{ threshold: number }> => {
+    const res = await api.get('/deposit-policies/threshold');
+    return res.data;
+  },
+
+  updateGlobalThreshold: async (threshold: number | null): Promise<{ threshold: number }> => {
+    const res = await api.put('/deposit-policies/threshold', { threshold });
+    return res.data;
+  },
+
   createPolicy: async (data: any): Promise<any> => {
     const res = await api.post('/deposit-policies', data);
     return res.data;

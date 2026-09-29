@@ -14,6 +14,7 @@ import java.util.List;
 
 public interface GroupBookingService {
     GroupBookingResponse create(GroupBookingRequest request, User actor);
+    plant.stay.dto.response.GroupBookingPreviewResponse preview(GroupBookingRequest request);
     List<GroupBookingResponse> getAll();
     GroupBookingResponse getById(Long id);
     GroupRoomAssignmentSuggestionResponse getAssignmentSuggestion(Long groupBookingId);

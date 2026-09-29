@@ -48,7 +48,10 @@ public class NegotiatedPriceAgreement {
                     }
                 }
             }
-            return null;
+            if (pricePerNight != null) {
+                return pricePerNight;
+            }
+            return items.get(0).getPricePerNight();
         }
         return pricePerNight;
     }

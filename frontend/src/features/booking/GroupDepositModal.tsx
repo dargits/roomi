@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   IoCashOutline,
   IoCheckmarkCircleOutline,
@@ -7,7 +7,9 @@ import {
   IoQrCodeOutline,
   IoCopyOutline,
   IoCheckmarkOutline,
-  IoAlertCircleOutline
+  IoAlertCircleOutline,
+  IoInformationCircleOutline,
+  IoBedOutline
 } from 'react-icons/io5';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -36,7 +38,50 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
   const [copiedField, setCopiedField] = useState<string>('');
 
   const expectedTotal = Number(group?.expectedTotal || 0);
-  const requiredDeposit = Number(group?.requiredDepositAmount != null ? group.requiredDepositAmount : Math.round(expectedTotal * 0.2));
+
+  // Phân tích chi tiết chính sách cọc theo từng loại phòng trong đoàn
+  const roomTypeBreakdown = useMemo(() => {
+    if (!group?.bookings || !Array.isArray(group.bookings)) return [];
+    const map = new Map<string, {
+      roomTypeName: string;
+      quantity: number;
+      totalPrice: number;
+      totalDeposit: number;
+      depositPercent: number;
+    }>();
+
+    group.bookings.forEach((b: any) => {
+      if (b.status === 'CANCELLED' || b.status === 'NO_SHOW') return;
+      const name = b.roomTypeName || 'Phòng tiêu chuẩn';
+      const price = Number(b.actualPrice || b.expectedPrice || 0);
+      const dep = Number(b.requiredDepositAmount || 0);
+
+      const existing = map.get(name);
+      if (existing) {
+        existing.quantity += 1;
+        existing.totalPrice += price;
+        existing.totalDeposit += dep;
+      } else {
+        map.set(name, {
+          roomTypeName: name,
+          quantity: 1,
+          totalPrice: price,
+          totalDeposit: dep,
+          depositPercent: price > 0 && dep > 0 ? Math.round((dep / price) * 100) : 0,
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [group?.bookings]);
+
+  // Tổng tiền cọc theo chính sách của các loại phòng trong đoàn
+  const breakdownDepositSum = roomTypeBreakdown.reduce((sum, item) => sum + item.totalDeposit, 0);
+  const policyDeposit = Number(
+    group?.requiredDepositAmount != null && group.requiredDepositAmount > 0
+      ? group.requiredDepositAmount
+      : breakdownDepositSum
+  );
 
   const loadDeposits = async () => {
     if (!group?.id) return;
@@ -51,19 +96,22 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
     }
   };
 
+  const totalDeposited = deposits
+    .filter(d => d.status === 'COLLECTED' || d.status === 'SHORT_PAID')
+    .reduce((sum, d) => sum + (Number(d.collectedAmount) || 0) - (Number(d.refundedAmount) || 0), 0);
+
+  const remaining = Math.max(0, policyDeposit - totalDeposited);
+
   useEffect(() => {
     if (isOpen && group?.id) {
       loadDeposits();
-      setAmount(requiredDeposit ? String(requiredDeposit) : '');
+      const defaultAmount = remaining > 0 ? remaining : (policyDeposit > 0 ? policyDeposit : '');
+      setAmount(defaultAmount ? String(defaultAmount) : '');
       setPaymentMethod('TRANSFER');
       setNote(`Thu tiền đặt cọc ĐOÀN-${String(group.id).padStart(5, '0')}`);
       setErrorMsg('');
     }
-  }, [isOpen, group?.id, requiredDeposit]);
-
-  const totalDeposited = deposits
-    .filter(d => d.status === 'COLLECTED' || d.status === 'SHORT_PAID')
-    .reduce((sum, d) => sum + (Number(d.collectedAmount) || 0) - (Number(d.refundedAmount) || 0), 0);
+  }, [isOpen, group?.id, remaining, policyDeposit]);
 
   const copyToClipboard = (text: string, fieldName: string) => {
     if (!navigator.clipboard) return;
@@ -77,6 +125,7 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
   const qrImageUrl = `https://img.vietqr.io/image/MB-0365221338-compact2.png?amount=${currentPayAmount}&addInfo=${encodeURIComponent(transferCode)}&accountName=BAN%20HUU%20SU`;
 
   const isInvoicePaid = group?.invoiceStatus === 'PAID';
+  const isDepositRequired = Boolean(group?.depositRequired);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +167,7 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
       title={`Thu tiền đặt cọc — ĐOÀN-${String(group.id).padStart(5, '0')}`}
       maxWidth="max-w-2xl"
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         {isInvoicePaid && (
           <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs flex items-center gap-2">
             <IoAlertCircleOutline size={18} className="text-emerald-700 shrink-0" />
@@ -132,52 +181,107 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
           </div>
         )}
 
+        {/* Khung thông tin đoàn */}
         <div className="p-4 bg-surface-container-low rounded-xl border border-border-grey space-y-3">
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div>
-              <div className="font-semibold text-on-surface text-base">
-                {group.representativeName}
+              <div className="font-semibold text-on-surface text-base flex items-center gap-2">
+                <span>{group.representativeName}</span>
+                {isDepositRequired ? (
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                    Bắt buộc cọc trước khi xếp phòng
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Không bắt buộc cọc để xếp phòng
+                  </span>
+                )}
               </div>
               <div className="text-xs text-on-surface-variant mt-0.5">
                 {group.totalRooms} phòng • {formatDate(group.checkInDate)} → {formatDate(group.checkOutDate)}
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-on-surface-variant">Tổng dự kiến</div>
+              <div className="text-xs text-on-surface-variant">Tổng dự kiến tiền phòng</div>
               <div className="font-title-md text-primary font-bold">
                 {expectedTotal.toLocaleString('vi-VN')} đ
               </div>
             </div>
           </div>
 
+          {/* Chi tiết chính sách cọc theo từng loại phòng trong đoàn */}
+          {roomTypeBreakdown.length > 0 && (
+            <div className="bg-white rounded-lg border border-border-grey overflow-hidden text-xs mt-2">
+              <div className="px-3 py-1.5 font-semibold text-on-surface bg-surface-container-low border-b border-border-grey flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <IoBedOutline size={14} className="text-primary" />
+                  Chính sách cọc theo từng loại phòng
+                </span>
+                <span className="text-[11px] font-normal text-on-surface-variant">
+                  (% cọc của loại phòng × đơn giá × số phòng)
+                </span>
+              </div>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-border-grey/70 bg-surface-container-lowest text-on-surface-variant text-[11px]">
+                    <th className="px-3 py-1.5 font-medium">Loại phòng</th>
+                    <th className="px-3 py-1.5 font-medium text-center">Số phòng</th>
+                    <th className="px-3 py-1.5 font-medium text-right">Tiền phòng</th>
+                    <th className="px-3 py-1.5 font-medium text-center">Tỷ lệ cọc</th>
+                    <th className="px-3 py-1.5 font-medium text-right">Tiền cọc loại này</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-grey/50">
+                  {roomTypeBreakdown.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-surface-container-low/40">
+                      <td className="px-3 py-2 font-medium text-on-surface">{item.roomTypeName}</td>
+                      <td className="px-3 py-2 text-center text-on-surface-variant">{item.quantity} phòng</td>
+                      <td className="px-3 py-2 text-right">{item.totalPrice.toLocaleString('vi-VN')} đ</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[11px]">
+                          {item.depositPercent}%
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-primary">
+                        {item.totalDeposit.toLocaleString('vi-VN')} đ
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Các chỉ số cọc */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-border-grey text-xs">
-            <div className="bg-surface p-2 rounded-lg border border-border-grey">
-              <span className="text-on-surface-variant block">Mức cọc yêu cầu:</span>
-              <strong className="text-on-surface font-semibold">
-                {requiredDeposit.toLocaleString('vi-VN')} đ
+            <div className="bg-surface p-2.5 rounded-lg border border-border-grey">
+              <span className="text-on-surface-variant block text-[11px]">Mức cọc theo chính sách:</span>
+              <strong className="text-primary font-bold text-sm">
+                {policyDeposit.toLocaleString('vi-VN')} đ
               </strong>
             </div>
-            <div className="bg-surface p-2 rounded-lg border border-border-grey">
-              <span className="text-on-surface-variant block">Đã thu cọc:</span>
-              <strong className={totalDeposited > 0 ? 'text-green-700 font-bold' : 'text-amber-700'}>
+            <div className="bg-surface p-2.5 rounded-lg border border-border-grey">
+              <span className="text-on-surface-variant block text-[11px]">Đã thu cọc:</span>
+              <strong className={totalDeposited > 0 ? 'text-green-700 font-bold text-sm' : 'text-amber-700 font-semibold text-sm'}>
                 {totalDeposited.toLocaleString('vi-VN')} đ
               </strong>
             </div>
-            <div className="bg-surface p-2 rounded-lg border border-border-grey col-span-2 sm:col-span-1">
-              <span className="text-on-surface-variant block">Còn thiếu:</span>
-              <strong className="text-on-surface font-semibold">
-                {Math.max(0, requiredDeposit - totalDeposited).toLocaleString('vi-VN')} đ
+            <div className="bg-surface p-2.5 rounded-lg border border-border-grey col-span-2 sm:col-span-1">
+              <span className="text-on-surface-variant block text-[11px]">Còn thiếu theo chính sách:</span>
+              <strong className={remaining > 0 ? 'text-red-600 font-bold text-sm' : 'text-green-700 font-bold text-sm'}>
+                {remaining.toLocaleString('vi-VN')} đ
               </strong>
             </div>
           </div>
         </div>
 
+        {/* Lịch sử các lần cọc */}
         {deposits.length > 0 && (
           <div>
-            <div className="font-label-md font-semibold text-on-surface mb-2 flex items-center gap-1.5">
-              <IoWalletOutline className="text-primary" size={16} /> Lịch sử các lần cọc ({deposits.length})
+            <div className="font-label-md font-semibold text-on-surface mb-2 flex items-center gap-1.5 text-xs">
+              <IoWalletOutline className="text-primary" size={15} /> Lịch sử các lần cọc ({deposits.length})
             </div>
-            <div className="space-y-2 max-h-36 overflow-y-auto">
+            <div className="space-y-1.5 max-h-32 overflow-y-auto">
               {deposits.map((d) => (
                 <div key={d.id} className="flex justify-between items-center p-2.5 bg-green-50/60 rounded-lg border border-green-200 text-xs">
                   <div>
@@ -197,6 +301,7 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
           </div>
         )}
 
+        {/* Form ghi nhận thu cọc */}
         <form onSubmit={handleSubmit} className="space-y-4 pt-2 border-t border-border-grey">
           <div className="font-label-md font-semibold text-on-surface flex items-center gap-1.5">
             <IoCashOutline className="text-primary" size={16} /> Ghi nhận khoản thu cọc
@@ -215,19 +320,12 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Nhập số tiền..."
             />
+            {/* Quick buttons - Tính chuẩn xác theo chính sách phòng, không thu bừa */}
             <div className="flex gap-2 mt-2 flex-wrap">
               {(() => {
                 const currentNum = parseFloat(amount) || 0;
-                const valRequired = requiredDeposit;
-                const val50 = Math.round(expectedTotal * 0.5);
-                const val100 = expectedTotal;
-
-                const isRequiredActive = currentNum === valRequired && valRequired > 0;
-                const is50Active = currentNum === val50 && !isRequiredActive && val50 > 0;
-                const is100Active = currentNum === val100 && !isRequiredActive && !is50Active && val100 > 0;
-
                 const getChipClass = (isActive: boolean) =>
-                  `px-2.5 py-1 text-xs border rounded-md transition-all cursor-pointer ${
+                  `px-3 py-1.5 text-xs border rounded-lg transition-all cursor-pointer ${
                     isActive
                       ? 'bg-primary text-white border-primary font-bold shadow-xs'
                       : 'bg-surface-container-low text-on-surface border-border-grey hover:bg-surface-container font-medium'
@@ -235,27 +333,33 @@ const GroupDepositModal: React.FC<GroupDepositModalProps> = ({ isOpen, onClose, 
 
                 return (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setAmount(String(valRequired))}
-                      className={getChipClass(isRequiredActive)}
-                    >
-                      Mức cọc yêu cầu ({valRequired.toLocaleString('vi-VN')} đ)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAmount(String(val50))}
-                      className={getChipClass(is50Active)}
-                    >
-                      50% ({val50.toLocaleString('vi-VN')} đ)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAmount(String(val100))}
-                      className={getChipClass(is100Active)}
-                    >
-                      100% ({val100.toLocaleString('vi-VN')} đ)
-                    </button>
+                    {policyDeposit > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAmount(String(policyDeposit))}
+                        className={getChipClass(currentNum === policyDeposit)}
+                      >
+                        Cọc theo chính sách ({policyDeposit.toLocaleString('vi-VN')} đ)
+                      </button>
+                    )}
+                    {totalDeposited > 0 && remaining > 0 && remaining !== policyDeposit && (
+                      <button
+                        type="button"
+                        onClick={() => setAmount(String(remaining))}
+                        className={getChipClass(currentNum === remaining)}
+                      >
+                        Thu số còn thiếu ({remaining.toLocaleString('vi-VN')} đ)
+                      </button>
+                    )}
+                    {expectedTotal > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAmount(String(expectedTotal))}
+                        className={getChipClass(currentNum === expectedTotal && currentNum !== policyDeposit)}
+                      >
+                        Toàn bộ tiền phòng ({expectedTotal.toLocaleString('vi-VN')} đ)
+                      </button>
+                    )}
                   </>
                 );
               })()}

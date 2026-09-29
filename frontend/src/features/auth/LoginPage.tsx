@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import QuickLoginDropdown from './QuickLoginDropdown';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import {
@@ -85,13 +84,6 @@ const LoginPage: React.FC = () => {
       isLoggingInRef.current = false;
       setErrorMsg(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản.');
     }
-  };
-
-  const handleRoleSelect = (account: { username: string; password: string }) => {
-    setUsername(account.username);
-    setPassword(account.password);
-    setErrorMsg('');
-    executeLogin(account.username, account.password);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -241,14 +233,6 @@ const LoginPage: React.FC = () => {
             </Button>
           </form>
 
-          <div className="w-full my-4 border-t border-border-grey relative">
-            <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-xs font-medium text-outline">
-              Hoặc
-            </span>
-          </div>
-
-          {/* Quick Login Section */}
-          <QuickLoginDropdown onSelectRole={handleRoleSelect} />
 
           {/* Back to Booking */}
           <Button

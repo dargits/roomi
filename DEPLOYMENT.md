@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/Downtime-%3C%2045s%20Zero--Downtime-00C853?style=for-the-badge&logo=speedtest&logoColor=white" />
 </p>
 
-Tài liệu hướng dẫn triển khai, vận hành và bảo trì toàn diện hệ thống phần mềm quản lý lưu trú **Lưu Trú Số** (Stay Away). Toàn bộ hệ thống tuân thủ nghiêm ngặt tiêu chuẩn DevOps hiện đại, container hóa 100% bằng **Docker & Docker Compose**, đóng gói tự động qua **GitHub Container Registry (GHCR)** và tự động hóa toàn trình qua **GitHub Actions** với thời gian downtime tiệm cận 0 (< 45 giây).
+Tài liệu hướng dẫn triển khai, vận hành và bảo trì toàn diện hệ thống phần mềm quản lý lưu trú **Lưu Trú Số** (Stay Away PMS). Toàn bộ hệ thống tuân thủ nghiêm ngặt tiêu chuẩn DevOps hiện đại, container hóa 100% bằng **Docker & Docker Compose**, đóng gói tự động qua **GitHub Container Registry (GHCR)** và tự động hóa toàn trình qua **GitHub Actions** với thời gian downtime tiệm cận 0 (< 45 giây).
 
 ---
 

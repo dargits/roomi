@@ -405,8 +405,8 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                         </Button>
                       )}
 
-                      {/* Nút Hóa đơn & Thanh toán: Đổi nhãn & style theo trạng thái thanh toán */}
-                      {canManageInvoices && (group.depositPaid || ['CHECKED_IN', 'COMPLETED', 'CONFIRMED'].includes(group.status)) && (
+                      {/* Nút Hóa đơn & Thanh toán: Chỉ mở khi đoàn đã nhận phòng hoặc đã có hóa đơn */}
+                      {canManageInvoices && (group.hasInvoice || ['CHECKED_IN', 'COMPLETED', 'CHECKED_OUT'].includes(group.status)) && (
                         group.hasInvoice && (group.invoiceStatus === 'PAID' || Number(group.invoiceOutstandingAmount || 0) === 0) ? (
                           <Button
                             size="sm"
@@ -583,14 +583,16 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
                                         >
                                           <IoEyeOutline size={13} /> Phòng
                                         </Link>
-                                        <Link
-                                          to={`/manage/bookings/${b.id}?tab=invoice`}
-                                          state={{ from: '/manage/bookings/groups' }}
-                                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded border border-emerald-200 transition-colors"
-                                          title="Xem chi tiết hóa đơn và dịch vụ phòng này"
-                                        >
-                                          <IoReceiptOutline size={13} /> Hóa đơn
-                                        </Link>
+                                        {['CHECKED_IN', 'CHECKED_OUT'].includes(b.status) && (
+                                          <Link
+                                            to={`/manage/bookings/${b.id}?tab=invoice`}
+                                            state={{ from: '/manage/bookings/groups' }}
+                                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded border border-emerald-200 transition-colors"
+                                            title="Xem chi tiết hóa đơn và dịch vụ phòng này"
+                                          >
+                                            <IoReceiptOutline size={13} /> Hóa đơn
+                                          </Link>
+                                        )}
                                       </div>
                                     </td>
                                   </tr>
