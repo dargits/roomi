@@ -33,7 +33,9 @@ import {
   IoChevronForwardOutline,
   IoOpenOutline,
   IoSyncOutline,
-  IoTrendingUpOutline
+  IoTrendingUpOutline,
+  IoNotificationsOutline,
+  IoWalletOutline
 } from 'react-icons/io5';
 import usePasswordResetNotification from '../hooks/usePasswordResetNotification';
 import PasswordResetManagementModal from '../features/admin/PasswordResetManagementModal';
@@ -67,11 +69,11 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Đặt phòng',
     icon: IoCalendarOutline,
     items: [
-      { path: '/manage/bookings', label: 'Quản lý đặt phòng', icon: IoCalendarOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
-      { path: '/manage/in-house-guests', label: 'Khách đang lưu trú', icon: IoBedOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
-      { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN'] },
-      { path: '/manage/deposit-policies', label: 'Chính sách cọc & hoàn hủy', icon: IoCashOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] },
-      { path: '/manage/channels', label: 'Đồng bộ lịch kênh', icon: IoSyncOutline, allowedRoles: ['OWNER', 'ADMIN'] }
+      { path: '/manage/bookings', label: 'Quản lý đặt phòng', icon: IoCalendarOutline, allowedRoles: ['RECEPTIONIST'] },
+      { path: '/manage/in-house-guests', label: 'Khách đang lưu trú', icon: IoBedOutline, allowedRoles: ['RECEPTIONIST'] },
+      { path: '/manage/stay-declarations', label: 'Khai báo lưu trú', icon: IoDocumentTextOutline, allowedRoles: ['RECEPTIONIST'] },
+      { path: '/manage/deposit-policies', label: 'Chính sách cọc & hoàn hủy', icon: IoCashOutline, allowedRoles: ['OWNER'] },
+      { path: '/manage/channels', label: 'Đồng bộ lịch kênh', icon: IoSyncOutline, allowedRoles: ['OWNER'] }
     ]
   },
   {
@@ -79,11 +81,12 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Phòng',
     icon: IoBedOutline,
     items: [
-      { path: '/manage/rooms',              label: 'Sơ đồ phòng',           icon: IoLayersOutline,       allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
-      { path: '/manage/room-types',         label: 'Loại phòng',            icon: IoBedOutline,          allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/price-suggestions',  label: 'Gợi ý điều chỉnh giá',  icon: IoTrendingUpOutline,   allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/housekeeping',       label: 'Buồng phòng',          icon: IoSparklesOutline,     allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] },
-      { path: '/manage/lost-and-found',     label: 'Đồ khách để quên',     icon: IoCubeOutline,         allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'HOUSEKEEPER'] }
+      { path: '/manage/rooms',                      label: 'Sơ đồ phòng',           icon: IoLayersOutline,       allowedRoles: ['OWNER', 'RECEPTIONIST', 'HOUSEKEEPER'] },
+      { path: '/manage/room-types',                 label: 'Loại phòng',            icon: IoBedOutline,          allowedRoles: ['OWNER'] },
+      { path: '/manage/price-suggestions',          label: 'Gợi ý điều chỉnh giá',  icon: IoTrendingUpOutline,   allowedRoles: ['OWNER'] },
+      { path: '/manage/housekeeping-productivity',  label: 'Năng suất & định mức', icon: IoTrendingUpOutline,   allowedRoles: ['OWNER'] },
+      { path: '/manage/housekeeping',               label: 'Buồng phòng',          icon: IoSparklesOutline,     allowedRoles: ['RECEPTIONIST', 'HOUSEKEEPER'] },
+      { path: '/manage/lost-and-found',             label: 'Đồ khách để quên',     icon: IoCubeOutline,         allowedRoles: ['RECEPTIONIST', 'HOUSEKEEPER'] }
     ]
   },
   {
@@ -91,11 +94,11 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Khách & Dịch vụ',
     icon: IoPeopleOutline,
     items: [
-      { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'] },
-      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] },
-      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'] },
-      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
-      { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] }
+      { path: '/manage/guests',              label: 'Khách hàng',           icon: IoPeopleOutline,      allowedRoles: ['RECEPTIONIST'] },
+      { path: '/manage/corporate-clients',   label: 'Khách công ty',        icon: IoDocumentTextOutline, allowedRoles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
+      { path: '/manage/negotiated-prices',   label: 'Thỏa thuận giá',       icon: IoStatsChartOutline,  allowedRoles: ['OWNER', 'RECEPTIONIST', 'ACCOUNTANT'] },
+      { path: '/manage/extra-services',      label: 'Dịch vụ phụ thu',      icon: IoCubeOutline,        allowedRoles: ['OWNER'] },
+      { path: '/manage/loyalty',             label: 'Khách thân thiết',      icon: IoTrophyOutline,      allowedRoles: ['OWNER'] }
     ]
   },
   {
@@ -103,8 +106,9 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Tài chính',
     icon: IoStatsChartOutline,
     items: [
-      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN'] },
-      { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'ADMIN', 'RECEPTIONIST'] },
+      { path: '/manage/reports', label: 'Báo cáo doanh thu & công suất', icon: IoStatsChartOutline, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
+      { path: '/manage/debt-approvals', label: 'Duyệt công nợ', icon: IoWalletOutline, allowedRoles: ['OWNER'] },
+      { path: '/manage/cashier-shifts', label: 'Chốt ca & đối soát', icon: IoCashOutline, allowedRoles: ['OWNER', 'ACCOUNTANT', 'RECEPTIONIST'] },
       { path: '/manage/daily-ledger', label: 'Sổ quỹ ngày', icon: IoBookOutline, allowedRoles: ['OWNER', 'ACCOUNTANT'] }
     ]
   },
@@ -115,12 +119,12 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { path: '/manage/staff',               label: 'Nhân sự',                    icon: IoPersonOutline,           allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/sessions',            label: 'Phiên đăng nhập',            icon: IoKeyOutline,              allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER', 'ADMIN', 'HOUSEKEEPER'] },
-      { path: '/manage/concurrency',         label: 'Kiểm soát đồng thời',        icon: IoLockClosedOutline,       allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/inventory',           label: 'Kho đồ dùng',                  icon: IoCubeOutline,             allowedRoles: ['OWNER', 'HOUSEKEEPER'] },
       { path: '/manage/audit-logs',          label: 'Lịch sử hoạt động',         icon: IoTimeOutline,             allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/personal-data-audit', label: 'Nhật ký dữ liệu cá nhân',   icon: IoShieldCheckmarkOutline,  allowedRoles: ['OWNER', 'ADMIN'] },
       { path: '/manage/backup',              label: 'Sao lưu & CSV',              icon: IoCloudDownloadOutline,    allowedRoles: ['OWNER', 'ADMIN'] },
-      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER'] }
+      { path: '/manage/settings',            label: 'Cài đặt khách sạn',           icon: IoSettingsOutline,         allowedRoles: ['OWNER', 'ADMIN'] },
+      { path: '/manage/notifications/preferences', label: 'Cấu hình thông báo',   icon: IoNotificationsOutline,    allowedRoles: ['OWNER', 'ADMIN'] }
     ]
   }
 ];
@@ -147,8 +151,11 @@ const ROUTE_META_MAP: Record<string, { title: string; group: string }> = {
   '/manage/in-house-guests': { title: 'Danh Sách Khách Đang Lưu Trú', group: 'Đặt phòng' },
   '/manage/stay-declarations': { title: 'Khai Báo Lưu Trú', group: 'Đặt phòng' },
   '/manage/deposit-policies': { title: 'Chính Sách Cọc & Hoàn Hủy', group: 'Đặt phòng' },
+  '/manage/cancellation-policies': { title: 'Chính Sách Cọc & Hoàn Hủy', group: 'Đặt phòng' },
+  '/manage/debt-approvals': { title: 'Phê Duyệt & Quản Lý Công Nợ', group: 'Tài chính' },
   '/manage/rooms': { title: 'Sơ Đồ Phòng', group: 'Phòng' },
   '/manage/room-types': { title: 'Quản Lý Loại Phòng', group: 'Phòng' },
+  '/manage/housekeeping-productivity': { title: 'Năng Suất & Định Mức Buồng Phòng', group: 'Phòng' },
   '/manage/housekeeping': { title: 'Quản Lý Buồng Phòng', group: 'Phòng' },
   '/manage/lost-and-found': { title: 'Quản Lý Đồ Khách Để Quên', group: 'Phòng' },
   '/manage/guests': { title: 'Quản Lý Khách Hàng', group: 'Khách & Dịch vụ' },
@@ -183,6 +190,7 @@ const SubmenuNav: React.FC<{
   pendingResetCount: number;
   variant?: 'accordion' | 'popover';
 }> = ({ items, currentPath, pendingResetCount, variant = 'accordion' }) => {
+  const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<{ top: number; height: number; opacity: number }>({
     top: 0,
@@ -249,6 +257,9 @@ const SubmenuNav: React.FC<{
         const active = currentPath === item.path;
         const ItemIcon = item.icon;
         const isStaffReset = item.path === '/manage/staff' && pendingResetCount > 0;
+        const navLabel = (item.path === '/manage/reports' && user?.role === 'ACCOUNTANT')
+          ? 'Báo cáo doanh thu'
+          : item.label;
 
         return (
           <Link
@@ -270,7 +281,7 @@ const SubmenuNav: React.FC<{
                   className={`shrink-0 transition-colors duration-150 ${active ? 'text-[#0070F4]' : 'text-slate-400'}`}
                 />
               )}
-              <span className="truncate">{item.label}</span>
+              <span className="truncate">{navLabel}</span>
             </div>
             {isStaffReset && (
               <span
@@ -425,7 +436,13 @@ const DashboardLayout: React.FC = () => {
 
   const roleLabel = (user?.role && ROLE_LABEL[user.role]) || user?.role || 'Nhân viên';
   const roleBadgeStyle = (user?.role && ROLE_BADGE_STYLE[user.role]) || 'bg-neutral-100 text-neutral-700 border-neutral-300';
-  const currentRouteMeta = ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
+  const rawRouteMeta = ROUTE_META_MAP[location.pathname] || { title: 'Quản Trị Hệ Thống', group: 'Hệ thống' };
+  const currentRouteMeta = {
+    ...rawRouteMeta,
+    title: (location.pathname === '/manage/reports' && user?.role === 'ACCOUNTANT')
+      ? 'Báo Cáo Doanh Thu & Tài Chính'
+      : rawRouteMeta.title
+  };
 
   return (
     <div className="h-screen w-full overflow-hidden bg-[#F4F6F0] text-on-surface flex flex-col antialiased">
@@ -697,8 +714,50 @@ const DashboardLayout: React.FC = () => {
               );
             })}
 
-            {/* KiotViet Assistant / Hotel Helper Card (Expanded mode) */}
-            {!isCollapsed && user?.role && ['OWNER', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT'].includes(user.role) && (
+            {/* Assistant / Helper Card (Expanded mode) */}
+            {!isCollapsed && user?.role === 'OWNER' && (
+              <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100/50 border border-amber-200 shadow-2xs">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-md bg-amber-600 text-white flex items-center justify-center font-bold text-[10px] shadow-2xs">
+                    ★
+                  </div>
+                  <span className="text-xs font-bold text-amber-950 tracking-tight">Điều Hành & Duyệt Chi</span>
+                </div>
+                <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                  Thiết lập chính sách, duyệt ngoại lệ tiền và theo dõi chỉ số kinh doanh.
+                </p>
+                <Link
+                  to="/manage/reports"
+                  className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-white hover:bg-amber-600 hover:text-white px-2.5 py-1 rounded-lg border border-amber-200 transition-colors shadow-2xs"
+                >
+                  <span>Xem báo cáo</span>
+                  <span>&rarr;</span>
+                </Link>
+              </div>
+            )}
+
+            {!isCollapsed && user?.role === 'ADMIN' && (
+              <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-rose-50 via-red-50 to-orange-50 border border-rose-200 shadow-2xs">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-md bg-rose-600 text-white flex items-center justify-center font-bold text-[10px] shadow-2xs">
+                    🛡
+                  </div>
+                  <span className="text-xs font-bold text-rose-950 tracking-tight">An Toàn & Vận Hành</span>
+                </div>
+                <p className="text-[11px] text-rose-900/80 leading-relaxed">
+                  Giám sát phiên làm việc, sao lưu dữ liệu và an toàn thông tin.
+                </p>
+                <Link
+                  to="/manage/backup"
+                  className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-white hover:bg-rose-600 hover:text-white px-2.5 py-1 rounded-lg border border-rose-200 transition-colors shadow-2xs"
+                >
+                  <span>Sao lưu & CSV</span>
+                  <span>&rarr;</span>
+                </Link>
+              </div>
+            )}
+
+            {!isCollapsed && user?.role === 'RECEPTIONIST' && (
               <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-[#EBF3FF] via-[#F4F8FF] to-[#DBEAFE] border border-[#BFDBFE] shadow-2xs">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-5 h-5 rounded-md bg-[#0070F4] text-white flex items-center justify-center font-bold text-[10px] shadow-2xs">
@@ -737,6 +796,35 @@ const DashboardLayout: React.FC = () => {
                   <span>Mở danh sách phòng</span>
                   <span>&rarr;</span>
                 </Link>
+              </div>
+            )}
+
+            {!isCollapsed && user?.role === 'ACCOUNTANT' && (
+              <div className="mt-4 mx-1 p-3.5 rounded-2xl bg-gradient-to-br from-purple-50 via-violet-50 to-indigo-50 border border-purple-200 shadow-2xs">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-md bg-purple-600 text-white flex items-center justify-center font-bold text-[10px] shadow-2xs">
+                    ₫
+                  </div>
+                  <span className="text-xs font-bold text-purple-950 tracking-tight">Đối Soát & Dòng Tiền</span>
+                </div>
+                <p className="text-[11px] text-purple-900/80 leading-relaxed">
+                  Kiểm toán chênh lệch tiền mặt ca trực và quản lý sổ quỹ thu chi.
+                </p>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <Link
+                    to="/manage/cashier-shifts"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-white hover:bg-purple-600 hover:text-white px-2.5 py-1 rounded-lg border border-purple-200 transition-colors shadow-2xs"
+                  >
+                    <span>Đối soát ca</span>
+                    <span>&rarr;</span>
+                  </Link>
+                  <Link
+                    to="/manage/daily-ledger"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 hover:text-purple-800 hover:underline px-1 py-1 transition-colors"
+                  >
+                    <span>Sổ quỹ</span>
+                  </Link>
+                </div>
               </div>
             )}
           </div>

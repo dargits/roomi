@@ -9,10 +9,10 @@ import plant.stay.model.*;
 import plant.stay.repository.*;
 import plant.stay.service.BackupService;
 import plant.stay.service.OperationalDataSeederService;
+import plant.stay.service.PricingService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -40,6 +40,8 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
     private final InvoiceDiscountRepository invoiceDiscountRepository;
     private final PaymentRepository paymentRepository;
     private final DepositRepository depositRepository;
+    private final DepositPolicyRepository depositPolicyRepository;
+    private final CancellationPolicyRepository cancellationPolicyRepository;
     private final DailyLedgerRepository dailyLedgerRepository;
     private final CashierShiftRepository cashierShiftRepository;
     private final CashierShiftClosingRepository cashierShiftClosingRepository;
@@ -55,16 +57,30 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
     private final AuditLogRepository auditLogRepository;
     private final NotificationRepository notificationRepository;
     private final BackupService backupService;
+    private final PricingService pricingService;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
 
+    private static final java.util.concurrent.locks.ReentrantLock RESEED_LOCK = new java.util.concurrent.locks.ReentrantLock();
+
     @Override
     @Transactional
     public Map<String, Object> reseedOperationalData(User actor) {
-        log.info("========== BẮT ĐẦU TÁI TẠO BỘ DỮ LIỆU MẪU VẬN HÀNH (01/01/2026 -> NAY) ==========");
+        if (!RESEED_LOCK.tryLock()) {
+            throw new plant.stay.exception.BusinessException("Hệ thống đang trong quá trình tái tạo dữ liệu mẫu. Vui lòng chờ ít phút.");
+        }
+        try {
+            return doReseedOperationalData(actor);
+        } finally {
+            RESEED_LOCK.unlock();
+        }
+    }
 
-        // 1. Xác định nhân viên thực hiện
+    private Map<String, Object> doReseedOperationalData(User actor) {
+        log.info("========== BẮT ĐẦU TÁI TẠO BỘ DỮ LIỆU MẪU VẬN HÀNH LIÊN KẾT CHUẨN (01/01/2026 -> NAY) ==========");
+
+        // 1. Xác định nhân sự vận hành hệ thống
         List<User> users = userRepository.findAll();
         User adminUser = actor != null ? actor : users.stream().filter(u -> u.getRole() == Role.ADMIN).findFirst().orElse(null);
         User ownerUser = users.stream().filter(u -> u.getRole() == Role.OWNER).findFirst().orElse(adminUser);
@@ -73,7 +89,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         User buongphong1 = users.stream().filter(u -> "buongphong".equals(u.getAccount())).findFirst().orElse(adminUser);
         User buongphong2 = users.stream().filter(u -> "buongphong2".equals(u.getAccount())).findFirst().orElse(buongphong1);
 
-        // 2. Dọn sạch dữ liệu vận hành cũ với khóa ngoại an toàn
+        // 2. Làm sạch an toàn dữ liệu vận hành cũ
         log.info("Đang làm sạch các bảng dữ liệu vận hành cũ...");
         entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate();
         String[] tablesToTruncate = {
@@ -100,26 +116,38 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             allDocs.add(IdentityDocument.builder()
                     .guest(g)
                     .documentType(IdentityDocumentType.NATIONAL_ID_FRONT)
-                    .documentNumber(g.getIdNumber())
+                    .documentNumber(g.getIdNumber() != null ? g.getIdNumber() : "00120000" + (1000 + g.getId()))
                     .imageUrl("https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600")
                     .verified(true)
                     .build());
             allDocs.add(IdentityDocument.builder()
                     .guest(g)
                     .documentType(IdentityDocumentType.NATIONAL_ID_BACK)
-                    .documentNumber(g.getIdNumber())
+                    .documentNumber(g.getIdNumber() != null ? g.getIdNumber() : "00120000" + (1000 + g.getId()))
                     .imageUrl("https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600")
                     .verified(true)
                     .build());
         }
         identityDocumentRepository.saveAll(allDocs);
-        log.info("Đã cập nhật giấy tờ tùy thân CCCD (mặt trước & mặt sau) cho {} khách hàng.", guests.size());
+        log.info("Đã đồng bộ giấy tờ CCCD 2 mặt chuẩn cho {} khách hàng.", guests.size());
 
-        // 4. Lấy danh mục phòng, dịch vụ, hợp đồng doanh nghiệp
+        // 4. Lấy danh mục phòng, dịch vụ, hợp đồng doanh nghiệp, chính sách
         List<Room> allRooms = roomRepository.findAll();
         allRooms.sort(Comparator.comparing(Room::getRoomNumber));
         List<ExtraService> extraServices = extraServiceRepository.findAll();
         List<NegotiatedPriceAgreement> agreements = negotiatedPriceAgreementRepository.findAll();
+
+        // Đọc tỷ lệ cọc từ DepositPolicy
+        BigDecimal depositPercent = depositPolicyRepository.findFirstByRoomTypeIsNullAndActiveTrue()
+                .map(DepositPolicy::getDepositPercent)
+                .orElse(new BigDecimal("30.00"))
+                .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+
+        // Đọc tỷ lệ phạt hủy từ CancellationPolicy
+        BigDecimal cancelPenaltyPercent = cancellationPolicyRepository.findByRoomTypeIsNull()
+                .map(CancellationPolicy::getPenaltyPercent)
+                .orElse(new BigDecimal("50.00"))
+                .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
 
         LocalDate today = LocalDate.now();
         LocalDate startDate = LocalDate.of(2026, 1, 2);
@@ -135,7 +163,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         List<StayDeclaration> declarationsToSave = new ArrayList<>();
         List<RoomCleaningRecord> cleaningsToSave = new ArrayList<>();
 
-        String[] sources = {"WALKIN", "ONLINE", "BOOKING_COM", "AGODA", "TRAVELOKA", "AIRBNB"};
+        String[] sources = {"WALKIN", "ONLINE", "BOOKING_COM", "AGODA", "TRAVELOKA"};
         int guestIndex = 0;
         int agreementIndex = 0;
 
@@ -144,10 +172,10 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         // Phòng sắp nhận hôm nay/ngày mai: 104, 204, 302, 401
         Set<String> upcomingRoomNumbers = Set.of("104", "204", "302", "401");
 
-        // Map lưu booking gần nhất của mỗi phòng để gắn với lost item
+        // Map lưu booking gần nhất của mỗi phòng để liên kết đồ thất lạc
         Map<String, Booking> lastCheckoutBookingByRoom = new HashMap<>();
 
-        // 5. Sinh chuỗi lịch sử lưu trú liền mạch, thực tế cho từng phòng từ tháng 1 đến 27/09/2026
+        // 5. Sinh chuỗi lịch sử lưu trú liền mạch, định giá qua PricingService (01/01/2026 -> 27/09/2026)
         for (int rIdx = 0; rIdx < allRooms.size(); rIdx++) {
             Room room = allRooms.get(rIdx);
             RoomType roomType = room.getRoomType();
@@ -168,27 +196,34 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 guestIndex++;
 
                 // Khách ở cùng phòng nếu phòng đôi/suite
-                Guest coGuest = (roomType.getStandardCapacity() != null && roomType.getStandardCapacity() > 1 && guests.size() > 1)
+                Guest coGuest = (roomType.getMaxCapacity() != null && roomType.getMaxCapacity() > 1 && guests.size() > 1)
                         ? guests.get((guestIndex + 5) % guests.size()) : null;
 
                 String source = sources[(rIdx + currDate.getMonthValue()) % sources.length];
                 boolean isCorporate = (guestIndex % 7 == 0) && !agreements.isEmpty();
                 NegotiatedPriceAgreement agreement = isCorporate ? agreements.get(agreementIndex++ % agreements.size()) : null;
 
-                BigDecimal nightPrice = isCorporate ? agreement.getPricePerNight() : roomType.getBasePrice();
-                // Phụ thu cuối tuần nếu rơi vào thứ 6 / thứ 7 (+15%)
-                if (checkIn.getDayOfWeek() == DayOfWeek.FRIDAY || checkIn.getDayOfWeek() == DayOfWeek.SATURDAY) {
-                    nightPrice = nightPrice.multiply(new BigDecimal("1.15")).setScale(0, RoundingMode.HALF_UP);
+                // TÍNH GIÁ CHUẨN THÔNG QUA PricingService (kết hợp Giá ngày lễ, Giá cuối tuần, Mùa & Hợp đồng thỏa thuận)
+                BigDecimal roomAmount;
+                try {
+                    roomAmount = pricingService.calculateTotalPrice(roomType, checkIn, checkOut, agreement);
+                } catch (Exception ex) {
+                    BigDecimal base = roomType.getBasePrice() != null ? roomType.getBasePrice() : new BigDecimal("500000");
+                    roomAmount = base.multiply(BigDecimal.valueOf(stayDays));
                 }
-                BigDecimal roomAmount = nightPrice.multiply(BigDecimal.valueOf(stayDays));
+                if (roomAmount == null || roomAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                    BigDecimal base = roomType.getBasePrice() != null ? roomType.getBasePrice() : new BigDecimal("500000");
+                    roomAmount = base.multiply(BigDecimal.valueOf(stayDays));
+                }
 
                 // Giờ nhận phòng thực tế (13:30 - 15:30)
                 LocalDateTime checkedInAt = checkIn.atTime(13, 30).plusMinutes((rIdx * 19 + currDate.getDayOfMonth() * 7) % 120);
-                // Giờ trả phòng thực tế (10:30 - 12:00)
+                // Giờ trả phòng thực tế (10:30 - 12:00, trong ca sáng letan1)
                 LocalDateTime checkedOutAt = checkOut.atTime(10, 30).plusMinutes((rIdx * 23 + currDate.getDayOfMonth() * 11) % 90);
 
-                // Tỷ lệ hủy hợp lý ~3% (phát sinh phí hủy 30%)
+                // Tỷ lệ hủy hợp lý ~3% (áp dụng phạt cancellationPolicy)
                 boolean isCancelled = (rIdx % 5 == 0 && currDate.getDayOfMonth() == 13);
+                BigDecimal penalty = isCancelled ? roomAmount.multiply(cancelPenaltyPercent).setScale(0, RoundingMode.HALF_UP) : BigDecimal.ZERO;
 
                 List<Guest> stayingGuestList = new ArrayList<>();
                 stayingGuestList.add(guest);
@@ -203,12 +238,13 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .stayingGuests(stayingGuestList)
                         .checkInDate(checkIn)
                         .checkOutDate(checkOut)
+                        .confirmedAt(checkIn.minusDays(2).atTime(10, 0))
                         .checkedInAt(isCancelled ? null : checkedInAt)
                         .checkedOutAt(isCancelled ? null : checkedOutAt)
                         .status(isCancelled ? BookingStatus.CANCELLED : BookingStatus.CHECKED_OUT)
                         .expectedPrice(roomAmount)
                         .actualPrice(isCancelled ? BigDecimal.ZERO : roomAmount)
-                        .cancellationFee(isCancelled ? roomAmount.multiply(new BigDecimal("0.30")).setScale(0, RoundingMode.HALF_UP) : BigDecimal.ZERO)
+                        .cancellationFee(penalty)
                         .cancellationReason(isCancelled ? "Khách báo hoãn chuyến công tác do lịch trình thay đổi" : null)
                         .cancelledAt(isCancelled ? checkIn.minusDays(1).atTime(14, 0) : null)
                         .source(source)
@@ -220,14 +256,25 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
 
                 bookingsToSave.add(booking);
 
-                // Bản ghi khách ở thực tế trong phòng (RoomStayGuest)
+                // Lưu vết xác nhận đặt phòng
+                confirmationLogsToSave.add(BookingConfirmationLog.builder()
+                        .booking(booking)
+                        .channel(ConfirmationChannel.EMAIL)
+                        .recipient(guest.getEmail() != null ? guest.getEmail() : "khachhang@example.com")
+                        .sentBy(letan1)
+                        .status("SUCCESS")
+                        .sentAt(checkIn.minusDays(2).atTime(10, 5))
+                        .note("Gửi phiếu xác nhận đặt phòng tự động qua email thành công")
+                        .build());
+
+                // Khách ở thực tế trong phòng (RoomStayGuest)
                 if (!isCancelled) {
                     roomStayGuestsToSave.add(RoomStayGuest.builder()
                             .booking(booking)
                             .fullName(guest.getName())
                             .birthYear(1985 + (rIdx % 15))
                             .documentType("CCCD")
-                            .documentNumber(guest.getIdNumber())
+                            .documentNumber(guest.getIdNumber() != null ? guest.getIdNumber() : "00120000" + (1000 + guest.getId()))
                             .isChild(false)
                             .isPrimaryGuest(true)
                             .checkInAt(checkedInAt)
@@ -240,32 +287,18 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                                 .fullName(coGuest.getName())
                                 .birthYear(1989 + (rIdx % 12))
                                 .documentType("CCCD")
-                                .documentNumber(coGuest.getIdNumber())
+                                .documentNumber(coGuest.getIdNumber() != null ? coGuest.getIdNumber() : "00120000" + (2000 + coGuest.getId()))
                                 .isChild(false)
                                 .isPrimaryGuest(false)
                                 .checkInAt(checkedInAt)
                                 .isExported(true)
                                 .build());
                     }
-                }
 
-                // Nhật ký gửi xác nhận đặt phòng
-                confirmationLogsToSave.add(BookingConfirmationLog.builder()
-                        .booking(booking)
-                        .channel(ConfirmationChannel.EMAIL)
-                        .recipient(guest.getEmail() != null ? guest.getEmail() : "khachhang@example.com")
-                        .sentBy(letan1)
-                        .status("SUCCESS")
-                        .sentAt(checkIn.minusDays(1).atTime(14, 30))
-                        .note("Gửi phiếu xác nhận đặt phòng tự động qua email thành công")
-                        .build());
-
-                if (!isCancelled) {
                     lastCheckoutBookingByRoom.put(rNum, booking);
 
+                    // 65% lượt khách phát sinh dịch vụ phụ thu (minibar, giặt là, ăn sáng buffet, đưa đón)
                     BigDecimal serviceAmount = BigDecimal.ZERO;
-
-                    // 65% lượt khách sử dụng dịch vụ phụ thu (minibar, giặt là, buffet, đưa đón)
                     if ((guestIndex % 3) != 0 && !extraServices.isEmpty()) {
                         ExtraService s1 = extraServices.get((guestIndex + rIdx) % extraServices.size());
                         int qty = 1 + (rIdx % 2);
@@ -294,8 +327,14 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         }
                     }
 
-                    BigDecimal discountAmount = isCorporate ? roomAmount.multiply(new BigDecimal("0.05")).setScale(0, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+                    // Ưu đãi giảm giá (Doanh nghiệp 5% hoặc Hội viên thân thiết)
+                    BigDecimal discountAmount = BigDecimal.ZERO;
+                    if (isCorporate) {
+                        discountAmount = roomAmount.multiply(new BigDecimal("0.05")).setScale(0, RoundingMode.HALF_UP);
+                    }
+
                     BigDecimal totalInvoice = roomAmount.add(serviceAmount).subtract(discountAmount);
+                    User cashierOnDuty = checkedOutAt.getHour() < 15 ? letan1 : letan2;
 
                     Invoice invoice = Invoice.builder()
                             .booking(booking)
@@ -305,7 +344,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                             .discountAmount(discountAmount)
                             .totalAmount(totalInvoice)
                             .status(InvoiceStatus.PAID)
-                            .createdBy(checkedOutAt.getHour() < 15 ? letan1 : letan2)
+                            .createdBy(cashierOnDuty)
                             .note("Hoàn tất thanh toán tiền phòng & dịch vụ khi trả phòng")
                             .build();
                     invoicesToSave.add(invoice);
@@ -319,14 +358,31 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                                 .calculatedAmount(discountAmount)
                                 .reason("Ưu đãi giảm giá 5% cho khách hàng đối tác doanh nghiệp")
                                 .status(DiscountStatus.APPLIED)
-                                .createdBy(letan1)
+                                .createdBy(cashierOnDuty)
                                 .createdAt(checkedOutAt.minusMinutes(15))
-                                .reviewedBy(adminUser)
+                                .reviewedBy(ownerUser)
                                 .reviewedAt(checkedOutAt.minusMinutes(5))
                                 .build());
                     }
 
-                    // Phân bổ phương thức thanh toán: 35% Tiền mặt, 55% Chuyển khoản, 10% Thẻ
+                    // Tiền đặt cọc trước (áp dụng cho ~45% khách đặt trước)
+                    if (guestIndex % 2 == 0) {
+                        BigDecimal depAmt = roomAmount.multiply(depositPercent).setScale(0, RoundingMode.HALF_UP);
+                        LocalDateTime depTime = checkIn.minusDays(1).atTime(9, 30).plusMinutes((rIdx * 13) % 180);
+                        User depCashier = depTime.getHour() < 15 ? letan1 : letan2;
+                        depositsToSave.add(Deposit.builder()
+                                .booking(booking)
+                                .requiredAmount(depAmt)
+                                .collectedAmount(depAmt)
+                                .status(DepositStatus.COLLECTED)
+                                .paymentMethod(PaymentMethod.TRANSFER)
+                                .collectedBy(depCashier)
+                                .collectedAt(depTime)
+                                .note("Đặt cọc giữ phòng " + (depositPercent.multiply(new BigDecimal(100)).intValue()) + "% qua QR chuyển khoản")
+                                .build());
+                    }
+
+                    // Phương thức thanh toán: 35% Tiền mặt, 55% Chuyển khoản, 10% Thẻ
                     PaymentMethod payMethod = PaymentMethod.TRANSFER;
                     int pMod = (guestIndex + currDate.getDayOfMonth()) % 10;
                     if (pMod < 4) payMethod = PaymentMethod.CASH;
@@ -337,28 +393,12 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                             .amount(totalInvoice)
                             .method(payMethod)
                             .paidAt(checkedOutAt)
-                            .collectedBy(checkedOutAt.getHour() < 15 ? letan1 : letan2)
+                            .collectedBy(cashierOnDuty)
                             .note("Thanh toán hóa đơn phòng " + rNum + " (" + payMethod.name() + ")")
                             .build();
                     paymentsToSave.add(payment);
 
-                    // Tiền đặt cọc trước (áp dụng cho ~45% khách)
-                    if (guestIndex % 2 == 0) {
-                        BigDecimal depAmt = roomAmount.multiply(new BigDecimal("0.30")).setScale(0, RoundingMode.HALF_UP);
-                        LocalDateTime depTime = checkIn.minusDays(1).atTime(10, 0).plusMinutes((rIdx * 13) % 180);
-                        depositsToSave.add(Deposit.builder()
-                                .booking(booking)
-                                .requiredAmount(depAmt)
-                                .collectedAmount(depAmt)
-                                .status(DepositStatus.COLLECTED)
-                                .paymentMethod(PaymentMethod.TRANSFER)
-                                .collectedBy(letan1)
-                                .collectedAt(depTime)
-                                .note("Đặt cọc giữ phòng 30% qua QR chuyển khoản")
-                                .build());
-                    }
-
-                    // Khai báo tạm trú liên kết chặt chẽ
+                    // Khai báo tạm trú lưu trú liên kết
                     StayDeclaration declaration = StayDeclaration.builder()
                             .booking(booking)
                             .status(StayDeclarationStatus.COMPLETED)
@@ -368,25 +408,32 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     booking.setStayDeclaration(declaration);
                     declarationsToSave.add(declaration);
 
-                    // Nhật ký dọn buồng phòng sau khi trả phòng
+                    // Nhật ký dọn buồng phòng sau khi trả phòng (có định mức thời gian chuẩn)
+                    int stdMinutes = roomType.getStandardCheckoutCleaningMinutes() != null ? roomType.getStandardCheckoutCleaningMinutes() : 35;
+                    int actMinutes = stdMinutes - 5 + ((rIdx * 7 + currDate.getDayOfMonth()) % 12);
                     LocalDateTime cleanStart = checkedOutAt.plusMinutes(10);
-                    LocalDateTime cleanEnd = cleanStart.plusMinutes(35);
+                    LocalDateTime cleanEnd = cleanStart.plusMinutes(actMinutes);
+
+                    // Giả lập 5% trường hợp nghiệm thu không đạt phải dọn lại (để kiểm tra thống kê năng suất & tỷ lệ trả lại)
+                    boolean hadRejection = (rIdx % 6 == 0 && currDate.getDayOfMonth() % 7 == 0);
+
                     cleaningsToSave.add(RoomCleaningRecord.builder()
                             .room(room)
                             .roomType(roomType)
                             .housekeeper(rIdx % 2 == 0 ? buongphong1 : buongphong2)
                             .cleaningType("CHECKOUT")
                             .startedAt(cleanStart)
-                            .completedAt(cleanEnd)
-                            .actualDurationMinutes(35)
-                            .standardDurationMinutes(35)
+                            .completedAt(cleanEnd.plusMinutes(hadRejection ? 10 : 0))
+                            .actualDurationMinutes(actMinutes + (hadRejection ? 10 : 0))
+                            .standardDurationMinutes(stdMinutes)
                             .status(CleaningRecordStatus.APPROVED)
                             .inspectedBy(letan1)
-                            .inspectedAt(cleanEnd.plusMinutes(15))
+                            .inspectedAt(cleanEnd.plusMinutes(hadRejection ? 20 : 10))
                             .isInterrupted(false)
                             .hasIncident(false)
                             .incidentCount(0)
-                            .rejectionCount(0)
+                            .rejectionCount(hadRejection ? 1 : 0)
+                            .rejectionNote(hadRejection ? "Bụi dưới gầm giường và góc ban công chưa lau kỹ, yêu cầu xử lý lại" : null)
                             .build());
                 }
 
@@ -396,18 +443,28 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
 
             // 6. Xử lý các phòng ĐANG Ở HÔM NAY (101, 102, 201, 203, 301)
             if (inHouseRoomNumbers.contains(rNum)) {
-                // Đảm bảo có phòng check-in hôm nay để kiểm tra ngay trên tab Khai Báo Lưu Trú
-                LocalDate checkIn = today;
-                LocalDate checkOut = today.plusDays(2);
+                LocalDate checkIn = today.minusDays(1);
+                LocalDate checkOut = today.plusDays(1);
                 Guest guest = guests.get(guestIndex % guests.size());
                 guestIndex++;
 
-                Guest coGuest = (roomType.getStandardCapacity() != null && roomType.getStandardCapacity() > 1 && guests.size() > 1)
+                Guest coGuest = (roomType.getMaxCapacity() != null && roomType.getMaxCapacity() > 1 && guests.size() > 1)
                         ? guests.get((guestIndex + 5) % guests.size()) : null;
 
                 long stayDays = ChronoUnit.DAYS.between(checkIn, checkOut);
-                BigDecimal roomAmount = roomType.getBasePrice().multiply(BigDecimal.valueOf(stayDays));
-                LocalDateTime checkedInAt = today.atTime(13, 0).plusMinutes((rIdx * 17) % 90);
+                BigDecimal roomAmount;
+                try {
+                    roomAmount = pricingService.calculateTotalPrice(roomType, checkIn, checkOut, null);
+                } catch (Exception ex) {
+                    BigDecimal base = roomType.getBasePrice() != null ? roomType.getBasePrice() : new BigDecimal("500000");
+                    roomAmount = base.multiply(BigDecimal.valueOf(stayDays));
+                }
+                if (roomAmount == null || roomAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                    BigDecimal base = roomType.getBasePrice() != null ? roomType.getBasePrice() : new BigDecimal("500000");
+                    roomAmount = base.multiply(BigDecimal.valueOf(stayDays));
+                }
+
+                LocalDateTime checkedInAt = checkIn.atTime(13, 0).plusMinutes((rIdx * 17) % 90);
 
                 List<Guest> inHouseGuests = new ArrayList<>();
                 inHouseGuests.add(guest);
@@ -422,6 +479,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .stayingGuests(inHouseGuests)
                         .checkInDate(checkIn)
                         .checkOutDate(checkOut)
+                        .confirmedAt(checkIn.minusDays(2).atTime(9, 0))
                         .checkedInAt(checkedInAt)
                         .status(BookingStatus.CHECKED_IN)
                         .expectedPrice(roomAmount)
@@ -438,7 +496,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .fullName(guest.getName())
                         .birthYear(1987 + (rIdx % 10))
                         .documentType("CCCD")
-                        .documentNumber(guest.getIdNumber())
+                        .documentNumber(guest.getIdNumber() != null ? guest.getIdNumber() : "00120000" + (1000 + guest.getId()))
                         .isChild(false)
                         .isPrimaryGuest(true)
                         .checkInAt(checkedInAt)
@@ -451,7 +509,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                             .fullName(coGuest.getName())
                             .birthYear(1991 + (rIdx % 8))
                             .documentType("CCCD")
-                            .documentNumber(coGuest.getIdNumber())
+                            .documentNumber(coGuest.getIdNumber() != null ? coGuest.getIdNumber() : "00120000" + (2000 + coGuest.getId()))
                             .isChild(false)
                             .isPrimaryGuest(false)
                             .checkInAt(checkedInAt)
@@ -459,10 +517,10 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                             .build());
                 }
 
-                // Dịch vụ minibar đã tiêu thụ trong phòng
+                // Dịch vụ minibar đã sử dụng trong phòng
                 if (!extraServices.isEmpty()) {
                     ExtraService nướcSuối = extraServices.stream()
-                            .filter(s -> s.getName().contains("Nước suối khoáng"))
+                            .filter(s -> s.getName().contains("Nước suối"))
                             .findFirst()
                             .orElse(extraServices.get(0));
                     usagesToSave.add(BookingServiceUsage.builder()
@@ -476,7 +534,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 }
 
                 // Đặt cọc phòng đang ở
-                BigDecimal depAmt = roomAmount.multiply(new BigDecimal("0.30")).setScale(0, RoundingMode.HALF_UP);
+                BigDecimal depAmt = roomAmount.multiply(depositPercent).setScale(0, RoundingMode.HALF_UP);
                 depositsToSave.add(Deposit.builder()
                         .booking(inHouseBooking)
                         .requiredAmount(depAmt)
@@ -488,7 +546,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .note("Thu tiền cọc khi làm thủ tục check-in")
                         .build());
 
-                // Khai báo tạm trú: riêng phòng 301 để PENDING để lễ tân trải nghiệm thao tác trên giao diện
+                // Khai báo tạm trú: phòng 301 để PENDING để lễ tân thao tác trực tiếp
                 StayDeclarationStatus declStatus = "301".equals(rNum) ? StayDeclarationStatus.PENDING : StayDeclarationStatus.COMPLETED;
                 StayDeclaration declaration = StayDeclaration.builder()
                         .booking(inHouseBooking)
@@ -498,6 +556,33 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .build();
                 inHouseBooking.setStayDeclaration(declaration);
                 declarationsToSave.add(declaration);
+
+                // Riêng phòng 102: Tạo 1 yêu cầu giảm giá PENDING để Chủ cơ sở (OWNER) duyệt
+                if ("102".equals(rNum)) {
+                    Invoice pendingInv = Invoice.builder()
+                            .booking(inHouseBooking)
+                            .mode(InvoiceMode.SINGLE)
+                            .roomAmount(roomAmount)
+                            .serviceAmount(new BigDecimal("40000"))
+                            .discountAmount(roomAmount.multiply(new BigDecimal("0.15")).setScale(0, RoundingMode.HALF_UP))
+                            .totalAmount(roomAmount.multiply(new BigDecimal("0.85")).add(new BigDecimal("40000")).setScale(0, RoundingMode.HALF_UP))
+                            .status(InvoiceStatus.PENDING_DISCOUNT_APPROVAL)
+                            .createdBy(letan1)
+                            .note("Hóa đơn tạm tính đang chờ Chủ cơ sở phê duyệt mức giảm giá 15%")
+                            .build();
+                    invoicesToSave.add(pendingInv);
+
+                    invoiceDiscountsToSave.add(InvoiceDiscount.builder()
+                            .invoice(pendingInv)
+                            .discountType(DiscountType.PERCENTAGE)
+                            .discountValue(new BigDecimal("15.00"))
+                            .calculatedAmount(roomAmount.multiply(new BigDecimal("0.15")).setScale(0, RoundingMode.HALF_UP))
+                            .reason("Khách hàng VIP kỷ niệm ngày cưới, lễ tân đề xuất mức giảm giá đặc biệt 15%")
+                            .status(DiscountStatus.PENDING_APPROVAL)
+                            .createdBy(letan1)
+                            .createdAt(today.atTime(8, 30))
+                            .build());
+                }
             }
 
             // 7. Xử lý các phòng SẮP NHẬN PHÒNG (104, 204, 302, 401)
@@ -507,7 +592,17 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 Guest guest = guests.get(guestIndex % guests.size());
                 guestIndex++;
 
-                BigDecimal roomAmount = roomType.getBasePrice().multiply(BigDecimal.valueOf(2));
+                BigDecimal roomAmount;
+                try {
+                    roomAmount = pricingService.calculateTotalPrice(roomType, checkIn, checkOut, null);
+                } catch (Exception ex) {
+                    BigDecimal base = roomType.getBasePrice() != null ? roomType.getBasePrice() : new BigDecimal("500000");
+                    roomAmount = base.multiply(BigDecimal.valueOf(2));
+                }
+                if (roomAmount == null || roomAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                    BigDecimal base = roomType.getBasePrice() != null ? roomType.getBasePrice() : new BigDecimal("500000");
+                    roomAmount = base.multiply(BigDecimal.valueOf(2));
+                }
 
                 Booking upcomingBooking = Booking.builder()
                         .guest(guest)
@@ -516,6 +611,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                         .stayingGuests(List.of(guest))
                         .checkInDate(checkIn)
                         .checkOutDate(checkOut)
+                        .confirmedAt(today.minusDays(1).atTime(9, 0))
                         .status(BookingStatus.CONFIRMED)
                         .expectedPrice(roomAmount)
                         .actualPrice(roomAmount)
@@ -526,7 +622,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 bookingsToSave.add(upcomingBooking);
 
                 // Đã nhận cọc chuyển khoản xác nhận giữ phòng
-                BigDecimal depAmt = roomAmount.multiply(new BigDecimal("0.30")).setScale(0, RoundingMode.HALF_UP);
+                BigDecimal depAmt = roomAmount.multiply(depositPercent).setScale(0, RoundingMode.HALF_UP);
                 depositsToSave.add(Deposit.builder()
                         .booking(upcomingBooking)
                         .requiredAmount(depAmt)
@@ -554,7 +650,8 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                 bookingsToSave.size(), roomStayGuestsToSave.size(), usagesToSave.size(),
                 invoicesToSave.size(), invoiceDiscountsToSave.size(), paymentsToSave.size(), depositsToSave.size());
 
-        // Dọn dẹp phòng 103 (DIRTY) vừa trả phòng hôm nay
+        // Xử lý các phòng đặc biệt cho hôm nay trên sơ đồ phòng:
+        // Phòng 103 (DIRTY): vừa trả phòng trưa nay, buồng phòng đang dọn dẹp
         Room room103 = allRooms.stream().filter(r -> "103".equals(r.getRoomNumber())).findFirst().orElse(null);
         if (room103 != null) {
             cleaningsToSave.add(RoomCleaningRecord.builder()
@@ -563,7 +660,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .housekeeper(buongphong1)
                     .cleaningType("CHECKOUT")
                     .startedAt(today.atTime(11, 40))
-                    .standardDurationMinutes(30)
+                    .standardDurationMinutes(room103.getRoomType().getStandardCheckoutCleaningMinutes() != null ? room103.getRoomType().getStandardCheckoutCleaningMinutes() : 30)
                     .status(CleaningRecordStatus.IN_PROGRESS)
                     .isInterrupted(false)
                     .hasIncident(false)
@@ -571,11 +668,32 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .rejectionCount(0)
                     .build());
         }
+
+        // Phòng 204 (INSPECTING): buồng phòng đã dọn xong lúc 11:15, đang chờ Lễ tân nghiệm thu
+        Room room204 = allRooms.stream().filter(r -> "204".equals(r.getRoomNumber())).findFirst().orElse(null);
+        if (room204 != null) {
+            cleaningsToSave.add(RoomCleaningRecord.builder()
+                    .room(room204)
+                    .roomType(room204.getRoomType())
+                    .housekeeper(buongphong2)
+                    .cleaningType("CHECKOUT")
+                    .startedAt(today.atTime(10, 30))
+                    .completedAt(today.atTime(11, 10))
+                    .actualDurationMinutes(40)
+                    .standardDurationMinutes(room204.getRoomType().getStandardCheckoutCleaningMinutes() != null ? room204.getRoomType().getStandardCheckoutCleaningMinutes() : 35)
+                    .status(CleaningRecordStatus.SUBMITTED)
+                    .isInterrupted(false)
+                    .hasIncident(false)
+                    .incidentCount(0)
+                    .rejectionCount(0)
+                    .build());
+        }
+
         roomCleaningRecordRepository.saveAll(cleaningsToSave);
         log.info("Đã lưu {} bản ghi nhật ký dọn buồng phòng.", cleaningsToSave.size());
 
-        // 8. Đồng bộ trạng thái thực tế phòng
-        updateRealtimeRoomStatuses(allRooms, inHouseRoomNumbers, buongphong1);
+        // 8. Cập nhật trạng thái thực tế phòng (OCCUPIED, DIRTY, INSPECTING, MAINTENANCE, AVAILABLE)
+        updateRealtimeRoomStatuses(allRooms, inHouseRoomNumbers, buongphong1, buongphong2);
 
         // 9. Sinh Ca làm việc thu ngân (CashierShift & CashierShiftClosing) khớp 100% doanh thu
         List<CashierShift> shifts = seedCashierShifts(startDate, today, paymentsToSave, depositsToSave, letan1, letan2);
@@ -590,7 +708,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         List<LostItem> lostItems = seedLostItems(allRooms, today, lastCheckoutBookingByRoom, buongphong1, buongphong2, letan1);
 
         // 13. Sinh Hồ sơ công nợ đối tác doanh nghiệp (DebtApprovalRequest & DebtCollectionLog)
-        seedCorporateDebtRecords(bookingsToSave, invoicesToSave, guests, letan1, adminUser, today);
+        seedCorporateDebtRecords(bookingsToSave, invoicesToSave, guests, letan1, ownerUser, today);
 
         // 14. Cập nhật Điểm tích lũy & Hạng thành viên khách hàng dựa trên chi tiêu thực tế
         updateGuestLoyaltyBasedOnSpending(guests, invoicesToSave);
@@ -614,7 +732,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", "SUCCESS");
-        result.put("message", "Tái tạo dữ liệu mẫu từ tháng 1 đến nay và tạo bản sao lưu thành công.");
+        result.put("message", "Tái tạo dữ liệu mẫu chuẩn từ tháng 1 đến nay thành công. Toàn bộ nghiệp vụ đã được liên kết đồng bộ.");
         result.put("bookingsCount", bookingsToSave.size());
         result.put("invoicesCount", invoicesToSave.size());
         result.put("paymentsCount", paymentsToSave.size());
@@ -631,21 +749,27 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         return result;
     }
 
-    private void updateRealtimeRoomStatuses(List<Room> allRooms, Set<String> inHouseRoomNumbers, User buongphong) {
+    private void updateRealtimeRoomStatuses(List<Room> allRooms, Set<String> inHouseRoomNumbers, User buongphong1, User buongphong2) {
         List<Room> updatedRooms = new ArrayList<>();
         for (Room r : allRooms) {
             String num = r.getRoomNumber();
             if (inHouseRoomNumbers.contains(num)) {
                 r.setStatus(RoomStatus.OCCUPIED);
                 r.setCleaningReason(null);
+                r.setAssignedHousekeeper(null);
             } else if ("103".equals(num)) {
                 r.setStatus(RoomStatus.DIRTY);
                 r.setCleaningReason("CHECKOUT");
-                r.setAssignedHousekeeper(buongphong);
+                r.setAssignedHousekeeper(buongphong1);
+            } else if ("204".equals(num)) {
+                r.setStatus(RoomStatus.INSPECTING);
+                r.setCleaningReason("CHECKOUT");
+                r.setAssignedHousekeeper(buongphong2);
             } else if ("202".equals(num)) {
                 r.setStatus(RoomStatus.MAINTENANCE);
                 r.setNotes("Bảo dưỡng định kỳ hệ thống điều hòa");
                 r.setCleaningReason(null);
+                r.setAssignedHousekeeper(null);
             } else {
                 r.setStatus(RoomStatus.AVAILABLE);
                 r.setCleaningReason(null);
@@ -669,7 +793,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         LocalDate cur = startDate;
 
         while (!cur.isAfter(today)) {
-            // Ca 1: Sáng 07:00 - 15:00
+            // Ca 1: Sáng 07:00 - 15:00 do letan1 phụ trách
             LocalDateTime mStart = cur.atTime(7, 0);
             LocalDateTime mEnd = cur.atTime(15, 0);
 
@@ -678,7 +802,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             BigDecimal mCard = BigDecimal.ZERO;
 
             for (Payment p : payments) {
-                if (!p.getPaidAt().isBefore(mStart) && p.getPaidAt().isBefore(mEnd)) {
+                if (p.getPaidAt() != null && !p.getPaidAt().isBefore(mStart) && p.getPaidAt().isBefore(mEnd)) {
                     if (p.getMethod() == PaymentMethod.CASH) mCash = mCash.add(p.getAmount());
                     else if (p.getMethod() == PaymentMethod.CREDIT_CARD) mCard = mCard.add(p.getAmount());
                     else mTransfer = mTransfer.add(p.getAmount());
@@ -739,7 +863,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .discrepancy(BigDecimal.ZERO)
                     .build());
 
-            // Ca 2: Chiều 15:00 - 23:00
+            // Ca 2: Chiều 15:00 - 23:00 do letan2 phụ trách
             LocalDateTime aStart = cur.atTime(15, 0);
             LocalDateTime aEnd = cur.atTime(23, 0);
 
@@ -748,7 +872,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             BigDecimal aCard = BigDecimal.ZERO;
 
             for (Payment p : payments) {
-                if (!p.getPaidAt().isBefore(aStart) && p.getPaidAt().isBefore(aEnd)) {
+                if (p.getPaidAt() != null && !p.getPaidAt().isBefore(aStart) && p.getPaidAt().isBefore(aEnd)) {
                     if (p.getMethod() == PaymentMethod.CASH) aCash = aCash.add(p.getAmount());
                     else if (p.getMethod() == PaymentMethod.CREDIT_CARD) aCard = aCard.add(p.getAmount());
                     else aTransfer = aTransfer.add(p.getAmount());
@@ -785,8 +909,8 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .refundTransfer(BigDecimal.ZERO)
                     .refundCard(BigDecimal.ZERO)
                     .expectedCash(aExpCash)
-                    .actualCash(aExpCash)
-                    .discrepancy(BigDecimal.ZERO)
+                    .actualCash(isPast ? aExpCash : null)
+                    .discrepancy(isPast ? BigDecimal.ZERO : null)
                     .build();
             shiftsToSave.add(shift2);
 
@@ -884,9 +1008,9 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .totalRefundTransfer(BigDecimal.ZERO)
                     .totalRefundCard(BigDecimal.ZERO)
                     .totalExpectedCash(expCash)
-                    .totalActualCash(expCash)
-                    .totalDiscrepancy(BigDecimal.ZERO)
-                    .cashHandoverAmount(expCash)
+                    .totalActualCash(isPast ? expCash : null)
+                    .totalDiscrepancy(isPast ? BigDecimal.ZERO : null)
+                    .cashHandoverAmount(isPast ? expCash : BigDecimal.ZERO)
                     .build());
 
             cur = cur.plusDays(1);
@@ -1051,7 +1175,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             List<Invoice> invoices,
             List<Guest> guests,
             User letan,
-            User admin,
+            User owner,
             LocalDate today
     ) {
         List<Booking> corporateBookings = bookings.stream()
@@ -1063,6 +1187,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         List<DebtApprovalRequest> debtRequests = new ArrayList<>();
         List<DebtCollectionLog> debtLogs = new ArrayList<>();
 
+        // 1. Hồ sơ công nợ đã được phê duyệt & đã thu hồi thành công (lịch sử)
         Booking b1 = corporateBookings.get(0);
         Invoice inv1 = invoices.stream().filter(i -> i.getBooking() != null && i.getBooking().equals(b1)).findFirst().orElse(null);
         if (inv1 != null) {
@@ -1072,28 +1197,47 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
                     .guest(b1.getGuest())
                     .debtAmount(inv1.getTotalAmount())
                     .dueDate(b1.getCheckOutDate().plusDays(30))
-                    .reason("Công nợ doanh nghiệp đối tác trả sau chu kỳ tháng")
+                    .reason("Công nợ doanh nghiệp đối tác trả sau chu kỳ tháng theo hợp đồng")
                     .status(DebtApprovalStatus.APPROVED)
                     .requestedBy(letan)
                     .requestedAt(b1.getCheckedOutAt().minusMinutes(20))
-                    .approvedBy(admin)
+                    .approvedBy(owner)
                     .approvedAt(b1.getCheckedOutAt().minusMinutes(5))
                     .lastContactedAt(b1.getCheckOutDate().plusDays(15).atTime(9, 30))
-                    .lastContactNote("Đã xác nhận thỏa thuận bảo lãnh thanh toán của công ty đối tác")
-                    .lastContactResult("PROMISED_TO_PAY")
-                    .promisedDate(b1.getCheckOutDate().plusDays(25))
+                    .lastContactNote("Đã xác nhận thanh toán ủy nhiệm chi qua ngân hàng")
+                    .lastContactResult("PAID")
+                    .promisedDate(b1.getCheckOutDate().plusDays(15))
                     .build();
             debtRequests.add(debt1);
 
             debtLogs.add(DebtCollectionLog.builder()
                     .debtApprovalRequest(debt1)
                     .contactDate(b1.getCheckOutDate().plusDays(15).atTime(9, 30))
-                    .contactMethod("EMAIL")
-                    .contactResult("PROMISED_TO_PAY")
-                    .notes("Đã gửi sao kê bảng đối soát công nợ qua email cho kế toán trưởng công ty đối tác")
-                    .promisedDate(b1.getCheckOutDate().plusDays(25))
-                    .nextReminderDate(b1.getCheckOutDate().plusDays(26))
+                    .contactMethod("BANK_TRANSFER")
+                    .contactResult("PAID")
+                    .notes("Đã nhận đủ số tiền công nợ đối soát chu kỳ qua tài khoản Vietcombank")
+                    .promisedDate(b1.getCheckOutDate().plusDays(15))
                     .build());
+        }
+
+        // 2. Hồ sơ công nợ MỚI ĐANG CHỜ PHÊ DUYỆT cho hôm nay để Chủ cơ sở (OWNER) duyệt
+        if (corporateBookings.size() >= 2) {
+            Booking b2 = corporateBookings.get(1);
+            Invoice inv2 = invoices.stream().filter(i -> i.getBooking() != null && i.getBooking().equals(b2)).findFirst().orElse(null);
+            if (inv2 != null) {
+                DebtApprovalRequest pendingDebt = DebtApprovalRequest.builder()
+                        .booking(b2)
+                        .invoice(inv2)
+                        .guest(b2.getGuest())
+                        .debtAmount(inv2.getTotalAmount())
+                        .dueDate(today.plusDays(30))
+                        .reason("Công ty đối tác đề xuất bảo lãnh thanh toán công nợ trả sau đợt công tác")
+                        .status(DebtApprovalStatus.PENDING)
+                        .requestedBy(letan)
+                        .requestedAt(today.atTime(9, 15))
+                        .build();
+                debtRequests.add(pendingDebt);
+            }
         }
 
         debtApprovalRepository.saveAll(debtRequests);
@@ -1114,7 +1258,6 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
     ) {
         List<AuditLog> auditLogs = new ArrayList<>();
 
-        // 1. Audit logs cho các đặt phòng tiêu biểu trải dài từ T1 đến T9
         int sampleStep = Math.max(1, bookings.size() / 50);
         for (int i = 0; i < bookings.size(); i += sampleStep) {
             Booking b = bookings.get(i);
@@ -1152,7 +1295,6 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             }
         }
 
-        // 2. Audit logs cho các hóa đơn thanh toán
         int invStep = Math.max(1, invoices.size() / 30);
         for (int i = 0; i < invoices.size(); i += invStep) {
             Invoice inv = invoices.get(i);
@@ -1168,7 +1310,6 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             }
         }
 
-        // 3. Audit logs cho ca làm việc thu ngân
         int shiftStep = Math.max(1, shifts.size() / 25);
         for (int i = 0; i < shifts.size(); i += shiftStep) {
             CashierShift s = shifts.get(i);
@@ -1193,7 +1334,6 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             }
         }
 
-        // 4. Audit logs cho các sự cố phòng
         for (RoomIncident inc : incidents) {
             auditLogs.add(AuditLog.builder()
                     .entityName("RoomIncident")
@@ -1216,7 +1356,6 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
             }
         }
 
-        // 5. Audit logs cho đồ thất lạc
         for (LostItem li : lostItems) {
             auditLogs.add(AuditLog.builder()
                     .entityName("LostItem")
@@ -1240,7 +1379,7 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
         }
 
         auditLogRepository.saveAll(auditLogs);
-        log.info("Đã tạo {} bản ghi lịch sử kiểm toán hệ thống (AuditLog) chi tiết và liền mạch.", auditLogs.size());
+        log.info("Đã tạo {} bản ghi lịch sử kiểm toán hệ thống (AuditLog) chi tiết.", auditLogs.size());
     }
 
     private void updateGuestLoyaltyBasedOnSpending(List<Guest> guests, List<Invoice> invoices) {
@@ -1260,12 +1399,9 @@ public class OperationalDataSeederServiceImpl implements OperationalDataSeederSe
 
         for (Guest g : guests) {
             BigDecimal totalSpent = spendingByGuestId.getOrDefault(g.getId(), BigDecimal.ZERO);
-            // 1 điểm tích lũy cho mỗi 10.000 VNĐ chi tiêu
             int calculatedPoints = totalSpent.divide(new BigDecimal("10000"), 0, RoundingMode.FLOOR).intValue();
 
-            // Cộng thêm điểm ban đầu để các khách thân thiết giữ được phân hạng đẹp
             if (calculatedPoints < 100) calculatedPoints += 150;
-
             g.setLoyaltyPoints(calculatedPoints);
 
             if (calculatedPoints >= 3000 && diamondTier != null) {
