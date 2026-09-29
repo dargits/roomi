@@ -589,5 +589,16 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Schema Migration Notice: Could not alter cancellation_policies or bookings: {}", e.getMessage());
         }
+
+        // Đảm bảo các cột theo dõi yêu cầu dọn lại trong bảng rooms sẵn sàng
+        try {
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_rejection_note VARCHAR(500)");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS rejection_count INT DEFAULT 0");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_inspected_by_id BIGINT");
+            jdbcTemplate.execute("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_inspected_at DATETIME");
+            log.info("Schema Migration: Successfully ensured 'rooms.last_rejection_note' and related rejection columns exist.");
+        } catch (Exception e) {
+            log.debug("Schema Migration Notice: Could not add rejection columns to rooms: {}", e.getMessage());
+        }
     }
 }

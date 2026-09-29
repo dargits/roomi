@@ -947,6 +947,10 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getRoom() != null) {
             booking.getRoom().setStatus(RoomStatus.DIRTY);
             booking.getRoom().setCleaningReason("CHECKOUT");
+            booking.getRoom().setLastRejectionNote(null);
+            booking.getRoom().setRejectionCount(0);
+            booking.getRoom().setLastInspectedBy(null);
+            booking.getRoom().setLastInspectedAt(null);
             roomRepository.save(booking.getRoom());
 
             // [Notification] Thông báo phòng cần dọn cho Housekeeper
