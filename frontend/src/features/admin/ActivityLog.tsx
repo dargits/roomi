@@ -12,15 +12,155 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import { AuditLogResponse } from '../../types';
 
 const ENTITY_OPTIONS = [
-  { value: '', label: 'Tất cả' },
+  { value: '', label: 'Tất cả đối tượng' },
   { value: 'Booking', label: 'Đặt phòng' },
   { value: 'Room', label: 'Phòng' },
   { value: 'Guest', label: 'Khách hàng' },
   { value: 'Invoice', label: 'Hóa đơn' },
   { value: 'User', label: 'Tài khoản' },
   { value: 'RoomType', label: 'Loại phòng' },
-  { value: 'ExtraService', label: 'Dịch vụ' }
+  { value: 'ExtraService', label: 'Dịch vụ' },
+  { value: 'SystemBackup', label: 'Sao lưu hệ thống' },
+  { value: 'CorporateClient', label: 'Khách hàng B2B' },
+  { value: 'GroupBooking', label: 'Đoàn khách' },
+  { value: 'HotelSetting', label: 'Cài đặt hệ thống' }
 ];
+
+const ENTITY_LABELS: Record<string, string> = {
+  Booking: 'Đặt phòng',
+  Room: 'Phòng',
+  Guest: 'Khách hàng',
+  Invoice: 'Hóa đơn',
+  User: 'Tài khoản',
+  RoomType: 'Loại phòng',
+  ExtraService: 'Dịch vụ',
+  SystemBackup: 'Sao lưu CSDL',
+  HotelSetting: 'Cấu hình hệ thống',
+  CorporateClient: 'Khách B2B',
+  GroupBooking: 'Đoàn khách',
+  InvoiceDiscount: 'Chiết khấu',
+  NegotiatedPriceAgreement: 'Hợp đồng giá B2B',
+  BookingRequest: 'Yêu cầu đặt phòng'
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: 'Chủ cơ sở',
+  ADMIN: 'Quản trị viên',
+  RECEPTIONIST: 'Lễ tân',
+  ACCOUNTANT: 'Kế toán',
+  HOUSEKEEPER: 'Buồng phòng'
+};
+
+const ACTION_MAP: Record<string, { label: string; colorClass: string }> = {
+  // Authentication & Security
+  REQUEST_PASSWORD_RESET: { label: 'Yêu cầu đặt lại MK', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+  RESET_PASSWORD: { label: 'Đặt lại mật khẩu', colorClass: 'bg-purple-50 text-purple-800 border border-purple-300' },
+  CHANGE_PASSWORD: { label: 'Đổi mật khẩu', colorClass: 'bg-purple-50 text-purple-800 border border-purple-300' },
+  FORCE_PASSWORD_CHANGE: { label: 'Bắt buộc đổi MK', colorClass: 'bg-orange-50 text-orange-800 border border-orange-300' },
+  LOGIN: { label: 'Đăng nhập', colorClass: 'bg-indigo-50 text-indigo-800 border border-indigo-300' },
+  LOGOUT: { label: 'Đăng xuất', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' },
+  SESSION_REVOKED: { label: 'Thu hồi phiên', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+
+  // Backup & Restore
+  CREATE_BACKUP: { label: 'Tạo bản sao lưu', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  DELETE_BACKUP: { label: 'Xóa bản sao lưu', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  RESTORE_DATABASE: { label: 'Khôi phục CSDL', colorClass: 'bg-red-50 text-red-800 border border-red-300' },
+  INSTANT_DOWNLOAD: { label: 'Tải bản sao lưu', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  UPDATE_BACKUP_CONFIG: { label: 'Cập nhật cấu hình sao lưu', colorClass: 'bg-sky-50 text-sky-800 border border-sky-300' },
+
+  // Debt Management
+  REQUEST_DEBT_CHECKOUT: { label: 'Yêu cầu trả phòng nợ', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+  APPROVE_DEBT_CHECKOUT: { label: 'Duyệt trả phòng nợ', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  REJECT_DEBT_CHECKOUT: { label: 'Từ chối trả phòng nợ', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  SEND_ACKNOWLEDGEMENT_EMAIL: { label: 'Gửi email biên nhận nợ', colorClass: 'bg-sky-50 text-sky-800 border border-sky-300' },
+  COLLECT_DEBT: { label: 'Thu hồi công nợ', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+
+  // Housekeeping & Cleaning
+  START_CLEANING: { label: 'Bắt đầu dọn phòng', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  FINISH_CLEANING: { label: 'Dọn phòng hoàn tất', colorClass: 'bg-teal-50 text-teal-800 border border-teal-300' },
+  SUBMIT_INSPECTION: { label: 'Gửi duyệt buồng phòng', colorClass: 'bg-violet-50 text-violet-800 border border-violet-300' },
+  MARK_CLEAN: { label: 'Nghiệm thu đạt (Sạch)', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  MARK_INSPECTED: { label: 'Đã nghiệm thu', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  REJECT_CLEANING: { label: 'Yêu cầu dọn lại', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+  ASSIGN_HOUSEKEEPER: { label: 'Chỉ định người dọn', colorClass: 'bg-indigo-50 text-indigo-800 border border-indigo-300' },
+
+  // Cashier & Daily Shift
+  SHIFT_OPENED: { label: 'Mở ca làm việc', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  SHIFT_CLOSED: { label: 'Đóng ca làm việc', colorClass: 'bg-slate-100 text-slate-800 border border-slate-300' },
+  SHIFT_REOPENED: { label: 'Mở lại ca làm việc', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+  DAILY_LEDGER_CLOSED: { label: 'Khóa sổ quỹ ngày', colorClass: 'bg-indigo-50 text-indigo-800 border border-indigo-300' },
+  DAILY_LEDGER_REOPENED: { label: 'Mở lại sổ quỹ ngày', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+
+  // Booking & Check-in / Check-out
+  CREATE: { label: 'Tạo mới', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  UPDATE: { label: 'Cập nhật', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  DELETE: { label: 'Xóa', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  CONFIRM: { label: 'Xác nhận đặt phòng', colorClass: 'bg-teal-50 text-teal-800 border border-teal-300' },
+  CHECK_IN: { label: 'Nhận phòng (Check-in)', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  CHECK_OUT: { label: 'Trả phòng (Check-out)', colorClass: 'bg-purple-50 text-purple-800 border border-purple-300' },
+  BULK_CHECK_IN: { label: 'Check-in hàng loạt', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  BULK_CHECK_OUT: { label: 'Check-out hàng loạt', colorClass: 'bg-purple-50 text-purple-800 border border-purple-300' },
+  CANCEL: { label: 'Hủy đặt phòng', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  NO_SHOW: { label: 'Khách không đến', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' },
+  ASSIGN_ROOM: { label: 'Xếp phòng', colorClass: 'bg-indigo-50 text-indigo-800 border border-indigo-300' },
+  ASSIGN_ROOMS: { label: 'Xếp phòng đoàn', colorClass: 'bg-indigo-50 text-indigo-800 border border-indigo-300' },
+  CHANGE_ROOM: { label: 'Đổi phòng', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+  UPGRADE_ROOM: { label: 'Nâng hạng phòng', colorClass: 'bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-300' },
+  EXTEND_STAY: { label: 'Gia hạn lưu trú', colorClass: 'bg-sky-50 text-sky-800 border border-sky-300' },
+  RESCHEDULE: { label: 'Đổi ngày lưu trú', colorClass: 'bg-cyan-50 text-cyan-800 border border-cyan-300' },
+  EARLY_CHECKOUT: { label: 'Trả phòng sớm', colorClass: 'bg-violet-50 text-violet-800 border border-violet-300' },
+  IMPORT_LEGACY: { label: 'Nhập dữ liệu cũ', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' },
+  SEND_CHECKIN_REMINDER: { label: 'Nhắc check-in tự động', colorClass: 'bg-sky-50 text-sky-800 border border-sky-300' },
+  SEND_CHECKIN_REMINDER_MANUAL: { label: 'Gửi nhắc check-in', colorClass: 'bg-sky-50 text-sky-800 border border-sky-300' },
+  SEND_CONFIRMATION: { label: 'Gửi email xác nhận', colorClass: 'bg-teal-50 text-teal-800 border border-teal-300' },
+
+  // Services & Invoices
+  ADD_SERVICE: { label: 'Thêm dịch vụ', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  REMOVE_SERVICE: { label: 'Hủy dịch vụ', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  DEDUCT_FOR_SERVICE: { label: 'Xuất kho dịch vụ', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+  RESTORE_FOR_SERVICE: { label: 'Hoàn kho dịch vụ', colorClass: 'bg-teal-50 text-teal-800 border border-teal-300' },
+  APPLY_DISCOUNT: { label: 'Áp dụng giảm giá', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  REMOVE_DISCOUNT: { label: 'Hủy giảm giá', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  APPROVE_DISCOUNT: { label: 'Duyệt giảm giá', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  REJECT_DISCOUNT: { label: 'Từ chối giảm giá', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  COLLECT_DEPOSIT: { label: 'Thu tiền cọc', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  REFUND_DEPOSIT: { label: 'Hoàn tiền cọc', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+  FORFEIT_DEPOSIT: { label: 'Tịch thu tiền cọc', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  CANCEL_PARTIAL_ROOMS: { label: 'Hủy bớt phòng đoàn', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  CREATE_INVOICES: { label: 'Tạo hóa đơn đoàn', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  CANCEL_DRAFT: { label: 'Hủy hóa đơn nháp', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' },
+  ADJUST: { label: 'Điều chỉnh hóa đơn', colorClass: 'bg-amber-50 text-amber-800 border border-amber-300' },
+
+  // Privacy & Declaration
+  EXPORT_STAY_DECLARATION: { label: 'Xuất khai báo tạm trú', colorClass: 'bg-blue-50 text-blue-800 border border-blue-300' },
+  DELETE_PERSONAL_DATA: { label: 'Xóa dữ liệu cá nhân', colorClass: 'bg-rose-50 text-rose-800 border border-rose-300' },
+  VIEW_GUEST_DETAIL: { label: 'Xem chi tiết khách', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' },
+  COMPLETE_DECLARATION: { label: 'Hoàn tất khai báo', colorClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300' },
+  VIEW_PUBLIC_INVOICE: { label: 'Xem hóa đơn online', colorClass: 'bg-sky-50 text-sky-800 border border-sky-300' },
+
+  // B2B & Policies
+  DEACTIVATE: { label: 'Ngừng kích hoạt', colorClass: 'bg-slate-100 text-slate-700 border border-slate-300' }
+};
+
+const getActionDisplay = (action?: string): { label: string; colorClass: string } => {
+  if (!action) return { label: '—', colorClass: 'bg-slate-100 text-slate-600 border border-slate-200' };
+  const upper = action.toUpperCase();
+  if (ACTION_MAP[upper]) {
+    return ACTION_MAP[upper];
+  }
+  let color = 'bg-slate-100 text-slate-700 border border-slate-300';
+  if (upper.includes('CREATE') || upper.includes('ADD') || upper.includes('APPROVE')) color = 'bg-emerald-50 text-emerald-800 border border-emerald-300';
+  else if (upper.includes('UPDATE') || upper.includes('EDIT')) color = 'bg-blue-50 text-blue-800 border border-blue-300';
+  else if (upper.includes('DELETE') || upper.includes('REJECT') || upper.includes('CANCEL')) color = 'bg-rose-50 text-rose-800 border border-rose-300';
+  else if (upper.includes('LOCK') || upper.includes('RESET') || upper.includes('REQUEST')) color = 'bg-amber-50 text-amber-800 border border-amber-300';
+
+  const label = upper
+    .split('_')
+    .map(w => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(' ');
+
+  return { label, colorClass: color };
+};
 
 const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return '—';
@@ -28,17 +168,6 @@ const formatDateTime = (dateStr?: string) => {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
-};
-
-const getActionColor = (action?: string) => {
-  if (!action) return 'bg-gray-100 text-gray-700';
-  const a = action.toUpperCase();
-  if (a.includes('CREATE') || a.includes('REGISTER')) return 'bg-green-100 text-green-800';
-  if (a.includes('UPDATE') || a.includes('EDIT')) return 'bg-blue-100 text-blue-800';
-  if (a.includes('DELETE')) return 'bg-red-100 text-red-800';
-  if (a.includes('LOCK') || a.includes('CANCEL')) return 'bg-orange-100 text-orange-800';
-  if (a.includes('LOGIN')) return 'bg-purple-100 text-purple-800';
-  return 'bg-gray-100 text-gray-700';
 };
 
 /**
@@ -100,44 +229,52 @@ const ActivityLog: React.FC = () => {
         setTotalPages(Math.ceil(arr.length / targetSize) || 1);
         setTotalElements(arr.length);
       }
-    } catch (err) {
-      setError('Không thể tải lịch sử hoạt động.');
-      console.error(err);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Không thể tải lịch sử hoạt động.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (hasAccess) {
-      handleSearch(0, size);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasAccess]);
+    // Tự động load trang đầu tiên
+    handleSearch(0, size);
+  }, []);
 
-  const handleFilterChange = (field: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
+  const handleFilterChange = (key: string, val: string) => {
+    setFilters(prev => ({ ...prev, [key]: val }));
   };
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
+    <div className="space-y-6">
       <PageHeader
-        icon={IoShieldOutline}
-        title="Lịch sử Hoạt động"
-        subtitle="Theo dõi toàn bộ thao tác trong hệ thống"
+        icon={IoServerOutline}
+        title="Lịch Sử Hoạt Động Hệ Thống"
+        subtitle="Theo dõi và kiểm toán toàn bộ thao tác của nhân viên và người dùng"
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSearch(page, size)}
+            disabled={loading}
+            className="flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all"
+          >
+            <IoRefreshOutline size={15} className={loading ? 'animate-spin text-primary' : ''} />
+            <span>Làm mới</span>
+          </Button>
+        }
       />
 
       {/* Filter */}
-      <div className="bg-surface-container-lowest border border-border-grey rounded-lg p-5">
-        <h3 className="font-title-lg text-on-surface mb-4">Điều kiện lọc</h3>
+      <div className="bg-surface-container-lowest border border-border-grey rounded-2xl p-5 shadow-2xs">
+        <h3 className="font-title-lg text-on-surface mb-4 font-bold text-sm">Điều kiện lọc</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block font-label-md text-on-surface-variant mb-1.5">Đối tượng</label>
+            <label className="block font-label-md text-on-surface-variant mb-1.5 text-xs font-semibold">Đối tượng</label>
             <select
               value={filters.entity}
               onChange={(e) => handleFilterChange('entity', e.target.value)}
-              className="w-full px-3 py-2 border border-border-grey rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all font-body-md text-on-surface bg-white"
+              className="w-full px-3 py-2 border border-border-grey rounded-xl focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all font-body-md text-on-surface bg-white text-xs"
             >
               {ENTITY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -165,7 +302,7 @@ const ActivityLog: React.FC = () => {
           />
         </div>
         <div className="mt-4 flex gap-3">
-          <Button onClick={() => handleSearch()} isLoading={loading} icon={IoSearchOutline}>
+          <Button onClick={() => handleSearch(0, size)} isLoading={loading} icon={IoSearchOutline} size="sm">
             Tìm kiếm
           </Button>
           <button
@@ -174,89 +311,110 @@ const ActivityLog: React.FC = () => {
               setLogs([]);
               setHasSearched(false);
             }}
-            className="px-4 py-2 rounded border border-border-grey text-on-surface-variant hover:bg-surface-container-low transition-colors font-body-md text-sm"
+            className="px-4 py-1.5 rounded-xl border border-border-grey text-on-surface-variant hover:bg-surface-container-low transition-colors font-body-md text-xs font-semibold cursor-pointer shadow-2xs"
           >
             Đặt lại
           </button>
         </div>
-        {error && <p className="mt-3 text-sm text-error">{error}</p>}
       </div>
 
-      {/* Loading */}
-      {loading && <LoadingScreen message="Đang tải nhật ký hoạt động..." />}
-
-      {/* Results */}
-      {!loading && hasSearched && (
-        <div className="bg-surface-container-lowest border border-border-grey rounded-lg overflow-hidden">
-          <div className="p-4 border-b border-border-grey flex items-center justify-between">
-            <h3 className="font-title-lg text-on-surface">Kết quả</h3>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-on-surface-variant">{logs.length} bản ghi</span>
+      {/* Kết quả */}
+      {hasSearched && (
+        <div className="bg-surface-container-lowest border border-border-grey rounded-2xl overflow-hidden shadow-2xs">
+          {loading ? (
+            <div className="py-16 text-center text-on-surface-variant">
+              <LoadingScreen />
+            </div>
+          ) : error ? (
+            <div className="p-6 text-center text-error font-body-md">
+              <p>{error}</p>
               <button
-                onClick={() => handleSearch()}
-                className="flex items-center gap-1 text-sm text-on-surface-variant hover:text-primary transition-colors"
+                onClick={() => handleSearch(page, size)}
+                className="mt-3 text-primary text-xs underline cursor-pointer"
               >
-                <IoRefreshOutline size={13} /> Làm mới
+                Thử lại
               </button>
             </div>
-          </div>
-
-          {logs.length === 0 ? (
-            <div className="py-12 text-center">
-              <IoServerOutline size={40} className="text-on-surface-variant/30 mx-auto mb-3" />
-              <p className="font-body-md text-on-surface-variant">Không tìm thấy bản ghi nào trong khoảng thời gian này.</p>
+          ) : logs.length === 0 ? (
+            <div className="py-16 text-center text-on-surface-variant font-body-md">
+              <IoServerOutline size={40} className="mx-auto mb-2 opacity-30" />
+              <p className="font-semibold text-slate-700">Không có hoạt động nào trong khoảng thời gian này.</p>
+              <p className="text-xs text-slate-400 mt-1">Thử điều chỉnh lại bộ lọc đối tượng hoặc ngày tìm kiếm.</p>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-surface-container-low border-b border-border-grey">
-                    <th className="p-4 font-label-md text-on-surface-variant uppercase tracking-wider">Thời gian</th>
-                    <th className="p-4 font-label-md text-on-surface-variant uppercase tracking-wider">Người thực hiện</th>
-                    <th className="p-4 font-label-md text-on-surface-variant uppercase tracking-wider">Hành động</th>
-                    <th className="p-4 font-label-md text-on-surface-variant uppercase tracking-wider">Đối tượng</th>
-                    <th className="p-4 font-label-md text-on-surface-variant uppercase tracking-wider">Chi tiết</th>
+                  <tr className="bg-slate-50/80 border-b border-border-grey text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3.5 px-4 min-w-[150px]">Thời gian</th>
+                    <th className="py-3.5 px-4 min-w-[160px]">Người thực hiện</th>
+                    <th className="py-3.5 px-4 min-w-[170px]">Hành động</th>
+                    <th className="py-3.5 px-4 min-w-[130px]">Đối tượng</th>
+                    <th className="py-3.5 px-4 min-w-[240px]">Chi tiết</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {logs.map((log: any, idx) => (
-                    <tr key={log.id || idx} className="border-b border-border-grey hover:bg-surface-container-low transition-colors">
-                      <td className="p-4 font-body-md text-on-surface-variant whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <IoCalendarOutline size={13} />
-                          {formatDateTime(log.createdAt || log.timestamp || log.actionTime)}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 font-body-md text-on-surface">
-                          <IoPersonOutline size={13} className="text-on-surface-variant" />
-                          <div>
-                            <p>{log.actorName || log.userName || `#${log.actorId}`}</p>
-                            {log.actorRole && (
-                              <p className="text-xs text-on-surface-variant">{log.actorRole}</p>
+                <tbody className="divide-y divide-border-grey text-xs">
+                  {logs.map((log: any, idx) => {
+                    const actionInfo = getActionDisplay(log.action || log.actionType);
+                    const roleName = ROLE_LABELS[log.actorRole] || log.actorRole;
+                    const entityName = ENTITY_LABELS[log.entity || log.entityType] || log.entity || log.entityType;
+
+                    return (
+                      <tr key={log.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Thời gian */}
+                        <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            <IoCalendarOutline size={13} className="text-slate-400 shrink-0" />
+                            <span>{formatDateTime(log.createdAt || log.timestamp || log.actionTime)}</span>
+                          </div>
+                        </td>
+
+                        {/* Người thực hiện */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                              <IoPersonOutline size={14} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-900 text-xs">
+                                {log.actorName || log.userName || `#${log.actorId}`}
+                              </p>
+                              {roleName && (
+                                <p className="text-[11px] text-slate-500 font-medium">{roleName}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Hành động (Tiếng Việt) */}
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap shadow-2xs ${actionInfo.colorClass}`}>
+                            {actionInfo.label}
+                          </span>
+                        </td>
+
+                        {/* Đối tượng */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1">
+                            <span className="font-semibold text-slate-800 text-xs">{entityName || 'Hệ thống'}</span>
+                            {log.entityId && (
+                              <span className="text-[11px] font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">
+                                #{log.entityId}
+                              </span>
                             )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase ${getActionColor(log.action || log.actionType)}`}>
-                          {log.action || log.actionType || 'ACTION'}
-                        </span>
-                      </td>
-                      <td className="p-4 font-body-md text-on-surface">
-                        <span className="font-medium">{log.entity || log.entityType}</span>
-                        {log.entityId && (
-                          <span className="text-on-surface-variant ml-1">#{log.entityId}</span>
-                        )}
-                      </td>
-                      <td className="p-4 font-body-md text-on-surface-variant max-w-xs">
-                        <p className="truncate" title={log.description || log.detail || log.message || ''}>
-                          {log.description || log.detail || log.message || '—'}
-                        </p>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+
+                        {/* Chi tiết */}
+                        <td className="py-3.5 px-4 text-slate-600 max-w-sm">
+                          <p className="truncate text-xs font-normal" title={log.description || log.detail || log.message || ''}>
+                            {log.description || log.detail || log.message || '—'}
+                          </p>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -291,7 +449,7 @@ const ActivityLog: React.FC = () => {
                       type="button"
                       disabled={page === 0}
                       onClick={() => handleSearch(Math.max(0, page - 1), size)}
-                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors cursor-pointer"
                       title="Trang trước"
                     >
                       <IoChevronBackOutline size={14} />
@@ -303,7 +461,7 @@ const ActivityLog: React.FC = () => {
                       type="button"
                       disabled={page >= totalPages - 1}
                       onClick={() => handleSearch(page + 1, size)}
-                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors"
+                      className="p-1.5 rounded-md border border-border-grey disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low text-on-surface transition-colors cursor-pointer"
                       title="Trang sau"
                     >
                       <IoChevronForwardOutline size={14} />
@@ -318,9 +476,9 @@ const ActivityLog: React.FC = () => {
       )}
 
       {!hasSearched && (
-        <div className="py-16 text-center border border-dashed border-border-grey rounded-lg bg-surface-container-lowest">
+        <div className="py-16 text-center border border-dashed border-border-grey rounded-2xl bg-surface-container-lowest">
           <IoShieldOutline size={40} className="text-on-surface-variant/30 mx-auto mb-3" />
-          <p className="font-body-md text-on-surface-variant">Nhấn "Tìm kiếm" để xem lịch sử hoạt động.</p>
+          <p className="font-body-md text-on-surface-variant text-sm">Nhấn "Tìm kiếm" để xem lịch sử hoạt động.</p>
         </div>
       )}
     </div>
