@@ -6,6 +6,7 @@ import PublicBookingModal from '../landing/PublicBookingModal';
 import PublicGroupBookingModal from './PublicGroupBookingModal';
 import { roomTypeApi } from '../../services/roomTypeApi';
 import { bookingRequestApi } from '../../services/bookingRequestApi';
+import { cancellationPolicyApi, CancellationPolicyItem } from '../../services/cancellationPolicyApi';
 import SearchBar from '../landing/SearchBar';
 import { useAppConfig, DEFAULT_HERO_IMAGE } from '../../context/AppConfigContext';
 import { useToast } from '../../context/ToastContext';
@@ -36,10 +37,28 @@ const RoomsPage: React.FC = () => {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedRoomForGroup, setSelectedRoomForGroup] = useState<RoomCardData | null>(null);
   const [isGroupBookingModalOpen, setIsGroupBookingModalOpen] = useState(false);
+  const [, setCancellationPolicies] = useState<CancellationPolicyItem[]>([]);
+  const [defaultFreeCancelHours, setDefaultFreeCancelHours] = useState<number>(24);
 
   useEffect(() => {
     fetchRooms();
+    fetchCancellationPolicy();
   }, []);
+
+  const fetchCancellationPolicy = async () => {
+    try {
+      const data = await cancellationPolicyApi.getPublicPolicies();
+      if (Array.isArray(data) && data.length > 0) {
+        setCancellationPolicies(data);
+        const general = data.find((p) => p.roomTypeId == null) || data[0];
+        if (general && general.freeCancelHours != null) {
+          setDefaultFreeCancelHours(general.freeCancelHours);
+        }
+      }
+    } catch (err) {
+      console.warn('Không thể tải chính sách hủy công khai:', err);
+    }
+  };
 
   const fetchRooms = async () => {
     setLoading(true);
@@ -199,7 +218,7 @@ const RoomsPage: React.FC = () => {
               ))}
             </div>
             <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-              <IoCheckmarkCircleOutline size={16} /> Miễn phí hủy trước 24h
+              <IoCheckmarkCircleOutline size={16} /> Miễn phí hủy trước {defaultFreeCancelHours}h
             </div>
           </div>
         </div>

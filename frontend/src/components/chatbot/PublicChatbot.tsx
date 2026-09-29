@@ -20,6 +20,7 @@ import roomTypeApi from '../../services/roomTypeApi';
 import extraServiceApi from '../../services/extraServiceApi';
 import aiApi from '../../services/aiApi';
 import { RoomTypeResponse, ExtraServiceResponse } from '../../types';
+import { cancellationPolicyApi, CancellationPolicyItem } from '../../services/cancellationPolicyApi';
 
 export interface PublicChatbotProps {
   onOpenLookup?: () => void;
@@ -59,6 +60,7 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomTypeResponse[]>([]);
   const [services, setServices] = useState<ExtraServiceResponse[]>([]);
+  const [cancellationPolicies, setCancellationPolicies] = useState<CancellationPolicyItem[]>([]);
   const [chatCheckIn, setChatCheckIn] = useState<string>('');
   const [chatCheckOut, setChatCheckOut] = useState<string>('');
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -80,13 +82,15 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
     let isMounted = true;
     const loadKnowledgeData = async () => {
       try {
-        const [roomsData, servicesData] = await Promise.all([
+        const [roomsData, servicesData, policiesData] = await Promise.all([
           roomTypeApi.getPublicRoomTypes().catch(() => []),
-          extraServiceApi.getPublicServices().catch(() => [])
+          extraServiceApi.getPublicServices().catch(() => []),
+          cancellationPolicyApi.getPublicPolicies().catch(() => [])
         ]);
         if (isMounted) {
           setRoomTypes(roomsData || []);
           setServices(servicesData || []);
+          setCancellationPolicies(policiesData || []);
         }
       } catch (err) {
         console.warn('Failed to load public chatbot knowledge base data:', err);
@@ -364,6 +368,32 @@ export const PublicChatbot: React.FC<PublicChatbotProps> = ({ onOpenLookup }) =>
         text: `⏰ **Quy định Giờ Nhận & Trả phòng tại ${propName}:**\n\n• **Giờ nhận phòng (Check-in):** Từ **${checkinTime}** hàng ngày.\n• **Giờ trả phòng (Check-out):** Trước **${checkoutTime}** trưa.\n\n💡 *Ghi chú linh hoạt:*\n- **Nhận phòng sớm / Trả phòng muộn:** Khách sạn hỗ trợ tùy thuộc vào tình trạng phòng trống thực tế của ngày hôm đó (có thể áp dụng phụ thu theo quy định).\n- Quý khách cần hỗ trợ gửi hành lý trước giờ nhận phòng hoặc sau giờ trả phòng đều được **miễn phí 100%** tại quầy Lễ tân!`,
         timestamp: time,
         quickReplies: ['🛏️ Tư vấn chọn phòng', '📞 Liên hệ Lễ tân xin check-in sớm', '📍 Địa chỉ khách sạn']
+      };
+    }
+
+    // 2.5 Cancellation & Refund policies
+    if (
+      norm.includes('huy phong') ||
+      norm.includes('chinh sach huy') ||
+      norm.includes('hoan tien') ||
+      norm.includes('hoan coc') ||
+      norm.includes('huy dat') ||
+      norm.includes('doi phong') ||
+      norm.includes('doi ngay')
+    ) {
+      const generalPol = cancellationPolicies.find((p) => p.roomTypeId == null) || cancellationPolicies[0];
+      const freeHours = generalPol?.freeCancelHours ?? 24;
+      const penalty = generalPol?.penaltyPercent ?? 50;
+      return {
+        id: `bot-${Date.now()}`,
+        sender: 'bot',
+        text: `🛡️ **Chính sách Hủy phòng & Hoàn tiền tại ${propName}:**\n\n• **Miễn phí hủy:** Trước **${freeHours} giờ** so với giờ nhận phòng tiêu chuẩn.\n• **Hủy muộn hoặc vắng mặt (No-show):** Áp dụng phí phạt **${penalty}%** tiền cọc theo quy định của cơ sở lưu trú.\n\nQuý khách có thể bấm **Tra cứu đơn** bên dưới để kiểm tra chính sách chi tiết trên đơn đặt phòng của mình!`,
+        timestamp: time,
+        quickReplies: ['🔍 Tra cứu mã đặt phòng', '🛏️ Xem bảng giá phòng', '📞 Gọi Hotline Lễ tân'],
+        action: {
+          type: 'open_lookup',
+          label: '🔍 Kiểm tra đơn đặt phòng'
+        }
       };
     }
 

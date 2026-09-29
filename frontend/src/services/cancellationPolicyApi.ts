@@ -29,6 +29,11 @@ export const cancellationPolicyApi = {
     return res.data;
   },
 
+  getPublicPolicies: async (): Promise<CancellationPolicyItem[]> => {
+    const res = await api.get('/cancellation-policies/public');
+    return res.data;
+  },
+
   createPolicy: async (data: CancellationPolicyRequest): Promise<CancellationPolicyItem> => {
     const res = await api.post('/cancellation-policies', data);
     return res.data;

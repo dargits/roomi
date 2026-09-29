@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import plant.stay.model.CancellationPolicy;
 import plant.stay.model.HotelSetting;
 import plant.stay.model.RoomType;
 import plant.stay.repository.BookingRepository;
+import plant.stay.repository.CancellationPolicyRepository;
 import plant.stay.repository.HotelSettingRepository;
 import plant.stay.repository.RoomRepository;
 import plant.stay.repository.RoomTypeRepository;
@@ -30,6 +32,7 @@ public class AiChatService {
     private final RoomTypeRepository roomTypeRepository;
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
+    private final CancellationPolicyRepository cancellationPolicyRepository;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -124,6 +127,25 @@ public class AiChatService {
         sb.append("- Tổng phòng: ").append(totalRooms).append("\n");
         sb.append("- Đang có khách: ").append(occupiedToday).append("\n");
         sb.append("- Phòng trống: ").append(availableToday).append("\n\n");
+
+        // Chính sách hủy phòng theo cấu hình của chủ cơ sở
+        List<CancellationPolicy> cancelPolicies = cancellationPolicyRepository.findAll();
+        if (!cancelPolicies.isEmpty()) {
+            sb.append("## Chính sách hủy phòng (cấu hình cơ sở lưu trú)\n");
+            for (CancellationPolicy cp : cancelPolicies) {
+                String rtName = cp.getRoomType() != null ? cp.getRoomType().getName() : "Áp dụng chung tất cả loại phòng";
+                int freeHours = cp.getFreeCancelHours() != null ? cp.getFreeCancelHours() : 24;
+                BigDecimal penalty = cp.getPenaltyPercent() != null ? cp.getPenaltyPercent() : BigDecimal.ZERO;
+                sb.append("- ").append(rtName).append(": Miễn phí hủy trước ").append(freeHours).append(" giờ nhận phòng. ");
+                if (penalty.compareTo(BigDecimal.ZERO) > 0) {
+                    sb.append("Hủy muộn hơn hoặc không đến (No-show) chịu phí phạt ").append(penalty.stripTrailingZeros().toPlainString()).append("% tiền cọc.");
+                } else {
+                    sb.append("Hủy miễn phí hoàn 100% tiền cọc.");
+                }
+                sb.append("\n");
+            }
+            sb.append("\n");
+        }
 
         // Hướng dẫn hành vi AI
         sb.append("## Hướng dẫn cho AI\n");

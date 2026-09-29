@@ -14,6 +14,7 @@ import {
 } from 'react-icons/io5';
 
 import useSEO from '../../hooks/useSEO';
+import { cancellationPolicyApi } from '../../services/cancellationPolicyApi';
 
 const AboutPage: React.FC = () => {
   useSEO({
@@ -25,6 +26,18 @@ const AboutPage: React.FC = () => {
 
   const navigate = useNavigate();
   const { hotelSetting } = useAppConfig();
+  const [freeCancelHours, setFreeCancelHours] = React.useState<number>(24);
+
+  React.useEffect(() => {
+    cancellationPolicyApi.getPublicPolicies().then((policies) => {
+      if (Array.isArray(policies) && policies.length > 0) {
+        const general = policies.find((p) => p.roomTypeId == null) || policies[0];
+        if (general && general.freeCancelHours != null) {
+          setFreeCancelHours(general.freeCancelHours);
+        }
+      }
+    }).catch(() => {});
+  }, []);
 
   const STATS = [
     { label: 'Loại phòng cao cấp', value: '10+', icon: IoBedOutline },
@@ -44,7 +57,7 @@ const AboutPage: React.FC = () => {
     },
     {
       title: 'Chính sách Hủy phòng & Hoàn tiền',
-      desc: 'Miễn phí hủy phòng trước 24 giờ so với ngày nhận phòng đối với hầu hết các gói tiêu chuẩn. Các đặt phòng trong dịp Lễ, Tết hoặc chương trình khuyến mãi đặc biệt tuân theo điều kiện cụ thể khi đặt.'
+      desc: `Miễn phí hủy phòng trước ${freeCancelHours} giờ so với ngày nhận phòng đối với hầu hết các gói tiêu chuẩn theo cấu hình của cơ sở. Các đặt phòng trong dịp Lễ, Tết hoặc chương trình khuyến mãi đặc biệt tuân theo điều kiện cụ thể khi đặt.`
     },
     {
       title: 'Quy định Chung & Vật nuôi',

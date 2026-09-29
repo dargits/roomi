@@ -47,6 +47,16 @@ public class CancellationPolicyController {
         }
     }
 
+    @GetMapping("/public")
+    public ResponseEntity<?> getPublicPolicies() {
+        try {
+            return ResponseEntity.ok(policyRepository.findAll().stream().map(this::toMap).collect(Collectors.toList()));
+        } catch (Exception e) {
+            log.error("Lỗi khi tải danh sách chính sách hủy công khai: {}", e.getMessage(), e);
+            return ResponseEntity.ok(java.util.Collections.emptyList());
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CancellationPolicyRequest req,
                                     HttpServletRequest request) {
