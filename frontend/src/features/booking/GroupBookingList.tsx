@@ -755,6 +755,7 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
         onClose={() => setBulkCheckInGroup(null)}
         group={bulkCheckInGroup}
         onSuccess={() => {
+          setBulkCheckInGroup(null);
           loadGroups();
         }}
       />
@@ -765,11 +766,10 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
         onClose={() => setDepositModalGroup(null)}
         group={depositModalGroup}
         onSuccess={() => {
+          setDepositModalGroup(null);
           loadGroups();
         }}
       />
-
-
 
       {/* === MODAL 4: TRẢ PHÒNG HÀNG LOẠT VÀ CHỐT HÓA ĐƠN ĐOÀN (NCL-13-CN-006) === */}
       <BulkCheckOutModal
@@ -777,6 +777,7 @@ const GroupBookingList: React.FC<GroupBookingListProps> = ({ refreshKey, autoOpe
         onClose={() => setBulkCheckOutGroup(null)}
         group={bulkCheckOutGroup}
         onSuccess={() => {
+          setBulkCheckOutGroup(null);
           loadGroups();
         }}
       />

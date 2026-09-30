@@ -28,6 +28,19 @@ public class ResendEmailServiceImpl implements EmailService {
     @Value("${app.domain:https://stayaway.io.vn}")
     private String appDomain;
 
+    @Value("${app.frontend-url:${app.domain:https://stayaway.io.vn}}")
+    private String appFrontendUrl;
+
+    public String getBaseDomain() {
+        if (appFrontendUrl != null && !appFrontendUrl.isBlank() && !appFrontendUrl.contains("localhost")) {
+            return appFrontendUrl.replaceAll("/+$", "");
+        }
+        if (appDomain != null && !appDomain.isBlank() && !appDomain.contains("localhost")) {
+            return appDomain.replaceAll("/+$", "");
+        }
+        return "https://stayaway.io.vn";
+    }
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
@@ -96,6 +109,10 @@ public class ResendEmailServiceImpl implements EmailService {
         if (toEmail == null || toEmail.trim().isEmpty()) {
             log.warn("[EMAIL] Không thể gửi email: Địa chỉ email người nhận trống (Tài khoản: {})", account);
             return false;
+        }
+
+        if (resetLink != null && resetLink.contains("localhost")) {
+            resetLink = resetLink.replaceAll("https?://localhost(:[0-9]+)?", getBaseDomain());
         }
 
         String effectiveKey = getEffectiveApiKey();
@@ -209,7 +226,7 @@ public class ResendEmailServiceImpl implements EmailService {
 
     private String buildEmailTemplate(String name, String account, String tempPassword) {
         String displayName = (name != null && !name.trim().isEmpty()) ? name : account;
-        String loginUrl = (appDomain != null && !appDomain.trim().isEmpty()) ? appDomain : "https://stayaway.io.vn";
+        String loginUrl = getBaseDomain();
 
         return """
             <!DOCTYPE html>
@@ -422,7 +439,7 @@ public class ResendEmailServiceImpl implements EmailService {
         String checkOutStr = d.getCheckOutDate() != null ? d.getCheckOutDate().toString() : "---";
         long nights = d.getNumberOfNights() > 0 ? d.getNumberOfNights() : 1;
 
-        String portalUrl = (appDomain != null && !appDomain.isBlank()) ? appDomain : "https://stayaway.io.vn";
+        String portalUrl = getBaseDomain();
         String lookupUrl;
         if (d.getBookingId() != null) {
             String phoneParam = (d.getCustomerPhone() != null && !d.getCustomerPhone().isBlank() && !d.getCustomerPhone().equals("---"))
@@ -680,8 +697,8 @@ public class ResendEmailServiceImpl implements EmailService {
         String checkOutTimeStr = d.getCheckOutTime() != null ? d.getCheckOutTime().toString() : "12:00";
         long nights = d.getNumberOfNights() > 0 ? d.getNumberOfNights() : 1;
 
-        String portalUrl = (appDomain != null && !appDomain.isBlank()) ? appDomain : "https://stayaway.io.vn";
-        String lookupUrl = d.getLookupUrl() != null && !d.getLookupUrl().isBlank() 
+        String portalUrl = getBaseDomain();
+        String lookupUrl = (d.getLookupUrl() != null && !d.getLookupUrl().isBlank() && !d.getLookupUrl().contains("localhost"))
                 ? d.getLookupUrl() 
                 : (d.getBookingId() != null ? (portalUrl + "/booking-detail/" + d.getBookingId()) : portalUrl);
 
@@ -986,7 +1003,7 @@ public class ResendEmailServiceImpl implements EmailService {
             </div>
         """.formatted(cancellationSummary);
 
-        String lookupUrl = appDomain + "/p/booking/" + d.getBookingId();
+        String lookupUrl = getBaseDomain() + "/p/booking/" + d.getBookingId();
 
         return """
             <!DOCTYPE html>

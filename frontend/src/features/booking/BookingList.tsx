@@ -17,6 +17,7 @@ import {
   IoDocumentOutline, 
   IoPeopleOutline, 
   IoDocumentTextOutline,
+  IoMailOutline,
   IoEllipsisVertical,
   IoBedOutline,
   IoRefreshOutline,
@@ -944,7 +945,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                             className="absolute right-0 mt-1 w-52 bg-white border border-border-grey rounded-xl shadow-xl py-1.5 z-50 text-xs font-medium divide-y divide-border-grey/50"
                             onClick={e => e.stopPropagation()}
                           >
-                            {/* Phiếu xác nhận (Voucher) & Hóa đơn */}
+                            {/* Gửi email xác nhận & Hóa đơn */}
                             <div className="py-1">
                               <button
                                 type="button"
@@ -954,8 +955,8 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
                                 }}
                                 className="w-full text-left px-3 py-2 hover:bg-surface-container-low flex items-center gap-2 text-on-surface transition-colors cursor-pointer"
                               >
-                                <IoDocumentTextOutline size={14} className="text-primary" />
-                                <span>Phiếu xác nhận (Voucher)</span>
+                                <IoMailOutline size={14} className="text-primary" />
+                                <span>Gửi email xác nhận</span>
                               </button>
                               <Link
                                 to={`/manage/bookings/${booking.id}?tab=invoice`}

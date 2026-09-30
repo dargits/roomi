@@ -462,11 +462,11 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             if (attributes != null && attributes.getRequest() != null) {
                 HttpServletRequest request = attributes.getRequest();
                 String origin = request.getHeader("Origin");
-                if (origin != null && !origin.isBlank()) {
+                if (origin != null && !origin.isBlank() && !origin.contains("localhost")) {
                     return origin.replaceAll("/+$", "");
                 }
                 String referer = request.getHeader("Referer");
-                if (referer != null && !referer.isBlank()) {
+                if (referer != null && !referer.isBlank() && !referer.contains("localhost")) {
                     URI uri = URI.create(referer);
                     String scheme = uri.getScheme();
                     String host = uri.getHost();
@@ -479,10 +479,10 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             }
         } catch (Exception ignored) {}
 
-        if (appFrontendUrl != null && !appFrontendUrl.isBlank()) {
+        if (appFrontendUrl != null && !appFrontendUrl.isBlank() && !appFrontendUrl.contains("localhost")) {
             return appFrontendUrl.replaceAll("/+$", "");
         }
-        return "";
+        return "https://stayaway.io.vn";
     }
 
     /**

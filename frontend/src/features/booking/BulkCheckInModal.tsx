@@ -89,35 +89,40 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
   };
 
   useEffect(() => {
-    if (isOpen && group) {
+    if (isOpen && group?.id) {
+      if (!resultData) {
+        const assignableRooms = group.bookings?.filter((b: any) => b.status === 'CONFIRMED' && b.roomId) || [];
+        const initialRoomsData: BulkRoomData[] = assignableRooms.map((b: any, index: number) => {
+          const status = b.roomStatus || 'AVAILABLE';
+          const isReady = status === 'AVAILABLE';
+          return {
+            bookingId: b.id,
+            roomNumber: String(b.roomNumber || ''),
+            roomTypeName: b.roomTypeName,
+            roomCapacity: b.roomCapacity,
+            roomStatus: status,
+            selected: isReady,
+            guests: [{
+              name: index === 0 ? (b.guestName || '') : '',
+              idNumber: index === 0 ? (b.guestIdNumber || '') : '',
+              phone: '',
+              matched: false
+            }]
+          };
+        });
+        
+        setRoomsData(initialRoomsData);
+        setErrorMsg(initialRoomsData.length === 0 ? 'Không có phòng nào đủ điều kiện để nhận phòng theo đoàn.' : '');
+        setActiveRoomIndex(null);
+        setShowImportModal(false);
+        setImportText('');
+      }
+    } else if (!isOpen) {
       setResultData(null);
-      const assignableRooms = group.bookings?.filter((b: any) => b.status === 'CONFIRMED' && b.roomId) || [];
-      const initialRoomsData: BulkRoomData[] = assignableRooms.map((b: any, index: number) => {
-        const status = b.roomStatus || 'AVAILABLE';
-        const isReady = status === 'AVAILABLE';
-        return {
-          bookingId: b.id,
-          roomNumber: String(b.roomNumber || ''),
-          roomTypeName: b.roomTypeName,
-          roomCapacity: b.roomCapacity,
-          roomStatus: status,
-          selected: isReady,
-          guests: [{
-            name: index === 0 ? (b.guestName || '') : '',
-            idNumber: index === 0 ? (b.guestIdNumber || '') : '',
-            phone: '',
-            matched: false
-          }]
-        };
-      });
-      
-      setRoomsData(initialRoomsData);
-      setErrorMsg(initialRoomsData.length === 0 ? 'Không có phòng nào đủ điều kiện để nhận phòng theo đoàn.' : '');
       setActiveRoomIndex(null);
-      setShowImportModal(false);
-      setImportText('');
+      setErrorMsg('');
     }
-  }, [isOpen, group]);
+  }, [isOpen, group?.id]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -127,6 +132,7 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
 
   const handleClose = () => {
     setActiveRoomIndex(null);
+    setResultData(null);
     onClose();
   };
 
@@ -390,11 +396,19 @@ const BulkCheckInModal: React.FC<BulkCheckInModalProps> = ({ isOpen, onClose, gr
     setErrorMsg('');
     try {
       const res = await bookingApi.bulkCheckIn({ rooms: payloadRooms });
-      setResultData(res);
       if (res.successfulRooms?.length > 0) {
         toastSuccess(`Đã nhận phòng thành công cho ${res.successfulRooms.length} phòng!`);
       }
-      if (onSuccess) onSuccess();
+      
+      // Nếu tất cả các phòng đều thành công (không có phòng lỗi), đóng modal ngay
+      if (!res.failedRooms || res.failedRooms.length === 0) {
+        handleClose();
+        if (onSuccess) onSuccess();
+      } else {
+        // Nếu có phòng lỗi, hiển thị bảng kết quả để người dùng xử lý
+        setResultData(res);
+        if (onSuccess) onSuccess();
+      }
     } catch (error: any) {
       console.error("Bulk check-in error:", error);
       const resData = error.response?.data;
