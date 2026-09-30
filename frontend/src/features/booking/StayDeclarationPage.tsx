@@ -243,7 +243,7 @@ const StayDeclarationPage: React.FC = () => {
     setConfirmModal({ open: false, guest: null });
     try {
       await stayDeclarationApi.complete(guest.bookingId);
-      success(`Đã đánh dấu khai báo hoàn tất cho khách ${guest.guestName}.`);
+      success(`Đã đánh dấu khai báo hoàn tất cho khách ${guest.guestName}. Ảnh CCCD đã được tự động xóa để đảm bảo an toàn bảo mật.`);
       if (activeTab === 'today') {
         await fetchData(selectedDate);
       } else {
@@ -596,7 +596,7 @@ const StayDeclarationPage: React.FC = () => {
                                 Thiếu: {guest.missingRequirements.join(', ')}
                               </p>
                             )}
-                            {guest.documents?.length > 0 && (
+                            {guest.documents?.length > 0 ? (
                               <div className="mt-2 flex flex-wrap gap-1.5 justify-center">
                                 {guest.documents.map((doc, i) => (
                                   <div key={doc.id || i} className="group relative inline-block">
@@ -636,7 +636,12 @@ const StayDeclarationPage: React.FC = () => {
                                   </div>
                                 ))}
                               </div>
-                            )}
+                            ) : isCompleted ? (
+                              <div className="mt-1.5 flex items-center justify-center gap-1 text-[11px] text-emerald-700 font-medium bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-200/60" title="Ảnh CCCD đã được tự động xóa sau khi khai báo để bảo mật theo NĐ 13/2023/NĐ-CP">
+                                <IoShieldCheckmarkOutline size={13} className="text-emerald-600 flex-shrink-0" />
+                                <span>Đã xóa ảnh bảo mật</span>
+                              </div>
+                            ) : null}
                           </td>
 
                           <td className="p-4 text-center">
@@ -929,9 +934,9 @@ const StayDeclarationPage: React.FC = () => {
                                 Thiếu: {guest.missingRequirements.join(', ')}
                               </p>
                             )}
-                            {guest.documents?.length > 0 && (
+                            {guest.documents?.length > 0 ? (
                               <div className="mt-2 flex flex-wrap gap-1.5 justify-center">
-                                {guest.documents.map((doc, i) => (
+                                {guest.documents.map((doc: any, i: number) => (
                                   <div key={doc.id || i} className="group relative inline-block">
                                     <button
                                       type="button"
@@ -939,12 +944,12 @@ const StayDeclarationPage: React.FC = () => {
                                         setPreviewModal({
                                           open: true,
                                           imageUrl: doc.url,
-                                          title: DOC_TYPE_NAMES[doc.type] || doc.type || 'Giấy tờ tùy thân',
+                                          title: DOC_TYPE_NAMES[doc.type as keyof typeof DOC_TYPE_NAMES] || doc.type || 'Giấy tờ tùy thân',
                                           guestName: guest.guestName,
                                         })
                                       }
                                       className="block focus:outline-none"
-                                      title={`Nhấp để phóng to xem (${DOC_TYPE_NAMES[doc.type] || doc.type})`}
+                                      title={`Nhấp để phóng to xem (${DOC_TYPE_NAMES[doc.type as keyof typeof DOC_TYPE_NAMES] || doc.type})`}
                                     >
                                       <img
                                         src={doc.url}
@@ -955,7 +960,12 @@ const StayDeclarationPage: React.FC = () => {
                                   </div>
                                 ))}
                               </div>
-                            )}
+                            ) : isCompleted ? (
+                              <div className="mt-1.5 flex items-center justify-center gap-1 text-[11px] text-emerald-700 font-medium bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-200/60" title="Ảnh CCCD đã được tự động xóa sau khi khai báo để bảo mật theo NĐ 13/2023/NĐ-CP">
+                                <IoShieldCheckmarkOutline size={13} className="text-emerald-600 flex-shrink-0" />
+                                <span>Đã xóa ảnh bảo mật</span>
+                              </div>
+                            ) : null}
                           </td>
 
                           <td className="p-4 text-center">
@@ -1014,6 +1024,17 @@ const StayDeclarationPage: React.FC = () => {
                 <> (phòng <strong>{confirmModal.guest.roomNumber}</strong>)</>
               )}?
             </p>
+            {confirmModal.guest.documentStatus !== 'MISSING' && (
+              <div className="rounded-md border border-blue-200 bg-blue-50/80 p-3 text-xs text-blue-900 flex items-start gap-2">
+                <IoShieldCheckmarkOutline size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block mb-0.5 font-semibold text-blue-950">Chính sách bảo mật dữ liệu (NĐ 13/2023/NĐ-CP):</strong>
+                  <p className="text-blue-800">
+                    Sau khi đánh dấu hoàn tất, toàn bộ ảnh CCCD/Hộ chiếu của khách sẽ được tự động xóa khỏi hệ thống để bảo mật thông tin cá nhân.
+                  </p>
+                </div>
+              </div>
+            )}
             {confirmModal.guest.documentStatus === 'MISSING' ? (
               <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 space-y-2">
                 <div className="font-semibold flex items-center gap-1.5 text-red-700">

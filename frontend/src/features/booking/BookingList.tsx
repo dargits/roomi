@@ -176,15 +176,17 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
     return (b.id || 0) - (a.id || 0);
   };
 
-  // Khoảng tháng hiện tại dùng để filter mặc định
+  // Khoảng 1 tháng gần nhất dùng để filter mặc định (tháng hiện tại)
   const currentMonthRange = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth(); // 0-indexed
-    // Mở rộng: từ đầu tháng trước đến hết tháng sau để lấy cả booking sắp đến gần
-    const from = new Date(y, m - 1, 1).toISOString().slice(0, 10); // đầu tháng trước
-    const to   = new Date(y, m + 2, 0).toISOString().slice(0, 10); // hết tháng sau
-    return { from, to, label: `${String(m + 1).padStart(2, '0')}/${y}` };
+    const pad = (n: number) => String(n).padStart(2, '0');
+    // Định dạng theo ngày địa phương để tránh lỗi lệch ngày do múi giờ UTC
+    const from = `${y}-${pad(m + 1)}-01`;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const to = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+    return { from, to, label: `${pad(m + 1)}/${y}` };
   }, []);
 
   const fetchBookings = async () => {
@@ -194,7 +196,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
       if (loadAll) {
         data = await bookingApi.getAllBookings();
       } else {
-        // Chỉ tải booking trong khoảng 3 tháng (trước, hiện tại, sau)
+        // Chỉ tải booking trong khoảng 1 tháng gần nhất (tháng hiện tại)
         data = await bookingApi.searchBookings({
           from: currentMonthRange.from,
           to:   currentMonthRange.to,
@@ -697,8 +699,8 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
             ) : (
               <>
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
-                Hiển booking từ <strong>{currentMonthRange.from}</strong> đến <strong>{currentMonthRange.to}</strong>
-                <span className="ml-1 text-on-surface-variant/60">(3 tháng gần nhất)</span>
+                Hiển thị booking từ <strong>{currentMonthRange.from}</strong> đến <strong>{currentMonthRange.to}</strong>
+                <span className="ml-1 text-on-surface-variant/60">(1 tháng gần nhất)</span>
               </>
             )}
           </span>
@@ -712,7 +714,7 @@ const BookingList: React.FC<BookingListProps> = ({ onEditBooking }) => {
             }`}
           >
             {loadAll ? (
-              <>↩ Quay về 3 tháng gần nhất</>
+              <>↩ Quay về 1 tháng gần nhất</>
             ) : (
               <>↓ Tải toàn bộ lịch sử</>
             )}
