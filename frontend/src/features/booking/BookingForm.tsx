@@ -20,6 +20,7 @@ import bookingApi from '../../services/bookingApi';
 import { roomApi } from '../../services/roomApi';
 import { corporateClientApi, CorporateClient } from '../../services/corporateClientApi';
 import { negotiatedPriceApi, NegotiatedPricePreviewResponse } from '../../services/negotiatedPriceApi';
+import { useAuth } from '../../context/AuthContext';
 import { validatePhone, validateEmail } from '../../utils/securitySanitizer';
 
 interface BookingFormProps {
@@ -29,6 +30,8 @@ interface BookingFormProps {
 }
 
 const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
   const [guests, setGuests] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [corporateClients, setCorporateClients] = useState<CorporateClient[]>([]);
@@ -184,6 +187,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isOwner) {
+      setError("Tài khoản Chủ cơ sở không có quyền tạo đặt phòng. Vui lòng chuyển sang tài khoản Lễ tân hoặc Quản trị viên.");
+      return;
+    }
     setError('');
     setLoading(true);
     
@@ -252,6 +259,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Tạo Đặt phòng mới" maxWidth="max-w-2xl">
+      {isOwner && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-medium">
+          Tài khoản <strong>Chủ cơ sở</strong> không có quyền tạo đặt phòng. Vui lòng sử dụng tài khoản Lễ tân hoặc Quản trị viên để thực hiện thao tác này.
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-error rounded-xl text-sm">
           {error}
@@ -469,7 +482,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSuccess })
       
       <div className="flex justify-end gap-3 pt-4 border-t border-border-grey mt-6">
         <Button variant="secondary" onClick={onClose} disabled={loading}>Hủy</Button>
-        <Button type="submit" form="bookingForm" isLoading={loading}>Xác nhận Đặt phòng</Button>
+        <Button type="submit" form="bookingForm" isLoading={loading} disabled={loading || isOwner}>Xác nhận Đặt phòng</Button>
       </div>
     </Modal>
   );

@@ -78,6 +78,7 @@ const BookingManagement: React.FC = () => {
 
   const hasAccess = ['OWNER', 'RECEPTIONIST', 'ADMIN', 'ACCOUNTANT'].includes(user?.role);
   const isAccountant = user?.role === 'ACCOUNTANT';
+  const canCreateBooking = user?.role === 'ADMIN' || user?.role === 'RECEPTIONIST';
 
   if (!hasAccess) {
     return <div className="p-6 text-alert-red bg-red-50 rounded-md">Bạn không có quyền truy cập trang này.</div>;
@@ -132,23 +133,27 @@ const BookingManagement: React.FC = () => {
               >
                 Nhập dữ liệu cũ
               </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => setIsGroupFormOpen(true)} 
-                icon={IoPeopleOutline}
-                className="text-xs border-border-grey hover:bg-surface-container-low"
-              >
-                Tạo đoàn
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={openAddForm} 
-                icon={IoAddOutline}
-                className="text-xs font-semibold shadow-xs"
-              >
-                Tạo đặt phòng
-              </Button>
+              {canCreateBooking && (
+                <>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => setIsGroupFormOpen(true)} 
+                    icon={IoPeopleOutline}
+                    className="text-xs border-border-grey hover:bg-surface-container-low"
+                  >
+                    Tạo đoàn
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={openAddForm} 
+                    icon={IoAddOutline}
+                    className="text-xs font-semibold shadow-xs"
+                  >
+                    Tạo đặt phòng
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>

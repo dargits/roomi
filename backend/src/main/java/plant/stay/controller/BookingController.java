@@ -97,7 +97,7 @@ public class BookingController {
     @PostMapping
     public ResponseEntity<BookingResponse> create(@Valid @RequestBody BookingRequest req,
                                                   HttpServletRequest request) {
-        User actor = checkStaff(request);
+        User actor = checkCanCreateBooking(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.create(req, actor));
     }
 
@@ -268,6 +268,15 @@ public class BookingController {
             HttpServletRequest request) {
         checkReadBooking(request);
         return ResponseEntity.ok(bookingService.getConfirmationLogs(id));
+    }
+
+    private User checkCanCreateBooking(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || (user.getRole() != Role.RECEPTIONIST
+                && user.getRole() != Role.ADMIN)) {
+            throw new UnauthorizedException("Chủ cơ sở không có quyền tạo đặt phòng. Chỉ Lễ tân hoặc Quản trị viên mới được tạo đặt phòng.");
+        }
+        return user;
     }
 
     private User checkStaff(HttpServletRequest request) {
