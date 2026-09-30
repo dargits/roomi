@@ -49,7 +49,7 @@ public class GroupBookingController {
     @PostMapping
     public ResponseEntity<GroupBookingResponse> create(@Valid @RequestBody GroupBookingRequest request,
                                                         HttpServletRequest httpRequest) {
-        User actor = checkWriteAccess(httpRequest);
+        User actor = checkCreateAccess(httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(groupBookingService.create(request, actor));
     }
 
@@ -163,6 +163,15 @@ public class GroupBookingController {
         return ResponseEntity.ok(groupBookingService.bulkCheckOut(id, request, actor));
     }
 
+
+    private User checkCreateAccess(HttpServletRequest request) {
+        User user = authUtil.getUserFromRequest(request);
+        if (user == null || (user.getRole() != Role.ADMIN
+                && user.getRole() != Role.RECEPTIONIST)) {
+            throw new UnauthorizedException("Chủ cơ sở không có quyền tạo đặt phòng đoàn. Chỉ Lễ tân hoặc Quản trị viên mới được tạo đặt phòng đoàn.");
+        }
+        return user;
+    }
 
     private User checkWriteAccess(HttpServletRequest request) {
         User user = authUtil.getUserFromRequest(request);

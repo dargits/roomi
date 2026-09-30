@@ -321,7 +321,7 @@ const RoomManagement: React.FC = () => {
   const isOwner = user?.role === 'OWNER';
   const isAdmin = user?.role === 'ADMIN';
   const canManageRooms = isOwner || isAdmin;
-  const canBook = isOwner || isAdmin || user?.role === 'RECEPTIONIST';
+  const canBook = isAdmin || user?.role === 'RECEPTIONIST';
   const canMarkClean = isOwner || isAdmin || user?.role === 'HOUSEKEEPER';
   const canApproveClean = isOwner || isAdmin || user?.role === 'RECEPTIONIST';
   const canAssignCleaner = isOwner || isAdmin || user?.role === 'RECEPTIONIST';
