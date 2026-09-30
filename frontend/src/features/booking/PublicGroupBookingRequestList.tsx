@@ -244,8 +244,8 @@ const PublicGroupBookingRequestList: React.FC = () => {
         group={depositGroup}
         onClose={() => setDepositGroup(null)}
         onSuccess={() => {
+          setDepositGroup(null);
           loadRequests();
-          toastSuccess('Đã thu tiền đặt cọc đoàn thành công!');
         }}
       />
     </section>

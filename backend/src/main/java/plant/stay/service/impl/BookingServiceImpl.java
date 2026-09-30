@@ -73,6 +73,19 @@ public class BookingServiceImpl implements BookingService {
     @Value("${app.domain:https://stayaway.io.vn}")
     private String appDomain;
 
+    @Value("${app.frontend-url:${app.domain:https://stayaway.io.vn}}")
+    private String appFrontendUrl;
+
+    private String getBaseDomain() {
+        if (appFrontendUrl != null && !appFrontendUrl.isBlank() && !appFrontendUrl.contains("localhost")) {
+            return appFrontendUrl.replaceAll("/+$", "");
+        }
+        if (appDomain != null && !appDomain.isBlank() && !appDomain.contains("localhost")) {
+            return appDomain.replaceAll("/+$", "");
+        }
+        return "https://stayaway.io.vn";
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<BookingResponse> getAll() {
@@ -2434,7 +2447,7 @@ public class BookingServiceImpl implements BookingService {
                 ? String.format(java.util.Locale.GERMANY, "%,d đ", depositRequired.longValue())
                 : "Không yêu cầu đặt cọc trước";
 
-        String link = appDomain + "/p/booking/" + bookingId;
+        String link = getBaseDomain() + "/p/booking/" + bookingId;
 
         return "🏨 [XÁC NHẬN ĐẶT PHÒNG - " + hotelName.toUpperCase() + "]\n"
                 + "Kính gửi Quý khách " + guestName + ",\n"
