@@ -77,10 +77,14 @@ const BulkCheckOutModal: React.FC<BulkCheckOutModalProps> = ({ isOpen, onClose, 
 
   useEffect(() => {
     if (isOpen && group?.id) {
+      if (!resultData) {
+        fetchSummary();
+      }
+    } else if (!isOpen) {
       setResultData(null);
-      fetchSummary();
+      setErrorMsg('');
     }
-  }, [isOpen, group]);
+  }, [isOpen, group?.id]);
 
   const handleToggleRoom = (bookingId: number) => {
     const next = new Set(selectedBookingIds);
@@ -126,10 +130,10 @@ const BulkCheckOutModal: React.FC<BulkCheckOutModalProps> = ({ isOpen, onClose, 
     try {
       const payload = { bookingIds: Array.from(selectedBookingIds) };
       const res = await groupBookingApi.bulkCheckOut(group.id, payload);
-      setResultData(res);
       if (res.successfulRooms?.length > 0) {
         toastSuccess(`Đã trả phòng thành công cho ${res.successfulRooms.length} phòng!`);
       }
+      handleFinish();
       if (onSuccess) onSuccess();
     } catch (err: any) {
       console.error('Lỗi khi trả phòng đoàn:', err);
@@ -140,6 +144,7 @@ const BulkCheckOutModal: React.FC<BulkCheckOutModalProps> = ({ isOpen, onClose, 
   };
 
   const handleFinish = () => {
+    setResultData(null);
     onClose();
   };
 

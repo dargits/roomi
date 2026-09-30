@@ -96,11 +96,12 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
   return (
     <div
       role="alert"
-      className={`relative overflow-hidden rounded-2xl bg-white/98 backdrop-blur-md border border-border-grey shadow-[0_12px_32px_-4px_rgba(0,33,70,0.12),0_4px_12px_-2px_rgba(0,33,70,0.06)] p-3.5 sm:p-4 transition-all pointer-events-auto transform ${
+      className={`relative overflow-hidden rounded-2xl bg-white border border-slate-200/90 shadow-[0_16px_36px_-4px_rgba(0,0,0,0.18),0_6px_16px_-2px_rgba(0,0,0,0.08)] p-3.5 sm:p-4 transition-all pointer-events-auto transform ${
         isClosing 
           ? 'animate-toast-slide-out' 
           : 'animate-toast-slide-in'
       }`}
+      style={{ backgroundColor: '#ffffff' }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -113,7 +114,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
         {/* Message Content */}
         <div className="flex-1 pt-0.5 pr-2 min-w-0">
           {title && (
-            <h4 className="text-sm font-bold text-[#002146] tracking-tight leading-tight">
+            <h4 className="text-sm font-bold text-slate-900 tracking-tight leading-tight">
               {title}
             </h4>
           )}
@@ -129,7 +130,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
           type="button"
           onClick={triggerClose}
           aria-label="Đóng thông báo"
-          className="btn-override w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#002146] hover:bg-slate-100 transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border-grey"
+          className="btn-override w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer shrink-0 border border-transparent hover:border-slate-200"
         >
           <IoClose className="w-4 h-4" />
         </button>
