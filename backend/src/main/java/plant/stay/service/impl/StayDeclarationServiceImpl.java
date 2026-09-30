@@ -251,9 +251,26 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         stayDeclarationRepository.save(declaration);
         booking.setStayDeclaration(declaration);
 
+        // QTN-24 / NCL-12 / Nghị định 13/2023/NĐ-CP (Bảo vệ dữ liệu cá nhân):
+        // Khi đã hoàn tất khai báo lưu trú, hệ thống xóa toàn bộ ảnh CCCD / Giấy tờ tùy thân
+        // của khách trong booking để đảm bảo an toàn bảo mật, tránh lưu trữ dữ liệu sinh trắc học nhạy cảm.
+        int deletedDocsCount = 0;
+        for (Guest g : roomGuests) {
+            if (g == null || g.getId() == null) continue;
+            List<IdentityDocument> docs = identityDocumentRepository.findByGuestId(g.getId());
+            if (!docs.isEmpty()) {
+                deletedDocsCount += docs.size();
+                identityDocumentRepository.deleteAll(docs);
+            }
+            if (g.getIdentityDocuments() != null) {
+                g.getIdentityDocuments().clear();
+            }
+        }
+
         auditLogService.log("StayDeclaration", booking.getId(), "COMPLETE_DECLARATION", actor,
             "Hoàn tất khai báo lưu trú cho booking #" + bookingId
-            + " (khách: " + booking.getGuest().getName() + ")");
+            + " (khách: " + booking.getGuest().getName() + "). Đã tự động xóa " + deletedDocsCount
+            + " ảnh CCCD/giấy tờ để bảo mật thông tin cá nhân (Nghị định 13/2023/NĐ-CP).");
     }
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -321,18 +338,23 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
         boolean hasFront = uploaded.contains(IdentityDocumentType.NATIONAL_ID_FRONT);
         boolean hasBack = uploaded.contains(IdentityDocumentType.NATIONAL_ID_BACK);
 
-        if (!hasPassport) {
-            if (!hasFront && !hasBack) {
-                missingRequirements.add("Ảnh CCCD (2 mặt) hoặc Hộ chiếu");
-            } else if (!hasFront) {
-                missingRequirements.add("Ảnh CCCD mặt trước");
-            } else if (!hasBack) {
-                missingRequirements.add("Ảnh CCCD mặt sau");
-            }
-        }
-
         StayDeclarationStatus declarationStatus = declaration == null
                 ? StayDeclarationStatus.PENDING : declaration.getStatus();
+
+        // QTN-24 / Nghị định 13/2023/NĐ-CP:
+        // Khi đã hoàn tất khai báo lưu trú, ảnh CCCD đã được tự động tiêu hủy/xóa để bảo mật thông tin cá nhân.
+        // Do đó không yêu cầu kiểm tra ảnh CCCD nữa đối với các khai báo đã hoàn tất.
+        if (declarationStatus != StayDeclarationStatus.COMPLETED) {
+            if (!hasPassport) {
+                if (!hasFront && !hasBack) {
+                    missingRequirements.add("Ảnh CCCD (2 mặt) hoặc Hộ chiếu");
+                } else if (!hasFront) {
+                    missingRequirements.add("Ảnh CCCD mặt trước");
+                } else if (!hasBack) {
+                    missingRequirements.add("Ảnh CCCD mặt sau");
+                }
+            }
+        }
 
         // QTN-24: mask số giấy tờ
         String rawId = guest.getIdNumber();
@@ -347,6 +369,8 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
                         .url(d.getImageUrl())
                         .build())
                 .toList();
+
+        boolean documentsPurged = declarationStatus == StayDeclarationStatus.COMPLETED && docs.isEmpty();
 
         return GuestStatusDTO.builder()
                 .bookingId(booking.getId())
@@ -363,6 +387,7 @@ public class StayDeclarationServiceImpl implements StayDeclarationService {
                 .documentStatus(missingRequirements.isEmpty() ? COMPLETE : MISSING)
                 .missingRequirements(missingRequirements)
                 .documents(docs)
+                .documentsPurged(documentsPurged)
                 .declarationStatus(declarationStatus.name())
                 .declarationCompletedAt(declaration != null ? declaration.getCompletedAt() : null)
                 .build();

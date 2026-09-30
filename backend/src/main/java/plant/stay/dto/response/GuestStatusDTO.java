@@ -25,6 +25,8 @@ public class GuestStatusDTO {
     private String documentStatus;
     private List<String> missingRequirements;
     private List<DocumentDTO> documents;
+    /** true nếu ảnh CCCD/giấy tờ đã được tự động xóa sau khi hoàn tất khai báo để bảo mật dữ liệu */
+    private boolean documentsPurged;
     private String declarationStatus;
     private LocalDateTime declarationCompletedAt;
     /** Trạng thái đặt phòng: CHECKED_IN, CHECKED_OUT */
