@@ -181,4 +181,13 @@ surefire-reports/
 *.tsbuildinfo
 .eslintcache
 
+# ==========================================
+# 7. ENVIRONMENT VARIABLES & SECRETS
+# ==========================================
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
 

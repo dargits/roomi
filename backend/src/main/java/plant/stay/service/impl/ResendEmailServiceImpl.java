@@ -49,11 +49,7 @@ public class ResendEmailServiceImpl implements EmailService {
         if (resendApiKey != null && !resendApiKey.trim().isEmpty()) {
             return resendApiKey.trim();
         }
-        try {
-            return new String(java.util.Base64.getDecoder().decode("cmVfY2d6VWVOcHRfR3dDU1Z2eEN1aHhwOEVVQ1FiRmN4QmZF"));
-        } catch (Exception e) {
-            return "";
-        }
+        return "";
     }
 
     @Override
