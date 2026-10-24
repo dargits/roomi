@@ -38,6 +38,9 @@ services:
       # Domain ứng dụng & Email links
       - APP_DOMAIN=${APP_DOMAIN:-https://stayaway.io.vn}
       - APP_FRONTEND_URL=${APP_FRONTEND_URL:-https://stayaway.io.vn}
+      # Resend Transactional Email Service
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-StayAway PMS <noreply@stayaway.io.vn>}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

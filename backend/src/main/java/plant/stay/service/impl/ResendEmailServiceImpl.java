@@ -50,7 +50,7 @@ public class ResendEmailServiceImpl implements EmailService {
             return resendApiKey.trim();
         }
         try {
-            return new String(java.util.Base64.getDecoder().decode("cmVfSGloRlFnZzRfSHV6WUVoZ3BrNDg1cVRCenJXTExkRDV1"));
+            return new String(java.util.Base64.getDecoder().decode("cmVfY2d6VWVOcHRfR3dDU1Z2eEN1aHhwOEVVQ1FiRmN4QmZF"));
         } catch (Exception e) {
             return "";
         }
